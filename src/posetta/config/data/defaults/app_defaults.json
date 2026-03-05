@@ -1,93 +1,11 @@
 {
-  "detection": {
-    "min_contour_area": 100.0
-  },
-  "gui": {
-    "chunk_size": 400,
-    "point_visibility_chunk": 400,
-    "max_frame_slider_marks": 5000,
-    "augment_column_max_width": 520
-  },
   "video_io": {
     "reader_chunk_size": 64,
     "queue_timeout_sec": 10.0
-  },
-  "display_adjust": {
-    "pixel_sim_tol_min": 5,
-    "pixel_sim_tol_max": 60,
-    "pixel_sim_tol_default": 20,
-    "edge_kernel_min": 1,
-    "edge_kernel_max": 7,
-    "edge_kernel_default": 3
-  },
-  "edges": {
-    "default_algorithm": "scharr",
-    "use_clahe": false,
-    "clahe_clip_limit": 2.0,
-    "clahe_tile_grid": [8, 8],
-    "canny_low": 50,
-    "canny_high": 150,
-    "canny_aperture": 3,
-    "laplacian_ksize": 3,
-    "sobel_ksize": 3,
-    "dog_sigma1": 1.0,
-    "dog_sigma2": 2.0,
-    "morph_kernel": 5
-  },
-  "augment": {
-    "max_sample_frames": 64,
-    "channel_corr_threshold": 0.98
-  },
-  "skeleton_overlay": {
-    "point_radius": 2,
-    "line_thickness": 2,
-    "point_color": [255, 50, 50],
-    "edge_color": [50, 200, 255]
   },
   "metrics": {
     "hdf5_compression_opts": 4,
     "max_bundle_discovery_depth": 3,
     "max_bundle_discovery_files": 64
-  },
-  "suggestions": {
-    "sample": { "per_video": 20, "sampling_method": "stride" },
-    "image_features": {
-      "per_video": 200,
-      "sample_method": "stride",
-      "scale": 1.0,
-      "merge_video_features": "per video",
-      "feature_type": "resnet",
-      "pca_components": 5,
-      "n_clusters": 5,
-      "per_cluster": 5,
-      "selection_method": "cluster",
-      "resnet_batch_size": 32
-    },
-    "prediction_score": {
-      "score_limit": 3.0,
-      "instance_limit_upper": 2,
-      "instance_limit_lower": 1
-    },
-    "uncertainty": { "per_video": 50, "conf_threshold": 0.5 },
-    "velocity": { "keypoint": 0, "threshold": 0.1 },
-    "max_point_displacement": { "displacement_threshold": 10.0 },
-    "frame_chunk": { "frame_from": 1, "frame_to": 1000 },
-    "heuristics": {
-      "bone_length_threshold_std": 3.0,
-      "flow_consistency_threshold_px": 10.0,
-      "motion_energy_percentile": 95.0,
-      "max_frames_to_check": 1000,
-      "motion_energy_stride": 10
-    },
-    "flow_consistency": { "displacement_threshold_px": 8.0, "max_frames": 500 }
-  },
-  "project": {
-    "subdirectories": ["models/pose", "exports", "suggestions", "logs"],
-    "structure": {
-      "models/pose": { "asset_type": "MODEL", "role": "train_output" },
-      "exports": { "asset_type": "OTHER", "role": "exports" },
-      "suggestions": { "asset_type": "OTHER", "role": "suggestions" },
-      "logs": { "asset_type": "OTHER", "role": "logs" }
-    }
   }
 }

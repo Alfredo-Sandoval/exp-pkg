@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import argparse
+import re
 import shutil
 from collections.abc import Callable
 from pathlib import Path
@@ -13,20 +13,15 @@ import pandas as pd
 from posetta.core.json_utils import parse_json_dict
 from posetta.core.logging_utils import get_logger
 from posetta.core.path_registry import ensure_dir, resolve_path
-from posetta.io.converters._cli_base import run_converter_cli
-from posetta.io.siesta_format import write_siesta
-
-_LOGGER = get_logger(__name__)
-
 from posetta.io.converters.converter_helpers import (
     ConversionResult,
     _emit,
-    add_bool_toggle_arguments,
     rebase_image_sequences,
     remap_labels_to_videos,
 )
 from posetta.io.converters.converter_helpers import encode_videos as _encode_videos
 from posetta.io.converters.sleap_helpers import extract_frames, extract_labels_step4
+from posetta.io.siesta_format import write_siesta
 from posetta.io.skeleton_loaders import build_sleap_skeleton
 
 if TYPE_CHECKING:
@@ -36,8 +31,7 @@ if TYPE_CHECKING:
 
 ProgressCallback = Callable[[str], None]
 
-
-import re
+_LOGGER = get_logger(__name__)
 
 _NAT_SORT_RE = re.compile(r"(\d+)")
 
@@ -209,44 +203,3 @@ def convert_sleap_package(
 
     _emit(progress_callback, "SIESTA_IMPORT DONE")
     return result
-
-
-def _configure_cli_parser(ap: argparse.ArgumentParser) -> None:
-    ap.add_argument("--slp", required=True, help="Path to .pkg.slp")
-    ap.add_argument("--fps", type=int, default=30, help="FPS for encoded videos")
-    add_bool_toggle_arguments(
-        ap,
-        dest="encode_videos",
-        true_flag="--videos",
-        false_flag="--no-videos",
-        true_help="Encode MP4 videos into the project (off by default)",
-        false_help="Do not encode MP4 videos (default)",
-        default=True,
-    )
-
-
-def _run_cli(args: argparse.Namespace, _ap: argparse.ArgumentParser) -> int:
-    """Execute SLEAP CLI action for parsed arguments."""
-
-    convert_sleap_package(
-        args.slp,
-        args.out,
-        fps=int(args.fps),
-        encode_videos=bool(args.encode_videos),
-        progress_callback=None,
-    )
-    return 0
-
-
-def main(argv: list[str] | None = None) -> int:
-    return run_converter_cli(
-        description="Convert SLEAP .pkg.slp to a SIESTA project",
-        output_help="Output SIESTA project root directory",
-        argv=argv,
-        runner=_run_cli,
-        configure_parser=_configure_cli_parser,
-    )
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())

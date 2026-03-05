@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-import argparse
 import sys
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from posetta.core.logging_utils import get_logger
 from posetta.core.path_registry import ensure_dir
 from posetta.core.video_contract import video_total_frames
 from posetta.io.video import Video, write_video
@@ -17,8 +17,6 @@ if TYPE_CHECKING:
     from posetta.io.labels import Labels as _Labels
 
 ProgressCallback = Callable[[str], None]
-CliRunner = Callable[[argparse.Namespace, argparse.ArgumentParser], int]
-from posetta.core.logging_utils import get_logger
 
 _LOGGER = get_logger(__name__)
 
@@ -42,51 +40,6 @@ def _emit(callback: ProgressCallback | None, message: str) -> None:
     else:
         sys.stdout.write(message + "\n")
         sys.stdout.flush()
-
-
-def build_cli_parser(description: str) -> argparse.ArgumentParser:
-    """Create a converter CLI parser with the provided description."""
-
-    return argparse.ArgumentParser(description=description)
-
-
-def add_output_path_argument(
-    parser: argparse.ArgumentParser,
-    *,
-    help_text: str,
-) -> None:
-    """Register the required ``--out`` argument with converter-specific help text."""
-
-    parser.add_argument("--out", required=True, help=help_text)
-
-
-def add_bool_toggle_arguments(
-    parser: argparse.ArgumentParser,
-    *,
-    dest: str,
-    true_flag: str,
-    false_flag: str,
-    true_help: str,
-    false_help: str,
-    default: bool,
-) -> None:
-    """Register paired boolean flags in a mutually exclusive group."""
-
-    group = parser.add_mutually_exclusive_group()
-    group.add_argument(true_flag, dest=dest, action="store_true", help=true_help)
-    group.add_argument(false_flag, dest=dest, action="store_false", help=false_help)
-    parser.set_defaults(**{dest: default})
-
-
-def parse_and_run_cli(
-    parser: argparse.ArgumentParser,
-    argv: Sequence[str] | None,
-    runner: CliRunner,
-) -> int:
-    """Parse arguments and invoke the CLI runner."""
-
-    args = parser.parse_args(argv)
-    return runner(args, parser)
 
 
 def _sorted_frame_list(img_dir: Path) -> list[str]:
@@ -240,14 +193,9 @@ def rebase_image_sequences(
 
 
 __all__ = [
-    "CliRunner",
     "ConversionResult",
     "ProgressCallback",
-    "add_bool_toggle_arguments",
-    "add_output_path_argument",
-    "build_cli_parser",
     "encode_videos",
-    "parse_and_run_cli",
     "rebase_image_sequences",
     "remap_labels_to_videos",
 ]

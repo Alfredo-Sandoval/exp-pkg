@@ -2,7 +2,7 @@
 Project manifest for tracking assets with stable identifiers.
 
 This module provides a centralized registry for project assets (videos, models,
-checkpoints, skeletons) that replaces scattered file searching with O(1) lookups.
+skeletons, bundles) that replaces scattered file searching with O(1) lookups.
 The manifest persists in the `.siesta` bundle and uses PathId for stable references.
 """
 
@@ -11,7 +11,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
 from typing import Any
 
@@ -20,7 +20,7 @@ import h5py
 from posetta.core.path_registry import make_path_id
 
 
-class AssetType(str, Enum):
+class AssetType(StrEnum):
     """Supported asset types for the manifest."""
 
     VIDEO = "video"
@@ -49,7 +49,7 @@ def resolve_project_path(raw_path: Path | str, *, project_root: Path | None) -> 
         project_root: The root directory of the project.
 
     Returns:
-        tuple[str, Path]: A tuple containing the stored absolute path string and the resolved Path object.
+        tuple[str, Path]: Stored absolute path string plus resolved filesystem path.
 
     Raises:
         ValueError: If the path is empty or escapes the project root.
@@ -418,70 +418,6 @@ def resolve_asset_path(
     if not resolved_entry.exists():
         raise FileNotFoundError(f"Manifest entry missing on disk: {resolved_entry}")
     return resolved_entry
-
-
-def register_training_artifacts(
-    manifest: ProjectManifest,
-    run_dir: Path | str,
-    *,
-    require_checkpoint: bool = False,
-    run_id: str | None = None,
-    source_bundle: str | None = None,
-) -> ProjectManifest:
-    """Register training outputs (ckpts + configs) into a manifest.
-
-    Args:
-        manifest: The manifest to update.
-        run_dir: Path to the training run output directory.
-        require_checkpoint: If True, raise if no checkpoints found.
-        run_id: Unique identifier linking all artifacts from this training run.
-        source_bundle: Path to the source .siesta bundle used for training.
-    """
-    if run_id is not None and not run_id:
-        raise ValueError("run_id must be a non-empty string or None")
-    if source_bundle is not None and not source_bundle:
-        raise ValueError("source_bundle must be a non-empty string or None")
-    run_path = Path(run_dir).resolve()
-    if not run_path.exists():
-        raise FileNotFoundError(f"Training run directory not found: {run_path}")
-
-    base_meta: dict[str, Any] = {}
-    if run_id:
-        base_meta["run_id"] = run_id
-    if source_bundle:
-        base_meta["source_bundle"] = source_bundle
-
-    ckpts = sorted(run_path.rglob("*.ckpt"), key=lambda p: p.stat().st_mtime, reverse=True)
-    if require_checkpoint and not ckpts:
-        raise FileNotFoundError(f"No checkpoints found under {run_path}")
-
-    manifest.register(run_path, AssetType.MODEL, metadata={**base_meta, "role": "train_output"})
-
-    for ckpt in ckpts:
-        manifest.register(
-            ckpt, AssetType.CHECKPOINT, metadata={**base_meta, "role": "train_checkpoint"}
-        )
-
-    for cfg_path in (
-        run_path / "siesta_config.yaml",
-        run_path / "siesta_config.json",
-        run_path / "config.json",
-        run_path / "meta.json",
-        run_path / "augment_meta.json",
-        run_path / "train_summary.json",
-    ):
-        if cfg_path.exists():
-            manifest.register(
-                cfg_path, AssetType.CONFIG, metadata={**base_meta, "role": cfg_path.stem}
-            )
-
-    preds_path = run_path / "predictions.siesta"
-    if preds_path.exists():
-        manifest.register(
-            preds_path, AssetType.PREDICTIONS, metadata={**base_meta, "role": "train_predictions"}
-        )
-
-    return manifest
 
 
 def persist_manifest(

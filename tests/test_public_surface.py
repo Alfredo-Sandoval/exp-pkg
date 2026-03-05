@@ -1,7 +1,18 @@
 from __future__ import annotations
 
-from posetta.adapters import convert_dlc_csv, convert_dlc_h5, convert_dlc_project, convert_sleap_package
-from posetta.formats import read_siesta, summarize_project, update_labels_siesta, validate_project, write_siesta
+from posetta.adapters import (
+    convert_dlc_csv,
+    convert_dlc_h5,
+    convert_dlc_project,
+    convert_sleap_package,
+)
+from posetta.formats import (
+    read_siesta,
+    summarize_project,
+    update_labels_siesta,
+    validate_project,
+    write_siesta,
+)
 
 
 def test_public_exports_are_callable() -> None:

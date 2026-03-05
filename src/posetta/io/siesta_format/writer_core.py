@@ -25,7 +25,6 @@ from posetta.io.siesta_format.manifest_policy import (
     load_manifest_from_metadata,
     register_bundle,
     register_metadata_assets,
-    register_project_structure_assets,
     register_videos,
 )
 from posetta.io.siesta_format.metrics_hdf5 import (
@@ -63,7 +62,7 @@ from posetta.io.siesta_format.transaction import (
     _ensure_journal_attr,
     _JournalTransaction,
 )
-from posetta.nn.version import __version__ as SIESTA_VERSION
+from posetta.version import __version__ as package_version
 
 logger = get_logger(__name__)
 
@@ -136,7 +135,7 @@ def write_siesta(
         "version": "1.0.0",
         "created": now_iso,
         "modified": now_iso,
-        "siesta_version": str(SIESTA_VERSION),
+        "siesta_version": str(package_version),
         "base_dir": path.name,
         "provenance_max_bytes": _DEFAULT_PROVENANCE_MAX_BYTES,
         "journal": "{}",
@@ -148,7 +147,7 @@ def write_siesta(
     if not merged_metadata.get("modified"):
         merged_metadata["modified"] = now_iso
     if not merged_metadata.get("siesta_version"):
-        merged_metadata["siesta_version"] = str(SIESTA_VERSION)
+        merged_metadata["siesta_version"] = str(package_version)
     merged_metadata.setdefault("runs_count", len(runs_entries))
 
     journal_val = merged_metadata.get("journal", "{}")
@@ -196,7 +195,6 @@ def write_siesta(
     manifest_obj = coerce_manifest(manifest)
     if manifest_obj is None:
         manifest_obj = ProjectManifest()
-    register_project_structure_assets(manifest_obj, bundle_path=path, project_root=project_root)
     register_videos(manifest_obj, videos=videos, project_root=project_root)
     register_bundle(manifest_obj, path)
     register_metadata_assets(manifest_obj, bundle_path=path, metadata_input=metadata_input)

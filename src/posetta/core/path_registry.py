@@ -1,7 +1,4 @@
-"""Centralized registry of path helpers (replaces scattered *paths.py modules).
-
-Config overrides and management logic have been moved to Siesta/config/files.py.
-"""
+"""Centralized registry of path helpers for Posetta."""
 
 from __future__ import annotations
 
@@ -48,135 +45,11 @@ def get_repo_devtools_dir() -> Path:
     return get_repo_root() / "devtools"
 
 
-WEIGHTS_ROOT_ENV = "SIESTA_WEIGHTS_DIR"
-
-
-@dataclass(frozen=True)
-class WeightSpec:
-    """Describe where a weight file should live and how to resolve it.
-
-    Attributes:
-        name: Human-readable name of the weight file.
-        env_var: Environment variable that can override the path.
-        subdir: Subdirectory under the weights root.
-        filenames: Possible filenames for the weight file.
-    """
-
-    name: str
-    env_var: str
-    subdir: str
-    filenames: tuple[str, ...]
-
-
-def weights_root() -> Path:
-    """Return the root directory for downloaded/packaged weights.
-
-    Returns:
-        The absolute Path to the weights root directory.
-    """
-    env_value = os.environ.get(WEIGHTS_ROOT_ENV)
-    root = Path(env_value) if env_value else Path.home() / ".siesta" / "weights"
-    return resolve_path(root)
-
-
-def _validated_file(path: Path, *, label: str) -> Path:
-    """Validate that a path exists and is a file.
-
-    Args:
-        path: The path to validate.
-        label: A label for the file (used in error messages).
-
-    Returns:
-        The resolved absolute Path.
-
-    Raises:
-        FileNotFoundError: If the path does not exist or is not a file.
-    """
-    resolved = resolve_path(path)
-    if not resolved.exists():
-        raise FileNotFoundError(f"{label} not found: {resolved}")
-    if not resolved.is_file():
-        raise FileNotFoundError(f"{label} is not a file: {resolved}")
-    return resolved
-
-
-def resolve_weight_path(spec: WeightSpec, *, override: str | Path | None = None) -> Path:
-    """Resolve a required weight path via override, env var, or cached weights root.
-
-    Args:
-        spec: The WeightSpec describing the weight file.
-        override: An optional explicit path override.
-
-    Returns:
-        The resolved absolute Path to the weight file.
-
-    Raises:
-        FileNotFoundError: If the weight file cannot be resolved.
-    """
-    if override is not None:
-        return _validated_file(Path(override), label=spec.name)
-
-    env_value = os.environ.get(spec.env_var)
-    if env_value:
-        return _validated_file(Path(env_value), label=f"{spec.name} ({spec.env_var})")
-
-    base = weights_root() / spec.subdir
-    for filename in spec.filenames:
-        candidate = base / filename
-        if candidate.exists():
-            return _validated_file(candidate, label=spec.name)
-
-    expected = ", ".join(spec.filenames)
-    raise FileNotFoundError(
-        f"{spec.name} not found. Provide an explicit path or set {spec.env_var}. "
-        f"Searched under {base} for: {expected}"
-    )
-
-
-def resolve_optional_weight_path(spec: WeightSpec) -> Path | None:
-    """Resolve an optional weight path; raise only when env var is set but invalid.
-
-    Args:
-        spec: The WeightSpec describing the weight file.
-
-    Returns:
-        The resolved absolute Path to the weight file, or None if not found.
-    """
-    env_value = os.environ.get(spec.env_var)
-    if env_value:
-        return _validated_file(Path(env_value), label=f"{spec.name} ({spec.env_var})")
-
-    base = weights_root() / spec.subdir
-    for filename in spec.filenames:
-        candidate = base / filename
-        if candidate.exists():
-            return _validated_file(candidate, label=spec.name)
-    return None
-
-
-def resolve_weight_with_download(
-    spec: WeightSpec,
-    model_key: str,
-    *,
-    override: str | Path | None = None,
-    download_hint: str | None = None,
-) -> Path:
-    """Resolve a weight file via side-effectful path ops."""
-    from posetta.core.path_ops import resolve_weight_with_download as _resolve_weight_with_download
-
-    return _resolve_weight_with_download(
-        spec,
-        model_key,
-        override=override,
-        download_hint=download_hint,
-    )
-
-
 def ensure_dir(path: str | os.PathLike[str]) -> Path:
-    """Ensure a directory exists via side-effectful path ops."""
-    from posetta.core.path_ops import ensure_dir as _ensure_dir
-
-    return _ensure_dir(Path(path))
+    """Ensure a directory exists and return its resolved path."""
+    directory = Path(path or ".")
+    directory.mkdir(parents=True, exist_ok=True)
+    return directory.resolve()
 
 
 def usable_cpu_count() -> int:
@@ -290,52 +163,6 @@ def return_absolute_data_paths(
         msg = "video_dir must be a directory or file path"
         raise ValueError(msg)
     return data_dir, str(video_path)
-
-
-def ckpt_path_from_base_path(base_path: str | Path) -> str:
-    """Validate and resolve an explicit checkpoint path.
-
-    Args:
-        base_path: The base path to the checkpoint file.
-
-    Returns:
-        The resolved absolute checkpoint path as a string.
-
-    Raises:
-        FileNotFoundError: If the checkpoint file is not found or is a directory.
-        ValueError: If the checkpoint extension is invalid.
-    """
-    ckpt = Path(base_path)
-    if ckpt.is_dir():
-        msg = (
-            "Checkpoint path must be explicit (.ckpt/.pth/.pt file); "
-            "discovery from directories is disabled."
-        )
-        raise FileNotFoundError(msg)
-
-    if ckpt.suffix not in {".ckpt", ".pth", ".pt"}:
-        msg = f"Invalid checkpoint extension for {ckpt}"
-        raise ValueError(msg)
-
-    if not ckpt.exists():
-        msg = f"Checkpoint file not found: {ckpt}"
-        raise FileNotFoundError(msg)
-
-    return str(ckpt.resolve())
-
-
-def find_best_checkpoint(run_dir: str | Path) -> Path | None:
-    """Return best checkpoint from run_dir via side-effectful path ops."""
-    from posetta.core.path_ops import find_best_checkpoint as _find_best_checkpoint
-
-    return _find_best_checkpoint(run_dir)
-
-
-def resolve_model_checkpoint(source: str | Path) -> Path:
-    """Resolve model checkpoint via side-effectful path ops."""
-    from posetta.core.path_ops import resolve_model_checkpoint as _resolve_model_checkpoint
-
-    return _resolve_model_checkpoint(source)
 
 
 @dataclass(slots=True)
@@ -452,7 +279,8 @@ def resolve_unified_siesta_or_error(
             return (
                 None,
                 ValueError(
-                    f"Expected a .siesta file path, got a directory with multiple bundles ({names}): {candidate}"
+                    "Expected a .siesta file path, got a directory with multiple bundles "
+                    f"({names}): {candidate}"
                 ),
             )
         return bundles[0].resolve(), None
@@ -592,10 +420,7 @@ def get_package_file(filename: str) -> str:
 
 __all__ = [
     "PathId",
-    "WeightSpec",
-    "ckpt_path_from_base_path",
     "ensure_dir",
-    "find_best_checkpoint",
     "find_project_bundles",
     "get_package_file",
     "get_repo_devtools_dir",
@@ -606,17 +431,12 @@ __all__ = [
     "normalize_separators",
     "parse_uri_path",
     "resolve_engine_meta",
-    "resolve_model_checkpoint",
-    "resolve_optional_weight_path",
     "resolve_path",
     "resolve_project_roots",
     "resolve_unified_siesta",
-    "resolve_weight_path",
-    "resolve_weight_with_download",
     "return_absolute_data_paths",
     "return_absolute_path",
     "slugify_path_component",
     "uniquify",
     "usable_cpu_count",
-    "weights_root",
 ]

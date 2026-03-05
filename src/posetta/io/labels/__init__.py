@@ -1,4 +1,4 @@
-"""posetta.nn labels module."""
+"""Labels package for Posetta."""
 
 from pathlib import Path
 

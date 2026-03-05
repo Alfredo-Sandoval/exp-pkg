@@ -1,4 +1,4 @@
-"""Video protocol used by the posetta.nn labels package."""
+"""Video protocol used by the Posetta labels package."""
 
 from __future__ import annotations
 
@@ -24,9 +24,6 @@ class VideoProtocol(Protocol):
     backend: str
     last_frame_idx: int
     _image_filenames: list[str]
-
-    @property
-    def uses_pyav(self) -> bool: ...
 
     def get_frame(self, idx: int) -> np.ndarray: ...
 

@@ -7,7 +7,6 @@ Supports:
 
 from __future__ import annotations
 
-import argparse
 from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
@@ -17,7 +16,6 @@ import pandas as pd
 from posetta.core.logging_utils import get_logger
 from posetta.core.path_registry import ensure_dir, resolve_path
 from posetta.core.skeleton import build_keypoint_skeleton
-from posetta.io.converters._cli_base import run_converter_cli
 from posetta.io.converters.converter_helpers import (
     ConversionResult,
     ProgressCallback,
@@ -375,71 +373,3 @@ def convert_dlc_project(
         results.append(result)
 
     return results
-
-
-def _configure_cli_parser(ap: argparse.ArgumentParser) -> None:
-    ap.add_argument("--csv", help="Path to DLC CSV file")
-    ap.add_argument("--h5", help="Path to DLC H5 file")
-    ap.add_argument("--video", help="Path to video file (required with --csv/--h5)")
-    ap.add_argument("--project", help="Path to DLC project directory (batch convert)")
-    ap.add_argument(
-        "--threshold",
-        type=float,
-        default=0.0,
-        help="Likelihood threshold for including points (0-1, default 0)",
-    )
-
-
-def _run_cli(args: argparse.Namespace, ap: argparse.ArgumentParser) -> int:
-    """Execute DLC CLI action for parsed arguments."""
-
-    if args.project:
-        results = convert_dlc_project(
-            args.project,
-            args.out,
-            likelihood_threshold=args.threshold,
-            progress_callback=None,
-        )
-        _emit(None, f"Converted {len(results)} videos")
-        for r in results:
-            _emit(None, f"  {r.siesta_path}")
-    elif args.csv:
-        if not args.video:
-            ap.error("--video required with --csv")
-        convert_dlc_csv(
-            args.csv,
-            args.video,
-            args.out,
-            likelihood_threshold=args.threshold,
-            progress_callback=None,
-        )
-    elif args.h5:
-        if not args.video:
-            ap.error("--video required with --h5")
-        convert_dlc_h5(
-            args.h5,
-            args.video,
-            args.out,
-            likelihood_threshold=args.threshold,
-            progress_callback=None,
-        )
-    else:
-        ap.error("Must specify --csv, --h5, or --project")
-
-    return 0
-
-
-def main(argv: list[str] | None = None) -> int:
-    """CLI entry point for DLC import."""
-
-    return run_converter_cli(
-        description="Convert DLC tracking to SIESTA format",
-        output_help="Output path (.siesta file or directory)",
-        argv=argv,
-        runner=_run_cli,
-        configure_parser=_configure_cli_parser,
-    )
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())

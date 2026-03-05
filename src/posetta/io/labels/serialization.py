@@ -191,7 +191,8 @@ def labels_from_siesta_payload(
 
     if keypoint_names and kp_count != len(keypoint_names):
         raise ValueError(
-            f"keypoints array count ({kp_count}) does not match skeleton names ({len(keypoint_names)})"
+            "keypoints array count "
+            f"({kp_count}) does not match skeleton names ({len(keypoint_names)})"
         )
 
     raw_roles = list(skeleton_info.get("roles") or [])
@@ -318,8 +319,7 @@ def labels_from_siesta_payload(
             if sha:
                 video_obj.sha256 = sha
 
-        if not video_obj.uses_pyav:
-            video_obj.close()
+        video_obj.close()
 
         videos.append(video_obj)
 

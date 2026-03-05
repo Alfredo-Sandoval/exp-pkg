@@ -1,4 +1,4 @@
-"""Converters for posetta.nn IO."""
+"""Converters for Posetta IO."""
 
 from __future__ import annotations
 

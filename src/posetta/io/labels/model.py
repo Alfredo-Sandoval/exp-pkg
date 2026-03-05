@@ -32,6 +32,56 @@ logger = get_logger(__name__)
 LABELS_JSON_FILE_VERSION = "2.0.0"
 
 
+def _build_default_template_points(keypoint_count: int, *, spacing: float = 50.0) -> np.ndarray:
+    """Build a deterministic radial layout for template point fallbacks."""
+    if keypoint_count == 0:
+        return np.empty((0, 2), dtype=float)
+
+    radius = max(spacing, (spacing * keypoint_count) / (2 * np.pi))
+    angles = np.linspace(0, 2 * np.pi, num=keypoint_count, endpoint=False)
+    coords = [
+        np.array([radius * np.cos(theta), radius * np.sin(theta)], dtype=float)
+        for theta in angles
+    ]
+    return np.stack(coords)
+
+
+def _template_points_from_instances(
+    instances: Iterable[Instance],
+    *,
+    keypoint_count: int,
+) -> np.ndarray:
+    """Compute mean keypoint positions without depending on Siesta-only helpers."""
+    sum_xy = np.zeros((keypoint_count, 2), dtype=float)
+    cnt_xy = np.zeros((keypoint_count, 2), dtype=float)
+    any_seen = False
+
+    for instance in instances:
+        points = instance.get_points_array(copy=True, invisible_as_nan=True, full=False)
+        if points.shape != (keypoint_count, 2):
+            raise ValueError(
+                "Instance points shape does not match skeleton keypoint count: "
+                f"expected {(keypoint_count, 2)}, got {points.shape}"
+            )
+        any_seen = True
+        valid_mask = ~np.isnan(points)
+        sum_xy += np.where(valid_mask, points, 0.0)
+        cnt_xy += valid_mask.astype(float)
+
+    if not any_seen:
+        return _build_default_template_points(keypoint_count)
+
+    with np.errstate(invalid="ignore", divide="ignore"):
+        template = sum_xy / cnt_xy
+
+    missing_rows = np.all(cnt_xy == 0.0, axis=1)
+    if missing_rows.any():
+        defaults = _build_default_template_points(keypoint_count)
+        template[missing_rows] = defaults[missing_rows]
+
+    return template
+
+
 @runtime_checkable
 class Materializable(Protocol):
     """Objects that can materialize themselves into plain data."""
@@ -533,28 +583,17 @@ class Labels:
 
         if rebuild_template:
             if self.labeled_frames and any(self.instances()):
-                from posetta.io import align
-
                 first_n_instances = itertools.islice(self.instances(skeleton=skeleton), 1000)
-                template_points = align.get_template_points_array(first_n_instances)
+                template_points = _template_points_from_instances(
+                    first_n_instances,
+                    keypoint_count=len(skeleton.keypoints),
+                )
                 self._template_instance_points[sk_key] = {
                     "points": template_points,
                     "keypoints": skeleton.keypoints,
                 }
             else:
-                spacing = 50.0
-                n = len(skeleton.keypoints)
-                if n == 0:
-                    template_points = np.empty((0, 2), dtype=float)
-                else:
-                    radius = max(spacing, (spacing * n) / (2 * np.pi))
-                    angles = np.linspace(0, 2 * np.pi, num=n, endpoint=False)
-                    coords = [
-                        np.array([radius * np.cos(theta), radius * np.sin(theta)], dtype=float)
-                        for theta in angles
-                    ]
-                    template_points = np.stack(coords)
-
+                template_points = _build_default_template_points(len(skeleton.keypoints))
                 self._template_instance_points[sk_key] = {
                     "points": template_points,
                     "keypoints": skeleton.keypoints,
@@ -598,10 +637,8 @@ class Labels:
     ) -> LabeledFrame:
         """Insert predicted instances into the frame at `frame_idx` for `video`."""
         lf = self.query.find_first(video, frame_idx, use_cache=True)
-        from posetta.core.annotations import LabeledFrame as _LF
-
         if lf is None:
-            lf = _LF(video=cast(Any, video), frame_idx=int(frame_idx))
+            lf = LabeledFrame(video=cast(Any, video), frame_idx=int(frame_idx))
             self.append(lf)
         for inst in pred_list or []:
             self.add_instance(lf, inst)

@@ -59,11 +59,6 @@ class VideoStub:
     def close(self) -> None:
         return None
 
-    @property
-    def uses_pyav(self) -> bool:
-        return False
-
-
 class LabelsFactory:
     """Factory for creating Labels objects."""
 

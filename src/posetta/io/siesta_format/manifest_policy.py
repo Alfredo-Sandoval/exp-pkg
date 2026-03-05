@@ -29,26 +29,6 @@ def load_manifest_from_metadata(metadata_group: h5py.Group) -> ProjectManifest:
     return ProjectManifest()
 
 
-def register_project_structure_assets(
-    manifest: ProjectManifest,
-    *,
-    bundle_path: Path,
-    project_root: Path,
-) -> None:
-    if bundle_path.stem != bundle_path.parent.name:
-        return
-
-    from posetta.config.definitions import get_project_structure
-
-    for rel_path, info in get_project_structure().items():
-        manifest.register(
-            project_root / rel_path,
-            info["asset_type"],
-            project_root=project_root,
-            metadata={"role": str(info["role"])},
-        )
-
-
 def register_videos(
     manifest: ProjectManifest,
     *,
@@ -128,28 +108,13 @@ def register_metadata_assets(
         return current
 
     metadata_asset_fields: tuple[tuple[str, AssetType, str | None], ...] = (
-        ("pose.engine_path", AssetType.MODEL, "engine"),
-        ("pose.engine_dir", AssetType.OTHER, "engine_dir"),
-        ("pose.checkpoint", AssetType.CHECKPOINT, None),
-        ("pose.meta", AssetType.CONFIG, "meta"),
-        ("pose.detector_engine", AssetType.MODEL, "detector"),
-        ("pose.detector_meta", AssetType.CONFIG, "detector_meta"),
         ("pose.predictions_path", AssetType.PREDICTIONS, "inference_output"),
         ("pose.predictions_h5_path", AssetType.PREDICTIONS, "inference_output"),
-        ("pose.output_dir", AssetType.PREDICTIONS, "inference_output"),
         ("pose.export_path", AssetType.PREDICTIONS, "inference_output"),
-        ("out_dir", AssetType.MODEL, "train_output"),
-        ("output_dir", AssetType.MODEL, "train_output"),
     )
 
     runtime_asset_fields: tuple[tuple[str, AssetType, str | None], ...] = (
-        ("backend.engine_path", AssetType.MODEL, "engine"),
-        ("backend.engine_dir", AssetType.OTHER, "engine_dir"),
-        ("model.checkpoint", AssetType.CHECKPOINT, None),
-        ("model.meta", AssetType.CONFIG, "meta"),
         ("predictions_path", AssetType.PREDICTIONS, "inference_output"),
-        ("out_dir", AssetType.MODEL, "train_output"),
-        ("output_dir", AssetType.MODEL, "train_output"),
     )
 
     runtime_cfg = metadata_input.get("runtime_config")
@@ -166,6 +131,5 @@ __all__ = [
     "load_manifest_from_metadata",
     "register_bundle",
     "register_metadata_assets",
-    "register_project_structure_assets",
     "register_videos",
 ]

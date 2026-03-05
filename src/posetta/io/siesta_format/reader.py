@@ -732,9 +732,7 @@ def _assemble_result(
                 parsed_session, name="project_metadata.session_json"
             )
 
-    from posetta.config.definitions import resolve_preferences
-
-    metadata["preferences"] = resolve_preferences(preferences_override)
+    metadata["preferences"] = preferences_override
 
     manifest_raw = metadata.get("manifest_json")
     if manifest_raw is None and isinstance(metadata_group, h5py.Group):
@@ -868,7 +866,7 @@ def read_siesta(
             caller must close it after materializing lazy datasets.
 
     Returns:
-        dict: A dictionary containing the project data (videos, skeleton, labels, predictions, etc.).
+        dict: Project data including videos, labels, predictions, and metadata.
 
     Raises:
         FileNotFoundError: If the file does not exist.
