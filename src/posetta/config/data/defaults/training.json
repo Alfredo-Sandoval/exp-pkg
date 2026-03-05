@@ -1,0 +1,230 @@
+{
+  "model_architecture": {
+    "default_image_size": 256,
+    "heatmap_output_size": 384,
+    "downsample_factor": 2,
+    "upsampling_factor": 2,
+    "context_length": 5,
+    "default_num_keypoints": null,
+    "pretrained_default": true,
+    "backbone_lr_default": 1e-05,
+    "hrnet_stride": 32,
+    "hrnet_stride_alt": 4,
+    "backbones": [
+      "resnet50_animal_ap10k",
+      "resnet50",
+      "resnet18",
+      "resnet34",
+      "efficientnet_b0",
+      "efficientnet_b1",
+      "efficientnet_b2"
+    ]
+  },
+  "model_head_convolutions": {
+    "kernel_size": [
+      3,
+      3
+    ],
+    "stride": [
+      2,
+      2
+    ],
+    "padding": [
+      1,
+      1
+    ],
+    "output_padding": [
+      1,
+      1
+    ]
+  },
+  "model_initialization": {
+    "xavier_gain": 0.01,
+    "batch_norm_weight": 1.0,
+    "batch_norm_bias": 0.0
+  },
+  "heatmap_head": {
+    "soft_argmax_temperature": 1000.0,
+    "final_softmax_temperature": 1.0
+  },
+  "training_hyperparameters": {
+    "max_epochs": 300,
+    "batch_size": 16,
+    "val_batch_size": 32,
+    "learning_rate": 0.001,
+    "weight_decay": 0.0,
+    "optimizer": "Adam",
+    "lr_scheduler": "multisteplr",
+    "num_workers": 8,
+    "gpu_id": 0,
+    "rng_seed_data_pt": 0,
+    "rng_seed_model_pt": 0,
+    "limit_train_batches": 1.0,
+    "unfreezing_epoch": 20,
+    "train_frames": 1,
+    "split_by_video": false,
+    "log_every_n_steps": 10,
+    "check_val_every_n_epoch": 1,
+    "early_stopping_patience": 3,
+    "batch_size_limit": 64
+  },
+  "learning_rate_scheduler": {
+    "default_milestones": [150, 200, 250],
+    "gamma": 0.5,
+    "threshold": 0.0001,
+    "eps": 1e-08,
+    "patience": 20,
+    "factor": 0.1,
+    "mode": "min",
+    "threshold_mode": "rel",
+    "cooldown": 0,
+    "min_lr": 0,
+    "T_max": 100,
+    "eta_min": 0,
+    "interval": "epoch"
+  },
+  "data_preprocessing": {
+    "train_probability": 0.95,
+    "val_probability": 0.05,
+    "output_sigma": 1.25,
+    "downsample_factors": [
+      1,
+      2,
+      3
+    ],
+    "image_resize": [
+      384,
+      384
+    ],
+    "imagenet_mean": [
+      0.485,
+      0.456,
+      0.406
+    ],
+    "imagenet_std": [
+      0.229,
+      0.224,
+      0.225
+    ]
+  },
+  "data_augmentation": {
+    "seed": 42,
+    "rng_seed_data_pytorch": 0,
+    "rng_seed_model_pytorch": 0,
+    "same_on_batch": false,
+    "enabled": true
+  },
+  "pca_preprocessing": {
+    "components": 0.99,
+    "empirical_epsilon_percentile": 90.0,
+    "ppca_tolerance": 0.0001,
+    "ppca_iterations": 100,
+    "quantile": 0.5
+  },
+  "loss_functions": {
+    "weight_clamp_min": 1e-08,
+    "weight_clamp_max": 100000000,
+    "heatmap_loss_type_default": "mse",
+    "epsilon_1e4": 0.0001,
+    "epsilon_1e6": 1e-06,
+    "epsilon_1e8": 1e-08,
+    "epsilon_1e9": 1e-09,
+    "epsilon_1e10": 1e-10,
+    "epsilon_1e12": 1e-12,
+    "label_smoothing": 0.0,
+    "prob_threshold": 0.0
+  },
+  "callbacks": {
+    "plot_pause_interval": 0.001,
+    "log_every_n_steps_default": 50,
+    "image_quality": 90,
+    "jpeg_quality": 85,
+    "temp_threshold": 50.0
+  },
+  "video_encoding": {
+    "codec": "libx264",
+    "fps": 30
+  },
+  "blur_processing": {
+    "kernel_size": 11
+  },
+  "image_sizes": {
+    "training_default_height": 384,
+    "training_default_width": 384
+  },
+  "trainer_runtime": {
+    "min_epochs": null,
+    "num_gpus": "auto",
+    "record_transforms": 0,
+    "early_stopping": false,
+    "ckpt_every_n_epochs": null,
+    "ckpt_save_top_k": 0,
+    "val_check_interval": null,
+    "accumulate_grad_batches": 1,
+    "profiler": null,
+    "gradient_clip_norm": null,
+    "float32_matmul_precision": "high",
+    "uniform_heatmaps_for_nan_keypoints": false,
+    "log_heatmaps_every_n_steps": 200,
+    "log_heatmaps_num_samples": 2,
+    "log_heatmaps_max_keypoints": 30,
+    "log_heatmaps_colormap": "inferno",
+    "log_keypoints_every_n_steps": 0,
+    "log_keypoints_num_samples": 2,
+    "log_keypoints_marker_size": 3,
+    "preview_heatmaps_every_n_steps": 10,
+    "preview_heatmaps_num_samples": 1,
+    "preview_heatmaps_max_keypoints": 0,
+    "preview_heatmaps_output_dir": "runs/heatmap_previews",
+    "preview_heatmaps_show": false,
+    "preview_save_images": false,
+    "preview_image_format": "webp",
+    "preview_image_quality": 90,
+    "compile": {
+      "enabled": false,
+      "mode": "max-autotune",
+      "backend": "inductor",
+      "fullgraph": false,
+      "dynamic": false
+    },
+    "amp": {
+      "enabled": true,
+      "dtype": "float16",
+      "use_grad_scaler": true,
+      "grad_scaler_kwargs": {},
+      "max_consecutive_skipped_steps": 20,
+      "skip_status_log_every_n_steps": 5
+    },
+    "deterministic": {
+      "enabled": false,
+      "warn_only": false,
+      "cudnn_benchmark": true,
+      "allow_tf32": true
+    },
+    "monitor": {
+      "zmq": {
+        "enabled": false,
+        "publish_port": null,
+        "controller_port": null
+      }
+    }
+  },
+  "random_seeds": {
+    "torch_seed": 123,
+    "numpy_seed": 42,
+    "rng_seed_data_pytorch": 0,
+    "rng_seed_model_pytorch": 0
+  },
+  "thresholds": {
+    "image_dimension_threshold": 192,
+    "temporal_offset": 6
+  },
+  "numerics": {
+    "epsilon_1e4": 0.0001,
+    "epsilon_1e6": 1e-06,
+    "epsilon_1e8": 1e-08,
+    "epsilon_1e9": 1e-09,
+    "epsilon_1e10": 1e-10,
+    "epsilon_1e12": 1e-12
+  }
+}

@@ -1,0 +1,109 @@
+{
+  "journal_presets": {
+    "nature": {
+      "name": "Nature",
+      "width_mm": 180,
+      "height_mm": 120,
+      "dpi": 300,
+      "font_family": "Helvetica",
+      "font_size": 8,
+      "line_width": 1.0,
+      "axes_linewidth": 0.5
+    },
+    "cell": {
+      "name": "Cell",
+      "width_mm": 174,
+      "height_mm": 116,
+      "dpi": 300,
+      "font_family": "Arial",
+      "font_size": 7,
+      "line_width": 0.75,
+      "axes_linewidth": 0.5
+    },
+    "plos": {
+      "name": "PLOS",
+      "width_mm": 190,
+      "height_mm": 127,
+      "dpi": 300,
+      "font_family": "Arial",
+      "font_size": 8,
+      "line_width": 1.0,
+      "axes_linewidth": 0.5
+    },
+    "biorxiv": {
+      "name": "bioRxiv",
+      "width_mm": 180,
+      "height_mm": 140,
+      "dpi": 300,
+      "font_family": "Helvetica",
+      "font_size": 9,
+      "line_width": 1.0,
+      "axes_linewidth": 0.5
+    },
+    "custom": {
+      "name": "Custom",
+      "width_mm": 180,
+      "height_mm": 120,
+      "dpi": 300,
+      "font_family": "sans-serif",
+      "font_size": 10,
+      "line_width": 1.0,
+      "axes_linewidth": 0.5
+    }
+  },
+  "pub_colors": {
+    "ground_truth": [76, 175, 80],
+    "prediction": [244, 67, 54],
+    "keypoint": [33, 150, 243],
+    "link": [158, 158, 158],
+    "error_line": [255, 193, 7]
+  },
+  "pub_defaults": {
+    "keypoint_radius": 6,
+    "keypoint_radius_montage": 5,
+    "keypoint_radius_gif": 6,
+    "histogram_color_hex": "#2196F3",
+    "speed_profile_color_hex": "#4CAF50",
+    "confidence_plot_color_hex": "#2196F3",
+    "training_curve": {
+      "train_hex": "#2196F3",
+      "val_hex": "#FF5722",
+      "best_epoch_line_hex": "#888888",
+      "annotation_text_hex": "#666666"
+    },
+    "architecture_figure": {
+      "block_colors": ["#E3F2FD", "#BBDEFB", "#90CAF9", "#64B5F6", "#42A5F5"],
+      "block_edge_hex": "#1976D2",
+      "text_hex": "#666666",
+      "graph_node_hex": "#2196F3",
+      "graph_edge_hex": "#90CAF9",
+      "graph_edge_outline_hex": "#1565C0"
+    }
+  },
+  "color_presets": {
+    "red": [
+      [0, 150, 150, 10, 255, 255],
+      [170, 150, 150, 180, 255, 255]
+    ],
+    "green": [[35, 150, 150, 85, 255, 255]],
+    "blue": [[100, 150, 150, 130, 255, 255]],
+    "yellow": [[20, 150, 150, 35, 255, 255]],
+    "cyan": [[85, 150, 150, 100, 255, 255]],
+    "magenta": [[140, 150, 150, 170, 255, 255]],
+    "white": [[0, 0, 200, 180, 30, 255]],
+    "black": [[0, 0, 0, 180, 255, 50]],
+    "orange": [[10, 150, 150, 25, 255, 255]]
+  },
+  "software_presets": {
+    "dlc": "rainbow",
+    "dlc-rainbow": "rainbow",
+    "dlc-jet": "jet",
+    "sleap": "sleap_standard",
+    "sleap-standard": "sleap_standard",
+    "sleap-five": "sleap_five",
+    "sleap-alphabet": "sleap_alphabet",
+    "sleap-solarized": "sleap_solarized",
+    "kpms": "autumn",
+    "keypoint-moseq": "autumn"
+  }
+}

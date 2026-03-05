@@ -1,0 +1,66 @@
+{
+  "logging": {
+    "level": "DEBUG",
+    "file": null
+  },
+  "ui": {
+    "disable_update_timer": false,
+    "project_manager": true
+  },
+  "display": {
+    "vmin": null,
+    "vmax": null,
+    "brightness": 0.0,
+    "contrast": 1.0,
+    "gamma": 1.0,
+    "lut": null
+  },
+  "overlays": {
+    "enabled": true,
+    "overlay_bg_alpha": 180,
+    "overlay_fixed_width": 760,
+    "overlay_max_width": 800
+  },
+  "video": {
+    "backend": "auto",
+    "playback_stride": 1,
+    "preview_scale": null,
+    "recognized_exts": [
+      ".mp4",
+      ".mov",
+      ".mkv",
+      ".avi"
+    ]
+  },
+  "ffmpeg": {
+    "bin": "ffmpeg",
+    "hwaccel_playback": "auto",
+    "vaapi_device": "/dev/dri/renderD128",
+    "ffprobe_bin": null,
+    "timeout_sec": 30,
+    "seek_mode": "auto",
+    "use_cuda_filters": false
+  },
+  "writer": {
+    "prefer_codec": null,
+    "tune_nvenc": true
+  },
+  "heatmaps": {
+    "enabled": true
+  },
+  "qimage": {
+    "use_qimage2ndarray": false,
+    "force_bgra": null
+  },
+  "search": {
+    "enabled": true,
+    "video_extra_roots": []
+  },
+  "monitor": {
+    "zmq": {
+      "enabled": false,
+      "publish_port": 0,
+      "controller_port": 0
+    }
+  }
+}

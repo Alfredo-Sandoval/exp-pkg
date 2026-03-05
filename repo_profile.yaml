@@ -1,0 +1,48 @@
+repo:
+  name: "posetta"
+  slug: "Alfredo-Sandoval/Posetta"
+  visibility: "private"
+  preset: "base"
+  support_matrix:
+    - macos
+    - linux
+  windows_enabled: false
+
+tooling:
+  setup: "make env"
+  setup_fallback: "bash environment/setup.sh"
+  lint: "ruff check ."
+  typecheck: "ty check"
+  test: "pytest"
+
+license:
+  id: "all-rights-reserved"
+  spdx: "NONE"
+  notice: "All rights reserved."
+  holders:
+    - "Alfredo and Joseph Sandoval"
+  file: "LICENSE"
+
+manifest:
+  mode: "none"
+  schema: "none"
+  canonical_paths: []
+  optional_paths: []
+
+skills:
+  required:
+    - repo-setup
+    - agent-playbook
+  routing:
+    setup:
+      when: "setup|environment|dependency|lint|typecheck"
+      use:
+        - repo-setup
+    typing:
+      when: "type|typing|annotation|ty"
+      use:
+        - type-check
+    tests:
+      when: "test|pytest|regression"
+      use:
+        - test-writing

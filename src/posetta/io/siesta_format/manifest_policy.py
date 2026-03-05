@@ -1,0 +1,171 @@
+"""Manifest/provenance policy helpers for `.siesta` writer flows."""
+
+from __future__ import annotations
+
+from collections.abc import Mapping, Sequence
+from pathlib import Path
+from typing import Any
+
+import h5py
+import numpy as np
+
+from posetta.core.json_utils import parse_json
+from posetta.core.path_registry import resolve_path
+from posetta.io.manifest import AssetType, ProjectManifest, resolve_project_path
+from posetta.io.siesta_format.shared import _mapping_to_str_key_dict
+
+
+def load_manifest_from_metadata(metadata_group: h5py.Group) -> ProjectManifest:
+    manifest_raw = metadata_group.attrs.get("manifest_json")
+    if manifest_raw:
+        if isinstance(manifest_raw, bytes | bytearray | np.bytes_):
+            manifest_raw = manifest_raw.decode("utf-8")
+        manifest_payload = parse_json(str(manifest_raw))
+        if not isinstance(manifest_payload, Mapping):
+            raise TypeError("manifest_json must decode to a mapping")
+        return ProjectManifest.from_dict(
+            _mapping_to_str_key_dict(manifest_payload, name="manifest_json")
+        )
+    return ProjectManifest()
+
+
+def register_project_structure_assets(
+    manifest: ProjectManifest,
+    *,
+    bundle_path: Path,
+    project_root: Path,
+) -> None:
+    if bundle_path.stem != bundle_path.parent.name:
+        return
+
+    from posetta.config.definitions import get_project_structure
+
+    for rel_path, info in get_project_structure().items():
+        manifest.register(
+            project_root / rel_path,
+            info["asset_type"],
+            project_root=project_root,
+            metadata={"role": str(info["role"])},
+        )
+
+
+def register_videos(
+    manifest: ProjectManifest,
+    *,
+    videos: Sequence[Any],
+    project_root: Path,
+) -> None:
+    for idx, video in enumerate(videos):
+        raw_filename = str(video.filename or "").strip()
+        if not raw_filename:
+            raise ValueError("Video entry is missing filename for manifest emission")
+        raw_path = Path(raw_filename)
+        _, resolved_path = resolve_project_path(raw_path, project_root=project_root)
+        if not raw_path.is_absolute() and not resolved_path.exists():
+            raise FileNotFoundError(
+                f"Relative video path not found under project root: {raw_filename}"
+            )
+        metadata_entry: dict[str, Any] = {
+            "index": idx,
+            "backend": str(video.backend or ""),
+        }
+        sha256_value = video.sha256
+        if sha256_value:
+            metadata_entry["sha256"] = str(sha256_value)
+        manifest.register(
+            raw_filename,
+            AssetType.VIDEO,
+            project_root=project_root,
+            metadata=metadata_entry,
+        )
+
+
+def register_bundle(manifest: ProjectManifest, bundle_path: Path) -> None:
+    manifest.register(bundle_path, AssetType.PREDICTIONS, metadata={"role": "bundle"})
+
+
+def register_metadata_assets(
+    manifest: ProjectManifest,
+    *,
+    bundle_path: Path,
+    metadata_input: Mapping[str, Any],
+) -> None:
+    def _coerce_path(path_val: Any) -> Path | None:
+        if isinstance(path_val, Path):
+            val = str(path_val).strip()
+            if not val:
+                return None
+            candidate = path_val
+        elif isinstance(path_val, str):
+            val = path_val.strip()
+            if not val:
+                return None
+            candidate = Path(val)
+        else:
+            return None
+
+        if not candidate.is_absolute():
+            candidate = resolve_path(bundle_path.parent / candidate)
+        return candidate
+
+    def _register_asset(path_val: Any, asset_type: AssetType, *, role: str | None = None) -> None:
+        path_obj = _coerce_path(path_val)
+        if path_obj is None:
+            return
+        meta: dict[str, Any] = {}
+        if role is not None:
+            meta["role"] = role
+        manifest.register(path_obj, asset_type, metadata=meta)
+
+    def _lookup(mapping: Mapping[str, Any], dotted_key: str) -> Any:
+        if dotted_key in mapping:
+            return mapping[dotted_key]
+        current: Any = mapping
+        for part in dotted_key.split("."):
+            if not isinstance(current, Mapping) or part not in current:
+                return None
+            current = current[part]
+        return current
+
+    metadata_asset_fields: tuple[tuple[str, AssetType, str | None], ...] = (
+        ("pose.engine_path", AssetType.MODEL, "engine"),
+        ("pose.engine_dir", AssetType.OTHER, "engine_dir"),
+        ("pose.checkpoint", AssetType.CHECKPOINT, None),
+        ("pose.meta", AssetType.CONFIG, "meta"),
+        ("pose.detector_engine", AssetType.MODEL, "detector"),
+        ("pose.detector_meta", AssetType.CONFIG, "detector_meta"),
+        ("pose.predictions_path", AssetType.PREDICTIONS, "inference_output"),
+        ("pose.predictions_h5_path", AssetType.PREDICTIONS, "inference_output"),
+        ("pose.output_dir", AssetType.PREDICTIONS, "inference_output"),
+        ("pose.export_path", AssetType.PREDICTIONS, "inference_output"),
+        ("out_dir", AssetType.MODEL, "train_output"),
+        ("output_dir", AssetType.MODEL, "train_output"),
+    )
+
+    runtime_asset_fields: tuple[tuple[str, AssetType, str | None], ...] = (
+        ("backend.engine_path", AssetType.MODEL, "engine"),
+        ("backend.engine_dir", AssetType.OTHER, "engine_dir"),
+        ("model.checkpoint", AssetType.CHECKPOINT, None),
+        ("model.meta", AssetType.CONFIG, "meta"),
+        ("predictions_path", AssetType.PREDICTIONS, "inference_output"),
+        ("out_dir", AssetType.MODEL, "train_output"),
+        ("output_dir", AssetType.MODEL, "train_output"),
+    )
+
+    runtime_cfg = metadata_input.get("runtime_config")
+
+    for key, asset_type, role in metadata_asset_fields:
+        _register_asset(_lookup(metadata_input, key), asset_type, role=role)
+
+    if isinstance(runtime_cfg, Mapping):
+        for key, asset_type, role in runtime_asset_fields:
+            _register_asset(_lookup(runtime_cfg, key), asset_type, role=role)
+
+
+__all__ = [
+    "load_manifest_from_metadata",
+    "register_bundle",
+    "register_metadata_assets",
+    "register_project_structure_assets",
+    "register_videos",
+]

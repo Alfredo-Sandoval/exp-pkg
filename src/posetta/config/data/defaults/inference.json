@@ -1,0 +1,106 @@
+{
+  "input_sizes": {
+    "default_height": 256,
+    "default_width": 256,
+    "heatmap_processing_size": 384
+  },
+  "normalization": {
+    "imagenet_mean": [
+      0.485,
+      0.456,
+      0.406
+    ],
+    "imagenet_std": [
+      0.229,
+      0.224,
+      0.225
+    ],
+    "default_mean": [
+      0.5,
+      0.5,
+      0.5
+    ],
+    "default_std": [
+      0.5,
+      0.5,
+      0.5
+    ],
+    "std_epsilon": 1e-06
+  },
+  "heatmap_processing": {
+    "downsample_factor": 2,
+    "temperature_1": 1.0,
+    "temperature_2": 1.0,
+    "confidence_sigma": 1.25,
+    "temperature_min_clamp": 0.0001,
+    "offset_map": {
+      "1": 0.5,
+      "2": 1.5,
+      "3": 2.5
+    }
+  },
+  "engine": {
+    "queue_max_size": 100,
+    "queue_wait_max_samples": 1000,
+    "queue_wait_stats_interval_ms": 250,
+    "default_timeout": 30.0
+  },
+  "validation": {
+    "confidence_threshold": 0.3,
+    "velocity_threshold": 50.0,
+    "min_keypoints": 3,
+    "iou_threshold": 0.3
+  },
+  "batch": {
+    "default_size": 16,
+    "min_size": 1,
+    "max_size": 64
+  },
+  "decoding": {
+    "method": "softargmax",
+    "device": "auto"
+  },
+  "streaming": {
+    "max_instances_per_frame": 8,
+    "window_size": 30
+  },
+  "preprocessing": {
+    "default_padding": 20.0,
+    "normalization_divisor": 255.0,
+    "blur_kernel_size": 11
+  },
+  "detection": {
+    "history_window": 500,
+    "variance_threshold": 16,
+    "confidence_threshold": 0.5
+  },
+  "optical_flow": {
+    "pyr_scale": 0.5,
+    "levels": 3,
+    "winsize": 15,
+    "iterations": 3,
+    "poly_n": 5,
+    "poly_sigma": 1.2
+  },
+  "numerics": {
+    "epsilon_1e4": 0.0001,
+    "epsilon_1e6": 1e-06,
+    "epsilon_1e9": 1e-09,
+    "epsilon_1e10": 1e-10,
+    "epsilon_1e12": 1e-12
+  },
+  "fallback_confidences": {
+    "default": 0.5,
+    "in_bounds": 0.8,
+    "out_of_bounds": 0.1
+  },
+  "tracking": {
+    "default_batch_size": 16,
+    "default_crop_size": 256,
+    "default_margin": 0.2,
+    "default_match_thresh": 0.3,
+    "default_conf_high": 0.5,
+    "default_conf_low": 0.1,
+    "default_track_buffer": 30
+  }
+}
