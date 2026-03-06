@@ -7,8 +7,8 @@ import h5py
 
 
 def test_write_siesta_manifest_tracks_bundle_only_by_default(tmp_path: Path) -> None:
-    from posetta.io.labels import Labels
-    from posetta.io.siesta_format import write_siesta
+    from posetta.formats import write_siesta
+    from posetta.model import Labels
 
     project_root = tmp_path / "proj"
     project_root.mkdir(parents=True)
@@ -42,8 +42,8 @@ def test_write_siesta_manifest_tracks_bundle_only_by_default(tmp_path: Path) -> 
 
 
 def test_write_siesta_persists_preferences_payload(tmp_path: Path) -> None:
-    from posetta.io.labels import Labels
-    from posetta.io.siesta_format import write_siesta
+    from posetta.formats import write_siesta
+    from posetta.model import Labels
 
     bundle_path = tmp_path / "prefs.siesta"
     labels = Labels(preferences={"theme": "paper", "show_scores": True})

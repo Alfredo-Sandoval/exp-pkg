@@ -1,4 +1,4 @@
-"""Shared helpers for data format converters (SLEAP, DLC-style, etc.)."""
+"""Shared helpers for adapters that produce canonical `posetta.model.Labels` bundles."""
 
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ from posetta.core.video_contract import video_total_frames
 from posetta.io.video import Video, write_video
 
 if TYPE_CHECKING:
-    from posetta.io.labels import Labels as _Labels
+    from posetta.model import Labels as _Labels
 
 ProgressCallback = Callable[[str], None]
 

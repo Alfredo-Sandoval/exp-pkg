@@ -1,4 +1,4 @@
-"""DeepLabCut adapter exports."""
+"""Public DeepLabCut adapter exports."""
 
 from __future__ import annotations
 

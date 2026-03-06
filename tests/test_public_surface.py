@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import posetta
 from posetta.adapters import (
+    ConversionResult,
     convert_dlc_csv,
     convert_dlc_h5,
     convert_dlc_project,
@@ -22,12 +23,37 @@ from posetta.formats import (
     write_metrics_table,
     write_siesta,
 )
+from posetta.model import (
+    Instance,
+    Keypoint,
+    KPFlag,
+    LabeledFrame,
+    Labels,
+    Point,
+    PointArray,
+    PredictedInstance,
+    PredictedPoint,
+    PredictedPointArray,
+    Skeleton,
+    SuggestionFrame,
+    Track,
+    Video,
+    build_keypoint_skeleton,
+    is_predicted_instance,
+    load_skeleton,
+    load_skeleton_dlc,
+    load_skeleton_siesta_json,
+    load_skeleton_sleap,
+    load_skeleton_ultralytics,
+)
 
 
 def test_public_exports_are_callable() -> None:
     assert posetta.__version__
     assert posetta.adapters is not None
     assert posetta.formats is not None
+    assert posetta.model is not None
+    assert ConversionResult is not None
     assert LazyDatasetHandle is not None
     assert PredictionAppendItem is not None
     assert SerializerPredictedInstance is not None
@@ -45,3 +71,27 @@ def test_public_exports_are_callable() -> None:
     assert callable(convert_dlc_h5)
     assert callable(convert_dlc_project)
     assert callable(convert_sleap_package)
+
+
+def test_model_exports_are_available() -> None:
+    assert Labels is not None
+    assert SuggestionFrame is not None
+    assert Skeleton is not None
+    assert Keypoint is not None
+    assert Track is not None
+    assert LabeledFrame is not None
+    assert Instance is not None
+    assert PredictedInstance is not None
+    assert Point is not None
+    assert PredictedPoint is not None
+    assert PointArray is not None
+    assert PredictedPointArray is not None
+    assert Video is not None
+    assert KPFlag is not None
+    assert callable(build_keypoint_skeleton)
+    assert callable(is_predicted_instance)
+    assert callable(load_skeleton)
+    assert callable(load_skeleton_dlc)
+    assert callable(load_skeleton_siesta_json)
+    assert callable(load_skeleton_sleap)
+    assert callable(load_skeleton_ultralytics)

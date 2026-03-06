@@ -42,6 +42,9 @@ pip install -e /path/to/Posetta
 
 Primary library entry points:
 
+Use `posetta.model` for in-memory pose objects. The `posetta.io.*` modules are
+internal implementation detail and are not the install-facing contract.
+
 - `posetta.formats`
   - `read_siesta`
   - `write_siesta`
@@ -57,25 +60,71 @@ Primary library entry points:
   - `read_metrics_table`
   - `write_metrics_table`
 - `posetta.adapters`
+  - `ConversionResult`
   - `convert_dlc_csv`
   - `convert_dlc_h5`
   - `convert_dlc_project`
   - `convert_sleap_package`
+- `posetta.model`
+  - `Labels`
+  - `SuggestionFrame`
+  - `Skeleton`
+  - `Keypoint`
+  - `build_keypoint_skeleton`
+  - `Track`
+  - `LabeledFrame`
+  - `Instance`
+  - `PredictedInstance`
+  - `Point`
+  - `PredictedPoint`
+  - `PointArray`
+  - `PredictedPointArray`
+  - `Video`
+  - `load_skeleton`
+  - `load_skeleton_dlc`
+  - `load_skeleton_siesta_json`
+  - `load_skeleton_sleap`
+  - `load_skeleton_ultralytics`
 
 ## Quick Start
 
 ```python
 from posetta.adapters import convert_dlc_csv
 from posetta.formats import read_siesta, write_siesta
+from posetta.model import Labels
 
 # Convert DeepLabCut tracking into a native .siesta bundle
 convert_dlc_csv("tracking.csv", "video.mp4", "tracking.siesta")
 
 # Read a bundle back
 payload = read_siesta("tracking.siesta", lazy=False)
+labels = payload["labels"]
+assert isinstance(labels, Labels)
 
 # Write a new bundle
-write_siesta("copy.siesta", payload["labels"])
+write_siesta("copy.siesta", labels)
+```
+
+Working directly with the canonical object model:
+
+```python
+from posetta.formats import read_siesta, write_siesta
+from posetta.model import Labels
+
+labels = Labels()
+write_siesta("empty.siesta", labels)
+
+loaded = read_siesta("empty.siesta", lazy=False)["labels"]
+assert isinstance(loaded, Labels)
+```
+
+Loading external skeleton definitions through the public model surface:
+
+```python
+from posetta.model import load_skeleton
+
+skeleton = load_skeleton("config.yaml")
+print(skeleton.keypoint_names)
 ```
 
 ## CLI

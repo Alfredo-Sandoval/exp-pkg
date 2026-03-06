@@ -4,8 +4,8 @@ from pathlib import Path
 
 
 def test_cli_routes_dlc_csv(monkeypatch, capsys) -> None:
+    from posetta.adapters import ConversionResult
     from posetta.cli import main
-    from posetta.io.converters.converter_helpers import ConversionResult
 
     captured: dict[str, object] = {}
 
@@ -66,8 +66,8 @@ def test_cli_routes_dlc_csv(monkeypatch, capsys) -> None:
 
 
 def test_cli_routes_dlc_project(monkeypatch, capsys) -> None:
+    from posetta.adapters import ConversionResult
     from posetta.cli import main
-    from posetta.io.converters.converter_helpers import ConversionResult
 
     captured: dict[str, object] = {}
 
@@ -127,8 +127,8 @@ def test_cli_routes_dlc_project(monkeypatch, capsys) -> None:
 
 
 def test_cli_routes_sleap(monkeypatch, capsys) -> None:
+    from posetta.adapters import ConversionResult
     from posetta.cli import main
-    from posetta.io.converters.converter_helpers import ConversionResult
 
     captured: dict[str, object] = {}
 

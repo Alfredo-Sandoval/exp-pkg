@@ -6,7 +6,11 @@ from pathlib import Path
 import h5py
 import yaml
 
-from posetta.io.skeleton_loaders import load_skeleton, load_skeleton_dlc, load_skeleton_siesta_json
+from posetta.model import (
+    load_skeleton,
+    load_skeleton_dlc,
+    load_skeleton_siesta_json,
+)
 
 
 def test_load_skeleton_siesta_json(tmp_path: Path) -> None:

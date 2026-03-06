@@ -1,4 +1,4 @@
-"""Core `Labels` container, query helpers, and serialization utilities."""
+"""Internal implementation of the canonical `posetta.model` labels container."""
 
 from __future__ import annotations
 
@@ -22,10 +22,16 @@ from posetta.core.skeleton import (
     Keypoint,
     Skeleton,
 )
-from posetta.io.labels import export_ops, serialization
-from posetta.io.labels.cache import LabelsDataCache
-from posetta.io.labels.query import LabelsQuery
-from posetta.io.labels.video_types import VideoProtocol
+
+from . import export_ops, serialization
+from .cache import LabelsDataCache
+from .merge import complex_merge_between as _complex_merge_between
+from .merge import finish_complex_merge as _finish_complex_merge
+from .merge import merge_container_dicts as _merge_container_dicts
+from .merge import merge_matching_frames as _merge_matching_frames
+from .query import LabelsQuery
+from .tracks import add_track as _add_track
+from .video_types import VideoProtocol
 
 logger = get_logger(__name__)
 
@@ -626,8 +632,6 @@ class Labels:
 
         frame.instances.append(instance)
         if (instance.track is not None) and (instance.track not in self.tracks):
-            from posetta.io.labels import add_track as _add_track
-
             _add_track(self, video=frame.video, track=instance.track)
 
         self._cache.add_instance(frame, instance)
@@ -697,10 +701,8 @@ class Labels:
             return False
 
         if unify:
-            from posetta.io.labels.merge import merge_matching_frames as _merge_frames
-
             temp = Labels(labeled_frames=new_frames)
-            _merge_frames(temp)
+            _merge_matching_frames(temp)
             new_frames = temp.labeled_frames
 
         self.labeled_frames.extend(new_frames)
@@ -779,29 +781,21 @@ class Labels:
         cls, base_labels: Labels, new_labels: Labels, unify: bool = True
     ) -> tuple:
         """Delegate complex label merges to the helper while optionally unifying."""
-        from posetta.io.labels.merge import complex_merge_between as _cmb
-
-        return _cmb(base_labels, new_labels, unify)
+        return _complex_merge_between(base_labels, new_labels, unify)
 
     @staticmethod
     def finish_complex_merge(base_labels: Labels, resolved_frames: list[LabeledFrame]):
         """Finalize a complex merge with resolved frames."""
-        from posetta.io.labels.merge import finish_complex_merge as _finish
-
-        _finish(base_labels, resolved_frames)
+        _finish_complex_merge(base_labels, resolved_frames)
 
     @staticmethod
     def merge_container_dicts(dict_a: dict, dict_b: dict) -> None:
         """Merge dictionary-based containers, keeping unique items."""
-        from posetta.io.labels.merge import merge_container_dicts as _mcd
-
-        _mcd(dict_a, dict_b)
+        _merge_container_dicts(dict_a, dict_b)
 
     def merge_matching_frames(self, video: VideoProtocol | None = None):
         """Coalesce frames that refer to the same video into merged positions."""
-        from posetta.io.labels.merge import merge_matching_frames as _mmf
-
-        _mmf(self, video)
+        _merge_matching_frames(self, video)
 
     @classmethod
     def load_file(cls, filename: str, *args, **kwargs):

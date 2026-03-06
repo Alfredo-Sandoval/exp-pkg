@@ -7,12 +7,12 @@ import sys
 from collections.abc import Callable, Sequence
 
 from posetta.adapters import (
+    ConversionResult,
     convert_dlc_csv,
     convert_dlc_h5,
     convert_dlc_project,
     convert_sleap_package,
 )
-from posetta.io.converters.converter_helpers import ConversionResult
 from posetta.version import __version__
 
 CliCommand = Callable[[argparse.Namespace], int]

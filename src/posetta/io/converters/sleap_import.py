@@ -1,4 +1,4 @@
-"""Convert a SLEAP `.pkg.slp` directly into a unified `.siesta` project."""
+"""Convert a SLEAP `.pkg.slp` directly into canonical `.siesta` bundles."""
 
 from __future__ import annotations
 
@@ -27,7 +27,7 @@ from posetta.io.skeleton_loaders import build_sleap_skeleton
 if TYPE_CHECKING:
     from posetta.core.skeleton import Keypoint
     from posetta.core.skeleton import Skeleton as _Skeleton
-    from posetta.io.labels import Labels as _Labels
+    from posetta.model import Labels as _Labels
 
 ProgressCallback = Callable[[str], None]
 
@@ -51,8 +51,8 @@ def _labels_from_step4_table(
     from posetta.core.annotations import Instance as _Instance
     from posetta.core.annotations import LabeledFrame as _LabeledFrame
     from posetta.core.annotations import Point as _Point
-    from posetta.io.labels import Labels as _Labels
     from posetta.io.video import Video as _Video
+    from posetta.model import Labels as _Labels
 
     labels = _Labels()
 

@@ -1,4 +1,4 @@
-"""Convert DeepLabCut-style tracking data into `.siesta` projects.
+"""Convert DeepLabCut-style tracking data into canonical `.siesta` bundles.
 
 Supports:
 - DLC CSV format (multi-index headers: scorer, bodyparts, coords)
@@ -29,7 +29,7 @@ _LOGGER = get_logger(__name__)
 if TYPE_CHECKING:
     from posetta.core.skeleton import Keypoint
     from posetta.core.skeleton import Skeleton as _Skeleton
-    from posetta.io.labels import Labels as _Labels
+    from posetta.model import Labels as _Labels
 
 DlcReader = Callable[[Path], tuple[pd.DataFrame, list[str]]]
 
@@ -118,7 +118,7 @@ def _labels_from_tracking_df(
     video_path: Path,
     likelihood_threshold: float = 0.0,
 ) -> _Labels:
-    """Convert tracking DataFrame to Labels object.
+    """Convert tracking DataFrame to the canonical `posetta.model.Labels` object.
 
     Args:
         df: DataFrame with columns like 'nose_x', 'nose_y', 'nose_likelihood', ...
@@ -129,7 +129,7 @@ def _labels_from_tracking_df(
         likelihood_threshold: Minimum likelihood to include a point (0 = include all)
     """
     from posetta.core.annotations import Instance, LabeledFrame, Point
-    from posetta.io.labels import Labels
+    from posetta.model import Labels
 
     video = Video.from_filename(str(video_path))
     labels = Labels(skeletons=[skeleton], videos=[video])

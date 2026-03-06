@@ -1,4 +1,4 @@
-"""Convenience exports for the native `.siesta` bundle format."""
+"""Public format exports for the native `.siesta` bundle format."""
 
 from __future__ import annotations
 
