@@ -68,7 +68,8 @@ class Instance:
             self.from_predicted, PredictedInstance
         ):
             raise TypeError(
-                f"Instance.from_predicted type must be PredictedInstance (not {type(self.from_predicted)})"
+                "Instance.from_predicted type must be PredictedInstance "
+                f"(not {type(self.from_predicted)})"
             )
 
         self._points = self._coerce_init_points(init_points)
@@ -133,6 +134,36 @@ class Instance:
                 raise TypeError("Instance point values must be Point-like records.")
             normalized[key] = value
         return normalized
+
+    @staticmethod
+    def _coerce_coordinate(value: object, *, axis: str) -> float:
+        if isinstance(value, np.generic):
+            value = value.item()
+        if isinstance(value, bool | int | float):
+            return float(value)
+        raise ValueError(f"Instance point {axis} coordinate must be numeric.")
+
+    @classmethod
+    def _coerce_point_value(cls, value: object) -> Point:
+        if isinstance(value, Point):
+            return value
+        if isinstance(value, np.ndarray):
+            if value.shape != (2,):
+                raise ValueError("Instance point values must be (x, y) coordinates.")
+            coords = value.tolist()
+            if not isinstance(coords, list) or len(coords) != 2:
+                raise ValueError("Instance point values must be (x, y) coordinates.")
+            x = cls._coerce_coordinate(coords[0], axis="x")
+            y = cls._coerce_coordinate(coords[1], axis="y")
+            return PointCtor(x=x, y=y)
+        if isinstance(value, Sequence) and not isinstance(value, bytes | str):
+            coords = tuple(value)
+            if len(coords) != 2:
+                raise ValueError("Instance point values must be (x, y) coordinates.")
+            x = cls._coerce_coordinate(coords[0], axis="x")
+            y = cls._coerce_coordinate(coords[1], axis="y")
+            return PointCtor(x=x, y=y)
+        raise ValueError("Instance point values must be (x, y) coordinates.")
 
     @staticmethod
     def _points_dict_to_array(
@@ -345,17 +376,7 @@ class Instance:
             keypoint_idx = self._keypoint_to_index(kp_name)
         else:
             keypoint_idx = normalized_key
-        if not isinstance(value, Point):
-            if isinstance(value, np.ndarray) and value.shape == (2,):
-                value = PointCtor(x=float(value[0]), y=float(value[1]))
-            elif (
-                isinstance(value, Sequence)
-                and not isinstance(value, bytes | str)
-                and len(value) == 2
-            ):
-                value = PointCtor(x=float(value[0]), y=float(value[1]))
-            else:
-                raise ValueError("Instance point values must be (x, y) coordinates.")
+        value = self._coerce_point_value(value)
         if (
             isinstance(points, PredictedPointArray)
             and isinstance(value, Point)

@@ -5,16 +5,27 @@ build-backend = "hatchling.build"
 [project]
 name = "posetta"
 version = "0.1.0"
-description = "Pose and annotation I/O toolkit."
-requires-python = ">=3.11"
-dependencies = []
+description = "Native .siesta bundle IO and adapter toolkit for pose data."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+  "cattrs>=23.1",
+  "h5py>=3.9,<4",
+  "imageio>=2.31",
+  "imageio-ffmpeg>=0.5",
+  "numpy>=1.26,<3",
+  "opencv-python-headless>=4.8",
+  "pandas>=2.0",
+  "pyyaml>=6.0",
+  "tables>=3.9",
+]
 
 [project.scripts]
 posetta = "posetta.cli:main"
 
 [tool.ruff]
 line-length = 100
-target-version = "py311"
+target-version = "py312"
 src = ["src"]
 
 [tool.ruff.lint]

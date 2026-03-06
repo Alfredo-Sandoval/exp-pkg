@@ -22,7 +22,7 @@ def predicted_point_types() -> tuple[type, ...]:
     return _PREDICTED_POINT_TYPES
 
 
-class MaxInstancesExceeded(RuntimeError):
+class MaxInstancesExceededError(RuntimeError):
     """Raised when an append batch exceeds the configured max instances per frame."""
 
 
@@ -583,7 +583,8 @@ def _pack_instances_into_row(
             deleted = False
         else:
             raise TypeError(
-                "Prediction instances must be SerializerPredictedInstance or PredictedInstance entries"
+                "Prediction instances must be SerializerPredictedInstance "
+                "or PredictedInstance entries"
             )
 
         score_val = _coerce_prediction_float(
@@ -897,7 +898,7 @@ def _copy_dataset_rows(src: h5py.Dataset, dst: h5py.Dataset, limit: int) -> None
 
 
 __all__ = [
-    "MaxInstancesExceeded",
+    "MaxInstancesExceededError",
     "PredictionAppendItem",
     "PredictionDatasetMap",
     "SerializerPredictedInstance",

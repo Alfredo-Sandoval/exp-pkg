@@ -18,7 +18,7 @@ import h5py
 import numpy as np
 
 from posetta.io.siesta_format.predictions_datasets import (
-    MaxInstancesExceeded,
+    MaxInstancesExceededError,
     PredictionAppendItem,
     PredictionDatasetMap,
     _assert_prediction_dataset_alignment,
@@ -190,7 +190,7 @@ def _rewrite_with_larger_max(
             for item in batch_list:
                 inst_count = len(item.instances or [])
                 if inst_count > new_max_inst:
-                    raise MaxInstancesExceeded(
+                    raise MaxInstancesExceededError(
                         f"Frame {item.frame_index} requires {inst_count} instances "
                         f"(> {new_max_inst})"
                     )

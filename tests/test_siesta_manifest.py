@@ -39,3 +39,20 @@ def test_write_siesta_manifest_tracks_bundle_only_by_default(tmp_path: Path) -> 
 
     assert len(entries) == 1
     assert _has("predictions", expected_bundle, "bundle")
+
+
+def test_write_siesta_persists_preferences_payload(tmp_path: Path) -> None:
+    from posetta.io.labels import Labels
+    from posetta.io.siesta_format import write_siesta
+
+    bundle_path = tmp_path / "prefs.siesta"
+    labels = Labels(preferences={"theme": "paper", "show_scores": True})
+    write_siesta(bundle_path, labels)
+
+    with h5py.File(str(bundle_path), "r") as handle:
+        raw = handle["project_metadata"].attrs["preferences_json"]
+        if isinstance(raw, bytes | bytearray):
+            raw = raw.decode("utf-8")
+        payload = json.loads(str(raw))
+
+    assert payload == {"show_scores": True, "theme": "paper"}

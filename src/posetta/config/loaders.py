@@ -1,7 +1,7 @@
-"""Centralized JSON/YAML load and save helpers.
+"""Centralized JSON/YAML load helpers for package configuration assets.
 
-Single authoritative module for loading and saving JSON/YAML configuration
-files. All non-GUI config IO should delegate here.
+Single authoritative module for loading packaged JSON/YAML configuration
+files used by Posetta's format and adapter stack.
 """
 
 from __future__ import annotations
@@ -10,30 +10,10 @@ from functools import cache
 from pathlib import Path
 from typing import Any
 
-from posetta.core.json_utils import load_json_dict, write_json
-from posetta.core.path_registry import ensure_dir, resolve_path
+from posetta.core.json_utils import load_json_dict
+from posetta.core.path_registry import resolve_path
 
 _BASE = Path(__file__).parent
-
-
-def load_json_file(path: str | Path) -> dict[str, Any]:
-    """Load a JSON file into a dictionary from any path.
-
-    Supports path expansion (user home, environment variables).
-
-    Args:
-        path: Path to the JSON file.
-
-    Returns:
-        The loaded configuration dictionary.
-
-    Raises:
-        FileNotFoundError: If the file does not exist.
-    """
-    path_obj = resolve_path(path)
-    if not path_obj.exists():
-        raise FileNotFoundError(f"Config file not found: {path_obj}")
-    return load_json_dict(path_obj)
 
 
 @cache
@@ -104,32 +84,8 @@ def load_yaml_file(path: str | Path) -> dict[str, Any]:
     return out
 
 
-def save_json(cfg: dict[str, Any], path: str | Path) -> Path:
-    """Write a configuration dictionary to a JSON file."""
-    path_obj = resolve_path(path)
-    ensure_dir(path_obj.parent)
-    write_json(path_obj, cfg, indent=2, sort_keys=False)
-    return path_obj
-
-
-def save_yaml(cfg: dict[str, Any], path: str | Path) -> Path:
-    """Write a configuration dictionary to a YAML file."""
-    import yaml
-
-    path_obj = resolve_path(path)
-    ensure_dir(path_obj.parent)
-    serialized = yaml.safe_dump(cfg, sort_keys=False, default_flow_style=False)
-    if serialized and not serialized.endswith("\n"):
-        serialized += "\n"
-    path_obj.write_text(serialized, encoding="utf-8")
-    return path_obj
-
-
 __all__ = [
     "load_from_data_dir",
     "load_json_config",
-    "load_json_file",
     "load_yaml_file",
-    "save_json",
-    "save_yaml",
 ]

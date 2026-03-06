@@ -3,11 +3,14 @@ SIESTA skeleton loader/normalizer (schema v1.1.0)
 
  - Link field is `links` (pairs of KEYPOINT NAMES; undirected).
  - Accept aliases on load: {edges, segments, bones, skeleton}; normalize to `links`.
-- Accept keypoint container aliases: {keypoints, bodyparts, markers, nodes, landmarks}; normalize to `keypoints`.
-- Do NOT store symmetry pairs; derive L<->R from per-keypoint `side` + *_left/_right naming.
-- Optionally normalize names to snake_case and expand L/R tokens.
+ - Accept keypoint container aliases:
+   {keypoints, bodyparts, markers, nodes, landmarks}; normalize to `keypoints`.
+ - Do NOT store symmetry pairs; derive L<->R from per-keypoint `side`
+   + *_left/_right naming.
+ - Optionally normalize names to snake_case and expand L/R tokens.
  - Export ALWAYS with `links` and `keypoints` only (drop alias containers).
-- Provide validation, adjacency/incidence helpers, and simple analytics resolution (pairs/triples).
+ - Provide validation, adjacency/incidence helpers,
+   and simple analytics resolution (pairs/triples).
 """
 
 from __future__ import annotations
@@ -646,9 +649,9 @@ class Skeleton:
         names = [kp.name for kp in self.keypoints]
         if len(names) != len(set(names)):
             raise ValueError("Keypoint names must be unique.")
-        K = len(self.keypoints)
+        keypoint_count = len(self.keypoints)
         for a, b in self.links_ids:
-            if not (0 <= a < K and 0 <= b < K):
+            if not (0 <= a < keypoint_count and 0 <= b < keypoint_count):
                 raise ValueError(f"Link id out of range: {(a, b)}")
             if a == b:
                 raise ValueError(f"Self-link not allowed: {(a, b)}")

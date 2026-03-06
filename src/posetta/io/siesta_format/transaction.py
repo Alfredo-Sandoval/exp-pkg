@@ -152,9 +152,13 @@ class SiestaFileLock:
             age_str = "unknown"
         else:
             age_str = f"{age:.3f}"
+        details = (
+            f"pid={pid}, tid={tid}, hostname={hostname}, "
+            f"timestamp={timestamp}, age_seconds={age_str}"
+        )
         return (
             f"Lock already exists: {self.lock_path} "
-            f"(pid={pid}, tid={tid}, hostname={hostname}, timestamp={timestamp}, age_seconds={age_str})"
+            f"({details})"
         )
 
     def release(self) -> None:

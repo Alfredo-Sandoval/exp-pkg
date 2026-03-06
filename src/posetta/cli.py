@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import argparse
 import sys
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 
 from posetta.adapters import (
     convert_dlc_csv,
@@ -14,6 +14,8 @@ from posetta.adapters import (
 )
 from posetta.io.converters.converter_helpers import ConversionResult
 from posetta.version import __version__
+
+CliCommand = Callable[[argparse.Namespace], int]
 
 
 def _positive_int(value: str) -> int:
@@ -45,7 +47,7 @@ def _configure_tracking_parser(
     *,
     data_flag: str,
     data_help: str,
-    command: callable,
+    command: CliCommand,
 ) -> None:
     parser.add_argument(data_flag, required=True, help=data_help)
     parser.add_argument("--video", required=True, help="Path to the matching video file.")

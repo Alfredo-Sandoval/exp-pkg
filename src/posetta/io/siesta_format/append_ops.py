@@ -15,7 +15,7 @@ import h5py
 import numpy as np
 
 from posetta.io.siesta_format.predictions_datasets import (
-    MaxInstancesExceeded,
+    MaxInstancesExceededError,
     PredictionAppendItem,
     PredictionDatasetMap,
     _assert_prediction_dataset_alignment,
@@ -143,7 +143,7 @@ def append_predictions_siesta(
 
             if batch_max_instances > max_inst:
                 if not allow_max_inst_growth:
-                    raise MaxInstancesExceeded(
+                    raise MaxInstancesExceededError(
                         "Batch requires more instances than the file currently stores. "
                         "Re-run with allow_max_inst_growth=True to trigger rewrite."
                     )
@@ -417,7 +417,7 @@ def merge_predictions_siesta(
                 required_max = max(required_max, base_count + len(item.instances or []))
 
         if required_max > max_inst and not allow_max_inst_growth:
-            raise MaxInstancesExceeded(
+            raise MaxInstancesExceededError(
                 "Batch requires more instances than the file currently stores. "
                 "Re-run with allow_max_inst_growth=True to trigger rewrite."
             )

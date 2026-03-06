@@ -18,7 +18,6 @@ from posetta.io.labels.query import (
     find_frames,
     group_labeled_frames_by_video,
 )
-from posetta.io.labels.store import FileLabelStore, LabelsFactory, VideoStub
 from posetta.io.labels.tracks import (
     add_track,
     find_track_occupancy,
@@ -53,13 +52,10 @@ def make_video_callback():
 
 
 __all__ = [
-    "FileLabelStore",
     "Labels",
     "LabelsDataCache",
-    "LabelsFactory",
     "LabelsQuery",
     "SuggestionFrame",
-    "VideoStub",
     "add_track",
     "build_frame_index_map",
     "complex_merge_between",

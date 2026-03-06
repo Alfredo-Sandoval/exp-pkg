@@ -67,6 +67,13 @@ from posetta.version import __version__ as package_version
 logger = get_logger(__name__)
 
 
+def _write_preferences_attr(meta_group: h5py.Group, preferences: Mapping[str, Any]) -> None:
+    if not preferences:
+        return
+    payload = _mapping_to_str_key_dict(preferences, name="labels.preferences")
+    meta_group.attrs["preferences_json"] = _serialize_json(payload)
+
+
 def write_siesta(
     path: Path,
     labels,
@@ -224,15 +231,7 @@ def write_siesta(
                     meta_group.attrs["provenance_json"] = _serialize_json(provenance_payload)
 
                 if preferences:
-                    from posetta.config.definitions import PREFERENCES_DEFAULTS
-
-                    overrides = {
-                        k: v
-                        for k, v in preferences.items()
-                        if k not in PREFERENCES_DEFAULTS or PREFERENCES_DEFAULTS[k] != v
-                    }
-                    if overrides:
-                        meta_group.attrs["preferences_json"] = _serialize_json(overrides)
+                    _write_preferences_attr(meta_group, preferences)
 
                 session_data = labels.session
                 if session_data:
@@ -374,17 +373,8 @@ def update_labels_siesta(
 
                     preferences = labels.preferences
                     if preferences:
-                        from posetta.config.definitions import PREFERENCES_DEFAULTS
-
-                        overrides = {
-                            k: v
-                            for k, v in preferences.items()
-                            if k not in PREFERENCES_DEFAULTS or PREFERENCES_DEFAULTS[k] != v
-                        }
-
-                        if overrides:
-                            meta_group = dst.require_group("project_metadata")
-                            meta_group.attrs["preferences_json"] = _serialize_json(overrides)
+                        meta_group = dst.require_group("project_metadata")
+                        _write_preferences_attr(meta_group, preferences)
 
                     session_data = labels.session
                     if session_data:
@@ -421,7 +411,16 @@ def update_labels_siesta(
                             video_path_lookup,
                         )
                     elif suggestions_data is not None:
-                        pass
+                        video_lookup, video_path_lookup = build_video_lookups(
+                            videos, project_root=None
+                        )
+                        sugg_group = dst.require_group("suggestions")
+                        write_suggestions_datasets(
+                            sugg_group,
+                            [],
+                            video_lookup,
+                            video_path_lookup,
+                        )
                     elif "suggestions" in src:
                         src.copy("suggestions", dst, name="suggestions")
 

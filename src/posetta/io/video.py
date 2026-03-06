@@ -335,9 +335,11 @@ class VideoWriterOpenCV:
     ):
         ext = Path(filename).suffix.lower()
         code = fourcc or ("MJPG" if ext == ".avi" else "mp4v")
+        if len(code) != 4:
+            raise ValueError(f"fourcc must be exactly 4 characters, got {code!r}")
         writer = cv2.VideoWriter(
             filename,
-            int(cv2.VideoWriter.fourcc(*code)),
+            int(cv2.VideoWriter_fourcc(code[0], code[1], code[2], code[3])),
             fps,
             (int(width), int(height)),
             bool(is_color),
