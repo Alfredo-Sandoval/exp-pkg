@@ -2,89 +2,42 @@
 
 A Rosetta Stone for pose data.
 
-Posetta is the standalone IO layer for the native **Siesta format** (`.siesta`).
-It owns the bundle reader and writer, prediction append and merge helpers,
-metrics table storage, skeleton loading, and adapter entry points for the file
-formats we currently support.
+Posetta reads and writes `.siesta` bundles (HDF5-based pose archives) and
+converts DLC and SLEAP tracking into that format.
 
-## Current Surface
+## What It Does
 
-Today `Posetta` supports:
-
-- Native `.siesta` bundle IO
-- Prediction append and merge operations for `.siesta`
-- Metrics table read and write helpers for `.siesta`
-- DeepLabCut adapters
-  - CSV tracking files
-  - H5 tracking files
-  - project-directory conversion
-- SLEAP adapter
-  - `.pkg.slp` package import
+- Native `.siesta` bundle IO (read, write, update, append, merge)
+- Metrics table storage inside bundles
+- Skeleton loading from multiple formats
+- DeepLabCut adapters (CSV, H5, whole-project)
+- SLEAP adapter (`.pkg.slp` package import)
 
 The repo does not yet ship adapters for MMPose, MediaPipe, OpenPose,
 Detectron2, or other ecosystems listed in older drafts.
 
-## Installation
+## Install
 
-For local development or internal use:
-
-```bash
-pip install /path/to/Posetta
-```
-
-For editable installs:
+Not on PyPI yet. Clone and install locally:
 
 ```bash
-pip install -e /path/to/Posetta
+git clone https://github.com/Alfredo-Sandoval/Posetta.git
+cd Posetta
+pip install -e .
 ```
 
-## Public API
+For the documentation toolchain:
 
-Primary library entry points:
+```bash
+pip install -e '.[docs]'
+```
 
-Use `posetta.model` for in-memory pose objects. The `posetta.io.*` modules are
-internal implementation detail and are not the install-facing contract.
+## Documentation
 
-- `posetta.formats`
-  - `read_siesta`
-  - `write_siesta`
-  - `update_labels_siesta`
-  - `append_predictions_siesta`
-  - `merge_predictions_siesta`
-  - `summarize_project`
-  - `validate_project`
-  - `PredictionAppendItem`
-  - `SerializerPredictedInstance`
-  - `MaxInstancesExceededError`
-  - `LazyDatasetHandle`
-  - `read_metrics_table`
-  - `write_metrics_table`
-- `posetta.adapters`
-  - `ConversionResult`
-  - `convert_dlc_csv`
-  - `convert_dlc_h5`
-  - `convert_dlc_project`
-  - `convert_sleap_package`
-- `posetta.model`
-  - `Labels`
-  - `SuggestionFrame`
-  - `Skeleton`
-  - `Keypoint`
-  - `build_keypoint_skeleton`
-  - `Track`
-  - `LabeledFrame`
-  - `Instance`
-  - `PredictedInstance`
-  - `Point`
-  - `PredictedPoint`
-  - `PointArray`
-  - `PredictedPointArray`
-  - `Video`
-  - `load_skeleton`
-  - `load_skeleton_dlc`
-  - `load_skeleton_siesta_json`
-  - `load_skeleton_sleap`
-  - `load_skeleton_ultralytics`
+```bash
+make docs-build    # build the static site
+make docs-serve    # live preview at localhost:8123
+```
 
 ## Quick Start
 
@@ -93,7 +46,7 @@ from posetta.adapters import convert_dlc_csv
 from posetta.formats import read_siesta, write_siesta
 from posetta.model import Labels
 
-# Convert DeepLabCut tracking into a native .siesta bundle
+# Convert DeepLabCut tracking into a .siesta bundle
 convert_dlc_csv("tracking.csv", "video.mp4", "tracking.siesta")
 
 # Read a bundle back
@@ -105,20 +58,7 @@ assert isinstance(labels, Labels)
 write_siesta("copy.siesta", labels)
 ```
 
-Working directly with the canonical object model:
-
-```python
-from posetta.formats import read_siesta, write_siesta
-from posetta.model import Labels
-
-labels = Labels()
-write_siesta("empty.siesta", labels)
-
-loaded = read_siesta("empty.siesta", lazy=False)["labels"]
-assert isinstance(loaded, Labels)
-```
-
-Loading external skeleton definitions through the public model surface:
+Loading skeleton definitions:
 
 ```python
 from posetta.model import load_skeleton

@@ -20,6 +20,13 @@ dependencies = [
   "tables>=3.9",
 ]
 
+[project.optional-dependencies]
+docs = [
+  "mkdocs>=1.6",
+  "mkdocs-material>=9.5",
+  "mkdocstrings[python]>=0.24",
+]
+
 [project.scripts]
 posetta = "posetta.cli:main"
 
