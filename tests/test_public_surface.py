@@ -15,11 +15,13 @@ from posetta.formats import (
     SerializerPredictedInstance,
     append_predictions_siesta,
     merge_predictions_siesta,
+    read_labels_json_payload,
     read_metrics_table,
     read_siesta,
     summarize_project,
     update_labels_siesta,
     validate_project,
+    write_labels_json,
     write_metrics_table,
     write_siesta,
 )
@@ -60,11 +62,13 @@ def test_public_exports_are_callable() -> None:
     assert MaxInstancesExceededError is not None
     assert callable(append_predictions_siesta)
     assert callable(merge_predictions_siesta)
+    assert callable(read_labels_json_payload)
     assert callable(read_metrics_table)
     assert callable(read_siesta)
     assert callable(summarize_project)
     assert callable(update_labels_siesta)
     assert callable(validate_project)
+    assert callable(write_labels_json)
     assert callable(write_metrics_table)
     assert callable(write_siesta)
     assert callable(convert_dlc_csv)

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 
@@ -14,6 +15,8 @@ from posetta.core.skeleton import SCHEMA_VERSION as SKELETON_SCHEMA_VERSION
 from posetta.core.skeleton import Keypoint, Skeleton
 from posetta.io.labels.video_types import VideoProtocol
 from posetta.io.video import Video, gui_playback_backend_for_path
+
+from .json_format import read_labels_json_payload, write_labels_json
 
 if TYPE_CHECKING:
     from posetta.io.labels.model import Labels, SuggestionFrame
@@ -69,6 +72,23 @@ def build_video_object(
         resolved,
         backend=gui_playback_backend_for_path(resolved),
     )
+
+
+def _image_sequence_from_payload(entry: Any, *, video_index: int) -> list[str] | None:
+    if entry is None:
+        return None
+    if not isinstance(entry, Sequence) or isinstance(entry, str | bytes | bytearray):
+        raise TypeError(f"videos.image_filenames[{video_index}] must be a sequence of paths")
+
+    out: list[str] = []
+    for frame_index, raw_path in enumerate(entry):
+        frame_path = str(raw_path).strip()
+        if not frame_path:
+            raise ValueError(
+                f"videos.image_filenames[{video_index}][{frame_index}] cannot be empty"
+            )
+        out.append(frame_path)
+    return out or None
 
 
 def load_suggestions(
@@ -265,6 +285,7 @@ def labels_from_siesta_payload(
     video_ids = list(videos_info.get("video_ids") or [])
     video_labels = list(videos_info.get("video_labels") or [])
     filenames_raw = list(videos_info.get("filenames") or [])
+    image_sequences_raw = list(videos_info.get("image_filenames") or [])
     backends_raw = list(videos_info.get("backends") or [])
     sha_raw = list(videos_info.get("sha256") or [])
     shapes_raw = _materialize(videos_info.get("shapes"))
@@ -282,6 +303,7 @@ def labels_from_siesta_payload(
     total_videos = max(
         len(resolved_paths),
         len(filenames_raw),
+        len(image_sequences_raw),
         len(backends_raw),
         len(sha_raw),
         shapes_arr.shape[0],
@@ -292,14 +314,28 @@ def labels_from_siesta_payload(
 
     videos: list[VideoProtocol] = []
     for idx in range(total_videos):
-        filepath = ""
-        if idx < len(resolved_paths) and resolved_paths[idx]:
-            filepath = _to_str(resolved_paths[idx])
-        elif idx < len(filenames_raw):
-            filepath = _to_str(filenames_raw[idx])
-        if not filepath:
-            raise ValueError(f"Video entry {idx} missing filename/resolved_paths")
-        video_obj = build_video_object(filepath)
+        image_filenames = None
+        media_label = ""
+        if idx < len(image_sequences_raw):
+            image_filenames = _image_sequence_from_payload(
+                image_sequences_raw[idx],
+                video_index=idx,
+            )
+        if image_filenames is not None:
+            video_obj = Video.from_image_filenames(image_filenames)
+            media_label = image_filenames[0]
+        else:
+            filepath = ""
+            if idx < len(resolved_paths) and resolved_paths[idx]:
+                filepath = _to_str(resolved_paths[idx])
+            elif idx < len(filenames_raw):
+                filepath = _to_str(filenames_raw[idx])
+            if not filepath:
+                raise ValueError(
+                    f"Video entry {idx} missing filename/resolved_paths or image_filenames"
+                )
+            video_obj = build_video_object(filepath)
+            media_label = filepath
 
         if idx < len(video_ids):
             video_obj.id = str(video_ids[idx])
@@ -311,7 +347,7 @@ def labels_from_siesta_payload(
                 logger.debug(
                     "Ignoring serialized video backend '%s' for %s; loaded backend is '%s'.",
                     backend_name,
-                    filepath,
+                    media_label,
                     video_obj.backend,
                 )
         if idx < len(sha_raw):
@@ -495,6 +531,16 @@ def labels_load_file(cls: type[Labels], filename: str, *args: Any, **kwargs: Any
 
     path = Path(filename)
     ext = path.suffix.lower()
+    if ext == ".json":
+        payload = read_labels_json_payload(path)
+        obj = labels_from_siesta_payload(
+            cls,
+            payload,
+            suggestions_payload=payload.get("suggestions") if isinstance(payload, dict) else None,
+        )
+        obj.validate()
+        obj.path = path
+        return obj
     if ext and ext != ".siesta":
         raise ValueError(f"No serializer for extension: {ext}")
 
@@ -526,6 +572,7 @@ def labels_save_file(
     filename: str,
     *,
     default_suffix: str = "",
+    metadata: dict[str, Any] | None = None,
     **_: Any,
 ) -> str:
     """Save labels to disk."""
@@ -533,12 +580,16 @@ def labels_save_file(
 
     path = Path(filename)
     ext = path.suffix.lower() or default_suffix
+    if ext == ".json":
+        if not path.suffix:
+            path = path.with_suffix(".json")
+        return write_labels_json(path, labels, metadata=metadata)
     if ext and ext != ".siesta":
         raise ValueError(f"No serializer for extension: {ext}")
     if not path.suffix:
         path = path.with_suffix(".siesta")
     ensure_dir(path.parent)
-    write_siesta(path, labels)
+    write_siesta(path, labels, metadata=metadata)
     labels.path = path
     return str(path)
 

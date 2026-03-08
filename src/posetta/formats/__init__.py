@@ -17,6 +17,7 @@ from posetta.formats.siesta import (
     write_metrics_table,
     write_siesta,
 )
+from posetta.io.labels.json_format import read_labels_json_payload, write_labels_json
 
 __all__ = [
     "LazyDatasetHandle",
@@ -26,10 +27,12 @@ __all__ = [
     "append_predictions_siesta",
     "merge_predictions_siesta",
     "read_metrics_table",
+    "read_labels_json_payload",
     "read_siesta",
     "summarize_project",
     "update_labels_siesta",
     "validate_project",
+    "write_labels_json",
     "write_metrics_table",
     "write_siesta",
 ]
