@@ -43,7 +43,7 @@ def test_cli_routes_dlc_csv(monkeypatch, capsys) -> None:
             "--video",
             "clip.mp4",
             "--out",
-            "tracking.siesta",
+            "tracking.sta",
             "--skeleton-name",
             "mouse",
             "--threshold",
@@ -55,14 +55,14 @@ def test_cli_routes_dlc_csv(monkeypatch, capsys) -> None:
     assert captured == {
         "csv_path": "tracking.csv",
         "video_path": "clip.mp4",
-        "out_path": "tracking.siesta",
+        "out_path": "tracking.sta",
         "skeleton_name": "mouse",
         "likelihood_threshold": 0.25,
     }
 
     stdout = capsys.readouterr().out
     assert "csv-progress" in stdout
-    assert "tracking.siesta" in stdout
+    assert "tracking.sta" in stdout
 
 
 def test_cli_routes_dlc_project(monkeypatch, capsys) -> None:
@@ -87,13 +87,13 @@ def test_cli_routes_dlc_project(monkeypatch, capsys) -> None:
                 source_dir=Path(project_dir),
                 project_root=Path(out_dir),
                 videos=[Path("video1.mp4")],
-                siesta_path=Path(out_dir) / "video1.siesta",
+                siesta_path=Path(out_dir) / "video1.sta",
             ),
             ConversionResult(
                 source_dir=Path(project_dir),
                 project_root=Path(out_dir),
                 videos=[Path("video2.mp4")],
-                siesta_path=Path(out_dir) / "video2.siesta",
+                siesta_path=Path(out_dir) / "video2.sta",
             ),
         ]
 
@@ -122,8 +122,8 @@ def test_cli_routes_dlc_project(monkeypatch, capsys) -> None:
 
     stdout = capsys.readouterr().out
     assert "Converted 2 project item(s)" in stdout
-    assert "exports/video1.siesta" in stdout
-    assert "exports/video2.siesta" in stdout
+    assert "exports/video1.sta" in stdout
+    assert "exports/video2.sta" in stdout
 
 
 def test_cli_routes_sleap(monkeypatch, capsys) -> None:
@@ -149,7 +149,7 @@ def test_cli_routes_sleap(monkeypatch, capsys) -> None:
             source_dir=Path(slp),
             project_root=Path(out_dir),
             videos=[],
-            siesta_path=Path(out_dir) / "project.siesta",
+            siesta_path=Path(out_dir) / "project.sta",
         )
 
     monkeypatch.setattr("posetta.cli.convert_sleap_package", fake_convert_sleap_package)
@@ -178,4 +178,4 @@ def test_cli_routes_sleap(monkeypatch, capsys) -> None:
 
     stdout = capsys.readouterr().out
     assert "sleap-progress" in stdout
-    assert "sleap-export/project.siesta" in stdout
+    assert "sleap-export/project.sta" in stdout

@@ -1,4 +1,4 @@
-"""Public API for the unified `.siesta` serializer."""
+"""Public API for the unified `.sta` serializer."""
 
 from posetta.io.siesta_format.append_ops import append_predictions_siesta, merge_predictions_siesta
 from posetta.io.siesta_format.predictions_datasets import (
@@ -11,6 +11,11 @@ from posetta.io.siesta_format.reader import (
     read_siesta,
     summarize_project,
     validate_project,
+)
+from posetta.io.siesta_format.segmentation_hdf5 import (
+    SEGMENTATION_SCHEMA_VERSION,
+    read_segmentation_group,
+    write_segmentation_group,
 )
 from posetta.io.siesta_format.writer_core import update_labels_siesta, write_siesta
 
@@ -26,4 +31,7 @@ __all__ = [
     "update_labels_siesta",
     "validate_project",
     "write_siesta",
+    "SEGMENTATION_SCHEMA_VERSION",
+    "read_segmentation_group",
+    "write_segmentation_group",
 ]

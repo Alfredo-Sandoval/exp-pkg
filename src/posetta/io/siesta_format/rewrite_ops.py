@@ -1,4 +1,4 @@
-"""Prediction rewrite helpers for `.siesta` archives.
+"""Prediction rewrite helpers for `.sta` archives.
 
 The rewrite path was extracted from append_ops because it is a large, independently
 testable operation family (>200 LOC) that rewrites archive layout/state rather than
@@ -92,14 +92,14 @@ def _require_predictions_groups(
 ) -> tuple[h5py.Group, h5py.Group, h5py.Group]:
     preds_group = src_file.get("predictions")
     if preds_group is None:
-        raise ValueError(".siesta file is missing the /predictions group")
+        raise ValueError(".sta file is missing the /predictions group")
     if not isinstance(preds_group, h5py.Group):
         raise TypeError(predictions_type_error)
 
     frames_group = preds_group.get("frames")
     data_group = preds_group.get("data")
     if frames_group is None or data_group is None:
-        raise ValueError(".siesta file is missing predictions frames/data groups")
+        raise ValueError(".sta file is missing predictions frames/data groups")
     if not isinstance(frames_group, h5py.Group) or not isinstance(data_group, h5py.Group):
         raise TypeError(frames_group_type_error)
     return preds_group, frames_group, data_group
@@ -112,7 +112,7 @@ def _require_predictions_keypoints_dataset(
 ) -> h5py.Dataset:
     keypoints_ds = data_group.get("keypoints")
     if keypoints_ds is None:
-        raise ValueError(".siesta file is missing predictions/data/keypoints dataset")
+        raise ValueError(".sta file is missing predictions/data/keypoints dataset")
     if not isinstance(keypoints_ds, h5py.Dataset):
         raise TypeError(keypoints_type_error)
     return keypoints_ds

@@ -1,4 +1,4 @@
-"""HDF5 dataset helpers for `.siesta` predictions."""
+"""HDF5 dataset helpers for `.sta` predictions."""
 
 from __future__ import annotations
 
@@ -54,7 +54,7 @@ class SerializerPredictedInstance:
 
 
 class PredictionAppendItem:
-    """Container for appending predictions to a `.siesta` archive."""
+    """Container for appending predictions to a `.sta` archive."""
 
     __slots__ = (
         "detections",

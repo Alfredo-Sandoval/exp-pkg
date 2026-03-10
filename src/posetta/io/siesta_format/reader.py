@@ -1,4 +1,4 @@
-"""Read-only helpers for `.siesta` archives."""
+"""Read-only helpers for `.sta` archives."""
 
 from __future__ import annotations
 
@@ -115,7 +115,7 @@ class LazyDatasetHandle:
     def materialize(self) -> np.ndarray:
         if not self.dataset.id.valid:
             raise RuntimeError(
-                "Cannot materialize lazy dataset after the owning .siesta handle is closed"
+                "Cannot materialize lazy dataset after the owning .sta handle is closed"
             )
         data = self.dataset[...]
         if self.length is not None:
@@ -136,7 +136,7 @@ class LazyDatasetHandle:
     def shape(self) -> tuple[int, ...]:
         if not self.dataset.id.valid:
             raise RuntimeError(
-                "Cannot read lazy dataset shape after the owning .siesta handle is closed"
+                "Cannot read lazy dataset shape after the owning .sta handle is closed"
             )
         base = tuple(self.dataset.shape)
         if not base or self.length is None:
@@ -818,6 +818,11 @@ def _assemble_result(
         metrics_schema_ver = int(ver_val) if isinstance(ver_val, int | float) else 0
 
     suggestions_payload = _read_suggestions_group(handle, lazy_read=lazy_read)
+
+    from posetta.io.siesta_format.segmentation_hdf5 import read_segmentation_group
+
+    segmentation_payload = read_segmentation_group(handle)
+
     runs_payload = _read_runs_group(handle)
 
     metadata.setdefault("n_labels", labels_payload["metadata"]["num_frames"])
@@ -843,6 +848,7 @@ def _assemble_result(
             "metadata": {},
         },
         "suggestions": suggestions_payload,
+        "segmentation": segmentation_payload,
         "runs": runs_payload,
         "metadata": metadata,
         "provenance": provenance,
@@ -857,10 +863,10 @@ def read_siesta(
     *,
     lazy: bool = False,
 ) -> dict[str, Any]:
-    """Load a `.siesta` project archive from disk.
+    """Load a `.sta` project archive from disk.
 
     Args:
-        path: Path to the `.siesta` file.
+        path: Path to the `.sta` file.
         lazy: If True, return lazy dataset handles instead of materializing arrays.
             The return payload includes ``h5_handle`` (LazySiestaHandle), and the
             caller must close it after materializing lazy datasets.

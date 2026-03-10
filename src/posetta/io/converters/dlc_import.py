@@ -1,4 +1,4 @@
-"""Convert DeepLabCut-style tracking data into canonical `.siesta` bundles.
+"""Convert DeepLabCut-style tracking data into canonical `.sta` bundles.
 
 Supports:
 - DLC CSV format (multi-index headers: scorer, bodyparts, coords)
@@ -183,7 +183,7 @@ def _convert_dlc_tracking(
     likelihood_threshold: float,
     progress_callback: ProgressCallback | None,
 ) -> ConversionResult:
-    """Run the canonical DLC data-file -> .siesta conversion pipeline."""
+    """Run the canonical DLC data-file -> .sta conversion pipeline."""
 
     resolved_data_path = resolve_path(data_path)
     resolved_video_path = resolve_path(video_path)
@@ -234,12 +234,12 @@ def convert_dlc_csv(
     likelihood_threshold: float = 0.0,
     progress_callback: ProgressCallback | None = None,
 ) -> ConversionResult:
-    """Convert a DLC CSV file + video into a .siesta project.
+    """Convert a DLC CSV file + video into a .sta project.
 
     Args:
         csv_path: Path to the DLC CSV file
         video_path: Path to the corresponding video file
-        out_path: Output .siesta file path
+        out_path: Output .sta file path
         skeleton_name: Name for the skeleton
         likelihood_threshold: Minimum likelihood to include points (0-1)
         progress_callback: Optional progress callback
@@ -270,7 +270,7 @@ def convert_dlc_h5(
     likelihood_threshold: float = 0.0,
     progress_callback: ProgressCallback | None = None,
 ) -> ConversionResult:
-    """Convert a DLC-style H5 tracking file + video into a .siesta project."""
+    """Convert a DLC-style H5 tracking file + video into a .sta project."""
     return _convert_dlc_tracking(
         h5_path,
         video_path,
@@ -292,7 +292,7 @@ def convert_dlc_project(
     likelihood_threshold: float = 0.0,
     progress_callback: ProgressCallback | None = None,
 ) -> list[ConversionResult]:
-    """Convert an entire DLC project directory to .siesta format.
+    """Convert an entire DLC project directory to .sta format.
 
     Expects DLC project structure:
         project/
@@ -348,7 +348,7 @@ def convert_dlc_project(
             _emit(progress_callback, f"IMPORT: Skipping {sub.name} (no video found)")
             continue
 
-        out_path = out_dir / f"{sub.name}.siesta"
+        out_path = out_dir / f"{sub.name}.sta"
         _emit(progress_callback, f"IMPORT: Converting {sub.name}")
 
         if is_h5:

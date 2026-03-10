@@ -1,5 +1,5 @@
 """
-Unified .siesta Format Serializer (Core Writer)
+Unified .sta Format Serializer (Core Writer)
 """
 
 from __future__ import annotations
@@ -34,6 +34,9 @@ from posetta.io.siesta_format.prediction_coerce import (
     _coerce_prediction_items,
     _infer_prediction_keypoint_count,
     coerce_predictions_from_labels,
+)
+from posetta.io.siesta_format.segmentation_hdf5 import (
+    write_segmentation_group,
 )
 from posetta.io.siesta_format.predictions_datasets import (
     PredictionDatasetMap,
@@ -74,6 +77,26 @@ def _write_preferences_attr(meta_group: h5py.Group, preferences: Mapping[str, An
     meta_group.attrs["preferences_json"] = _serialize_json(payload)
 
 
+def _write_segmentation_from_labels(h5file: h5py.File, labels) -> None:
+    """Collect masks and ROIs from labeled frames and write to HDF5."""
+    from posetta.core.annotations.regions import ROI, SegmentationMask
+
+    masks_by_frame: list[tuple[int, int, list[SegmentationMask]]] = []
+    rois_by_frame: list[tuple[int, int, list[ROI]]] = []
+    video_lookup = {video: idx for idx, video in enumerate(labels.videos)}
+
+    for lf in labels.labeled_frames:
+        vi = video_lookup.get(lf.video, 0)
+        fi = int(lf.frame_idx)
+        if hasattr(lf, "masks") and lf.masks:
+            masks_by_frame.append((vi, fi, list(lf.masks)))
+        if hasattr(lf, "rois") and lf.rois:
+            rois_by_frame.append((vi, fi, list(lf.rois)))
+
+    if masks_by_frame or rois_by_frame:
+        write_segmentation_group(h5file, masks_by_frame, rois_by_frame)
+
+
 def write_siesta(
     path: Path,
     labels,
@@ -83,7 +106,7 @@ def write_siesta(
     metrics=None,
     manifest=None,
 ) -> None:
-    """Create or overwrite a `.siesta` project archive atomically."""
+    """Create or overwrite a `.sta` project archive atomically."""
     parent = path.parent
     project_root = path.parent
     if not parent.exists():
@@ -276,6 +299,8 @@ def write_siesta(
                         project_root=project_root,
                     )
 
+                _write_segmentation_from_labels(h5file, labels)
+
                 metrics_count = 0
                 for table_name, dataframe in _normalize_metrics_entries(metrics):
                     write_metrics_table_to_handle(
@@ -326,10 +351,10 @@ def update_labels_siesta(
     *,
     journal: bool = True,
 ) -> None:
-    """Overwrite the labels portion of an existing `.siesta` archive."""
+    """Overwrite the labels portion of an existing `.sta` archive."""
 
     if not path.exists():
-        raise FileNotFoundError(f".siesta file does not exist: {path}")
+        raise FileNotFoundError(f".sta file does not exist: {path}")
 
     tmp_path: Path | None = None
 
@@ -352,7 +377,7 @@ def update_labels_siesta(
             with h5py.File(str(path), "r") as src:
                 _require_project_metadata_group(
                     src,
-                    missing_message=".siesta file is missing the /project_metadata group",
+                    missing_message=".sta file is missing the /project_metadata group",
                 )
 
                 with h5py.File(str(tmp_path), mode="w") as dst:
@@ -518,7 +543,7 @@ def write_predictions_group(
     committed_length: int | None = None,
     video_index_lookup: Mapping[object, int] | Sequence[object] | None = None,
 ) -> int:
-    """Write predictions data to the `/predictions` group in a `.siesta` file."""
+    """Write predictions data to the `/predictions` group in a `.sta` file."""
     prediction_items = _coerce_prediction_items(
         predictions,
         video_index_lookup=video_index_lookup,
@@ -934,7 +959,7 @@ def write_labels_group(
     *,
     max_inst: int | None = None,
 ) -> None:
-    """Write labels data to the `/labels` group in a `.siesta` file."""
+    """Write labels data to the `/labels` group in a `.sta` file."""
     from posetta.core.annotations import KPFlag
 
     frames_data = []

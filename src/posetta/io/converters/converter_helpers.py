@@ -23,7 +23,7 @@ _LOGGER = get_logger(__name__)
 
 @dataclass(slots=True)
 class ConversionResult:
-    """Outcome of converting an external data format into a .siesta bundle."""
+    """Outcome of converting an external data format into a .sta bundle."""
 
     source_dir: Path
     project_root: Path

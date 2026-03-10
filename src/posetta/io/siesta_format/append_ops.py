@@ -1,4 +1,4 @@
-"""Prediction append/merge helpers for `.siesta` archives.
+"""Prediction append/merge helpers for `.sta` archives.
 
 Rewrite operations were extracted to ``rewrite_ops.py`` because they are a large,
 independently testable family with separate rewrite semantics from in-place
@@ -62,10 +62,10 @@ def append_predictions_siesta(
     fsync: bool = True,
     run_metadata: Mapping[str, Any] | None = None,
 ) -> int:
-    """Append prediction batches to an existing `.siesta` archive.
+    """Append prediction batches to an existing `.sta` archive.
 
     Args:
-        path: Path to the `.siesta` file.
+        path: Path to the `.sta` file.
         batch: Sequence of PredictionAppendItem to append.
         allow_max_inst_growth: If True, allow the file to be rewritten with a larger
             max_instances if the batch exceeds the current limit.
@@ -102,13 +102,13 @@ def append_predictions_siesta(
             frames_group = preds_group.get("frames")
             data_group = preds_group.get("data")
             if frames_group is None or data_group is None:
-                raise ValueError(".siesta file is missing predictions frames/data groups")
+                raise ValueError(".sta file is missing predictions frames/data groups")
             if not isinstance(frames_group, h5py.Group) or not isinstance(data_group, h5py.Group):
                 raise TypeError("Predictions frames/data must be h5py Groups")
 
             keypoints_ds = data_group.get("keypoints")
             if keypoints_ds is None:
-                raise ValueError(".siesta file is missing predictions/data/keypoints dataset")
+                raise ValueError(".sta file is missing predictions/data/keypoints dataset")
             if not isinstance(keypoints_ds, h5py.Dataset):
                 raise TypeError("Predictions keypoints must be an h5py Dataset")
 
@@ -325,7 +325,7 @@ def merge_predictions_siesta(
     """Merge predictions for existing frames by appending instances to those frames.
 
     Args:
-        path: Path to the `.siesta` file.
+        path: Path to the `.sta` file.
         batch: Sequence of PredictionAppendItem to merge.
         allow_max_inst_growth: If True, allow the file to be rewritten with a larger
             max_instances if the merge exceeds the current limit.

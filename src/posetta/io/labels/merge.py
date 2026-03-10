@@ -1,4 +1,4 @@
-"""Helpers for merging `.siesta` label bundles while normalizing references."""
+"""Helpers for merging `.sta` label bundles while normalizing references."""
 
 from __future__ import annotations
 

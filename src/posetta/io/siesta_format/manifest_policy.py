@@ -1,4 +1,4 @@
-"""Manifest/provenance policy helpers for `.siesta` writer flows."""
+"""Manifest/provenance policy helpers for `.sta` writer flows."""
 
 from __future__ import annotations
 

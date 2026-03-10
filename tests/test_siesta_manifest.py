@@ -13,7 +13,7 @@ def test_write_siesta_manifest_tracks_bundle_only_by_default(tmp_path: Path) -> 
     project_root = tmp_path / "proj"
     project_root.mkdir(parents=True)
 
-    bundle_path = project_root / "proj.siesta"
+    bundle_path = project_root / "proj.sta"
     labels = Labels()
     write_siesta(bundle_path, labels)
 
@@ -45,7 +45,7 @@ def test_write_siesta_persists_preferences_payload(tmp_path: Path) -> None:
     from posetta.formats import write_siesta
     from posetta.model import Labels
 
-    bundle_path = tmp_path / "prefs.siesta"
+    bundle_path = tmp_path / "prefs.sta"
     labels = Labels(preferences={"theme": "paper", "show_scores": True})
     write_siesta(bundle_path, labels)
 

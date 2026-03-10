@@ -21,6 +21,15 @@ from posetta.core.annotations.points import (
     PredictedPoint,
     PredictedPointArray,
 )
+from posetta.core.annotations.regions import (
+    MaskType,
+    PromptType,
+    ROI,
+    SegmentationMask,
+    SegmentationPrompt,
+    rle_decode,
+    rle_encode,
+)
 from posetta.core.annotations.serde import make_instance_cattr
 from posetta.core.logging_utils import get_logger
 from posetta.core.skeleton import Keypoint, Skeleton
@@ -38,11 +47,16 @@ __all__ = [
     "KPFlag",
     "Keypoint",
     "LabeledFrame",
+    "MaskType",
     "Point",
     "PointArray",
     "PredictedInstance",
     "PredictedPoint",
     "PredictedPointArray",
+    "PromptType",
+    "ROI",
+    "SegmentationMask",
+    "SegmentationPrompt",
     "Skeleton",
     "Track",
     "Video",
@@ -51,4 +65,6 @@ __all__ = [
     "make_instance_cattr",
     "normalize_point_like",
     "normalize_points_sequence",
+    "rle_decode",
+    "rle_encode",
 ]

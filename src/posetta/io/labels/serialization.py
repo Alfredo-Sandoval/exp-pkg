@@ -41,7 +41,7 @@ def _as_array(
 ) -> np.ndarray:
     obj = _materialize(value)
     if obj is None:
-        raise ValueError(f"Required field '{name}' missing in .siesta payload")
+        raise ValueError(f"Required field '{name}' missing in .sta payload")
     arr = np.asarray(obj, dtype=dtype)
     if arr.ndim == 0:
         arr = arr.reshape(1)
@@ -154,9 +154,9 @@ def labels_from_siesta_payload(
     *,
     suggestions_payload: dict[str, Any] | None = None,
 ) -> Labels:
-    """Construct `Labels` from a `.siesta` payload dictionary."""
+    """Construct `Labels` from a `.sta` payload dictionary."""
     if not payload:
-        raise ValueError("Empty .siesta payload; cannot hydrate Labels")
+        raise ValueError("Empty .sta payload; cannot hydrate Labels")
 
     frames_info = payload.get("frames") or {}
     data_info = payload.get("data") or {}
@@ -183,7 +183,7 @@ def labels_from_siesta_payload(
 
     raw_keypoints = _materialize(data_info.get("keypoints"))
     if raw_keypoints is None:
-        raise ValueError("data.keypoints missing from .siesta payload")
+        raise ValueError("data.keypoints missing from .sta payload")
 
     raw_names = list(skeleton_info.get("names") or [])
     keypoint_names: list[str] = []
@@ -206,7 +206,7 @@ def labels_from_siesta_payload(
 
     if not keypoint_names and has_data:
         raise ValueError(
-            "Skeleton names missing from .siesta payload but keypoint data is present."
+            "Skeleton names missing from .sta payload but keypoint data is present."
         )
 
     if keypoint_names and kp_count != len(keypoint_names):
@@ -310,7 +310,7 @@ def labels_from_siesta_payload(
         max_video_idx,
     )
     if total_videos == 0 and frames_dim:
-        raise ValueError("Frames are present but no videos listed in .siesta payload")
+        raise ValueError("Frames are present but no videos listed in .sta payload")
 
     videos: list[VideoProtocol] = []
     for idx in range(total_videos):
@@ -541,7 +541,7 @@ def labels_load_file(cls: type[Labels], filename: str, *args: Any, **kwargs: Any
         obj.validate()
         obj.path = path
         return obj
-    if ext and ext != ".siesta":
+    if ext and ext not in (".sta", ".siesta"):
         raise ValueError(f"No serializer for extension: {ext}")
 
     payload = read_siesta(path, lazy=False)
@@ -584,10 +584,10 @@ def labels_save_file(
         if not path.suffix:
             path = path.with_suffix(".json")
         return write_labels_json(path, labels, metadata=metadata)
-    if ext and ext != ".siesta":
+    if ext and ext not in (".sta", ".siesta"):
         raise ValueError(f"No serializer for extension: {ext}")
     if not path.suffix:
-        path = path.with_suffix(".siesta")
+        path = path.with_suffix(".sta")
     ensure_dir(path.parent)
     write_siesta(path, labels, metadata=metadata)
     labels.path = path

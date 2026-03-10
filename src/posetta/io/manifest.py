@@ -3,7 +3,7 @@ Project manifest for tracking assets with stable identifiers.
 
 This module provides a centralized registry for project assets (videos, models,
 skeletons, bundles) that replaces scattered file searching with O(1) lookups.
-The manifest persists in the `.siesta` bundle and uses PathId for stable references.
+The manifest persists in the `.sta` bundle and uses PathId for stable references.
 """
 
 from __future__ import annotations
@@ -423,12 +423,12 @@ def resolve_asset_path(
 def persist_manifest(
     bundle_path: Path | str, manifest: ProjectManifest | Mapping[str, Any]
 ) -> None:
-    """Write the provided manifest into the project's .siesta bundle."""
+    """Write the provided manifest into the project's .sta bundle."""
     from posetta.io.siesta_format.transaction import SiestaFileLock
 
     bundle = Path(bundle_path).resolve()
     if not bundle.exists():
-        raise FileNotFoundError(f".siesta bundle not found: {bundle}")
+        raise FileNotFoundError(f".sta bundle not found: {bundle}")
     if isinstance(manifest, ProjectManifest):
         manifest_obj = manifest
     elif isinstance(manifest, Mapping):
@@ -442,7 +442,7 @@ def persist_manifest(
         with h5py.File(str(bundle), "r+") as h5file:
             meta_group = h5file.get("project_metadata")
             if meta_group is None:
-                raise ValueError(".siesta file is missing the project_metadata group")
+                raise ValueError(".sta file is missing the project_metadata group")
             if not isinstance(meta_group, h5py.Group):
                 raise TypeError("project_metadata must be an h5py Group")
             meta_group.attrs["manifest_json"] = manifest_json

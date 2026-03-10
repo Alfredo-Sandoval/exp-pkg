@@ -17,7 +17,7 @@ if TYPE_CHECKING:
     from posetta.io.labels.video_types import VideoProtocol
 
 POSETTA_LABELS_JSON_FORMAT = "posetta.labels-json"
-POSETTA_LABELS_JSON_VERSION = "1.0.0"
+POSETTA_LABELS_JSON_VERSION = "2.0.0"
 
 
 def _sorted_labeled_frames(labels: Labels) -> list[Any]:
@@ -211,7 +211,52 @@ def labels_to_json_payload(
     suggestions_payload = _suggestions_payload(labels.suggestions, video_lookup)
     if suggestions_payload is not None:
         payload["payload"]["suggestions"] = suggestions_payload
+
+    segmentation_payload = _segmentation_payload(labels, video_lookup)
+    if segmentation_payload is not None:
+        payload["payload"]["segmentation"] = segmentation_payload
+
     return payload
+
+
+def _segmentation_payload(
+    labels: Labels,
+    video_lookup: dict[VideoProtocol, int],
+) -> dict[str, Any] | None:
+    """Build JSON payload for segmentation masks and ROIs."""
+    masks_list: list[dict[str, Any]] = []
+    rois_list: list[dict[str, Any]] = []
+
+    sorted_frames = sorted(
+        labels.labeled_frames,
+        key=lambda lf: (video_lookup.get(lf.video, 0), int(lf.frame_idx)),
+    )
+
+    for lf in sorted_frames:
+        if not hasattr(lf, "masks") and not hasattr(lf, "rois"):
+            continue
+        vi = video_lookup.get(lf.video, 0)
+        fi = int(lf.frame_idx)
+        for mask in getattr(lf, "masks", []):
+            d = mask.to_dict()
+            d["video_index"] = vi
+            d["frame_index"] = fi
+            masks_list.append(d)
+        for roi in getattr(lf, "rois", []):
+            d = roi.to_dict()
+            d["video_index"] = vi
+            d["frame_index"] = fi
+            rois_list.append(d)
+
+    if not masks_list and not rois_list:
+        return None
+
+    result: dict[str, Any] = {"version": "1.0.0"}
+    if masks_list:
+        result["masks"] = masks_list
+    if rois_list:
+        result["rois"] = rois_list
+    return result
 
 
 def write_labels_json(

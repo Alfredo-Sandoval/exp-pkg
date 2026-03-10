@@ -1,4 +1,4 @@
-"""Project validation and summary helpers for `.siesta` archives."""
+"""Project validation and summary helpers for `.sta` archives."""
 
 from __future__ import annotations
 

@@ -114,7 +114,7 @@ class SuggestionFrame:
 
 @dataclass(repr=False)
 class Labels:
-    """Represent a `.siesta` label bundle with caching, query helpers, and IO helpers."""
+    """Represent a `.sta` label bundle with caching, query helpers, and IO helpers."""
 
     labeled_frames: list[LabeledFrame] = field(default_factory=list)
     videos: list[VideoProtocol] = field(default_factory=list)
@@ -675,10 +675,10 @@ class Labels:
         *,
         suggestions_payload: dict[str, Any] | None = None,
     ) -> Labels:
-        """Construct `Labels` from a `.siesta` payload dictionary.
+        """Construct `Labels` from a `.sta` payload dictionary.
 
         Args:
-            payload: The main `.siesta` data dictionary.
+            payload: The main `.sta` data dictionary.
             suggestions_payload: Optional suggestions data dictionary.
 
         Returns:
@@ -817,8 +817,8 @@ class Labels:
         return self.save_file(self, filename)
 
     def export_h5(self, filename: str) -> str:
-        """Write this bundle to disk as a `.siesta` file."""
-        return self.save_file(self, filename, _default_suffix=".siesta")
+        """Write this bundle to disk as a `.sta` file."""
+        return self.save_file(self, filename, _default_suffix=".sta")
 
     def numpy(
         self,

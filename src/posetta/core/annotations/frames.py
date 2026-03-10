@@ -18,6 +18,7 @@ from posetta.core.annotations.instances import (
     Track,
     is_predicted_instance,
 )
+from posetta.core.annotations.regions import ROI, SegmentationMask
 from posetta.core.logging_utils import get_logger
 
 logger = get_logger("posetta.core.annotations")
@@ -149,6 +150,8 @@ class LabeledFrame:
     frame_idx: int
     _instances: InstancesList = field(default_factory=InstancesList)
     heatmaps: np.ndarray | None = None
+    _masks: list[SegmentationMask] = field(default_factory=list)
+    _rois: list[ROI] = field(default_factory=list)
 
     def __post_init__(self):
         """Hook to ensure the internal InstancesList is bound to the frame."""
@@ -160,6 +163,8 @@ class LabeledFrame:
         video: Video,
         frame_idx: int,
         instances: InstancesList | Sequence[InstanceLike] | None = None,
+        masks: list[SegmentationMask] | None = None,
+        rois: list[ROI] | None = None,
     ):
         """Initialize the labeled frame, optionally binding instances."""
         self.video = video
@@ -173,6 +178,8 @@ class LabeledFrame:
             self._instances = InstancesList(instances)
 
         self.heatmaps = None
+        self._masks = list(masks) if masks is not None else []
+        self._rois = list(rois) if rois is not None else []
         self.instances = self._instances
 
     def __len__(self) -> int:
@@ -257,8 +264,46 @@ class LabeledFrame:
             instances = InstancesList(instances, labeled_frame=self)
         self._instances = instances
 
+    @property
+    def masks(self) -> list[SegmentationMask]:
+        """Return the segmentation masks attached to this frame."""
+        return self._masks
+
+    @masks.setter
+    def masks(self, masks: list[SegmentationMask] | Sequence[SegmentationMask]):
+        self._masks = list(masks)
+
+    @property
+    def rois(self) -> list[ROI]:
+        """Return the regions of interest attached to this frame."""
+        return self._rois
+
+    @rois.setter
+    def rois(self, rois: list[ROI] | Sequence[ROI]):
+        self._rois = list(rois)
+
+    @property
+    def has_masks(self) -> bool:
+        """Return True if any segmentation masks are attached."""
+        return len(self._masks) > 0
+
+    @property
+    def has_rois(self) -> bool:
+        """Return True if any ROIs are attached."""
+        return len(self._rois) > 0
+
+    @property
+    def user_masks(self) -> list[SegmentationMask]:
+        """Return non-predicted segmentation masks."""
+        return [m for m in self._masks if not m.is_predicted]
+
+    @property
+    def predicted_masks(self) -> list[SegmentationMask]:
+        """Return predicted segmentation masks."""
+        return [m for m in self._masks if m.is_predicted]
+
     def copy(self) -> LabeledFrame:
-        """Return a deep copy of this frame (instances + heatmaps).
+        """Return a deep copy of this frame (instances + heatmaps + masks + rois).
 
         Returns:
             LabeledFrame: A new LabeledFrame instance with copied data.
@@ -268,7 +313,17 @@ class LabeledFrame:
         converter = make_instance_cattr()
         instances_payload = converter.unstructure(self._instances)
         instances_copy = converter.structure(instances_payload, InstancesList)
-        clone = LabeledFrame(video=self.video, frame_idx=self.frame_idx, instances=instances_copy)
+        masks_copy = [
+            SegmentationMask.from_dict(m.to_dict(), track=m.track) for m in self._masks
+        ]
+        rois_copy = [ROI.from_dict(r.to_dict(), track=r.track) for r in self._rois]
+        clone = LabeledFrame(
+            video=self.video,
+            frame_idx=self.frame_idx,
+            instances=instances_copy,
+            masks=masks_copy,
+            rois=rois_copy,
+        )
         if self.heatmaps is not None:
             clone.heatmaps = np.array(self.heatmaps, copy=True)
         return clone

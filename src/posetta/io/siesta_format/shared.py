@@ -41,7 +41,7 @@ def _require_h5_group(
 def _require_project_metadata_group(
     container: h5py.File | h5py.Group,
     *,
-    missing_message: str = "Missing project_metadata group in .siesta file",
+    missing_message: str = "Missing project_metadata group in .sta file",
     type_message: str = "project_metadata must be an h5py Group",
 ) -> h5py.Group:
     return _require_h5_group(

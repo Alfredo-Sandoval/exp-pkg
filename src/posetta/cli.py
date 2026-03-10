@@ -51,7 +51,7 @@ def _configure_tracking_parser(
 ) -> None:
     parser.add_argument(data_flag, required=True, help=data_help)
     parser.add_argument("--video", required=True, help="Path to the matching video file.")
-    parser.add_argument("--out", required=True, help="Output .siesta file path.")
+    parser.add_argument("--out", required=True, help="Output .sta file path.")
     parser.add_argument(
         "--skeleton-name",
         default="imported",
@@ -91,7 +91,7 @@ def _add_dlc_parser(parent: argparse._SubParsersAction[argparse.ArgumentParser])
         help="Convert every supported item in a DLC project directory.",
     )
     project_parser.add_argument("--project", required=True, help="Path to the DLC project root.")
-    project_parser.add_argument("--out", required=True, help="Output directory for .siesta files.")
+    project_parser.add_argument("--out", required=True, help="Output directory for .sta files.")
     project_parser.add_argument(
         "--threshold",
         type=_likelihood_threshold,
@@ -136,7 +136,7 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     )
 
     subparsers = parser.add_subparsers(dest="command", required=True)
-    convert = subparsers.add_parser("convert", help="Convert external pose formats into .siesta.")
+    convert = subparsers.add_parser("convert", help="Convert external pose formats into .sta.")
     convert_subparsers = convert.add_subparsers(dest="format", required=True)
     _add_dlc_parser(convert_subparsers)
     _add_sleap_parser(convert_subparsers)

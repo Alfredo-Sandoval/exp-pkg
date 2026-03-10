@@ -1,4 +1,4 @@
-"""Convert a SLEAP `.pkg.slp` directly into canonical `.siesta` bundles."""
+"""Convert a SLEAP `.pkg.slp` directly into canonical `.sta` bundles."""
 
 from __future__ import annotations
 
@@ -180,7 +180,7 @@ def convert_sleap_package(
     if videos:
         remap_labels_to_videos(labels, videos, proj_root)
 
-    siesta_path = proj_root / f"{proj_root.name}.siesta"
+    siesta_path = proj_root / f"{proj_root.name}.sta"
     metadata = {
         "project_name": proj_root.name,
         "source": "sleap_pkg_import",

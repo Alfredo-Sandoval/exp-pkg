@@ -254,7 +254,7 @@ def make_path_id(path: str | Path, *, prefix: str) -> PathId:
 def resolve_unified_siesta_or_error(
     path: str | Path,
 ) -> tuple[Path | None, ValueError | FileNotFoundError | None]:
-    """Resolve user input to a concrete .siesta bundle without raising.
+    """Resolve user input to a concrete .sta bundle without raising.
 
     Returns:
         (resolved_path, None) on success, or (None, exception) on failure.
@@ -262,16 +262,16 @@ def resolve_unified_siesta_or_error(
     candidate = resolve_path(path)
 
     if candidate.is_dir():
-        canonical = candidate / f"{candidate.name}.siesta"
+        canonical = candidate / f"{candidate.name}.sta"
         if canonical.exists():
             return canonical.resolve(), None
 
-        bundles = sorted(candidate.glob("*.siesta"))
+        bundles = sorted(candidate.glob("*.sta")) or sorted(candidate.glob("*.siesta"))
         if not bundles:
             return (
                 None,
                 ValueError(
-                    f"Expected a .siesta file path, got a directory with no bundles: {candidate}"
+                    f"Expected a .sta file path, got a directory with no bundles: {candidate}"
                 ),
             )
         if len(bundles) > 1:
@@ -279,33 +279,33 @@ def resolve_unified_siesta_or_error(
             return (
                 None,
                 ValueError(
-                    "Expected a .siesta file path, got a directory with multiple bundles "
+                    "Expected a .sta file path, got a directory with multiple bundles "
                     f"({names}): {candidate}"
                 ),
             )
         return bundles[0].resolve(), None
 
-    if candidate.suffix.lower() != ".siesta":
-        return None, ValueError(f"Expected a .siesta file path, got: {candidate}")
+    if candidate.suffix.lower() not in (".sta", ".siesta"):
+        return None, ValueError(f"Expected a .sta file path, got: {candidate}")
 
     if not candidate.exists():
-        return None, FileNotFoundError(f".siesta file not found: {candidate}")
+        return None, FileNotFoundError(f".sta file not found: {candidate}")
 
     return candidate, None
 
 
 def resolve_unified_siesta(path: str | Path) -> Path:
-    """Resolve user input to a concrete .siesta bundle (no discovery heuristics).
+    """Resolve user input to a concrete .sta bundle (no discovery heuristics).
 
     Args:
-        path: The input path to a .siesta file or a directory containing one.
+        path: The input path to a .sta file or a directory containing one.
 
     Returns:
-        The resolved absolute Path to the .siesta bundle.
+        The resolved absolute Path to the .sta bundle.
 
     Raises:
-        ValueError: If the path is not a .siesta file or directory with a single bundle.
-        FileNotFoundError: If the .siesta file is not found.
+        ValueError: If the path is not a .sta file or directory with a single bundle.
+        FileNotFoundError: If the .sta file is not found.
     """
     resolved, err = resolve_unified_siesta_or_error(path)
     if err is not None:
@@ -325,7 +325,7 @@ def find_project_bundles(project_root: str | Path) -> list[Path]:
         A list containing the Path to the project bundle if it exists, else empty.
     """
     root = Path(project_root)
-    bundle = root / f"{root.name}.siesta"
+    bundle = root / f"{root.name}.sta"
     return [bundle] if bundle.exists() else []
 
 
@@ -387,20 +387,20 @@ def resolve_project_roots(
 
 
 def locate_annotation_bundle(project_root: Path, annotation_files: list[str]) -> Path | None:
-    """Locate the first existing .siesta bundle from a list of relative/absolute paths.
+    """Locate the first existing .sta bundle from a list of relative/absolute paths.
 
     Args:
         project_root: The root directory of the project.
         annotation_files: A list of potential annotation file paths.
 
     Returns:
-        The Path to the first existing .siesta bundle, or None if none found.
+        The Path to the first existing .sta bundle, or None if none found.
     """
     for entry in annotation_files:
         candidate = Path(entry)
         if not candidate.is_absolute():
             candidate = project_root / candidate
-        if candidate.suffix.lower() == ".siesta" and candidate.exists():
+        if candidate.suffix.lower() in (".sta", ".siesta") and candidate.exists():
             return candidate
     return None
 
