@@ -1,30 +1,23 @@
-"""Convert DeepLabCut-style tracking data into canonical `.sta` bundles.
-
-Supports:
-- DLC CSV format (multi-index headers: scorer, bodyparts, coords)
-- DLC-style H5 tracking files
-"""
+"""Convert DeepLabCut-style tracking data into native bundles."""
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
 import pandas as pd
 
-from posetta.core.logging_utils import get_logger
 from posetta.core.path_registry import ensure_dir, resolve_path
 from posetta.core.skeleton import build_keypoint_skeleton
 from posetta.io.converters.converter_helpers import (
     ConversionResult,
     ProgressCallback,
     _emit,
+    project_bundle_path,
 )
 from posetta.io.siesta_format import write_siesta
 from posetta.io.video import Video
-
-_LOGGER = get_logger(__name__)
 
 if TYPE_CHECKING:
     from posetta.core.skeleton import Keypoint
@@ -32,6 +25,20 @@ if TYPE_CHECKING:
     from posetta.model import Labels as _Labels
 
 DlcReader = Callable[[Path], tuple[pd.DataFrame, list[str]]]
+
+_DLC_READ_H5_MARKER = "DLC_IMPORT STEP: read_h5"
+_DLC_VALIDATE_VIDEOS_MARKER = "DLC_IMPORT STEP: validate_videos"
+_DLC_BUILD_LABELS_MARKER = "DLC_IMPORT STEP: build_labels"
+_DLC_WRITE_BUNDLE_MARKER = "DLC_IMPORT STEP: write_bundle"
+_DLC_DONE_MARKER = "DLC_IMPORT DONE"
+
+DLC_H5_PROJECT_PROGRESS_MARKERS: tuple[tuple[str, int], ...] = (
+    (_DLC_READ_H5_MARKER, 10),
+    (_DLC_VALIDATE_VIDEOS_MARKER, 30),
+    (_DLC_BUILD_LABELS_MARKER, 55),
+    (_DLC_WRITE_BUNDLE_MARKER, 80),
+    (_DLC_DONE_MARKER, 100),
+)
 
 
 def _extract_keypoints_from_columns(columns: pd.Index) -> list[str]:
@@ -52,18 +59,7 @@ def _extract_keypoints_from_columns(columns: pd.Index) -> list[str]:
 
 
 def _read_dlc_csv(csv_path: Path) -> tuple[pd.DataFrame, list[str]]:
-    """Read DLC-style multi-index CSV and return flat DataFrame + keypoint names.
-
-    DLC CSV structure:
-        Row 0: scorer (ignored)
-        Row 1: bodyparts (keypoint names, repeated for x/y/likelihood)
-        Row 2: coords (x, y, likelihood)
-        Row 3+: data
-
-    Returns:
-        df: DataFrame with columns like 'nose_x', 'nose_y', 'nose_likelihood', ...
-        keypoints: List of unique keypoint names in order
-    """
+    """Read DLC-style multi-index CSV and return flat DataFrame + keypoint names."""
 
     header_df = pd.read_csv(csv_path, header=None, nrows=4)
 
@@ -75,7 +71,7 @@ def _read_dlc_csv(csv_path: Path) -> tuple[pd.DataFrame, list[str]]:
     else:
         for i in range(min(4, len(header_df))):
             row_vals = header_df.iloc[i].astype(str).str.lower()
-            if any("likelihood" in v or row_vals.tolist().count("x") > 1 for v in row_vals):
+            if any("likelihood" in value or row_vals.tolist().count("x") > 1 for value in row_vals):
                 n_header = i + 1
                 break
 
@@ -89,7 +85,7 @@ def _read_dlc_csv(csv_path: Path) -> tuple[pd.DataFrame, list[str]]:
             elif len(col) == 2:
                 new_cols.append(f"{col[0]}_{col[1]}")
             else:
-                new_cols.append("_".join(str(c) for c in col))
+                new_cols.append("_".join(str(value) for value in col))
         df.columns = new_cols
 
     return df, _extract_keypoints_from_columns(df.columns)
@@ -118,16 +114,7 @@ def _labels_from_tracking_df(
     video_path: Path,
     likelihood_threshold: float = 0.0,
 ) -> _Labels:
-    """Convert tracking DataFrame to the canonical `posetta.model.Labels` object.
-
-    Args:
-        df: DataFrame with columns like 'nose_x', 'nose_y', 'nose_likelihood', ...
-             Index should be frame indices (0-based)
-        keypoints: List of keypoint names
-        skeleton: Skeleton object
-        video_path: Path to the video file
-        likelihood_threshold: Minimum likelihood to include a point (0 = include all)
-    """
+    """Convert tracking DataFrame to the canonical `posetta.model.Labels` object."""
     from posetta.core.annotations import Instance, LabeledFrame, Point
     from posetta.model import Labels
 
@@ -150,8 +137,8 @@ def _labels_from_tracking_df(
             y_val = row[y_col]
 
             if lh_col in row:
-                lh = row[lh_col]
-                if pd.isna(lh) or lh < likelihood_threshold:
+                likelihood = row[lh_col]
+                if pd.isna(likelihood) or likelihood < likelihood_threshold:
                     continue
 
             if pd.isna(x_val) or pd.isna(y_val):
@@ -163,11 +150,91 @@ def _labels_from_tracking_df(
             continue
 
         instance = Instance(skeleton=skeleton, init_points=points)
-        lf = LabeledFrame(video=video, frame_idx=int(frame_idx), instances=[instance])
-        labels.append(lf)
+        labeled_frame = LabeledFrame(video=video, frame_idx=int(frame_idx), instances=[instance])
+        labels.append(labeled_frame)
 
     labels.update_cache()
     return labels
+
+
+def _resolve_tracking_path(data_path: Path | str) -> Path:
+    resolved_data_path = resolve_path(data_path)
+    if not resolved_data_path.exists():
+        raise FileNotFoundError(f"Tracking file not found: {resolved_data_path}")
+    return resolved_data_path
+
+
+def _resolve_video_path(video_path: Path | str) -> Path:
+    resolved_video_path = resolve_path(video_path)
+    if not resolved_video_path.exists():
+        raise FileNotFoundError(f"Video file not found: {resolved_video_path}")
+    return resolved_video_path
+
+
+def _read_tracking_inputs(
+    data_path: Path,
+    *,
+    read_tracking: DlcReader,
+    read_step_label: str,
+    progress_callback: ProgressCallback | None,
+) -> tuple[pd.DataFrame, list[str]]:
+    _emit(progress_callback, f"IMPORT: Reading {read_step_label} {data_path.name}")
+    df, keypoints = read_tracking(data_path)
+    _emit(progress_callback, f"IMPORT: Found {len(keypoints)} keypoints, {len(df)} frames")
+    return df, keypoints
+
+
+def _build_tracking_labels(
+    df: pd.DataFrame,
+    keypoints: list[str],
+    *,
+    skeleton_name: str,
+    video_path: Path,
+    likelihood_threshold: float,
+    progress_callback: ProgressCallback | None,
+) -> _Labels:
+    _emit(progress_callback, "IMPORT: Building skeleton")
+    skeleton = build_keypoint_skeleton(keypoints, name=skeleton_name)
+
+    _emit(progress_callback, "IMPORT: Converting to labels")
+    labels = _labels_from_tracking_df(
+        df,
+        keypoints,
+        skeleton,
+        video_path,
+        likelihood_threshold,
+    )
+    labels.validate()
+    return labels
+
+
+def _write_tracking_bundle(
+    labels: _Labels,
+    *,
+    out_path: Path,
+    data_path: Path,
+    video_path: Path,
+    source_label: str,
+    source_metadata_key: str,
+    progress_callback: ProgressCallback | None,
+) -> ConversionResult:
+    ensure_dir(out_path.parent)
+    metadata = {
+        "source": source_label,
+        source_metadata_key: data_path.as_posix(),
+        "source_video": video_path.as_posix(),
+    }
+
+    _emit(progress_callback, f"IMPORT: Writing {out_path.name}")
+    write_siesta(out_path, labels, metadata=metadata)
+    _emit(progress_callback, "IMPORT: Done")
+
+    return ConversionResult(
+        source_dir=data_path.parent,
+        project_root=out_path.parent,
+        videos=[video_path],
+        siesta_path=out_path,
+    )
 
 
 def _convert_dlc_tracking(
@@ -183,46 +250,48 @@ def _convert_dlc_tracking(
     likelihood_threshold: float,
     progress_callback: ProgressCallback | None,
 ) -> ConversionResult:
-    """Run the canonical DLC data-file -> .sta conversion pipeline."""
+    """Run the canonical DLC data-file -> native bundle conversion pipeline."""
 
-    resolved_data_path = resolve_path(data_path)
-    resolved_video_path = resolve_path(video_path)
+    resolved_data_path = _resolve_tracking_path(data_path)
+    resolved_video_path = _resolve_video_path(video_path)
     resolved_out_path = resolve_path(out_path)
 
-    _emit(progress_callback, f"IMPORT: Reading {read_step_label} {resolved_data_path.name}")
-    df, keypoints = read_tracking(resolved_data_path)
-    _emit(progress_callback, f"IMPORT: Found {len(keypoints)} keypoints, {len(df)} frames")
-
-    _emit(progress_callback, "IMPORT: Building skeleton")
-    skeleton = build_keypoint_skeleton(keypoints, name=skeleton_name)
-
-    _emit(progress_callback, "IMPORT: Converting to labels")
-    labels = _labels_from_tracking_df(
+    df, keypoints = _read_tracking_inputs(
+        resolved_data_path,
+        read_tracking=read_tracking,
+        read_step_label=read_step_label,
+        progress_callback=progress_callback,
+    )
+    labels = _build_tracking_labels(
         df,
         keypoints,
-        skeleton,
-        resolved_video_path,
-        likelihood_threshold,
+        skeleton_name=skeleton_name,
+        video_path=resolved_video_path,
+        likelihood_threshold=likelihood_threshold,
+        progress_callback=progress_callback,
     )
-    labels.validate()
-
-    ensure_dir(resolved_out_path.parent)
-    metadata = {
-        "source": source_label,
-        source_metadata_key: resolved_data_path.as_posix(),
-        "source_video": resolved_video_path.as_posix(),
-    }
-
-    _emit(progress_callback, f"IMPORT: Writing {resolved_out_path.name}")
-    write_siesta(resolved_out_path, labels, metadata=metadata)
-    _emit(progress_callback, "IMPORT: Done")
-
-    return ConversionResult(
-        source_dir=resolved_data_path.parent,
-        project_root=resolved_out_path.parent,
-        videos=[resolved_video_path],
-        siesta_path=resolved_out_path,
+    return _write_tracking_bundle(
+        labels,
+        out_path=resolved_out_path,
+        data_path=resolved_data_path,
+        video_path=resolved_video_path,
+        source_label=source_label,
+        source_metadata_key=source_metadata_key,
+        progress_callback=progress_callback,
     )
+
+
+def _select_explicit_video_path(
+    video_paths: Path | str | Sequence[Path | str],
+) -> Path | str:
+    if isinstance(video_paths, (str, Path)):
+        return video_paths
+    normalized_video_paths = list(video_paths)
+    if len(normalized_video_paths) != 1:
+        raise ValueError(
+            "convert_dlc_h5_project expects exactly one explicit video path for one H5 file"
+        )
+    return normalized_video_paths[0]
 
 
 def convert_dlc_csv(
@@ -234,19 +303,7 @@ def convert_dlc_csv(
     likelihood_threshold: float = 0.0,
     progress_callback: ProgressCallback | None = None,
 ) -> ConversionResult:
-    """Convert a DLC CSV file + video into a .sta project.
-
-    Args:
-        csv_path: Path to the DLC CSV file
-        video_path: Path to the corresponding video file
-        out_path: Output .sta file path
-        skeleton_name: Name for the skeleton
-        likelihood_threshold: Minimum likelihood to include points (0-1)
-        progress_callback: Optional progress callback
-
-    Returns:
-        ConversionResult with paths to created files
-    """
+    """Convert a DLC CSV file + video into a native bundle."""
     return _convert_dlc_tracking(
         csv_path,
         video_path,
@@ -270,7 +327,7 @@ def convert_dlc_h5(
     likelihood_threshold: float = 0.0,
     progress_callback: ProgressCallback | None = None,
 ) -> ConversionResult:
-    """Convert a DLC-style H5 tracking file + video into a .sta project."""
+    """Convert a DLC-style H5 tracking file + video into a native bundle."""
     return _convert_dlc_tracking(
         h5_path,
         video_path,
@@ -285,6 +342,58 @@ def convert_dlc_h5(
     )
 
 
+def convert_dlc_h5_project(
+    h5_path: Path | str,
+    video_paths: Path | str | Sequence[Path | str],
+    project_root: Path | str,
+    *,
+    likelihood_threshold: float = 0.0,
+    progress_callback: ProgressCallback | None = None,
+    bundle_extension: str = ".sta",
+) -> ConversionResult:
+    """Convert one DLC H5 tracking file plus one explicit video into a project bundle."""
+
+    resolved_project_root = resolve_path(project_root)
+    ensure_dir(resolved_project_root)
+    out_path = project_bundle_path(resolved_project_root, bundle_extension=bundle_extension)
+
+    resolved_data_path = _resolve_tracking_path(h5_path)
+    explicit_video_path = _select_explicit_video_path(video_paths)
+    _emit(progress_callback, _DLC_READ_H5_MARKER)
+    df, keypoints = _read_tracking_inputs(
+        resolved_data_path,
+        read_tracking=_read_dlc_h5,
+        read_step_label="H5",
+        progress_callback=progress_callback,
+    )
+
+    _emit(progress_callback, _DLC_VALIDATE_VIDEOS_MARKER)
+    resolved_video_path = _resolve_video_path(explicit_video_path)
+
+    _emit(progress_callback, _DLC_BUILD_LABELS_MARKER)
+    labels = _build_tracking_labels(
+        df,
+        keypoints,
+        skeleton_name=resolved_project_root.name,
+        video_path=resolved_video_path,
+        likelihood_threshold=likelihood_threshold,
+        progress_callback=progress_callback,
+    )
+
+    _emit(progress_callback, _DLC_WRITE_BUNDLE_MARKER)
+    result = _write_tracking_bundle(
+        labels,
+        out_path=out_path,
+        data_path=resolved_data_path,
+        video_path=resolved_video_path,
+        source_label="dlc_h5_import",
+        source_metadata_key="source_h5",
+        progress_callback=progress_callback,
+    )
+    _emit(progress_callback, _DLC_DONE_MARKER)
+    return result
+
+
 def convert_dlc_project(
     project_dir: Path | str,
     out_dir: Path | str,
@@ -292,21 +401,7 @@ def convert_dlc_project(
     likelihood_threshold: float = 0.0,
     progress_callback: ProgressCallback | None = None,
 ) -> list[ConversionResult]:
-    """Convert an entire DLC project directory to .sta format.
-
-    Expects DLC project structure:
-        project/
-            videos/
-                video1.mp4
-                video2.avi
-            labeled-data/
-                video1/
-                    CollectedData_*.csv or CollectedData_*.h5
-                video2/
-                    ...
-
-    Returns list of ConversionResult for each video converted.
-    """
+    """Convert an entire DLC project directory to native bundle format."""
     project_dir = resolve_path(project_dir)
     out_dir = resolve_path(out_dir)
     ensure_dir(out_dir)
@@ -318,12 +413,12 @@ def convert_dlc_project(
     if not labeled_data.exists():
         raise FileNotFoundError(f"No labeled-data directory in {project_dir}")
 
-    for sub in sorted(labeled_data.iterdir()):
-        if not sub.is_dir():
+    for subdir in sorted(labeled_data.iterdir()):
+        if not subdir.is_dir():
             continue
 
-        csv_files = list(sub.glob("CollectedData*.csv"))
-        h5_files = list(sub.glob("CollectedData*.h5"))
+        csv_files = list(subdir.glob("CollectedData*.csv"))
+        h5_files = list(subdir.glob("CollectedData*.h5"))
 
         data_file = None
         is_h5 = False
@@ -334,22 +429,22 @@ def convert_dlc_project(
             is_h5 = True
 
         if data_file is None:
-            _emit(progress_callback, f"IMPORT: Skipping {sub.name} (no data file)")
+            _emit(progress_callback, f"IMPORT: Skipping {subdir.name} (no data file)")
             continue
 
         video_file = None
-        for ext in (".mp4", ".avi", ".mov", ".mkv"):
-            candidate = videos_dir / f"{sub.name}{ext}"
+        for extension in (".mp4", ".avi", ".mov", ".mkv"):
+            candidate = videos_dir / f"{subdir.name}{extension}"
             if candidate.exists():
                 video_file = candidate
                 break
 
         if video_file is None:
-            _emit(progress_callback, f"IMPORT: Skipping {sub.name} (no video found)")
+            _emit(progress_callback, f"IMPORT: Skipping {subdir.name} (no video found)")
             continue
 
-        out_path = out_dir / f"{sub.name}.sta"
-        _emit(progress_callback, f"IMPORT: Converting {sub.name}")
+        out_path = out_dir / f"{subdir.name}.sta"
+        _emit(progress_callback, f"IMPORT: Converting {subdir.name}")
 
         if is_h5:
             result = convert_dlc_h5(
@@ -373,3 +468,12 @@ def convert_dlc_project(
         results.append(result)
 
     return results
+
+
+__all__ = [
+    "DLC_H5_PROJECT_PROGRESS_MARKERS",
+    "convert_dlc_csv",
+    "convert_dlc_h5",
+    "convert_dlc_h5_project",
+    "convert_dlc_project",
+]

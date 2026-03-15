@@ -1,25 +1,27 @@
-"""Convert a SLEAP `.pkg.slp` directly into canonical `.sta` bundles."""
+"""Convert a SLEAP `.pkg.slp` directly into native project bundles."""
 
 from __future__ import annotations
 
 import re
 import shutil
-from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import pandas as pd
 
 from posetta.core.json_utils import parse_json_dict
-from posetta.core.logging_utils import get_logger
 from posetta.core.path_registry import ensure_dir, resolve_path
 from posetta.io.converters.converter_helpers import (
     ConversionResult,
+    ProgressCallback,
     _emit,
+    project_bundle_path,
     rebase_image_sequences,
     remap_labels_to_videos,
 )
-from posetta.io.converters.converter_helpers import encode_videos as _encode_videos
+from posetta.io.converters.converter_helpers import (
+    encode_videos as _encode_videos,
+)
 from posetta.io.converters.sleap_helpers import extract_frames, extract_labels_step4
 from posetta.io.siesta_format import write_siesta
 from posetta.io.skeleton_loaders import build_sleap_skeleton
@@ -29,15 +31,37 @@ if TYPE_CHECKING:
     from posetta.core.skeleton import Skeleton as _Skeleton
     from posetta.model import Labels as _Labels
 
-ProgressCallback = Callable[[str], None]
-
-_LOGGER = get_logger(__name__)
-
 _NAT_SORT_RE = re.compile(r"(\d+)")
 
+_START_EXTRACTING_FRAMES_MARKER = "SIESTA_IMPORT START: extracting_frames"
+_OK_FRAMES_EXTRACTED_MARKER = "SIESTA_IMPORT OK: frames_extracted"
+_START_BUILD_LABEL_TABLE_MARKER = "SIESTA_IMPORT START: build_label_table"
+_OK_LABEL_TABLE_READY_MARKER = "SIESTA_IMPORT OK: label_table_ready"
+_ASSEMBLE_LABELS_MARKER = "SIESTA_IMPORT STEP: assemble_labels"
+_BUILD_VIDEO_MARKER = "SIESTA_IMPORT STEP: build_video"
+_COPY_FRAMES_MARKER = "SIESTA_IMPORT STEP: copy_frames"
+_WRITE_BUNDLE_MARKER = "SIESTA_IMPORT STEP: write_siesta"
+_OK_BUNDLE_WRITTEN_MARKER = "SIESTA_IMPORT OK: siesta_written"
+_CLEANUP_TEMP_MARKER = "SIESTA_IMPORT STEP: cleanup_temp_folders"
+_DONE_MARKER = "SIESTA_IMPORT DONE"
 
-def _frame_sort_key(path: Path) -> list:
-    """Sort key for natural sorting (e.g. img1, img2, img10)."""
+SLEAP_PACKAGE_PROGRESS_MARKERS: tuple[tuple[str, int], ...] = (
+    (_START_EXTRACTING_FRAMES_MARKER, 10),
+    (_OK_FRAMES_EXTRACTED_MARKER, 30),
+    (_START_BUILD_LABEL_TABLE_MARKER, 35),
+    (_OK_LABEL_TABLE_READY_MARKER, 45),
+    (_ASSEMBLE_LABELS_MARKER, 55),
+    (_BUILD_VIDEO_MARKER, 70),
+    (_COPY_FRAMES_MARKER, 72),
+    (_WRITE_BUNDLE_MARKER, 80),
+    (_OK_BUNDLE_WRITTEN_MARKER, 92),
+    (_CLEANUP_TEMP_MARKER, 96),
+    (_DONE_MARKER, 100),
+)
+
+
+def _frame_sort_key(path: Path) -> list[int | str]:
+    """Sort key for natural sorting (for example img1, img2, img10)."""
 
     parts = _NAT_SORT_RE.split(path.stem)
     return [int(part) if part.isdigit() else part for part in parts]
@@ -73,15 +97,15 @@ def _labels_from_step4_table(
 
     videos_by_dir: dict[Path, Any] = {}
     frame_idx_map: dict[str, int] = {}
-    for vdir, frame_paths in frames_by_dir.items():
+    for video_dir, frame_paths in frames_by_dir.items():
         ordered = sorted(frame_paths, key=_frame_sort_key)
-        ordered_str = [p.as_posix() for p in ordered]
+        ordered_str = [path.as_posix() for path in ordered]
         if not ordered_str:
             continue
         video = _Video.from_image_filenames(ordered_str)
-        videos_by_dir[vdir] = video
-        for idx, fpath in enumerate(ordered_str):
-            frame_idx_map[fpath] = idx
+        videos_by_dir[video_dir] = video
+        for idx, frame_path in enumerate(ordered_str):
+            frame_idx_map[frame_path] = idx
 
     keypoints = [str(col[:-2]) for col in table.columns if str(col).endswith("_x")]
 
@@ -105,14 +129,13 @@ def _labels_from_step4_table(
 
             if not points:
                 continue
-            instance = _Instance(skeleton=skeleton, init_points=points)
-            instances.append(instance)
+            instances.append(_Instance(skeleton=skeleton, init_points=points))
 
         if not instances:
             continue
 
-        lf = _LabeledFrame(video=video, frame_idx=int(frame_idx), instances=instances)
-        labels.append(lf)
+        labeled_frame = _LabeledFrame(video=video, frame_idx=int(frame_idx), instances=instances)
+        labels.append(labeled_frame)
 
     if not labels.skeletons:
         labels.skeletons = [skeleton]
@@ -126,9 +149,10 @@ def convert_sleap_package(
     *,
     fps: int = 30,
     encode_videos: bool | None = None,
+    bundle_extension: str = ".sta",
     progress_callback: ProgressCallback | None = None,
 ) -> ConversionResult:
-    """Convert a SLEAP `.pkg.slp` archive into a SIESTA project."""
+    """Convert a SLEAP `.pkg.slp` archive into a native project bundle."""
 
     slp_path = resolve_path(slp)
     proj_root = resolve_path(out_dir)
@@ -137,35 +161,32 @@ def convert_sleap_package(
     if tmp_extract.exists():
         shutil.rmtree(tmp_extract.as_posix())
     ensure_dir(tmp_extract)
-    _emit(progress_callback, "SIESTA_IMPORT: extracting frames + labels")
-    _emit(progress_callback, "SIESTA_IMPORT START: extracting_frames")
-    extract_frames(slp_path.as_posix(), tmp_extract.as_posix())
-    _emit(progress_callback, "SIESTA_IMPORT OK: frames_extracted")
 
-    _emit(progress_callback, "SIESTA_IMPORT START: build_label_table")
+    _emit(progress_callback, "SIESTA_IMPORT: extracting frames + labels")
+    _emit(progress_callback, _START_EXTRACTING_FRAMES_MARKER)
+    extract_frames(slp_path.as_posix(), tmp_extract.as_posix())
+    _emit(progress_callback, _OK_FRAMES_EXTRACTED_MARKER)
+
+    _emit(progress_callback, _START_BUILD_LABEL_TABLE_MARKER)
     label_table = extract_labels_step4(slp_path.as_posix(), tmp_extract.as_posix())
-    _emit(progress_callback, "SIESTA_IMPORT OK: label_table_ready")
+    _emit(progress_callback, _OK_LABEL_TABLE_READY_MARKER)
 
     import h5py as _h5
 
     from posetta.core.skeleton import Skeleton as _Skeleton
 
-    with _h5.File(slp_path.as_posix(), "r") as _hdf_for_sk:
-        md0 = parse_json_dict(_hdf_for_sk["metadata"].attrs.get("json", "{}"))
-    _sk_obj = _Skeleton.from_dict(build_sleap_skeleton(md0), normalize_names=True)
+    with _h5.File(slp_path.as_posix(), "r") as hdf_for_skeleton:
+        metadata = parse_json_dict(hdf_for_skeleton["metadata"].attrs.get("json", "{}"))
+    skeleton = _Skeleton.from_dict(build_sleap_skeleton(metadata), normalize_names=True)
 
-    _emit(progress_callback, "SIESTA_IMPORT STEP: assemble_labels")
-    labels = _labels_from_step4_table(label_table, tmp_extract, _sk_obj)
+    _emit(progress_callback, _ASSEMBLE_LABELS_MARKER)
+    labels = _labels_from_step4_table(label_table, tmp_extract, skeleton)
     if not labels.skeletons:
-        labels.skeletons = [_sk_obj]
+        labels.skeletons = [skeleton]
     labels.validate()
 
-    if encode_videos is not None:
-        encode_flag = bool(encode_videos)
-    else:
-        encode_flag = True
     videos: list[Path] = []
-    if encode_flag:
+    if encode_videos is None or encode_videos:
         videos = _encode_videos(tmp_extract, proj_root, fps=int(fps), progress=progress_callback)
     else:
         _emit(progress_callback, "SIESTA_IMPORT: skipping mp4 encoding (no-videos)")
@@ -173,24 +194,24 @@ def convert_sleap_package(
         if labeled_src.exists():
             labeled_dst = proj_root / "videos" / "labeled-data"
             ensure_dir(labeled_dst.parent)
-            _emit(progress_callback, "SIESTA_IMPORT STEP: copy_frames")
+            _emit(progress_callback, _COPY_FRAMES_MARKER)
             shutil.copytree(labeled_src.as_posix(), labeled_dst.as_posix(), dirs_exist_ok=True)
             rebase_image_sequences(labels, labeled_src, labeled_dst)
 
     if videos:
         remap_labels_to_videos(labels, videos, proj_root)
 
-    siesta_path = proj_root / f"{proj_root.name}.sta"
+    bundle_path = project_bundle_path(proj_root, bundle_extension=bundle_extension)
     metadata = {
         "project_name": proj_root.name,
         "source": "sleap_pkg_import",
         "source_package": slp_path.as_posix(),
     }
-    _emit(progress_callback, "SIESTA_IMPORT STEP: write_siesta")
-    write_siesta(siesta_path, labels, metadata=metadata)
-    _emit(progress_callback, "SIESTA_IMPORT OK: siesta_written")
+    _emit(progress_callback, _WRITE_BUNDLE_MARKER)
+    write_siesta(bundle_path, labels, metadata=metadata)
+    _emit(progress_callback, _OK_BUNDLE_WRITTEN_MARKER)
 
-    _emit(progress_callback, "SIESTA_IMPORT STEP: cleanup_temp_folders")
+    _emit(progress_callback, _CLEANUP_TEMP_MARKER)
     if tmp_extract.exists():
         shutil.rmtree(tmp_extract.as_posix())
 
@@ -198,8 +219,11 @@ def convert_sleap_package(
         source_dir=slp_path,
         project_root=proj_root,
         videos=videos,
-        siesta_path=siesta_path,
+        siesta_path=bundle_path,
     )
 
-    _emit(progress_callback, "SIESTA_IMPORT DONE")
+    _emit(progress_callback, _DONE_MARKER)
     return result
+
+
+__all__ = ["SLEAP_PACKAGE_PROGRESS_MARKERS", "convert_sleap_package"]
