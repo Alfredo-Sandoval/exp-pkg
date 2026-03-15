@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import h5py
 
@@ -21,6 +21,9 @@ logger = get_logger(__name__)
 
 EDGE_TYPE_BODY = 1
 EDGE_TYPE_SYMMETRY = 2
+
+type YamlSkeletonFormat = Literal["dlc", "sleap", "ultralytics"]
+type SkeletonFormat = Literal["dlc", "siesta_json", "sleap", "sleap_pkg_slp", "ultralytics"]
 
 
 def build_sleap_skeleton(
@@ -173,6 +176,41 @@ def _require_int_payload(value: Any, *, error_message: str) -> int:
     raise ValueError(error_message)
 
 
+def detect_yaml_skeleton_format(path: str | Path) -> YamlSkeletonFormat:
+    """Classify a YAML skeleton file before dispatching to a concrete loader."""
+    return _classify_yaml_skeleton_mapping(load_yaml_file(Path(path)))
+
+
+def _classify_yaml_skeleton_mapping(data: Mapping[str, Any]) -> YamlSkeletonFormat:
+    if "kpt_shape" in data or "keypoint_names" in data or "kpt_names" in data:
+        return "ultralytics"
+    if "nodes" in data and isinstance(data.get("nodes"), list):
+        return "sleap"
+    if "bodyparts" in data:
+        return "dlc"
+    raise ValueError(
+        "Unsupported YAML skeleton format; expected DLC, SLEAP, or Ultralytics schema."
+    )
+
+
+def detect_skeleton_format(path: str | Path) -> SkeletonFormat:
+    """Classify a supported skeleton file path before loading."""
+    path = Path(path)
+    ext = path.suffix.lower()
+
+    if ext == ".json":
+        return "siesta_json"
+    if ext == ".slp":
+        if str(path).lower().endswith(".pkg.slp"):
+            return "sleap_pkg_slp"
+        raise ValueError("Only .pkg.slp SLEAP packages are supported for skeleton imports.")
+    if ext in {".h5", ".hdf5"}:
+        raise ValueError("SLEAP .h5 tracking files are not supported; export a .pkg.slp instead.")
+    if ext in {".yaml", ".yml"}:
+        return detect_yaml_skeleton_format(path)
+    raise ValueError(f"Unsupported skeleton file: {ext}")
+
+
 def load_skeleton(path: str | Path) -> Skeleton:
     """Auto-detect format and load skeleton into posetta.core.skeleton.Skeleton.
 
@@ -188,23 +226,22 @@ def load_skeleton(path: str | Path) -> Skeleton:
         ValueError: If file format is unsupported or parsing fails.
     """
     path = Path(path)
-    ext = path.suffix.lower()
+    detected_format = detect_skeleton_format(path)
 
-    if ext == ".json":
+    if detected_format == "siesta_json":
         return load_skeleton_siesta_json(path)
-    if ext == ".slp":
-        if str(path).lower().endswith(".pkg.slp"):
-            return _load_skeleton_sleap_pkg_slp(path)
-        raise ValueError("Only .pkg.slp SLEAP packages are supported for skeleton imports.")
-    if ext in {".h5", ".hdf5"}:
-        raise ValueError("SLEAP .h5 tracking files are not supported; export a .pkg.slp instead.")
-    if ext in {".yaml", ".yml"}:
-        return _load_skeleton_yaml_auto(path)
+    if detected_format == "sleap_pkg_slp":
+        return _load_skeleton_sleap_pkg_slp(path)
+    if detected_format == "sleap":
+        return _load_skeleton_sleap_yaml(path)
+    if detected_format == "dlc":
+        return load_skeleton_dlc(path)
+    if detected_format == "ultralytics":
+        return load_skeleton_ultralytics(path)
+    raise AssertionError(f"Unhandled skeleton format: {detected_format}")
 
-    raise ValueError(f"Unsupported skeleton file: {ext}")
 
-
-def load_skeleton_siesta_json(path: str | Path) -> Skeleton:
+def load_skeleton_siesta_json(path: str | Path, **kwargs: Any) -> Skeleton:
     """Load skeleton from posetta JSON format.
 
     Args:
@@ -213,7 +250,7 @@ def load_skeleton_siesta_json(path: str | Path) -> Skeleton:
     Returns:
         Skeleton: Normalized skeleton instance.
     """
-    return Skeleton.load(Path(path), normalize_names=True)
+    return Skeleton.load(Path(path), **kwargs)
 
 
 def load_skeleton_dlc(path: str | Path) -> Skeleton:
@@ -393,35 +430,9 @@ def load_skeleton_ultralytics(path: str | Path) -> Skeleton:
     )
 
 
-def _load_skeleton_yaml_auto(path: Path) -> Skeleton:
-    """Auto-detect YAML skeleton format and load.
-
-    Tries to detect Ultralytics, SLEAP, or DLC format in order.
-
-    Args:
-        path: Path to YAML skeleton file.
-
-    Returns:
-        Skeleton: Loaded skeleton from detected format.
-
-    Raises:
-        ValueError: If format cannot be detected or parsing fails.
-    """
-    data = load_yaml_file(path)
-
-    if "kpt_shape" in data or "keypoint_names" in data or "kpt_names" in data:
-        return load_skeleton_ultralytics(path)
-    if "nodes" in data and isinstance(data.get("nodes"), list):
-        if data["nodes"] and isinstance(data["nodes"][0], dict):
-            return _load_skeleton_sleap_yaml(path)
-    if "bodyparts" in data:
-        return load_skeleton_dlc(path)
-
-    logger.warning("Could not detect YAML format, trying DLC format")
-    return load_skeleton_dlc(path)
-
-
 __all__ = [
+    "detect_skeleton_format",
+    "detect_yaml_skeleton_format",
     "load_skeleton",
     "load_skeleton_dlc",
     "load_skeleton_siesta_json",
