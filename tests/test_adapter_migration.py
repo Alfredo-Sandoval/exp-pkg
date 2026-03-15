@@ -3,6 +3,10 @@ from __future__ import annotations
 from pathlib import Path
 from types import SimpleNamespace
 
+import cv2
+import numpy as np
+import pandas as pd
+
 from posetta.io.converters.converter_helpers import ConversionResult, remap_labels_to_videos
 
 
@@ -160,6 +164,43 @@ def test_dlc_adapter_main_routes_cli_arguments(monkeypatch, tmp_path: Path) -> N
     assert captured["project_root"] == str(tmp_path / "project-root")
     assert captured["likelihood_threshold"] == 0.2
     assert captured["progress_callback"] is None
+
+
+def test_dlc_adapter_stores_project_relative_video_filename(tmp_path: Path) -> None:
+    from posetta.adapters.dlc import convert_dlc_h5
+    from posetta.io.siesta_format import read_siesta
+
+    recording_dir = tmp_path / "session-0"
+    tracking_dir = recording_dir / "tracking"
+    video_dir = recording_dir / "alpha_view"
+    tracking_dir.mkdir(parents=True)
+    video_dir.mkdir()
+
+    tracking_path = tracking_dir / "session-0-tracking.h5"
+    columns = pd.MultiIndex.from_product(
+        [["demo"], ["nose"], ["x", "y", "likelihood"]],
+        names=["scorer", "bodyparts", "coords"],
+    )
+    df = pd.DataFrame([[10.0, 20.0, 0.95], [11.0, 21.0, 0.85]], columns=columns)
+    df.to_hdf(tracking_path, key="df")
+
+    video_path = video_dir / "session-0-leftCam.avi"
+    writer = cv2.VideoWriter(
+        video_path.as_posix(),
+        cv2.VideoWriter_fourcc(*"MJPG"),
+        5.0,
+        (16, 12),
+    )
+    assert writer.isOpened()
+    for _ in range(2):
+        frame = np.zeros((12, 16, 3), dtype=np.uint8)
+        writer.write(frame)
+    writer.release()
+
+    result = convert_dlc_h5(tracking_path, video_path, recording_dir)
+
+    payload = read_siesta(result.siesta_path, lazy=False)
+    assert payload["labels"]["videos"]["filenames"] == ["alpha_view/session-0-leftCam.avi"]
 
 
 def test_sleap_adapter_bridges_progress_and_uses_siesta_extension(monkeypatch) -> None:

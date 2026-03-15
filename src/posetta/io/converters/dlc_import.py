@@ -112,6 +112,8 @@ def _labels_from_tracking_df(
     keypoints: list[str],
     skeleton: _Skeleton,
     video_path: Path,
+    *,
+    stored_video_filename: str | None = None,
     likelihood_threshold: float = 0.0,
 ) -> _Labels:
     """Convert tracking DataFrame to the canonical `posetta.model.Labels` object."""
@@ -119,6 +121,8 @@ def _labels_from_tracking_df(
     from posetta.model import Labels
 
     video = Video.from_filename(str(video_path))
+    if stored_video_filename is not None:
+        video.filename = stored_video_filename
     labels = Labels(skeletons=[skeleton], videos=[video])
 
     for frame_idx in df.index:
@@ -190,6 +194,7 @@ def _build_tracking_labels(
     *,
     skeleton_name: str,
     video_path: Path,
+    stored_video_filename: str | None = None,
     likelihood_threshold: float,
     progress_callback: ProgressCallback | None,
 ) -> _Labels:
@@ -202,7 +207,8 @@ def _build_tracking_labels(
         keypoints,
         skeleton,
         video_path,
-        likelihood_threshold,
+        stored_video_filename=stored_video_filename,
+        likelihood_threshold=likelihood_threshold,
     )
     labels.validate()
     return labels
@@ -290,8 +296,15 @@ def _select_explicit_video_path(
     if len(normalized_video_paths) != 1:
         raise ValueError(
             "convert_dlc_h5_project expects exactly one explicit video path for one H5 file"
-        )
+    )
     return normalized_video_paths[0]
+
+
+def _relative_video_filename(video_path: Path, project_root: Path) -> str | None:
+    try:
+        return video_path.relative_to(project_root).as_posix()
+    except ValueError:
+        return None
 
 
 def convert_dlc_csv(
@@ -376,6 +389,7 @@ def convert_dlc_h5_project(
         keypoints,
         skeleton_name=resolved_project_root.name,
         video_path=resolved_video_path,
+        stored_video_filename=_relative_video_filename(resolved_video_path, resolved_project_root),
         likelihood_threshold=likelihood_threshold,
         progress_callback=progress_callback,
     )
