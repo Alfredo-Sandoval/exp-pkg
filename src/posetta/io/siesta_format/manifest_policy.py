@@ -37,27 +37,87 @@ def register_videos(
 ) -> None:
     for idx, video in enumerate(videos):
         raw_filename = str(video.filename or "").strip()
-        if not raw_filename:
-            raise ValueError("Video entry is missing filename for manifest emission")
-        raw_path = Path(raw_filename)
-        _, resolved_path = resolve_project_path(raw_path, project_root=project_root)
-        if not raw_path.is_absolute() and not resolved_path.exists():
-            raise FileNotFoundError(
-                f"Relative video path not found under project root: {raw_filename}"
+        if raw_filename:
+            _register_file_video(
+                manifest,
+                video=video,
+                project_root=project_root,
+                index=idx,
+                raw_filename=raw_filename,
             )
-        metadata_entry: dict[str, Any] = {
-            "index": idx,
-            "backend": str(video.backend or ""),
-        }
-        sha256_value = video.sha256
-        if sha256_value:
-            metadata_entry["sha256"] = str(sha256_value)
-        manifest.register(
-            raw_filename,
-            AssetType.VIDEO,
+            continue
+        _register_image_sequence_video(
+            manifest,
+            video=video,
             project_root=project_root,
-            metadata=metadata_entry,
+            index=idx,
         )
+
+
+def _register_file_video(
+    manifest: ProjectManifest,
+    *,
+    video: Any,
+    project_root: Path,
+    index: int,
+    raw_filename: str,
+) -> None:
+    raw_path = Path(raw_filename)
+    _, resolved_path = resolve_project_path(raw_path, project_root=project_root)
+    if not raw_path.is_absolute() and not resolved_path.exists():
+        raise FileNotFoundError(f"Relative video path not found under project root: {raw_filename}")
+    metadata_entry: dict[str, Any] = {
+        "index": index,
+        "backend": str(video.backend or ""),
+    }
+    sha256_value = video.sha256
+    if sha256_value:
+        metadata_entry["sha256"] = str(sha256_value)
+    manifest.register(
+        raw_filename,
+        AssetType.VIDEO,
+        project_root=project_root,
+        metadata=metadata_entry,
+    )
+
+
+def _register_image_sequence_video(
+    manifest: ProjectManifest,
+    *,
+    video: Any,
+    project_root: Path,
+    index: int,
+) -> None:
+    image_filenames = _image_sequence_filenames(video)
+    sequence_root = _image_sequence_root(image_filenames)
+    manifest.register(
+        sequence_root,
+        AssetType.VIDEO,
+        project_root=project_root,
+        metadata={
+            "index": index,
+            "backend": "images",
+            "role": "image_sequence",
+            "frame_count": len(image_filenames),
+        },
+    )
+
+
+def _image_sequence_filenames(video: Any) -> list[str]:
+    filenames = [str(path).strip() for path in video.image_filenames or [] if str(path).strip()]
+    if not filenames:
+        raise ValueError("Image-sequence video is missing image filenames for manifest emission")
+    return filenames
+
+
+def _image_sequence_root(image_filenames: Sequence[str]) -> Path:
+    parents = {Path(path).resolve().parent for path in image_filenames}
+    if len(parents) != 1:
+        raise ValueError("Image-sequence video frames must share exactly one parent directory")
+    sequence_root = next(iter(parents))
+    if not sequence_root.is_dir():
+        raise FileNotFoundError(f"Image-sequence directory not found: {sequence_root}")
+    return sequence_root
 
 
 def register_bundle(manifest: ProjectManifest, bundle_path: Path) -> None:
