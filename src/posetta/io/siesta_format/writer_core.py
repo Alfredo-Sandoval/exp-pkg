@@ -1,6 +1,4 @@
-"""
-Unified .sta Format Serializer (Core Writer)
-"""
+"""Unified native archive serializer (core writer)."""
 
 from __future__ import annotations
 
@@ -23,7 +21,7 @@ from posetta.io.labels.model import Labels as LabelsModel
 from posetta.io.manifest import ProjectManifest, coerce_manifest, resolve_project_path
 from posetta.io.siesta_format.manifest_policy import (
     load_manifest_from_metadata,
-    register_bundle,
+    register_archive,
     register_metadata_assets,
     register_videos,
 )
@@ -50,6 +48,11 @@ from posetta.io.siesta_format.segmentation_hdf5 import (
 from posetta.io.siesta_format.shared import (
     _COERCE_PRIMITIVE_SENTINEL,
     _DEFAULT_PROVENANCE_MAX_BYTES,
+    CANONICAL_BUNDLE_SUFFIX,
+    LABEL_TRACK_ID_DATASET,
+    LABEL_VISIBILITY_DATASET,
+    SIESTA_SCHEMA_NAME,
+    SIESTA_SCHEMA_VERSION,
     _coerce_int,
     _coerce_primitive,
     _default_provenance_entry,
@@ -59,6 +62,7 @@ from posetta.io.siesta_format.shared import (
     _require_project_metadata_group,
     _serialize_json,
 )
+from posetta.io.siesta_format.tracks_hdf5 import read_tracks_group, write_tracks_group
 from posetta.io.siesta_format.transaction import (
     SiestaFileLock,
     _append_provenance,
@@ -106,7 +110,7 @@ def write_siesta(
     metrics=None,
     manifest=None,
 ) -> None:
-    """Create or overwrite a `.sta` project archive atomically."""
+    """Create or overwrite a native `.siesta` project archive atomically."""
     parent = path.parent
     project_root = path.parent
     if not parent.exists():
@@ -162,10 +166,14 @@ def write_siesta(
     runs_entries = _normalize_runs_entries(runs_input)
 
     defaults: dict[str, Any] = {
-        "version": "1.0.0",
+        "schema_name": SIESTA_SCHEMA_NAME,
+        "schema_version": SIESTA_SCHEMA_VERSION,
+        "version": SIESTA_SCHEMA_VERSION,
         "created": now_iso,
         "modified": now_iso,
         "siesta_version": str(package_version),
+        "bundle_suffix": CANONICAL_BUNDLE_SUFFIX,
+        "instance_layout": "dense_fixed_width",
         "base_dir": path.name,
         "provenance_max_bytes": _DEFAULT_PROVENANCE_MAX_BYTES,
         "journal": "{}",
@@ -178,6 +186,13 @@ def write_siesta(
         merged_metadata["modified"] = now_iso
     if not merged_metadata.get("siesta_version"):
         merged_metadata["siesta_version"] = str(package_version)
+    if not merged_metadata.get("schema_name"):
+        merged_metadata["schema_name"] = SIESTA_SCHEMA_NAME
+    if not merged_metadata.get("schema_version"):
+        merged_metadata["schema_version"] = merged_metadata.get("version") or SIESTA_SCHEMA_VERSION
+    merged_metadata["version"] = str(
+        merged_metadata.get("version") or merged_metadata["schema_version"]
+    )
     merged_metadata.setdefault("runs_count", len(runs_entries))
 
     journal_val = merged_metadata.get("journal", "{}")
@@ -226,7 +241,7 @@ def write_siesta(
     if manifest_obj is None:
         manifest_obj = ProjectManifest()
     register_videos(manifest_obj, videos=videos, project_root=project_root)
-    register_bundle(manifest_obj, path)
+    register_archive(manifest_obj, path)
     register_metadata_assets(manifest_obj, bundle_path=path, metadata_input=metadata_input)
 
     suggestions_data = suggestions
@@ -279,10 +294,21 @@ def write_siesta(
                             if isinstance(vid_idx, h5py.Dataset):
                                 labels_frames = int(vid_idx.shape[0])
 
+                track_prediction_items = (
+                    list(_coerce_prediction_items(predictions, video_index_lookup=video_lookup))
+                    if predictions is not None
+                    else None
+                )
+
                 max_inst_preds = write_predictions_group(
                     h5file,
                     predictions,
                     video_index_lookup=video_lookup,
+                )
+                write_tracks_group(
+                    h5file,
+                    labels=labels,
+                    prediction_items=track_prediction_items,
                 )
                 predictions_group = h5file["predictions"]
                 cl_val = predictions_group.attrs.get("committed_length", 0)
@@ -329,7 +355,7 @@ def write_siesta(
                 creation_entry = _default_provenance_entry(
                     "create",
                     siesta_version=str(merged_metadata.get("siesta_version")),
-                    schema_version=str(merged_metadata.get("version")),
+                    schema_version=str(merged_metadata.get("schema_version")),
                 )
                 _append_provenance(
                     meta_group,
@@ -350,11 +376,12 @@ def update_labels_siesta(
     labels,
     *,
     journal: bool = True,
+    regenerate_predictions: bool = False,
 ) -> None:
-    """Overwrite the labels portion of an existing `.sta` archive."""
+    """Overwrite label data while preserving other archive stores by default."""
 
     if not path.exists():
-        raise FileNotFoundError(f".sta file does not exist: {path}")
+        raise FileNotFoundError(f".siesta archive does not exist: {path}")
 
     tmp_path: Path | None = None
 
@@ -377,24 +404,28 @@ def update_labels_siesta(
             with h5py.File(str(path), "r") as src:
                 _require_project_metadata_group(
                     src,
-                    missing_message=".sta file is missing the /project_metadata group",
+                    missing_message=".siesta archive is missing the /project_metadata group",
                 )
 
-                with h5py.File(str(tmp_path), mode="w") as dst:
-                    for group_name in (
-                        "runs",
-                        "project_metadata",
-                        "metrics",
-                    ):
-                        if group_name in src:
-                            src.copy(group_name, dst, name=group_name)
+                existing_tracks = read_tracks_group(src)
+                rewritten_groups = {"labels", "videos", "suggestions", "skeleton", "tracks"}
+                if regenerate_predictions:
+                    rewritten_groups.add("predictions")
 
-                    prediction_items = coerce_predictions_from_labels(labels)
-                    write_predictions_group(
-                        dst,
-                        prediction_items,
-                        committed_length=None,
-                    )
+                with h5py.File(str(tmp_path), mode="w") as dst:
+                    for group_name, obj in src.items():
+                        if group_name in rewritten_groups:
+                            continue
+                        src.copy(obj, dst, name=group_name)
+
+                    prediction_items = None
+                    if regenerate_predictions:
+                        prediction_items = coerce_predictions_from_labels(labels)
+                        write_predictions_group(
+                            dst,
+                            prediction_items,
+                            committed_length=None,
+                        )
 
                     preferences = labels.preferences
                     if preferences:
@@ -419,6 +450,12 @@ def update_labels_siesta(
                             base_dir = str(base_dir_raw)
 
                     write_videos_group(dst, videos, base_dir=base_dir)
+                    write_tracks_group(
+                        dst,
+                        existing=existing_tracks,
+                        labels=labels,
+                        prediction_items=prediction_items,
+                    )
 
                     suggestions_data = labels.suggestions
                     suggestion_items = (
@@ -458,7 +495,7 @@ def update_labels_siesta(
                     manifest_obj = load_manifest_from_metadata(metadata_dst)
                     project_root = path.parent
                     register_videos(manifest_obj, videos=videos, project_root=project_root)
-                    register_bundle(manifest_obj, path)
+                    register_archive(manifest_obj, path)
                     metadata_dst.attrs["manifest_json"] = _serialize_json(manifest_obj.to_dict())
 
                     max_bytes_attr = metadata_dst.attrs.get(
@@ -543,7 +580,7 @@ def write_predictions_group(
     committed_length: int | None = None,
     video_index_lookup: Mapping[object, int] | Sequence[object] | None = None,
 ) -> int:
-    """Write predictions data to the `/predictions` group in a `.sta` file."""
+    """Write predictions data to the `/predictions` group in a native archive."""
     prediction_items = _coerce_prediction_items(
         predictions,
         video_index_lookup=video_index_lookup,
@@ -883,6 +920,11 @@ def write_skeleton_group(h5file: h5py.File, labels) -> None:
             del skeleton_group[ds_name]
 
     skeletons = list(labels.skeletons or [])
+    if len(skeletons) > 1:
+        raise ValueError(
+            "The native archive schema currently supports exactly one skeleton per archive; "
+            f"received {len(skeletons)} skeletons."
+        )
     if skeletons:
         skeleton = skeletons[0]
         keypoint_names = [str(kp.name) for kp in skeleton.keypoints]
@@ -959,7 +1001,7 @@ def write_labels_group(
     *,
     max_inst: int | None = None,
 ) -> None:
-    """Write labels data to the `/labels` group in a `.sta` file."""
+    """Write labels data to the `/labels` group in a native archive."""
     from posetta.core.annotations import KPFlag
 
     frames_data = []
@@ -984,6 +1026,11 @@ def write_labels_group(
 
     skeleton = None
     skeleton_keypoints: Sequence[Any] = ()
+    if len(labels.skeletons) > 1:
+        raise ValueError(
+            "The native archive schema currently supports exactly one skeleton per archive; "
+            f"received {len(labels.skeletons)} skeletons."
+        )
     if labels.skeletons:
         skeleton = labels.skeletons[0]
         if skeleton is None:
@@ -1008,6 +1055,7 @@ def write_labels_group(
     frame_indices = np.zeros(n_rows, dtype=np.int32)
     num_instances = np.zeros(n_rows, dtype=np.int32)
     keypoints = np.full((n_rows, max_inst, keypoint_count, 3), np.nan, dtype=np.float32)
+    visibility = np.zeros((n_rows, max_inst, keypoint_count), dtype=np.uint8)
     flags = np.zeros((n_rows, max_inst, keypoint_count), dtype=np.uint8)
     track_ids = np.full((n_rows, max_inst), -1, dtype=np.int32)
 
@@ -1018,15 +1066,14 @@ def write_labels_group(
 
         for ii, inst in enumerate(inst_list):
             if inst.track is not None:
-                track_ids[idx, ii] = inst.track.spawned_on
+                track_ids[idx, ii] = int(inst.track.id)
 
             pts = inst.get_points_array(copy=False, full=True)
 
             keypoints[idx, ii, :, 0] = pts["x"]
             keypoints[idx, ii, :, 1] = pts["y"]
 
-            is_nan = np.isnan(pts["x"])
-            keypoints[idx, ii, :, 2] = np.where(is_nan, np.nan, pts["visible"].astype(np.float32))
+            visibility[idx, ii, :] = np.asarray(pts["visible"], dtype=np.uint8)
 
             flags[idx, ii, :] = pts["flags"] & KPFlag.NO_TRAIN
 
@@ -1063,8 +1110,18 @@ def write_labels_group(
             shuffle=True,
             maxshape=(None, max_inst, maxshape_k),
         )
+        visibility_ds = data_group.create_dataset(
+            LABEL_VISIBILITY_DATASET,
+            shape=(n_rows, max_inst, keypoint_count),
+            dtype=np.uint8,
+            chunks=(chunk_rows, max_inst, chunk_k),
+            compression="gzip",
+            compression_opts=4,
+            shuffle=True,
+            maxshape=(None, max_inst, maxshape_k),
+        )
         track_ids_ds = data_group.create_dataset(
-            "track_ids",
+            LABEL_TRACK_ID_DATASET,
             shape=(n_rows, max_inst),
             dtype=np.int32,
             chunks=(min(128, n_rows), max_inst),
@@ -1084,8 +1141,13 @@ def write_labels_group(
             shape=(n_rows, max_inst, keypoint_count),
             dtype=np.uint8,
         )
+        visibility_ds = data_group.create_dataset(
+            LABEL_VISIBILITY_DATASET,
+            shape=(n_rows, max_inst, keypoint_count),
+            dtype=np.uint8,
+        )
         track_ids_ds = data_group.create_dataset(
-            "track_ids",
+            LABEL_TRACK_ID_DATASET,
             shape=(n_rows, max_inst),
             dtype=np.int32,
         )
@@ -1093,6 +1155,7 @@ def write_labels_group(
     if n_rows > 0:
         if keypoint_count > 0:
             keypoints_ds[...] = keypoints
+            visibility_ds[...] = visibility
             flags_ds[...] = flags
         track_ids_ds[...] = track_ids
 

@@ -1,4 +1,4 @@
-"""Public format exports for the native `.sta` bundle format."""
+"""Public format exports for the native `.siesta` archive format."""
 
 from __future__ import annotations
 

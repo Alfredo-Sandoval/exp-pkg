@@ -120,8 +120,18 @@ def _image_sequence_root(image_filenames: Sequence[str]) -> Path:
     return sequence_root
 
 
+def register_archive(manifest: ProjectManifest, archive_path: Path) -> None:
+    manifest.register(
+        archive_path,
+        AssetType.PREDICTIONS,
+        project_root=archive_path.parent,
+        metadata={"role": "archive"},
+    )
+
+
 def register_bundle(manifest: ProjectManifest, bundle_path: Path) -> None:
-    manifest.register(bundle_path, AssetType.PREDICTIONS, metadata={"role": "bundle"})
+    """Legacy alias for `register_archive`."""
+    register_archive(manifest, bundle_path)
 
 
 def register_metadata_assets(
@@ -155,7 +165,7 @@ def register_metadata_assets(
         meta: dict[str, Any] = {}
         if role is not None:
             meta["role"] = role
-        manifest.register(path_obj, asset_type, metadata=meta)
+        manifest.register(path_obj, asset_type, project_root=bundle_path.parent, metadata=meta)
 
     def _lookup(mapping: Mapping[str, Any], dotted_key: str) -> Any:
         if dotted_key in mapping:

@@ -27,10 +27,10 @@ make docs-build
 make docs-serve
 ```
 
-## Write and read your first bundle
+## Write and read your first archive
 
 A `.siesta` file is an HDF5 archive that stores pose annotations, videos,
-skeletons, and metrics in one bundle.
+skeletons, and metrics in one archive.
 
 ```python
 from posetta.formats import read_siesta, write_siesta
@@ -49,7 +49,7 @@ assert isinstance(loaded, Labels)
 | Key | Type | Contents |
 | --- | --- | --- |
 | `"labels"` | `Labels` | The main annotation container |
-| `"metadata"` | `dict` | Bundle-level metadata |
+| `"metadata"` | `dict` | Archive-level metadata |
 | `"videos"` | `list[Video]` | Video references |
 | `"predictions"` | `dict` or `None` | Prediction payloads if present |
 

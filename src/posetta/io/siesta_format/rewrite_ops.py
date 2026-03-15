@@ -1,4 +1,4 @@
-"""Prediction rewrite helpers for `.sta` archives.
+"""Prediction rewrite helpers for native archives.
 
 The rewrite path was extracted from append_ops because it is a large, independently
 testable operation family (>200 LOC) that rewrites archive layout/state rather than
@@ -41,6 +41,7 @@ from posetta.io.siesta_format.shared import (
     _require_project_metadata_group,
     _skeleton_keypoint_count,
 )
+from posetta.io.siesta_format.tracks_hdf5 import read_tracks_group, write_tracks_group
 from posetta.io.siesta_format.transaction import (
     _append_provenance,
     _flush_file,
@@ -92,14 +93,14 @@ def _require_predictions_groups(
 ) -> tuple[h5py.Group, h5py.Group, h5py.Group]:
     preds_group = src_file.get("predictions")
     if preds_group is None:
-        raise ValueError(".sta file is missing the /predictions group")
+        raise ValueError(".siesta archive is missing the /predictions group")
     if not isinstance(preds_group, h5py.Group):
         raise TypeError(predictions_type_error)
 
     frames_group = preds_group.get("frames")
     data_group = preds_group.get("data")
     if frames_group is None or data_group is None:
-        raise ValueError(".sta file is missing predictions frames/data groups")
+        raise ValueError(".siesta archive is missing predictions frames/data groups")
     if not isinstance(frames_group, h5py.Group) or not isinstance(data_group, h5py.Group):
         raise TypeError(frames_group_type_error)
     return preds_group, frames_group, data_group
@@ -112,7 +113,7 @@ def _require_predictions_keypoints_dataset(
 ) -> h5py.Dataset:
     keypoints_ds = data_group.get("keypoints")
     if keypoints_ds is None:
-        raise ValueError(".sta file is missing predictions/data/keypoints dataset")
+        raise ValueError(".siesta archive is missing predictions/data/keypoints dataset")
     if not isinstance(keypoints_ds, h5py.Dataset):
         raise TypeError(keypoints_type_error)
     return keypoints_ds
@@ -304,6 +305,11 @@ def _rewrite_with_larger_max(
                     meta_dst.attrs["modified"] = _now_utc_iso()
                     meta_dst.attrs["n_predictions_committed"] = int(total_frames)
                     meta_dst.attrs["max_inst_preds"] = int(new_max_inst)
+                    write_tracks_group(
+                        dst_file,
+                        existing=read_tracks_group(dst_file),
+                        prediction_items=batch_list,
+                    )
                     meta_dst.attrs["provenance_max_bytes"] = int(
                         provenance_max_bytes or _DEFAULT_PROVENANCE_MAX_BYTES
                     )
@@ -587,6 +593,11 @@ def _rewrite_predictions_with_updates(
                     meta_dst.attrs["modified"] = _now_utc_iso()
                     meta_dst.attrs["n_predictions_committed"] = int(committed_length)
                     meta_dst.attrs["max_inst_preds"] = int(rewrite_max_inst)
+                    write_tracks_group(
+                        dst_file,
+                        existing=read_tracks_group(dst_file),
+                        prediction_items=all_items,
+                    )
                     meta_dst.attrs["provenance_max_bytes"] = int(
                         provenance_max_bytes or _DEFAULT_PROVENANCE_MAX_BYTES
                     )

@@ -1,4 +1,4 @@
-"""Convert a SLEAP `.pkg.slp` directly into native project bundles."""
+"""Convert a SLEAP `.pkg.slp` directly into native project archives."""
 
 from __future__ import annotations
 
@@ -149,10 +149,10 @@ def convert_sleap_package(
     *,
     fps: int = 30,
     encode_videos: bool | None = None,
-    bundle_extension: str = ".sta",
+    bundle_extension: str = ".siesta",
     progress_callback: ProgressCallback | None = None,
 ) -> ConversionResult:
-    """Convert a SLEAP `.pkg.slp` archive into a native project bundle."""
+    """Convert a SLEAP `.pkg.slp` archive into a native project archive."""
 
     slp_path = resolve_path(slp)
     proj_root = resolve_path(out_dir)

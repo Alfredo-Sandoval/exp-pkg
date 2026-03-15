@@ -1,4 +1,4 @@
-"""High-level SLEAP adapter exports for native project bundles."""
+"""High-level SLEAP adapter exports for native project archives."""
 
 from __future__ import annotations
 

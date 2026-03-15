@@ -1,23 +1,50 @@
-"""Public API for the unified `.sta` serializer."""
+"""Public API for the native `.siesta` serializer."""
 
-from posetta.io.siesta_format.append_ops import append_predictions_siesta, merge_predictions_siesta
-from posetta.io.siesta_format.predictions_datasets import (
-    MaxInstancesExceededError,
-    PredictionAppendItem,
-    SerializerPredictedInstance,
-)
-from posetta.io.siesta_format.reader import (
-    LazyDatasetHandle,
-    read_siesta,
-    summarize_project,
-    validate_project,
-)
-from posetta.io.siesta_format.segmentation_hdf5 import (
-    SEGMENTATION_SCHEMA_VERSION,
-    read_segmentation_group,
-    write_segmentation_group,
-)
-from posetta.io.siesta_format.writer_core import update_labels_siesta, write_siesta
+from __future__ import annotations
+
+from importlib import import_module
+from typing import Any
+
+_EXPORTS: dict[str, tuple[str, str]] = {
+    "LazyDatasetHandle": ("posetta.io.siesta_format.reader", "LazyDatasetHandle"),
+    "MaxInstancesExceededError": (
+        "posetta.io.siesta_format.predictions_datasets",
+        "MaxInstancesExceededError",
+    ),
+    "PredictionAppendItem": (
+        "posetta.io.siesta_format.predictions_datasets",
+        "PredictionAppendItem",
+    ),
+    "SEGMENTATION_SCHEMA_VERSION": (
+        "posetta.io.siesta_format.segmentation_hdf5",
+        "SEGMENTATION_SCHEMA_VERSION",
+    ),
+    "SerializerPredictedInstance": (
+        "posetta.io.siesta_format.predictions_datasets",
+        "SerializerPredictedInstance",
+    ),
+    "append_predictions_siesta": (
+        "posetta.io.siesta_format.append_ops",
+        "append_predictions_siesta",
+    ),
+    "merge_predictions_siesta": (
+        "posetta.io.siesta_format.append_ops",
+        "merge_predictions_siesta",
+    ),
+    "read_segmentation_group": (
+        "posetta.io.siesta_format.segmentation_hdf5",
+        "read_segmentation_group",
+    ),
+    "read_siesta": ("posetta.io.siesta_format.reader", "read_siesta"),
+    "summarize_project": ("posetta.io.siesta_format.reader", "summarize_project"),
+    "update_labels_siesta": ("posetta.io.siesta_format.writer_core", "update_labels_siesta"),
+    "validate_project": ("posetta.io.siesta_format.reader", "validate_project"),
+    "write_segmentation_group": (
+        "posetta.io.siesta_format.segmentation_hdf5",
+        "write_segmentation_group",
+    ),
+    "write_siesta": ("posetta.io.siesta_format.writer_core", "write_siesta"),
+}
 
 __all__ = [
     "LazyDatasetHandle",
@@ -35,3 +62,18 @@ __all__ = [
     "read_segmentation_group",
     "write_segmentation_group",
 ]
+
+
+def __getattr__(name: str) -> Any:
+    try:
+        module_name, attr_name = _EXPORTS[name]
+    except KeyError as exc:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}") from exc
+    module = import_module(module_name)
+    value = getattr(module, attr_name)
+    globals()[name] = value
+    return value
+
+
+def __dir__() -> list[str]:
+    return sorted(set(globals()) | set(__all__))

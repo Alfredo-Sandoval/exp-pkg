@@ -1,8 +1,8 @@
-"""Serialization helpers for `Labels` bundles."""
+"""Serialization helpers for `Labels` archives."""
 
 from __future__ import annotations
 
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Protocol, cast
 
@@ -14,6 +14,12 @@ from posetta.core.path_registry import ensure_dir
 from posetta.core.skeleton import SCHEMA_VERSION as SKELETON_SCHEMA_VERSION
 from posetta.core.skeleton import Keypoint, Skeleton
 from posetta.io.labels.video_types import VideoProtocol
+from posetta.io.siesta_format.shared import (
+    CANONICAL_BUNDLE_SUFFIX,
+    LABEL_TRACK_ID_DATASET,
+    LABEL_VISIBILITY_DATASET,
+    SUPPORTED_BUNDLE_SUFFIXES,
+)
 from posetta.io.video import Video, gui_playback_backend_for_path
 
 from .json_format import read_labels_json_payload, write_labels_json
@@ -55,7 +61,7 @@ def _as_array(
 ) -> np.ndarray:
     obj = _materialize(value)
     if obj is None:
-        raise ValueError(f"Required field '{name}' missing in .sta payload")
+        raise ValueError(f"Required field '{name}' missing in .siesta archive payload")
     arr = np.asarray(obj, dtype=dtype)
     if arr.ndim == 0:
         arr = arr.reshape(1)
@@ -86,7 +92,10 @@ def build_video_object(
         if not frames:
             raise ValueError("Image sequence is empty")
         sequence_root = str(filename).strip() if filename is not None else ""
-        return Video.from_image_filenames(frames, filename=sequence_root or None)
+        video = Video.from_image_filenames(frames)
+        if sequence_root:
+            video.filename = sequence_root
+        return video
 
     resolved = str(filename or "").strip()
     if not resolved:
@@ -191,6 +200,39 @@ def _load_frame_arrays(frames_info: dict[str, Any]) -> tuple[np.ndarray, np.ndar
     return video_index, frame_index, num_instances
 
 
+def _track_lookup_from_payload(payload: dict[str, Any]) -> dict[int, Track]:
+    track_payload = payload.get("tracks")
+    track_lookup: dict[int, Track] = {}
+    if not isinstance(track_payload, Mapping):
+        return track_lookup
+
+    for raw_key, raw_track in track_payload.items():
+        if isinstance(raw_key, str):
+            stripped = raw_key.strip()
+            if not stripped or not stripped.lstrip("+-").isdigit():
+                continue
+            track_id = int(stripped)
+        elif isinstance(raw_key, int | np.integer):
+            track_id = int(raw_key)
+        else:
+            continue
+        if track_id < 0:
+            continue
+        if isinstance(raw_track, Track):
+            track_lookup[track_id] = raw_track
+            continue
+        if isinstance(raw_track, Mapping):
+            track_lookup[track_id] = Track(
+                spawned_on=track_id,
+                name=str(raw_track.get("name") or f"track-{track_id}"),
+            )
+            continue
+        track_lookup[track_id] = Track(
+            spawned_on=track_id,
+            name=str(raw_track or f"track-{track_id}"),
+        )
+    return track_lookup
+
 def _normalize_keypoints_array(raw_keypoints: Any) -> np.ndarray:
     keypoints_arr = _as_array(raw_keypoints, dtype=np.float32)
     if keypoints_arr.ndim == 3:
@@ -215,7 +257,7 @@ def _parse_keypoint_names(skeleton_info: dict[str, Any], keypoints_arr: np.ndarr
     has_data = keypoints_arr.size > 0 and keypoints_arr.shape[0] > 0 and keypoints_arr.shape[1] > 0
     if not keypoint_names and has_data:
         raise ValueError(
-            "Skeleton names missing from .sta payload but keypoint data is present."
+            "Skeleton names missing from native archive payload but keypoint data is present."
         )
     if keypoint_names and kp_count != len(keypoint_names):
         raise ValueError(
@@ -289,23 +331,45 @@ def _load_label_data_arrays(
     data_info: dict[str, Any],
     keypoints_arr: np.ndarray,
     keypoint_count: int,
-) -> tuple[np.ndarray, np.ndarray]:
+) -> tuple[np.ndarray, np.ndarray, np.ndarray | None]:
     frames_dim = keypoints_arr.shape[0] if keypoints_arr.ndim >= 1 else 0
     inst_dim = keypoints_arr.shape[1] if keypoints_arr.ndim >= 2 else 0
     point_dim = keypoints_arr.shape[2] if keypoints_arr.ndim >= 3 else keypoint_count
-    flags_arr = _as_array(
-        data_info.get("flags"),
-        dtype=np.uint8,
-        fallback_shape=(frames_dim, inst_dim, point_dim),
-        name="data.flags",
-    )
-    track_ids_arr = _as_array(
-        data_info.get("track_ids"),
-        dtype=np.int32,
-        fallback_shape=(frames_dim, inst_dim),
-        name="data.track_ids",
-    )
-    return flags_arr, track_ids_arr
+
+    flags_raw = data_info.get("flags")
+    if flags_raw is None:
+        flags_arr = np.zeros((frames_dim, inst_dim, point_dim), dtype=np.uint8)
+    else:
+        flags_arr = _as_array(
+            flags_raw,
+            dtype=np.uint8,
+            fallback_shape=(frames_dim, inst_dim, point_dim),
+            name="data.flags",
+        )
+
+    track_ids_raw = data_info.get(LABEL_TRACK_ID_DATASET)
+    if track_ids_raw is None:
+        track_ids_raw = data_info.get("track_ids")
+    if track_ids_raw is None:
+        track_ids_arr = np.full((frames_dim, inst_dim), -1, dtype=np.int32)
+    else:
+        track_ids_arr = _as_array(
+            track_ids_raw,
+            dtype=np.int32,
+            fallback_shape=(frames_dim, inst_dim),
+            name=f"data.{LABEL_TRACK_ID_DATASET}",
+        )
+
+    visibility_arr: np.ndarray | None = None
+    visibility_raw = data_info.get(LABEL_VISIBILITY_DATASET)
+    if visibility_raw is not None:
+        visibility_arr = _as_array(
+            visibility_raw,
+            dtype=np.uint8,
+            fallback_shape=(frames_dim, inst_dim, point_dim),
+            name=f"data.{LABEL_VISIBILITY_DATASET}",
+        )
+    return flags_arr, track_ids_arr, visibility_arr
 
 
 def _parse_shapes(videos_info: dict[str, Any]) -> np.ndarray:
@@ -342,7 +406,7 @@ def _total_videos_count(
         max_video_idx,
     )
     if total_videos == 0 and frames_dim:
-        raise ValueError("Frames are present but no videos listed in .sta payload")
+        raise ValueError("Frames are present but no videos listed in native archive payload")
     return total_videos
 
 
@@ -411,7 +475,7 @@ def _hydrate_videos(
     max_video_idx = int(video_index.max()) + 1 if video_index.size else 0
     if len(videos) < max_video_idx:
         raise FileNotFoundError(
-            "Labels bundle references missing videos; all video slots must be present."
+            "Labels archive references missing videos; all video slots must be present."
         )
     return videos
 
@@ -433,7 +497,6 @@ def _total_frames_count(
     if isinstance(meta_frames, int | float | np.integer | np.floating):
         frame_candidates.append(int(meta_frames))
     return max(frame_candidates) if frame_candidates else 0
-
 
 def _instance_has_payload(
     row_idx: int,
@@ -484,7 +547,7 @@ def _resolve_track(
         return None
     track_obj = track_lookup.get(track_id_val)
     if track_obj is None:
-        track_obj = Track(spawned_on=track_id_val, name=str(track_id_val))
+        track_obj = Track(spawned_on=track_id_val, name=f"track-{track_id_val}")
         track_lookup[track_id_val] = track_obj
     return track_obj
 
@@ -493,19 +556,22 @@ def _build_instance_points(
     inst_coords: np.ndarray,
     inst_flags: np.ndarray,
     keypoint_count: int,
+    *,
+    visibility: np.ndarray | None = None,
 ) -> PointArray:
     points = PointArray.make_default(keypoint_count)
     points["x"] = inst_coords[..., 0] if inst_coords.shape[-1] >= 1 else np.nan
     points["y"] = inst_coords[..., 1] if inst_coords.shape[-1] >= 2 else np.nan
-    if inst_coords.shape[-1] >= 3:
+    has_coords = np.isfinite(points["x"]) & np.isfinite(points["y"])
+    if visibility is not None:
+        visible = np.asarray(visibility, dtype=bool) & has_coords
+    elif inst_coords.shape[-1] >= 3:
         conf = inst_coords[..., 2]
-        visible = (
-            np.isfinite(conf) & (conf >= 0.5) & np.isfinite(points["x"]) & np.isfinite(points["y"])
-        )
+        visible = np.isfinite(conf) & (conf >= 0.5) & has_coords
     else:
-        visible = np.zeros(keypoint_count, dtype=bool)
+        visible = has_coords
     points["visible"] = visible
-    points["complete"] = visible
+    points["complete"] = has_coords
     points["flags"] = inst_flags & 0xFF
     return points
 
@@ -518,6 +584,7 @@ def _hydrate_row_instances(
     keypoints_arr: np.ndarray,
     flags_arr: np.ndarray,
     track_ids_arr: np.ndarray,
+    visibility_arr: np.ndarray | None,
     track_lookup: dict[int, Track],
     keypoint_count: int,
     skeleton: Skeleton,
@@ -536,7 +603,19 @@ def _hydrate_row_instances(
         track_obj = _resolve_track(row, inst_idx, track_ids_arr, track_lookup)
         inst_coords = keypoints_arr[row, inst_idx]
         inst_flags = flags_arr[row, inst_idx]
-        points = _build_instance_points(inst_coords, inst_flags, keypoint_count)
+        inst_visibility = None
+        if (
+            visibility_arr is not None
+            and row < visibility_arr.shape[0]
+            and inst_idx < visibility_arr.shape[1]
+        ):
+            inst_visibility = visibility_arr[row, inst_idx]
+        points = _build_instance_points(
+            inst_coords,
+            inst_flags,
+            keypoint_count,
+            visibility=inst_visibility,
+        )
         lf.instances.append(
             Instance(skeleton=skeleton, frame=lf, track=track_obj, init_points=points)
         )
@@ -551,11 +630,13 @@ def _hydrate_labeled_frames(
     keypoints_arr: np.ndarray,
     flags_arr: np.ndarray,
     track_ids_arr: np.ndarray,
+    visibility_arr: np.ndarray | None,
     videos: list[VideoProtocol],
     skeleton: Skeleton,
     keypoint_count: int,
+    track_lookup: dict[int, Track] | None = None,
 ) -> list[LabeledFrame]:
-    track_lookup: dict[int, Track] = {}
+    resolved_track_lookup = {} if track_lookup is None else dict(track_lookup)
     labeled_frames: list[LabeledFrame] = []
     for row in range(total_frames):
         if row % 1000 == 0:
@@ -587,7 +668,8 @@ def _hydrate_labeled_frames(
             keypoints_arr=keypoints_arr,
             flags_arr=flags_arr,
             track_ids_arr=track_ids_arr,
-            track_lookup=track_lookup,
+            visibility_arr=visibility_arr,
+            track_lookup=resolved_track_lookup,
             keypoint_count=keypoint_count,
             skeleton=skeleton,
         )
@@ -603,9 +685,9 @@ def labels_from_siesta_payload(
     video_builder: VideoBuilder | None = None,
     video_finalizer: HydratedVideoFinalizer | None = None,
 ) -> Labels:
-    """Construct `Labels` from a `.sta` payload dictionary."""
+    """Construct `Labels` from a native archive payload dictionary."""
     if not payload:
-        raise ValueError("Empty .sta payload; cannot hydrate Labels")
+        raise ValueError("Empty native archive payload; cannot hydrate Labels")
 
     frames_info = payload.get("frames") or {}
     data_info = payload.get("data") or {}
@@ -622,11 +704,16 @@ def labels_from_siesta_payload(
     video_index, frame_index, num_instances = _load_frame_arrays(frames_info)
     raw_keypoints = _materialize(data_info.get("keypoints"))
     if raw_keypoints is None:
-        raise ValueError("data.keypoints missing from .sta payload")
+        raise ValueError("data.keypoints missing from native archive payload")
 
     keypoints_arr = _normalize_keypoints_array(raw_keypoints)
     skeleton, keypoints = _build_skeleton(skeleton_info, keypoints_arr)
-    flags_arr, track_ids_arr = _load_label_data_arrays(data_info, keypoints_arr, len(keypoints))
+    flags_arr, track_ids_arr, visibility_arr = _load_label_data_arrays(
+        data_info,
+        keypoints_arr,
+        len(keypoints),
+    )
+    track_lookup = _track_lookup_from_payload(payload)
     frames_dim = keypoints_arr.shape[0] if keypoints_arr.ndim >= 1 else 0
     videos = _hydrate_videos(
         videos_info,
@@ -653,9 +740,11 @@ def labels_from_siesta_payload(
         keypoints_arr=keypoints_arr,
         flags_arr=flags_arr,
         track_ids_arr=track_ids_arr,
+        visibility_arr=visibility_arr,
         videos=videos,
         skeleton=skeleton,
         keypoint_count=len(keypoints),
+        track_lookup=track_lookup,
     )
 
     provenance = payload.get("provenance") or {}
@@ -703,7 +792,7 @@ def labels_load_file(
         obj.validate()
         obj.path = path
         return obj
-    if ext and ext not in (".sta", ".siesta"):
+    if ext and ext not in SUPPORTED_BUNDLE_SUFFIXES:
         raise ValueError(f"No serializer for extension: {ext}")
 
     payload = read_siesta(path, lazy=False)
@@ -750,10 +839,10 @@ def labels_save_file(
         if not path.suffix:
             path = path.with_suffix(".json")
         return write_labels_json(path, labels, metadata=metadata)
-    if ext and ext not in (".sta", ".siesta"):
+    if ext and ext not in SUPPORTED_BUNDLE_SUFFIXES:
         raise ValueError(f"No serializer for extension: {ext}")
     if not path.suffix:
-        path = path.with_suffix(".sta")
+        path = path.with_suffix(CANONICAL_BUNDLE_SUFFIX)
     ensure_dir(path.parent)
     write_siesta(path, labels, metadata=metadata)
     labels.path = path

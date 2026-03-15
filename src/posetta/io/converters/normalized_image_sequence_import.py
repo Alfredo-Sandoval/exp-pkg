@@ -1,4 +1,4 @@
-"""Convert normalized image-sequence annotations into native bundle projects."""
+"""Convert normalized image-sequence annotations into native archive projects."""
 
 from __future__ import annotations
 
@@ -321,22 +321,22 @@ def convert_normalized_image_sequence_annotations(
     bundle_extension: str = ".sta",
     bundle_writer: BundleWriter | None = None,
 ) -> ConversionResult:
-    """Convert a normalized image-sequence JSON payload into a native project bundle."""
+    """Convert a normalized image-sequence JSON payload into a native project archive."""
     annotations_path = resolve_path(annotations_json)
     project_root = resolve_path(out_dir)
     ensure_dir(project_root)
     payload = _load_payload(annotations_path)
     labels, video_dirs = _labels_from_payload(payload, project_root=project_root)
-    bundle_path = project_bundle_path(project_root, bundle_extension=bundle_extension)
+    archive_path = project_bundle_path(project_root, bundle_extension=bundle_extension)
     writer = write_siesta if bundle_writer is None else bundle_writer
-    writer(bundle_path, labels)
-    if not bundle_path.is_file():
-        raise FileNotFoundError(f"Expected converted bundle at {bundle_path}")
+    writer(archive_path, labels)
+    if not archive_path.is_file():
+        raise FileNotFoundError(f"Expected converted archive at {archive_path}")
     return ConversionResult(
         source_dir=annotations_path.parent,
         project_root=project_root,
         videos=list(video_dirs),
-        siesta_path=bundle_path,
+        siesta_path=archive_path,
     )
 
 

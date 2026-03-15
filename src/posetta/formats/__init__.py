@@ -17,6 +17,12 @@ from posetta.formats.siesta import (
     write_metrics_table,
     write_siesta,
 )
+from posetta.formats.siesta_store import (
+    SiestaStore,
+    create_store_from_archive,
+    create_store_from_sta,
+    open_store,
+)
 from posetta.io.labels.json_format import read_labels_json_payload, write_labels_json
 
 __all__ = [
@@ -24,8 +30,12 @@ __all__ = [
     "MaxInstancesExceededError",
     "PredictionAppendItem",
     "SerializerPredictedInstance",
+    "SiestaStore",
     "append_predictions_siesta",
+    "create_store_from_archive",
     "merge_predictions_siesta",
+    "create_store_from_sta",
+    "open_store",
     "read_metrics_table",
     "read_labels_json_payload",
     "read_siesta",

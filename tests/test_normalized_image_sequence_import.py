@@ -54,13 +54,13 @@ def test_convert_normalized_image_sequence_annotations_writes_bundle_and_manifes
         )
     )
 
-    project_root = tmp_path / "bundle"
+    project_root = tmp_path / "archive"
     result = convert_normalized_image_sequence_annotations(
         annotations_path,
         project_root,
     )
 
-    bundle_path = project_root / "bundle.sta"
+    bundle_path = project_root / "archive.sta"
     copied_frame = project_root / "videos" / "demo_sequence" / "000000_frame_0000.png"
     assert result.project_root == project_root
     assert result.siesta_path == bundle_path
@@ -73,10 +73,13 @@ def test_convert_normalized_image_sequence_annotations_writes_bundle_and_manifes
         manifest = json.loads(str(raw))
 
     entries = manifest["entries"]
-    expected_sequence_dir = str((project_root / "videos" / "demo_sequence").resolve())
+    expected_sequence_dir = {
+        str((project_root / "videos" / "demo_sequence").resolve()),
+        "videos/demo_sequence",
+    }
     assert any(
         entry.get("asset_type") == "video"
-        and entry.get("path") == expected_sequence_dir
+        and entry.get("path") in expected_sequence_dir
         and entry.get("metadata") == {
             "backend": "images",
             "frame_count": 1,

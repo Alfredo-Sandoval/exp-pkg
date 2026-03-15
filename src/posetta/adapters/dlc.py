@@ -1,4 +1,4 @@
-"""High-level DeepLabCut adapter exports for native project bundles."""
+"""High-level DeepLabCut adapter exports for native project archives."""
 
 from __future__ import annotations
 
@@ -20,6 +20,10 @@ from posetta.io.converters.progress import (
 from posetta.io.converters.progress import (
     bridge_progress_callback,
 )
+
+convert_dlc_csv = _dlc_import.convert_dlc_csv
+convert_dlc_h5_project = _dlc_import.convert_dlc_h5_project
+convert_dlc_project = _dlc_import.convert_dlc_project
 
 
 def convert_dlc_h5(
@@ -80,5 +84,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     _configure_cli_parser(parser)
     return parse_and_run_cli(parser, argv, runner)
 
-
-__all__ = ["ConversionResult", "ProgressCallback", "convert_dlc_h5", "main"]
+__all__ = [
+    "ConversionResult",
+    "ProgressCallback",
+    "convert_dlc_csv",
+    "convert_dlc_h5",
+    "convert_dlc_h5_project",
+    "convert_dlc_project",
+    "main",
+]

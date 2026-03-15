@@ -254,7 +254,7 @@ def make_path_id(path: str | Path, *, prefix: str) -> PathId:
 def resolve_unified_siesta_or_error(
     path: str | Path,
 ) -> tuple[Path | None, ValueError | FileNotFoundError | None]:
-    """Resolve user input to a concrete .sta bundle without raising.
+    """Resolve user input to a concrete native archive without raising.
 
     Returns:
         (resolved_path, None) on success, or (None, exception) on failure.
@@ -262,50 +262,51 @@ def resolve_unified_siesta_or_error(
     candidate = resolve_path(path)
 
     if candidate.is_dir():
-        canonical = candidate / f"{candidate.name}.sta"
+        canonical = candidate / f"{candidate.name}.siesta"
         if canonical.exists():
             return canonical.resolve(), None
 
-        bundles = sorted(candidate.glob("*.sta")) or sorted(candidate.glob("*.siesta"))
-        if not bundles:
+        archives = sorted(candidate.glob("*.siesta")) or sorted(candidate.glob("*.sta"))
+        if not archives:
             return (
                 None,
                 ValueError(
-                    f"Expected a .sta file path, got a directory with no bundles: {candidate}"
+                    "Expected a .siesta archive path, got a directory with no archives: "
+                    f"{candidate}"
                 ),
             )
-        if len(bundles) > 1:
-            names = ", ".join(b.name for b in bundles)
+        if len(archives) > 1:
+            names = ", ".join(archive.name for archive in archives)
             return (
                 None,
                 ValueError(
-                    "Expected a .sta file path, got a directory with multiple bundles "
+                    "Expected a .siesta archive path, got a directory with multiple archives "
                     f"({names}): {candidate}"
                 ),
             )
-        return bundles[0].resolve(), None
+        return archives[0].resolve(), None
 
     if candidate.suffix.lower() not in (".sta", ".siesta"):
-        return None, ValueError(f"Expected a .sta file path, got: {candidate}")
+        return None, ValueError(f"Expected a .siesta archive path, got: {candidate}")
 
     if not candidate.exists():
-        return None, FileNotFoundError(f".sta file not found: {candidate}")
+        return None, FileNotFoundError(f".siesta archive not found: {candidate}")
 
     return candidate, None
 
 
 def resolve_unified_siesta(path: str | Path) -> Path:
-    """Resolve user input to a concrete .sta bundle (no discovery heuristics).
+    """Resolve user input to a concrete native archive (no discovery heuristics).
 
     Args:
-        path: The input path to a .sta file or a directory containing one.
+        path: The input path to a native archive or a directory containing one.
 
     Returns:
-        The resolved absolute Path to the .sta bundle.
+        The resolved absolute Path to the native archive.
 
     Raises:
-        ValueError: If the path is not a .sta file or directory with a single bundle.
-        FileNotFoundError: If the .sta file is not found.
+        ValueError: If the path is not a native archive or directory with a single archive.
+        FileNotFoundError: If the archive is not found.
     """
     resolved, err = resolve_unified_siesta_or_error(path)
     if err is not None:
@@ -316,17 +317,20 @@ def resolve_unified_siesta(path: str | Path) -> Path:
 
 
 def find_project_bundles(project_root: str | Path) -> list[Path]:
-    """Return the project bundle path if it exists.
+    """Return the project archive path if it exists.
 
     Args:
         project_root: The root directory of the project.
 
     Returns:
-        A list containing the Path to the project bundle if it exists, else empty.
+        A list containing the Path to the project archive if it exists, else empty.
     """
     root = Path(project_root)
-    bundle = root / f"{root.name}.sta"
-    return [bundle] if bundle.exists() else []
+    for suffix in (".siesta", ".sta"):
+        archive = root / f"{root.name}{suffix}"
+        if archive.exists():
+            return [archive]
+    return []
 
 
 def iter_image_files(directory: str | Path, sort: bool = True) -> Iterable[Path]:
@@ -387,14 +391,14 @@ def resolve_project_roots(
 
 
 def locate_annotation_bundle(project_root: Path, annotation_files: list[str]) -> Path | None:
-    """Locate the first existing .sta bundle from a list of relative/absolute paths.
+    """Locate the first existing .sta archive from a list of relative/absolute paths.
 
     Args:
         project_root: The root directory of the project.
         annotation_files: A list of potential annotation file paths.
 
     Returns:
-        The Path to the first existing .sta bundle, or None if none found.
+        The Path to the first existing .sta archive, or None if none found.
     """
     for entry in annotation_files:
         candidate = Path(entry)

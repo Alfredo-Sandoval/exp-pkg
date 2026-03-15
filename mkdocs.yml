@@ -78,6 +78,9 @@ extra_css:
 nav:
   - Home: index.md
   - Getting Started: getting-started.md
+  - Architecture:
+      - Media IO Stack: architecture/media-io.md
+      - Experimental Durable Store: architecture/experimental-store.md
   - API Guide:
       - Model: api/model.md
       - Formats: api/formats.md

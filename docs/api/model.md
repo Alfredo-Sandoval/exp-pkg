@@ -110,7 +110,7 @@ print(skeleton.name)
 print(skeleton.keypoint_names)
 ```
 
-## Creating a Minimal Labels Bundle
+## Creating a Minimal Labels Archive
 
 ```python
 from posetta.model import (

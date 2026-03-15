@@ -2,12 +2,13 @@
 Project manifest for tracking assets with stable identifiers.
 
 This module provides a centralized registry for project assets (videos, models,
-skeletons, bundles) that replaces scattered file searching with O(1) lookups.
-The manifest persists in the `.sta` bundle and uses PathId for stable references.
+skeletons, archives) that replaces scattered file searching with O(1) lookups.
+The manifest persists in the native `.siesta` archive and uses portable path IDs.
 """
 
 from __future__ import annotations
 
+import hashlib
 from collections.abc import Mapping
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
@@ -17,7 +18,7 @@ from typing import Any
 
 import h5py
 
-from posetta.core.path_registry import make_path_id
+from posetta.core.path_registry import PathId, normalize_separators, slugify_path_component
 
 
 class AssetType(StrEnum):
@@ -42,14 +43,14 @@ def coerce_asset_type(asset_type: AssetType | str) -> AssetType:
 
 
 def resolve_project_path(raw_path: Path | str, *, project_root: Path | None) -> tuple[str, Path]:
-    """Return (stored_path, resolved_path) with stored_path as an absolute path.
+    """Return `(stored_path, resolved_path)` using relative storage when possible.
 
     Args:
         raw_path: The path to resolve.
         project_root: The root directory of the project.
 
     Returns:
-        tuple[str, Path]: Stored absolute path string plus resolved filesystem path.
+        tuple[str, Path]: Stored path string plus resolved filesystem path.
 
     Raises:
         ValueError: If the path is empty or escapes the project root.
@@ -70,8 +71,38 @@ def resolve_project_path(raw_path: Path | str, *, project_root: Path | None) -> 
         if resolved != root and root not in resolved.parents:
             raise ValueError(f"Relative path escapes project root: {raw_str}")
 
-    stored_path = str(resolved)
+    try:
+        stored_path = (
+            resolved.relative_to(root).as_posix()
+            if root is not None
+            else normalize_separators(str(resolved))
+        )
+    except ValueError:
+        stored_path = normalize_separators(str(resolved))
     return stored_path, resolved
+
+
+def _make_manifest_path_id(
+    resolved_path: Path,
+    *,
+    prefix: str,
+    project_root: Path | None,
+) -> PathId:
+    root = Path(project_root).resolve() if project_root is not None else None
+    try:
+        identity_path = (
+            resolved_path.relative_to(root).as_posix()
+            if root is not None
+            else normalize_separators(str(resolved_path))
+        )
+    except ValueError:
+        identity_path = normalize_separators(str(resolved_path))
+    digest = hashlib.sha1(identity_path.encode("utf-8")).hexdigest()[:8]
+    return PathId(
+        id=f"{prefix}_{digest}",
+        label=slugify_path_component(resolved_path),
+        path=identity_path,
+    )
 
 
 @dataclass(slots=True)
@@ -119,7 +150,11 @@ class AssetEntry:
         """
         resolved_asset_type = coerce_asset_type(asset_type)
         stored_path, resolved_path = resolve_project_path(path, project_root=project_root)
-        path_id = make_path_id(resolved_path, prefix=resolved_asset_type.value)
+        path_id = _make_manifest_path_id(
+            resolved_path,
+            prefix=resolved_asset_type.value,
+            project_root=project_root,
+        )
         exists = resolved_path.exists()
         modified_at = ""
         if exists:
@@ -148,9 +183,12 @@ class AssetEntry:
         data["asset_type"] = AssetType(data["asset_type"])
         return cls(**data)
 
-    def refresh(self) -> None:
+    def refresh(self, *, project_root: Path | None = None) -> None:
         """Update existence and modification time from filesystem."""
-        p = Path(self.path)
+        if project_root is None and not Path(self.path).is_absolute():
+            p = Path(self.path)
+        else:
+            _, p = resolve_project_path(self.path, project_root=project_root)
         self.exists = p.exists()
         if self.exists:
             mtime = p.stat().st_mtime
@@ -227,7 +265,11 @@ class ProjectManifest:
         """Get an asset by its filesystem path."""
         resolved_asset_type = coerce_asset_type(asset_type)
         _, resolved_path = resolve_project_path(path, project_root=project_root)
-        path_id = make_path_id(resolved_path, prefix=resolved_asset_type.value)
+        path_id = _make_manifest_path_id(
+            resolved_path,
+            prefix=resolved_asset_type.value,
+            project_root=project_root,
+        )
         return self._entries.get(path_id.id)
 
     def has_entry(
@@ -323,7 +365,7 @@ class ProjectManifest:
         """
         return list(self._entries.values())
 
-    def refresh(self) -> int:
+    def refresh(self, *, project_root: Path | None = None) -> int:
         """Refresh existence status for all assets.
 
         Returns:
@@ -332,7 +374,7 @@ class ProjectManifest:
         changed = 0
         for entry in self._entries.values():
             old_exists = entry.exists
-            entry.refresh()
+            entry.refresh(project_root=project_root)
             if entry.exists != old_exists:
                 changed += 1
         return changed
@@ -398,37 +440,48 @@ def resolve_asset_path(
     asset_type: AssetType | str,
     manifest: ProjectManifest | Mapping[str, Any] | None = None,
     project_root: Path | None = None,
+    strict: bool = True,
 ) -> Path:
     """
-    Resolve an asset path strictly via the manifest (no fallbacks or discovery).
+    Resolve an asset path through the manifest, with optional permissive fallback.
     """
     resolved_asset_type = coerce_asset_type(asset_type)
     _, resolved_raw = resolve_project_path(raw_path, project_root=project_root)
 
     manifest_obj = coerce_manifest(manifest)
     if manifest_obj is None:
-        raise ValueError("Manifest is required to resolve asset paths")
+        if strict:
+            raise ValueError("Manifest is required to resolve asset paths")
+        return resolved_raw
 
-    candidate_id = make_path_id(resolved_raw, prefix=resolved_asset_type.value)
+    candidate_id = _make_manifest_path_id(
+        resolved_raw,
+        prefix=resolved_asset_type.value,
+        project_root=project_root,
+    )
     entry = manifest_obj.get(candidate_id.id)
     if entry is None:
-        raise FileNotFoundError(f"Asset not found in manifest: {resolved_raw}")
+        if strict:
+            raise FileNotFoundError(f"Asset not found in manifest: {resolved_raw}")
+        return resolved_raw
 
     _, resolved_entry = resolve_project_path(entry.path, project_root=project_root)
     if not resolved_entry.exists():
-        raise FileNotFoundError(f"Manifest entry missing on disk: {resolved_entry}")
+        if strict:
+            raise FileNotFoundError(f"Manifest entry missing on disk: {resolved_entry}")
+        return resolved_entry
     return resolved_entry
 
 
 def persist_manifest(
-    bundle_path: Path | str, manifest: ProjectManifest | Mapping[str, Any]
+    archive_path: Path | str, manifest: ProjectManifest | Mapping[str, Any]
 ) -> None:
-    """Write the provided manifest into the project's .sta bundle."""
+    """Write the provided manifest into the project's `.siesta` archive."""
     from posetta.io.siesta_format.transaction import SiestaFileLock
 
-    bundle = Path(bundle_path).resolve()
-    if not bundle.exists():
-        raise FileNotFoundError(f".sta bundle not found: {bundle}")
+    archive = Path(archive_path).resolve()
+    if not archive.exists():
+        raise FileNotFoundError(f".siesta archive not found: {archive}")
     if isinstance(manifest, ProjectManifest):
         manifest_obj = manifest
     elif isinstance(manifest, Mapping):
@@ -438,11 +491,11 @@ def persist_manifest(
 
     manifest_json = _serialize_json(manifest_obj.to_dict())
 
-    with SiestaFileLock(bundle):
-        with h5py.File(str(bundle), "r+") as h5file:
+    with SiestaFileLock(archive):
+        with h5py.File(str(archive), "r+") as h5file:
             meta_group = h5file.get("project_metadata")
             if meta_group is None:
-                raise ValueError(".sta file is missing the project_metadata group")
+                raise ValueError(".siesta archive is missing the project_metadata group")
             if not isinstance(meta_group, h5py.Group):
                 raise TypeError("project_metadata must be an h5py Group")
             meta_group.attrs["manifest_json"] = manifest_json

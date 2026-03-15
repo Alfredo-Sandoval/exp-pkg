@@ -17,6 +17,13 @@ _PROVENANCE_SCHEMA_VERSION = 1
 _PROVENANCE_SENTINEL_OPERATION = "(truncated)"
 _DEFAULT_PROVENANCE_MAX_BYTES = 524_288
 _JOURNAL_SCHEMA_VERSION = 1
+SIESTA_SCHEMA_NAME = "siesta"
+SIESTA_SCHEMA_VERSION = "2.0.0"
+CANONICAL_BUNDLE_SUFFIX = ".siesta"
+LEGACY_BUNDLE_SUFFIXES = (".sta",)
+SUPPORTED_BUNDLE_SUFFIXES = (CANONICAL_BUNDLE_SUFFIX, *LEGACY_BUNDLE_SUFFIXES)
+LABEL_TRACK_ID_DATASET = "track_id"
+LABEL_VISIBILITY_DATASET = "visibility"
 
 
 _COERCE_PRIMITIVE_SENTINEL = object()
@@ -41,7 +48,7 @@ def _require_h5_group(
 def _require_project_metadata_group(
     container: h5py.File | h5py.Group,
     *,
-    missing_message: str = "Missing project_metadata group in .sta file",
+    missing_message: str = "Missing project_metadata group in .siesta archive",
     type_message: str = "project_metadata must be an h5py Group",
 ) -> h5py.Group:
     return _require_h5_group(

@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "posetta"
 version = "0.1.0"
-description = "Native .siesta bundle IO and adapter toolkit for pose data."
+description = "Native .siesta archive IO and adapter toolkit for pose data."
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [

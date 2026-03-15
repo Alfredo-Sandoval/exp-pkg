@@ -3,7 +3,7 @@
 <div class="page-intro">
 <p>
 <code>posetta.adapters</code> converts DLC and SLEAP tracking into native
-<code>.siesta</code> bundles.
+<code>.siesta</code> archives.
 </p>
 </div>
 
@@ -18,14 +18,14 @@ Fields:
 - `source_dir`: the original source path or directory
 - `project_root`: the output project directory
 - `videos`: output video paths associated with the conversion
-- `siesta_path`: the main `.siesta` bundle path
+- `siesta_path`: the main `.siesta` archive path
 
 ## DeepLabCut
 
 ### `convert_dlc_csv(csv_path, video_path, out_path, *, skeleton_name="imported", likelihood_threshold=0.0, progress_callback=None) -> ConversionResult`
 
 Convert one DLC CSV tracking file and its matching video into a `.siesta`
-bundle.
+archive.
 
 ### `convert_dlc_h5(h5_path, video_path, out_path, *, skeleton_name="imported", likelihood_threshold=0.0, progress_callback=None) -> ConversionResult`
 

@@ -114,7 +114,7 @@ class SuggestionFrame:
 
 @dataclass(repr=False)
 class Labels:
-    """Represent a `.sta` label bundle with caching, query helpers, and IO helpers."""
+    """Represent a native archive with caching, query helpers, and IO helpers."""
 
     labeled_frames: list[LabeledFrame] = field(default_factory=list)
     videos: list[VideoProtocol] = field(default_factory=list)
@@ -141,7 +141,7 @@ class Labels:
 
     @property
     def path(self) -> Path | None:
-        """Return the source bundle path for this labels object, if known."""
+        """Return the source archive path for this labels object, if known."""
         return self._path
 
     @path.setter
@@ -416,7 +416,7 @@ class Labels:
         return new_labels
 
     def copy(self) -> Labels:
-        """Return a deep copy of this labels bundle."""
+        """Return a deep copy of this labels archive."""
 
         clone = Labels(
             labeled_frames=[lf.copy() for lf in self.labeled_frames],
@@ -459,7 +459,7 @@ class Labels:
         )
 
     def insert(self, index, value: LabeledFrame):
-        """Insert a labeled frame unless it already exists in this bundle."""
+        """Insert a labeled frame unless it already exists in this archive."""
         if value in self or (value.video, value.frame_idx) in self:
             return
 
@@ -478,7 +478,7 @@ class Labels:
             self.labeled_frames.remove(self.labeled_frames[index])
 
     def remove(self, value: LabeledFrame):
-        """Remove `value` from the bundle."""
+        """Remove `value` from the archive."""
         self.remove_frame(value)
 
     def remove_frame(self, lf: LabeledFrame, update_cache: bool = True):
@@ -649,12 +649,12 @@ class Labels:
         return lf
 
     def add_video(self, video: VideoProtocol):
-        """Ensure `video` is tracked by this bundle."""
+        """Ensure `video` is tracked by this archive."""
         if video not in self.videos:
             self.videos.append(video)
 
     def remove_video(self, video: VideoProtocol):
-        """Purge `video` and all associated data from this bundle."""
+        """Purge `video` and all associated data from this archive."""
         if video not in self.videos:
             raise KeyError("Video is not in labels.")
 
@@ -677,10 +677,10 @@ class Labels:
         video_builder: serialization.VideoBuilder | None = None,
         video_finalizer: serialization.HydratedVideoFinalizer | None = None,
     ) -> Labels:
-        """Construct `Labels` from a `.sta` payload dictionary.
+        """Construct `Labels` from a native archive payload dictionary.
 
         Args:
-            payload: The main `.sta` data dictionary.
+            payload: The main native archive data dictionary.
             suggestions_payload: Optional suggestions data dictionary.
             video_builder: Optional video construction hook for product-specific media policy.
             video_finalizer: Optional post-hydration hook for releasing media resources.
@@ -697,7 +697,7 @@ class Labels:
         )
 
     def extend_from(self, new_frames: Labels | list[LabeledFrame], unify: bool = False):
-        """Extend the bundle with new frames, optionally unifying shared objects."""
+        """Extend the archive with new frames, optionally unifying shared objects."""
         if isinstance(new_frames, Labels):
             new_frames = new_frames.labeled_frames
 
@@ -823,8 +823,8 @@ class Labels:
         return self.save_file(self, filename)
 
     def export_h5(self, filename: str) -> str:
-        """Write this bundle to disk as a `.sta` file."""
-        return self.save_file(self, filename, _default_suffix=".sta")
+        """Write this archive to disk as a native `.siesta` file."""
+        return self.save_file(self, filename, _default_suffix=".siesta")
 
     def numpy(
         self,

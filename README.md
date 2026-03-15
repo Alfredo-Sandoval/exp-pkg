@@ -6,13 +6,13 @@
 
 **A Rosetta Stone for pose data.**
 
-The pose-estimation ecosystem is fragmented: DeepLabCut exports CSV and H5, SLEAP uses `.pkg.slp` packages, and every other tracker has its own format. Posetta bridges that gap with a canonical `Labels` object, a native HDF5 archive format (`.siesta` bundles), and a lightweight labels JSON interchange path for GUI-friendly inspection workflows.
+The pose-estimation ecosystem is fragmented: DeepLabCut exports CSV and H5, SLEAP uses `.pkg.slp` packages, and every other tracker has its own format. Posetta bridges that gap with a canonical `Labels` object, a native HDF5 archive format (`.siesta` archives), and a lightweight labels JSON interchange path for GUI-friendly inspection workflows.
 
 ## What It Does
 
-- Native `.siesta` bundle IO (read, write, update, append, merge)
+- Native `.siesta` archive IO (read, write, update, append, merge)
 - Canonical labels JSON IO for fast interchange and GUI workflows
-- Metrics table storage inside bundles
+- Metrics table storage inside archives
 - Skeleton loading from multiple formats
 - DeepLabCut adapters (CSV, H5, whole-project)
 - SLEAP adapter (`.pkg.slp` package import)
@@ -57,16 +57,16 @@ make docs-serve    # live preview at localhost:8123
 
 ## Quick Start
 
-Convert DeepLabCut tracking into a `.siesta` bundle, then read it back:
+Convert DeepLabCut tracking into a `.siesta` archive, then read it back:
 
 ```python
 from posetta.adapters import convert_dlc_csv
 from posetta.model import Labels
 
-# Convert DeepLabCut tracking into a .siesta bundle
+# Convert DeepLabCut tracking into a .siesta archive
 convert_dlc_csv("tracking.csv", "video.mp4", "tracking.siesta")
 
-# Read a bundle back as the canonical Labels object
+# Read an archive back as the canonical Labels object
 labels = Labels.load_file("tracking.siesta")
 assert isinstance(labels, Labels)
 

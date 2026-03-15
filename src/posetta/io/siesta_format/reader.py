@@ -1,4 +1,4 @@
-"""Read-only helpers for `.sta` archives."""
+"""Read-only helpers for native `.siesta` archives."""
 
 from __future__ import annotations
 
@@ -20,6 +20,7 @@ from posetta.io.siesta_format.reader_core import (
     read_siesta_with_assembler,
 )
 from posetta.io.siesta_format.shared import _looks_like_int
+from posetta.io.siesta_format.tracks_hdf5 import read_tracks_group
 
 __all__ = [
     "LazyDatasetHandle",
@@ -48,9 +49,11 @@ def _assemble_result(
 
     from posetta.io.siesta_format.segmentation_hdf5 import read_segmentation_group
 
+    tracks_by_id = read_tracks_group(handle)
+    common.result["labels"]["tracks"] = tracks_by_id
     common.metadata["preferences"] = common.preferences_override
     common.result["labels"]["metadata"]["preferences"] = common.preferences_override
-    common.result["segmentation"] = read_segmentation_group(handle)
+    common.result["segmentation"] = read_segmentation_group(handle, tracks_by_id=tracks_by_id)
     return common.result
 
 
@@ -59,19 +62,6 @@ def read_siesta(
     *,
     lazy: bool = False,
 ) -> dict[str, Any]:
-    """Load a `.sta` project archive from disk.
-
-    Args:
-        path: Path to the `.sta` file.
-        lazy: If True, return lazy dataset handles instead of materializing arrays.
-            The return payload includes ``h5_handle`` (LazySiestaHandle), and the
-            caller must close it after materializing lazy datasets.
-
-    Returns:
-        dict: Project data including videos, labels, predictions, and metadata.
-
-    Raises:
-        FileNotFoundError: If the file does not exist.
-    """
+    """Load a native `.siesta` archive from disk."""
 
     return read_siesta_with_assembler(path, lazy=lazy, assemble_result=_assemble_result)

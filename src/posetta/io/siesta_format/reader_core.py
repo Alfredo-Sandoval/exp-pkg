@@ -1,4 +1,4 @@
-"""Shared HDF5 reader core for `.siesta` / `.sta` bundles.
+"""Shared HDF5 reader core for `.siesta` / `.sta` archives.
 
 This lives outside either product reader because both repos share the same
 on-disk schema, but they finalize product-specific metadata differently.
@@ -28,6 +28,9 @@ from posetta.io.manifest import (
 from posetta.io.siesta_format.shared import (
     _DEFAULT_PROVENANCE_MAX_BYTES,
     _PROVENANCE_SCHEMA_VERSION,
+    LABEL_TRACK_ID_DATASET,
+    LABEL_VISIBILITY_DATASET,
+    SIESTA_SCHEMA_NAME,
     _coerce_int,
     _mapping_to_str_key_dict,
     _normalize_predictions_committed_length,
@@ -289,7 +292,8 @@ def _empty_labels_payload() -> dict[str, Any]:
         "data": {
             "keypoints": np.zeros((0, 0, 0, 3), dtype=np.float32),
             "flags": np.zeros((0, 0, 0), dtype=np.uint8),
-            "track_ids": np.zeros((0, 0), dtype=np.int32),
+            LABEL_TRACK_ID_DATASET: np.zeros((0, 0), dtype=np.int32),
+            LABEL_VISIBILITY_DATASET: np.zeros((0, 0, 0), dtype=np.uint8),
         },
         "metadata": {
             "num_frames": 0,
@@ -421,7 +425,16 @@ def _read_labels_group(root: h5py.File, *, lazy_read: bool) -> dict[str, Any]:
 
     keypoints_ds = data_group.get("keypoints") if isinstance(data_group, h5py.Group) else None
     flags_ds = data_group.get("flags") if isinstance(data_group, h5py.Group) else None
-    track_ds = data_group.get("track_ids") if isinstance(data_group, h5py.Group) else None
+    track_ds = (
+        data_group.get(LABEL_TRACK_ID_DATASET)
+        if isinstance(data_group, h5py.Group) and LABEL_TRACK_ID_DATASET in data_group
+        else data_group.get("track_ids")
+        if isinstance(data_group, h5py.Group)
+        else None
+    )
+    visibility_ds = (
+        data_group.get(LABEL_VISIBILITY_DATASET) if isinstance(data_group, h5py.Group) else None
+    )
 
     n_frames = 0
     if isinstance(keypoints_ds, h5py.Dataset):
@@ -483,6 +496,11 @@ def _read_labels_group(root: h5py.File, *, lazy_read: bool) -> dict[str, Any]:
         if isinstance(track_ds, h5py.Dataset)
         else np.full((n_frames, max_inst), -1, dtype=np.int32)
     )
+    visibility = (
+        _read_dataset_slice(visibility_ds, np.uint8, lazy=lazy_read)
+        if isinstance(visibility_ds, h5py.Dataset)
+        else np.zeros((n_frames, max_inst, num_kpts), dtype=np.uint8)
+    )
 
     return {
         "frames": {
@@ -493,7 +511,8 @@ def _read_labels_group(root: h5py.File, *, lazy_read: bool) -> dict[str, Any]:
         "data": {
             "keypoints": keypoints,
             "flags": flags,
-            "track_ids": track_ids,
+            LABEL_TRACK_ID_DATASET: track_ids,
+            LABEL_VISIBILITY_DATASET: visibility,
         },
         "metadata": {
             "num_frames": int(n_frames),
@@ -832,9 +851,8 @@ def _decode_manifest(metadata: dict[str, Any]):
         type_message="project_metadata.manifest_json must be a mapping or JSON string mapping",
     )
     if manifest is None:
-        raise ValueError("Manifest is required in project_metadata.manifest_json")
-    if not manifest.get("entries"):
-        raise ValueError("Manifest entries are required to resolve assets")
+        metadata["manifest"] = None
+        return None
     metadata["manifest"] = manifest
     return coerce_manifest(manifest)
 
@@ -869,6 +887,7 @@ def _resolve_video_entries(
                 asset_type=AssetType.VIDEO,
                 manifest=manifest_obj,
                 project_root=bundle_root,
+                strict=False,
             )
             resolved_paths[idx] = str(resolved_candidate)
             resolved_exists[idx] = resolved_candidate.exists()
@@ -973,6 +992,9 @@ def build_common_reader_state(
     lazy_read: bool,
 ) -> ReaderCommonState:
     metadata, provenance = _read_project_metadata(handle, path=path)
+    if not metadata.get("schema_version") and metadata.get("version"):
+        metadata["schema_version"] = metadata["version"]
+    metadata.setdefault("schema_name", SIESTA_SCHEMA_NAME)
     runtime_config = _decode_runtime_config(metadata)
     if runtime_config is not None:
         metadata["runtime_config"] = runtime_config
@@ -1031,7 +1053,7 @@ def read_siesta_with_assembler(
     lazy: bool,
     assemble_result: Callable[[h5py.File, Path, Path, bool], dict[str, Any]],
 ) -> dict[str, Any]:
-    """Open a bundle and let a repo-specific wrapper finalize the payload."""
+    """Open an archive and let a repo-specific wrapper finalize the payload."""
     if not path.exists():
         raise FileNotFoundError(f"No such file: {path}")
 

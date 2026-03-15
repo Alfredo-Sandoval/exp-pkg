@@ -2,7 +2,7 @@
 # Justification: h5py lacks bundled type stubs in this environment.
 
 """
-Utilities for managing metrics tables stored inside `.sta` bundles.
+Utilities for managing metrics tables stored inside `.sta` archives.
 
 This module centralizes HDF5 interactions for the `/metrics` group and provides a
 consistent, compressed storage layout for tabular metrics. Consumers interact with
@@ -133,10 +133,10 @@ def _coerce_text(value: Any) -> str:
 
 
 def ensure_group(bundle_path: str | Path) -> None:
-    """Guarantee that a `.sta` bundle exposes a `/metrics` group.
+    """Guarantee that a `.sta` archive exposes a `/metrics` group.
 
     Args:
-        bundle_path: Path to the .sta bundle.
+        bundle_path: Path to the .sta archive.
     """
     path = Path(bundle_path)
     with h5py.File(str(path), "a") as handle:
@@ -153,10 +153,10 @@ def _ensure_metrics_group_handle(handle: h5py.File) -> h5py.Group:
 
 
 def has_metrics_group(bundle_path: str | Path) -> bool:
-    """Return True when the bundle exposes a `/metrics` group.
+    """Return True when the archive exposes a `/metrics` group.
 
     Args:
-        bundle_path: Path to the .sta bundle.
+        bundle_path: Path to the .sta archive.
 
     Returns:
         True if the group exists, False otherwise.
@@ -170,10 +170,10 @@ def has_metrics_group(bundle_path: str | Path) -> bool:
 
 
 def has_metrics_table(bundle_path: str | Path, name: str) -> bool:
-    """Return True when the bundle exposes a given metrics table.
+    """Return True when the archive exposes a given metrics table.
 
     Args:
-        bundle_path: Path to the .sta bundle.
+        bundle_path: Path to the .sta archive.
         name: Name of the table to check.
 
     Returns:
@@ -192,10 +192,10 @@ def has_metrics_table(bundle_path: str | Path, name: str) -> bool:
 
 
 def read_table(bundle_path: str | Path, name: str) -> pd.DataFrame:
-    """Load a metrics table from a `.sta` bundle.
+    """Load a metrics table from a `.sta` archive.
 
     Args:
-        bundle_path: Path to the .sta bundle.
+        bundle_path: Path to the .sta archive.
         name: Name of the table to read.
 
     Returns:
@@ -210,12 +210,12 @@ def read_table(bundle_path: str | Path, name: str) -> pd.DataFrame:
     with h5py.File(str(path), "r") as handle:
         metrics_group = handle.get(_METRICS_GROUP)
         if metrics_group is None:
-            logger.debug("Bundle '%s' does not expose /%s", path, _METRICS_GROUP)
+            logger.debug("Archive '%s' does not expose /%s", path, _METRICS_GROUP)
             raise MissingMetricsGroupError(path)
         if not isinstance(metrics_group, h5py.Group):
             raise MetricsReadError(f"Node '/{_METRICS_GROUP}' is not a group")
         if name not in metrics_group:
-            logger.debug("Bundle '%s' missing metrics table '%s'", path, name)
+            logger.debug("Archive '%s' missing metrics table '%s'", path, name)
             raise MissingMetricsTableError(path, name)
         table_group = metrics_group[name]
         if not isinstance(table_group, h5py.Group):
@@ -274,7 +274,7 @@ def write_table(
     """Persist a metrics DataFrame as `/metrics/<name>`.
 
     Args:
-        bundle_path: Path to the .sta bundle.
+        bundle_path: Path to the .sta archive.
         name: Name of the table to write.
         dataframe: The pandas DataFrame to persist.
         mode: Either 'append' or 'replace'.
@@ -534,10 +534,10 @@ def iter_tables(bundle_path: str | Path) -> Iterable[str]:
     """Yield table names under `/metrics`.
 
     Args:
-        bundle_path: Path to the .sta bundle.
+        bundle_path: Path to the .sta archive.
 
     Yields:
-        The names of the metrics tables found in the bundle.
+        The names of the metrics tables found in the archive.
 
     Raises:
         MissingMetricsGroupError: If the /metrics group is missing.
@@ -553,21 +553,21 @@ def iter_tables(bundle_path: str | Path) -> Iterable[str]:
 
 
 class MetricStore:
-    """Read and write typed metrics tables from `.sta` bundles."""
+    """Read and write typed metrics tables from `.sta` archives."""
 
     @staticmethod
     def read_prediction_errors(bundle_path: Path) -> pd.DataFrame | None:
-        """Read and normalize `/metrics/prediction_errors` from the bundle."""
+        """Read and normalize `/metrics/prediction_errors` from the archive."""
         if not bundle_path.exists():
-            raise FileNotFoundError(f"Bundle not found: {bundle_path}")
+            raise FileNotFoundError(f"Archive not found: {bundle_path}")
         df = read_table(bundle_path, "prediction_errors")
         return MetricStore._normalize_prediction_errors(df)
 
     @staticmethod
     def read_pixel_error(bundle_path: Path) -> pd.DataFrame | None:
-        """Read and normalize `/metrics/pixel_error` from the bundle."""
+        """Read and normalize `/metrics/pixel_error` from the archive."""
         if not bundle_path.exists():
-            raise FileNotFoundError(f"Bundle not found: {bundle_path}")
+            raise FileNotFoundError(f"Archive not found: {bundle_path}")
         if not has_metrics_table(bundle_path, "pixel_error"):
             return None
         df = read_table(bundle_path, "pixel_error")
@@ -585,7 +585,7 @@ class MetricStore:
 
     @staticmethod
     def read_training_metrics(bundle_path: Path) -> pd.DataFrame | None:
-        """Read epoch-style training metrics from bundle tables."""
+        """Read epoch-style training metrics from archive tables."""
         if not has_metrics_group(bundle_path):
             return None
 
@@ -732,12 +732,12 @@ class MetricStore:
 
 
 class LabelStore:
-    """Read and write labeled-frame metadata tables from `.sta` bundles."""
+    """Read and write labeled-frame metadata tables from `.sta` archives."""
 
     @staticmethod
     def read_labels_metadata(bundle_path: Path) -> pd.DataFrame | None:
         if not bundle_path.exists():
-            raise FileNotFoundError(f"Bundle not found: {bundle_path}")
+            raise FileNotFoundError(f"Archive not found: {bundle_path}")
         return read_table(bundle_path, "labels_lp_images")
 
     @staticmethod

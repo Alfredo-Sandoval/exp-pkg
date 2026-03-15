@@ -77,7 +77,7 @@ def fancy_frame_indices(
 
 
 class LabelsQuery:
-    """Provide list-like/sliceable access to a labels bundle."""
+    """Provide list-like/sliceable access to a labels archive."""
 
     def __init__(self, labels: Labels) -> None:
         self._labels = labels

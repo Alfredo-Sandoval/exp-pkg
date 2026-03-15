@@ -23,14 +23,19 @@ def _find_manifest_entry(
     *,
     asset_type: str,
     path: Path,
+    project_root: Path | None = None,
 ) -> dict[str, object]:
-    expected_path = str(path.resolve())
+    expected_paths = {str(path.resolve())}
+    if project_root is not None:
+        expected_paths.add(path.resolve().relative_to(project_root.resolve()).as_posix())
     for entry in entries:
         if entry.get("asset_type") != asset_type:
             continue
-        if entry.get("path") == expected_path:
+        if entry.get("path") in expected_paths:
             return entry
-    raise AssertionError(f"Manifest entry not found for {asset_type}: {expected_path}")
+    raise AssertionError(
+        f"Manifest entry not found for {asset_type}: expected one of {sorted(expected_paths)}"
+    )
 
 
 def test_write_siesta_manifest_tracks_bundle_only_by_default(tmp_path: Path) -> None:
@@ -40,7 +45,7 @@ def test_write_siesta_manifest_tracks_bundle_only_by_default(tmp_path: Path) -> 
     project_root = tmp_path / "proj"
     project_root.mkdir(parents=True)
 
-    bundle_path = project_root / "proj.sta"
+    bundle_path = project_root / "proj.siesta"
     labels = Labels()
     write_siesta(bundle_path, labels)
 
@@ -51,7 +56,7 @@ def test_write_siesta_manifest_tracks_bundle_only_by_default(tmp_path: Path) -> 
         payload = json.loads(str(raw))
 
     entries = payload["entries"]
-    expected_bundle = str(bundle_path.resolve())
+    expected_bundle = "proj.siesta"
 
     def _has(asset_type: str, path: str, role: str) -> bool:
         for entry in entries:
@@ -65,14 +70,14 @@ def test_write_siesta_manifest_tracks_bundle_only_by_default(tmp_path: Path) -> 
         return False
 
     assert len(entries) == 1
-    assert _has("predictions", expected_bundle, "bundle")
+    assert _has("predictions", expected_bundle, "archive")
 
 
 def test_write_siesta_persists_preferences_payload(tmp_path: Path) -> None:
     from posetta.formats import write_siesta
     from posetta.model import Labels
 
-    bundle_path = tmp_path / "prefs.sta"
+    bundle_path = tmp_path / "prefs.siesta"
     labels = Labels(preferences={"theme": "paper", "show_scores": True})
     write_siesta(bundle_path, labels)
 
@@ -109,7 +114,12 @@ def test_write_siesta_registers_image_sequence_video_directory(tmp_path: Path) -
     write_siesta(bundle_path, labels)
 
     entries = _load_manifest_entries(bundle_path)
-    entry = _find_manifest_entry(entries, asset_type="video", path=frames_dir)
+    entry = _find_manifest_entry(
+        entries,
+        asset_type="video",
+        path=frames_dir,
+        project_root=project_root,
+    )
     metadata = entry.get("metadata")
     assert isinstance(metadata, dict)
     assert metadata == {

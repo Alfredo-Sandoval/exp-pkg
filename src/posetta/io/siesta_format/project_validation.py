@@ -1,4 +1,4 @@
-"""Project validation and summary helpers for `.sta` archives."""
+"""Project validation and summary helpers for native archives."""
 
 from __future__ import annotations
 
@@ -116,7 +116,7 @@ def summarize_project(path: Path) -> ProjectSummary:
         video_shapes=tuple(shapes.shape) if shapes is not None and shapes.shape else None,
         label_frames=label_frames,
         prediction_frames=prediction_frames,
-        schema_version=metadata.get("version"),
+        schema_version=metadata.get("schema_version") or metadata.get("version"),
         siesta_version=metadata.get("siesta_version"),
         created=metadata.get("created"),
         modified=metadata.get("modified"),

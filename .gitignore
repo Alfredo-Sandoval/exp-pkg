@@ -209,6 +209,7 @@ __marimo__/
 # Repository setup hygiene
 .agent_cache/
 .claude/
+logs/agent_swarm/
 node_modules/
 *.tsbuildinfo
 .vscode/

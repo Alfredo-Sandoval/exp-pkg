@@ -5,6 +5,7 @@ from posetta.adapters import (
     ConversionResult,
     convert_dlc_csv,
     convert_dlc_h5,
+    convert_dlc_h5_project,
     convert_dlc_project,
     convert_sleap_package,
 )
@@ -13,8 +14,12 @@ from posetta.formats import (
     MaxInstancesExceededError,
     PredictionAppendItem,
     SerializerPredictedInstance,
+    SiestaStore,
     append_predictions_siesta,
+    create_store_from_archive,
+    create_store_from_sta,
     merge_predictions_siesta,
+    open_store,
     read_labels_json_payload,
     read_metrics_table,
     read_siesta,
@@ -60,8 +65,12 @@ def test_public_exports_are_callable() -> None:
     assert PredictionAppendItem is not None
     assert SerializerPredictedInstance is not None
     assert MaxInstancesExceededError is not None
+    assert SiestaStore is not None
     assert callable(append_predictions_siesta)
+    assert callable(create_store_from_archive)
+    assert callable(create_store_from_sta)
     assert callable(merge_predictions_siesta)
+    assert callable(open_store)
     assert callable(read_labels_json_payload)
     assert callable(read_metrics_table)
     assert callable(read_siesta)
@@ -73,6 +82,7 @@ def test_public_exports_are_callable() -> None:
     assert callable(write_siesta)
     assert callable(convert_dlc_csv)
     assert callable(convert_dlc_h5)
+    assert callable(convert_dlc_h5_project)
     assert callable(convert_dlc_project)
     assert callable(convert_sleap_package)
 

@@ -10,7 +10,7 @@ hide:
 # Posetta
 
 <p class="manual-deck">
-Posetta reads and writes <code>.siesta</code> bundles (HDF5-based pose archives)
+Posetta reads and writes <code>.siesta</code> archives (HDF5-based pose archives)
 and converts DLC and SLEAP tracking into that format.
 Three modules: <code>posetta.model</code>, <code>posetta.formats</code>, and
 <code>posetta.adapters</code>.
@@ -28,7 +28,7 @@ Three modules: <code>posetta.model</code>, <code>posetta.formats</code>, and
 | Native format | `.siesta` (HDF5 archive) |
 | External adapters | DLC, SLEAP |
 | Pose objects | `posetta.model` |
-| Bundle IO | `posetta.formats` |
+| Archive IO | `posetta.formats` |
 | Import tools | `posetta.adapters` |
 </div>
 
@@ -58,7 +58,7 @@ Three modules: <code>posetta.model</code>, <code>posetta.formats</code>, and
 </div>
 
 <div class="spec-panel" markdown="1">
-### Native Bundle IO
+### Native Archive IO
 
 - `read_siesta`
 - `write_siesta`
@@ -66,6 +66,7 @@ Three modules: <code>posetta.model</code>, <code>posetta.formats</code>, and
 - prediction append and merge
 - metrics table IO
 - validation and summary
+- experimental durable store
 </div>
 
 <div class="spec-panel" markdown="1">
@@ -99,6 +100,9 @@ assert isinstance(loaded, Labels)
 <div class="quick-links" markdown="1">
 
 - Start with [Getting Started](getting-started.md) for install and first-use examples.
+- Read [Media IO Stack](architecture/media-io.md) for the target ownership split between Posetta and Siesta.
+- Read [Experimental Durable Store](architecture/experimental-store.md) for the new
+  commit-oriented recovery workflow.
 - Read [Model](api/model.md) for the pose object graph.
 - Read [Formats](api/formats.md) for native `.siesta` operations.
 - Read [Adapters](api/adapters.md) for DLC and SLEAP conversion.

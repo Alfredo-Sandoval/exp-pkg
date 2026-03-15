@@ -27,7 +27,7 @@ _NON_ALNUM_RE = re.compile(r"[^a-z0-9]+")
 
 @dataclass(slots=True)
 class ConversionResult:
-    """Outcome of converting an external data format into a native bundle."""
+    """Outcome of converting an external data format into a native archive."""
 
     source_dir: Path
     project_root: Path
@@ -103,8 +103,9 @@ def encode_videos(
 
 def _strip_terminal_video_extension(name: str) -> str:
     lower_name = name.lower()
-    extensions = sorted(str(ext) for ext in available_video_exts())
-    for extension in sorted(extensions, key=len, reverse=True):
+    extensions: list[str] = [str(ext) for ext in available_video_exts()]
+    extensions.sort(key=lambda item: len(item), reverse=True)
+    for extension in extensions:
         if lower_name.endswith(extension):
             return name[: -len(extension)]
     return name
@@ -154,7 +155,8 @@ def remap_labels_to_videos(
             new_videos.append(video)
             continue
 
-        target_key = _image_sequence_dir_key(video.image_filenames or [])
+        image_filenames = getattr(video, "image_filenames", None) or []
+        target_key = _image_sequence_dir_key(image_filenames)
         if target_key is None:
             new_videos.append(video)
             continue
@@ -226,13 +228,20 @@ def rebase_image_sequences(
             video._image_filenames = updated
 
 
-def project_bundle_path(project_root: Path, *, bundle_extension: str) -> Path:
-    """Return the canonical bundle path for a project directory."""
-    if not bundle_extension.startswith("."):
-        raise ValueError(f"bundle_extension must start with '.', got {bundle_extension!r}")
+def project_archive_path(project_root: Path, *, archive_extension: str) -> Path:
+    """Return the canonical archive path for a project directory."""
+    if not archive_extension.startswith("."):
+        raise ValueError(f"archive_extension must start with '.', got {archive_extension!r}")
     if not project_root.name:
         raise ValueError(f"Project root must have a terminal directory name: {project_root}")
-    return project_root / f"{project_root.name}{bundle_extension}"
+    return project_root / f"{project_root.name}{archive_extension}"
+
+
+def project_bundle_path(project_root: Path, *, bundle_extension: str) -> Path:
+    """Legacy alias for `project_archive_path`."""
+    if not bundle_extension.startswith("."):
+        raise ValueError(f"bundle_extension must start with '.', got {bundle_extension!r}")
+    return project_archive_path(project_root, archive_extension=bundle_extension)
 
 
 def build_cli_parser(description: str) -> argparse.ArgumentParser:
@@ -290,6 +299,7 @@ __all__ = [
     "build_cli_parser",
     "encode_videos",
     "parse_and_run_cli",
+    "project_archive_path",
     "project_bundle_path",
     "rebase_image_sequences",
     "remap_labels_to_videos",
