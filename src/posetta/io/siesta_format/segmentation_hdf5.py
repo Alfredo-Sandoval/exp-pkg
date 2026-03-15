@@ -8,9 +8,9 @@ import h5py
 import numpy as np
 
 from posetta.core.annotations.regions import (
+    ROI,
     MaskType,
     PromptType,
-    ROI,
     SegmentationMask,
     SegmentationPrompt,
 )
@@ -414,7 +414,11 @@ def _read_masks_subgroup(
             rings = []
             for r in range(ring_start, ring_end):
                 v_start = int(polygon_ring_offsets[r])
-                v_end = int(polygon_ring_offsets[r + 1]) if (r + 1) < len(polygon_ring_offsets) else v_start
+                v_end = (
+                    int(polygon_ring_offsets[r + 1])
+                    if (r + 1) < len(polygon_ring_offsets)
+                    else v_start
+                )
                 if v_end > v_start:
                     rings.append(polygon_vertices[v_start:v_end].copy())
             polygon_verts = rings if rings else None

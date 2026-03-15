@@ -22,9 +22,9 @@ from posetta.core.annotations.points import (
     PredictedPointArray,
 )
 from posetta.core.annotations.regions import (
+    ROI,
     MaskType,
     PromptType,
-    ROI,
     SegmentationMask,
     SegmentationPrompt,
     rle_decode,

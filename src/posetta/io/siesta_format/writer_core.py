@@ -35,9 +35,6 @@ from posetta.io.siesta_format.prediction_coerce import (
     _infer_prediction_keypoint_count,
     coerce_predictions_from_labels,
 )
-from posetta.io.siesta_format.segmentation_hdf5 import (
-    write_segmentation_group,
-)
 from posetta.io.siesta_format.predictions_datasets import (
     PredictionDatasetMap,
     _assert_prediction_dataset_alignment,
@@ -46,6 +43,9 @@ from posetta.io.siesta_format.predictions_datasets import (
     _infer_batch_heatmap_hw,
     _normalize_append_batch,
     predicted_instance_types,
+)
+from posetta.io.siesta_format.segmentation_hdf5 import (
+    write_segmentation_group,
 )
 from posetta.io.siesta_format.shared import (
     _COERCE_PRIMITIVE_SENTINEL,

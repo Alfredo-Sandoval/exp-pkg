@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from posetta.core.annotations import (
+    ROI,
     Instance,
     KPFlag,
     LabeledFrame,
@@ -13,7 +14,6 @@ from posetta.core.annotations import (
     PredictedPoint,
     PredictedPointArray,
     PromptType,
-    ROI,
     SegmentationMask,
     SegmentationPrompt,
     Track,

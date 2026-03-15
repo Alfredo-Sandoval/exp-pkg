@@ -11,15 +11,14 @@ import numpy as np
 import pytest
 
 from posetta.core.annotations.regions import (
+    ROI,
     MaskType,
     PromptType,
-    ROI,
     SegmentationMask,
     SegmentationPrompt,
     rle_decode,
     rle_encode,
 )
-
 
 # ---------------------------------------------------------------------------
 # RLE encode / decode
@@ -468,9 +467,9 @@ class TestJSONRoundtrip:
 class TestPublicAPISurface:
     def test_model_exports(self):
         from posetta.model import (
+            ROI,
             MaskType,
             PromptType,
-            ROI,
             SegmentationMask,
             SegmentationPrompt,
             rle_decode,
@@ -482,12 +481,15 @@ class TestPublicAPISurface:
         assert MaskType.POLYGON == 0
         assert MaskType.RLE == 1
         assert PromptType.BOX == 1
+        assert ROI.__name__ == "ROI"
+        assert SegmentationMask.__name__ == "SegmentationMask"
+        assert SegmentationPrompt.__name__ == "SegmentationPrompt"
 
     def test_annotations_exports(self):
         from posetta.core.annotations import (
+            ROI,
             MaskType,
             PromptType,
-            ROI,
             SegmentationMask,
             SegmentationPrompt,
             rle_decode,
@@ -495,3 +497,9 @@ class TestPublicAPISurface:
         )
 
         assert callable(rle_encode)
+        assert callable(rle_decode)
+        assert MaskType.POLYGON == 0
+        assert PromptType.BOX == 1
+        assert ROI.__name__ == "ROI"
+        assert SegmentationMask.__name__ == "SegmentationMask"
+        assert SegmentationPrompt.__name__ == "SegmentationPrompt"
