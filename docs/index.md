@@ -10,10 +10,10 @@ hide:
 # Posetta
 
 <p class="manual-deck">
-Posetta reads and writes <code>.siesta</code> archives (HDF5-based pose archives)
-and converts DLC and SLEAP tracking into that format.
-Three modules: <code>posetta.model</code>, <code>posetta.formats</code>, and
-<code>posetta.adapters</code>.
+Posetta uses a locked workspace-first public artifact contract:
+editable workspace folder, private <code>.posetta/</code> store, and portable
+<code>.poseproj</code> export. The current low-level <code>.siesta</code> APIs
+remain as legacy compatibility surfaces during the transition.
 </p>
 
 </div>
@@ -25,10 +25,12 @@ Three modules: <code>posetta.model</code>, <code>posetta.formats</code>, and
 
 | Item | Value |
 | --- | --- |
-| Native format | `.siesta` (HDF5 archive) |
+| Public project contract | workspace folder + `.poseproj` |
+| Authoritative mutable state | `.posetta/` inside the workspace |
+| Legacy compatibility format | `.siesta` import/read APIs |
 | External adapters | DLC, SLEAP |
 | Pose objects | `posetta.model` |
-| Archive IO | `posetta.formats` |
+| Low-level compatibility IO | `posetta.formats` |
 | Import tools | `posetta.adapters` |
 </div>
 
@@ -36,7 +38,12 @@ Three modules: <code>posetta.model</code>, <code>posetta.formats</code>, and
 ### Choose by Task
 
 - Use `posetta.model` when you need `Labels`, `Skeleton`, `Instance`, or `Video`.
-- Use `posetta.formats` when you need to read, write, or update `.siesta`.
+- Read [Artifact Contract v1](artifact_contract_v1.md) for the public workspace
+  and `.poseproj` contract.
+- Read [CLI Command Spec v1](cli_command_spec_v1.md) for the locked command
+  surface.
+- Use `posetta.formats` when you need low-level legacy `.siesta`
+  compatibility IO.
 - Use `posetta.adapters` when you need to import DLC or SLEAP.
 </div>
 
@@ -58,7 +65,7 @@ Three modules: <code>posetta.model</code>, <code>posetta.formats</code>, and
 </div>
 
 <div class="spec-panel" markdown="1">
-### Native Archive IO
+### Compatibility IO
 
 - `read_siesta`
 - `write_siesta`
@@ -81,30 +88,34 @@ Three modules: <code>posetta.model</code>, <code>posetta.formats</code>, and
 
 </div>
 
-## Minimal Roundtrip
+## Public Artifact Layout
 
-```python
-from posetta.formats import read_siesta, write_siesta
-from posetta.model import Labels
-
-labels = Labels()
-write_siesta("empty.siesta", labels)
-
-payload = read_siesta("empty.siesta", lazy=False)
-loaded = payload["labels"]
-assert isinstance(loaded, Labels)
+```text
+My Project/
+  PROJECT.json
+  .posetta/
+  Media/
+  Exports/
+    My Project.poseproj
 ```
+
+`.siesta` remains available as a legacy compatibility layer, but it is no
+longer the native public project artifact.
 
 ## Navigation
 
 <div class="quick-links" markdown="1">
 
 - Start with [Getting Started](getting-started.md) for install and first-use examples.
+- Read [Artifact Contract v1](artifact_contract_v1.md) for the locked public
+  workspace and portable artifact semantics.
+- Read [CLI Command Spec v1](cli_command_spec_v1.md) for `init`, `import`,
+  `pack`, `unpack`, and `migrate`.
 - Read [Media IO Stack](architecture/media-io.md) for the target ownership split between Posetta and Siesta.
 - Read [Experimental Durable Store](architecture/experimental-store.md) for the new
   commit-oriented recovery workflow.
 - Read [Model](api/model.md) for the pose object graph.
-- Read [Formats](api/formats.md) for native `.siesta` operations.
+- Read [Formats](api/formats.md) for the legacy `.siesta` compatibility APIs.
 - Read [Adapters](api/adapters.md) for DLC and SLEAP conversion.
 - Use the reference pages when you need exact signatures and docstrings.
 

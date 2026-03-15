@@ -2,11 +2,19 @@
 
 <div class="page-intro">
 <p>
-<code>posetta.formats</code> reads and writes native <code>.siesta</code> archives.
+<code>posetta.formats</code> documents the low-level legacy
+<code>.siesta</code> archive APIs that remain during the transition to the
+workspace-first public contract.
 </p>
 </div>
 
-## Read and Write Archives
+!!! note
+    The public Posetta v1 artifact contract is workspace folder +
+    <code>.poseproj</code>. Use this module when you need the current
+    compatibility APIs for legacy <code>.siesta</code> data, fixtures, tests,
+    and migration workflows.
+
+## Read and Write Legacy Archives
 
 ### `write_siesta(path, labels, predictions=None, suggestions=None, metadata=None, metrics=None, manifest=None)`
 
@@ -40,7 +48,7 @@ payload = read_siesta(path, lazy=False)
 labels = payload["labels"]
 ```
 
-## Typical Workflow
+## Typical Compatibility Workflow
 
 <div class="panel-grid panel-grid-3" markdown="1">
 
@@ -65,7 +73,7 @@ Use append, merge, and metrics helpers to modify archive contents in place.
 
 ## Update Existing Archives
 
-### `update_labels_siesta(path, labels, *, journal=True)`
+### `update_labels_siesta(path, labels, *, journal=True, regenerate_predictions=False)`
 
 Overwrite the labels portion of an existing `.siesta` archive while preserving
 the rest of the archive structure.
@@ -135,8 +143,10 @@ print(payload["labels"])
 ## Experimental Durable Store
 
 !!! warning
-    The durable store is experimental. It is additive to normal
-    <code>.siesta</code> archive IO, not a replacement for it.
+    The durable store is experimental private machinery, not a public artifact
+    contract. In the v1 model it belongs under the workspace-owned
+    <code>.posetta/</code> state, even though the current prototype still wraps
+    staged <code>.siesta</code> compatibility archives internally.
 
 Use the store when you want commit-style recovery around staged archive writes.
 Keep using `write_siesta(...)` and `read_siesta(...)` for the ordinary single-file

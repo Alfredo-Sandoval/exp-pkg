@@ -3,31 +3,37 @@
 <div class="page-intro">
 <p>
 Posetta now has an <strong>experimental</strong> durable store layer for crash-safe,
-commit-oriented archive management. It does <em>not</em> replace normal
-<code>.siesta</code> archive IO yet. It wraps that archive format in a directory-backed
-store with immutable objects, dual superblocks, and journal recovery.
+commit-oriented project state. In the locked v1 artifact contract this belongs
+under the workspace-owned <code>.posetta/</code> directory. The current prototype
+still wraps staged legacy <code>.siesta</code> compatibility archives internally
+while we harden the private storage engine.
 </p>
 </div>
 
 !!! warning
-    This workflow is experimental. The stable interchange artifact is still the
-    single-file <code>.siesta</code> archive produced by <code>write_siesta(...)</code>.
-    Use the durable store when you want stronger recovery semantics around commit
-    boundaries, not when you need the simplest on-disk exchange format.
+    This workflow is experimental private machinery. The public v1 artifact
+    contract is workspace folder + <code>.poseproj</code>. Use the durable store
+    when you want stronger recovery semantics inside <code>.posetta/</code>, not
+    as a public interchange layer.
 
 ## What Changed
 
-The old and current stable workflow is a single HDF5 archive file:
+The public contract is a workspace:
 
 ```text
-session.siesta
+My Project/
+  PROJECT.json
+  .posetta/
+  Media/
+  Exports/
+    My Project.poseproj
 ```
 
-The new experimental workflow is a store root directory that manages committed
-archives internally:
+Inside that workspace, the current experimental prototype manages committed
+compatibility archives internally:
 
 ```text
-session.siesta/
+My Project/.posetta/
   superblock.a.json
   superblock.b.json
   LOCK
@@ -41,10 +47,9 @@ session.siesta/
   snapshots/
 ```
 
-That means the suffix is the same, but the meaning is different:
-
-- `session.siesta` as a file means a normal archive.
-- `session.siesta/` as a directory means an experimental durable store root.
+That internal layout is intentionally private and versioned. The only public
+guarantee is that `.posetta/` exists and is valid for the declared project
+version.
 
 ## Why You Would Use It
 
@@ -61,7 +66,8 @@ dies mid-save.
 
 ## Recommended Experimental Workflow
 
-The durable store is designed to sit on top of the existing archive writer.
+The current prototype sits on top of the existing `.siesta` compatibility
+writer while targeting the future `.posetta/` private state layer.
 
 1. Produce a normal `.siesta` archive with the regular archive API.
 2. Create a store root from that archive.
@@ -84,22 +90,23 @@ from posetta.model import Labels
 
 labels = Labels()
 
-# 1. Create the first ordinary archive
-seed_archive = Path("seed.siesta")
+# 1. Create the first staged compatibility archive
+workspace_root = Path("My Project")
+seed_archive = workspace_root / "Exports" / "seed.siesta"
 write_siesta(seed_archive, labels)
 
-# 2. Wrap it in an experimental durable store
-store = create_store_from_archive(Path("session.siesta"), seed_archive)
+# 2. Wrap it in the experimental private store root
+store = create_store_from_archive(workspace_root / ".posetta", seed_archive)
 
-# 3. Later, stage a fresh archive with the normal writer
-staged_archive = Path("session-next.siesta")
+# 3. Later, stage a fresh compatibility archive with the normal writer
+staged_archive = workspace_root / "Exports" / "session-next.siesta"
 write_siesta(staged_archive, labels)
 
 # 4. Commit the staged archive as the new durable head
 store.commit_new_archive(staged_archive, reason="autosave")
 
 # 5. Reopen with recovery semantics and resolve the current committed archive
-store = open_store(Path("session.siesta"))
+store = open_store(workspace_root / ".posetta")
 payload = read_siesta(store.current_archive_path(), lazy=False)
 ```
 
@@ -144,18 +151,17 @@ known clean head over guessing about partially finished writes.
 
 Stable today:
 
-- `write_siesta(...)`
-- `read_siesta(...)`
-- append/merge/update on the single-file archive path
-- `.siesta` as the native archive contract
+- public workspace contract: `PROJECT.json`, `.posetta/`, `Media/`, `Exports/`
+- `.poseproj` as the portable project artifact
+- legacy `write_siesta(...)` / `read_siesta(...)` compatibility APIs
 
 Experimental today:
 
-- directory-backed `siesta_store`
+- private `.posetta/` durable-store machinery
 - commit-oriented autosave flow
 - superblock/journal durability layer
 - direct application integration with staged archive commits
 
-If you are building interchange, exports, fixtures, or test corpora, prefer the
-single-file archive. If you are prototyping crash-safe editing or autosave
-behavior, the experimental store is the right layer to evaluate.
+If you are building the public project contract, think in terms of workspace +
+`.poseproj`. If you are prototyping crash-safe editing or autosave behavior,
+the experimental store is the right private layer to evaluate.

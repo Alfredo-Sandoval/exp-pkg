@@ -2,10 +2,16 @@
 
 <div class="page-intro">
 <p>
-<code>posetta.adapters</code> converts DLC and SLEAP tracking into native
-<code>.siesta</code> archives.
+<code>posetta.adapters</code> converts DLC and SLEAP tracking into Posetta data
+structures and current compatibility artifacts while the workspace-first v1
+project workflow is being wired in.
 </p>
 </div>
+
+!!! note
+    The locked public artifact contract is workspace folder +
+    <code>.poseproj</code>. The adapter functions documented here currently emit
+    legacy <code>.siesta</code> compatibility outputs.
 
 ## Return Type
 
@@ -18,14 +24,14 @@ Fields:
 - `source_dir`: the original source path or directory
 - `project_root`: the output project directory
 - `videos`: output video paths associated with the conversion
-- `siesta_path`: the main `.siesta` archive path
+- `siesta_path`: the current legacy `.siesta` compatibility archive path
 
 ## DeepLabCut
 
 ### `convert_dlc_csv(csv_path, video_path, out_path, *, skeleton_name="imported", likelihood_threshold=0.0, progress_callback=None) -> ConversionResult`
 
-Convert one DLC CSV tracking file and its matching video into a `.siesta`
-archive.
+Convert one DLC CSV tracking file and its matching video into a legacy
+`.siesta` compatibility archive.
 
 ### `convert_dlc_h5(h5_path, video_path, out_path, *, skeleton_name="imported", likelihood_threshold=0.0, progress_callback=None) -> ConversionResult`
 
@@ -56,7 +62,7 @@ print(result.siesta_path)
 
 ### `convert_sleap_package(slp, out_dir, *, fps=30, encode_videos=None, progress_callback=None) -> ConversionResult`
 
-Convert a SLEAP `.pkg.slp` archive into a `.siesta` project.
+Convert a SLEAP `.pkg.slp` archive into a current compatibility project export.
 
 - `fps` controls MP4 encoding frame rate when videos are emitted.
 - `encode_videos=False` keeps extracted frame sequences instead of MP4 output.

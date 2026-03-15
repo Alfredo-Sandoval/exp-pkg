@@ -10,24 +10,46 @@ from posetta.adapters import (
     convert_sleap_package,
 )
 from posetta.formats import (
+    POSEPROJ_SUFFIX,
+    PROJECT_DESCRIPTOR_FILENAME,
     LazyDatasetHandle,
     MaxInstancesExceededError,
     PredictionAppendItem,
+    ProjectDescriptor,
     SerializerPredictedInstance,
     SiestaStore,
     append_predictions_siesta,
     create_store_from_archive,
     create_store_from_sta,
+    current_project_archive_path,
+    default_poseproj_path,
+    import_dlc_csv_workspace,
+    import_dlc_h5_workspace,
+    import_legacy_archive,
+    import_sleap_package_workspace,
+    init_project,
+    is_workspace_root,
+    load_project_descriptor,
     merge_predictions_siesta,
+    migrate_legacy_archive,
     open_store,
+    pack_project,
+    project_descriptor_path,
     read_labels_json_payload,
     read_metrics_table,
     read_siesta,
+    resolve_workspace_root,
+    save_workspace_labels,
     summarize_project,
+    unpack_project,
     update_labels_siesta,
+    validate_artifact,
+    validate_poseproj,
     validate_project,
+    validate_workspace,
     write_labels_json,
     write_metrics_table,
+    write_project_descriptor,
     write_siesta,
 )
 from posetta.model import (
@@ -65,19 +87,41 @@ def test_public_exports_are_callable() -> None:
     assert PredictionAppendItem is not None
     assert SerializerPredictedInstance is not None
     assert MaxInstancesExceededError is not None
+    assert POSEPROJ_SUFFIX == ".poseproj"
     assert SiestaStore is not None
+    assert PROJECT_DESCRIPTOR_FILENAME == "PROJECT.json"
+    assert ProjectDescriptor is not None
     assert callable(append_predictions_siesta)
+    assert callable(current_project_archive_path)
     assert callable(create_store_from_archive)
     assert callable(create_store_from_sta)
+    assert callable(default_poseproj_path)
+    assert callable(import_dlc_csv_workspace)
+    assert callable(import_dlc_h5_workspace)
+    assert callable(import_legacy_archive)
+    assert callable(import_sleap_package_workspace)
+    assert callable(init_project)
+    assert callable(is_workspace_root)
+    assert callable(load_project_descriptor)
     assert callable(merge_predictions_siesta)
+    assert callable(migrate_legacy_archive)
     assert callable(open_store)
+    assert callable(pack_project)
+    assert callable(project_descriptor_path)
     assert callable(read_labels_json_payload)
     assert callable(read_metrics_table)
     assert callable(read_siesta)
+    assert callable(resolve_workspace_root)
+    assert callable(save_workspace_labels)
     assert callable(summarize_project)
+    assert callable(unpack_project)
     assert callable(update_labels_siesta)
+    assert callable(validate_artifact)
+    assert callable(validate_poseproj)
     assert callable(validate_project)
+    assert callable(validate_workspace)
     assert callable(write_labels_json)
+    assert callable(write_project_descriptor)
     assert callable(write_metrics_table)
     assert callable(write_siesta)
     assert callable(convert_dlc_csv)

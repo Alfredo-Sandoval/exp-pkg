@@ -1,8 +1,8 @@
-"""Public format entry points."""
+"""Public workspace-first project artifact helpers."""
 
 from __future__ import annotations
 
-from posetta.formats.project import (
+from posetta.io.project_workspace import (
     POSEPROJ_SUFFIX,
     PROJECT_DESCRIPTOR_FILENAME,
     ProjectDescriptor,
@@ -30,43 +30,12 @@ from posetta.formats.project import (
     workspace_store_root,
     write_project_descriptor,
 )
-from posetta.formats.siesta import (
-    LazyDatasetHandle,
-    MaxInstancesExceededError,
-    PredictionAppendItem,
-    SerializerPredictedInstance,
-    append_predictions_siesta,
-    merge_predictions_siesta,
-    read_metrics_table,
-    read_siesta,
-    summarize_project,
-    update_labels_siesta,
-    validate_project,
-    write_metrics_table,
-    write_siesta,
-)
-from posetta.formats.siesta_store import (
-    SiestaStore,
-    create_store_from_archive,
-    create_store_from_sta,
-    open_store,
-)
-from posetta.io.labels.json_format import read_labels_json_payload, write_labels_json
 
 __all__ = [
-    "LazyDatasetHandle",
-    "MaxInstancesExceededError",
     "POSEPROJ_SUFFIX",
-    "PredictionAppendItem",
     "PROJECT_DESCRIPTOR_FILENAME",
     "ProjectDescriptor",
-    "SerializerPredictedInstance",
-    "SiestaStore",
-    "append_predictions_siesta",
     "current_project_archive_path",
-    "create_store_from_archive",
-    "merge_predictions_siesta",
-    "create_store_from_sta",
     "default_poseproj_path",
     "import_dlc_csv_workspace",
     "import_dlc_h5_workspace",
@@ -76,27 +45,17 @@ __all__ = [
     "is_workspace_root",
     "load_project_descriptor",
     "migrate_legacy_archive",
-    "open_store",
     "pack_project",
     "project_descriptor_path",
-    "read_metrics_table",
-    "read_labels_json_payload",
-    "read_siesta",
     "resolve_workspace_root",
     "save_workspace_labels",
-    "summarize_project",
     "unpack_project",
-    "update_labels_siesta",
     "validate_artifact",
     "validate_poseproj",
-    "validate_project",
     "validate_workspace",
     "workspace_exports_root",
     "workspace_media_root",
     "workspace_state_root",
     "workspace_store_root",
-    "write_labels_json",
     "write_project_descriptor",
-    "write_metrics_table",
-    "write_siesta",
 ]

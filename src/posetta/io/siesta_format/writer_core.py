@@ -822,6 +822,12 @@ def write_videos_group(
     str_dtype = h5py.string_dtype("utf-8")
 
     filenames = [str(v.filename or "") for v in videos]
+    image_filenames_json = [
+        _serialize_json([str(path) for path in (v.image_filenames or [])])
+        if getattr(v, "image_filenames", None)
+        else ""
+        for v in videos
+    ]
     backends = [str(v.backend or "opencv") for v in videos]
     sha256_hashes = [str(v.sha256 or "") for v in videos]
 
@@ -843,6 +849,11 @@ def write_videos_group(
     videos_group.create_dataset(
         "filenames",
         data=np.array(filenames, dtype=object),
+        dtype=str_dtype,
+    )
+    videos_group.create_dataset(
+        "image_filenames_json",
+        data=np.array(image_filenames_json, dtype=object),
         dtype=str_dtype,
     )
     videos_group.create_dataset(

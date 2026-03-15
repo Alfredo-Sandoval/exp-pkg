@@ -4,13 +4,22 @@
 [![License: Proprietary](https://img.shields.io/badge/license-Proprietary-red.svg)](LICENSE)
 [![Version: 0.1.0](https://img.shields.io/badge/version-0.1.0-green.svg)](pyproject.toml)
 
-**A Rosetta Stone for pose data.**
+**Workspace-first IO for pose, segmentation, and related annotation data.**
 
-The pose-estimation ecosystem is fragmented: DeepLabCut exports CSV and H5, SLEAP uses `.pkg.slp` packages, and every other tracker has its own format. Posetta bridges that gap with a canonical `Labels` object, a native HDF5 archive format (`.siesta` archives), and a lightweight labels JSON interchange path for GUI-friendly inspection workflows.
+The annotation ecosystem is fragmented: DeepLabCut exports CSV and H5, SLEAP uses
+`.pkg.slp`, and every tool invents a different project shape. Posetta bridges
+that gap with a canonical `Labels` object, adapter surfaces for multiple pose
+ecosystems, and a locked v1 artifact contract built around editable workspace
+folders plus portable `.poseproj` exports.
+
+`.siesta` is now a legacy import/read compatibility format. It remains in the
+codebase during the transition, but it is no longer the public native project
+contract.
 
 ## What It Does
 
-- Native `.siesta` archive IO (read, write, update, append, merge)
+- Locked v1 project contract: workspace folder + `.posetta/` + `.poseproj`
+- Legacy `.siesta` import/read compatibility during transition
 - Canonical labels JSON IO for fast interchange and GUI workflows
 - Metrics table storage inside archives
 - Skeleton loading from multiple formats
@@ -55,22 +64,47 @@ make docs-build    # build the static site
 make docs-serve    # live preview at localhost:8123
 ```
 
-## Quick Start
+## Public Artifact Contract
 
-Convert DeepLabCut tracking into a `.siesta` archive, then read it back:
+Posetta v1 defines exactly three artifact classes:
+
+```text
+My Project/
+  PROJECT.json
+  .posetta/
+  Media/
+  Exports/
+    My Project.poseproj
+```
+
+- Editable project = workspace folder
+- Authoritative mutable state = `.posetta/`
+- Portable artifact = `.poseproj`
+- `.siesta` = legacy import/read only
+
+The locked spec lives in `docs/artifact_contract_v1.md`, with the matching
+command surface in `docs/cli_command_spec_v1.md`.
+
+## Current Compatibility Layer
+
+The current implementation still exposes low-level `.siesta` helpers while the
+workspace-first v1 workflow is being wired in. Those APIs remain useful for
+fixtures, migration work, and legacy import/read paths.
+
+Example:
 
 ```python
 from posetta.adapters import convert_dlc_csv
 from posetta.model import Labels
 
-# Convert DeepLabCut tracking into a .siesta archive
+# Convert DeepLabCut tracking into a legacy .siesta compatibility archive
 convert_dlc_csv("tracking.csv", "video.mp4", "tracking.siesta")
 
-# Read an archive back as the canonical Labels object
+# Read a legacy archive back as the canonical Labels object
 labels = Labels.load_file("tracking.siesta")
 assert isinstance(labels, Labels)
 
-# Write either native .siesta or fast JSON interchange
+# Write either legacy .siesta compatibility output or fast JSON interchange
 labels.save_file(labels, "copy.siesta")
 labels.save_file(labels, "copy.json")
 ```
@@ -86,24 +120,37 @@ print(skeleton.keypoint_names)
 
 ## CLI
 
-After installation, Posetta provides a `posetta` command with the following subcommands:
+The locked v1 public CLI is workspace-first:
 
-**Convert DeepLabCut CSV:**
+```bash
+posetta init "./My Project"
+posetta import dlc csv --csv tracking.csv --video video.mp4 --out "./My Project"
+posetta pack "./My Project"
+posetta unpack "./My Project.poseproj" --out "./My Project"
+posetta migrate "./My Project"
+```
+
+That command contract is documented in `docs/cli_command_spec_v1.md`.
+
+The current implementation still provides legacy conversion-oriented commands
+while the v1 CLI is being wired in:
+
+**Legacy convert DeepLabCut CSV:**
 ```bash
 posetta convert dlc csv --csv tracking.csv --video video.mp4 --out tracking.siesta
 ```
 
-**Convert DeepLabCut H5:**
+**Legacy convert DeepLabCut H5:**
 ```bash
 posetta convert dlc h5 --h5 tracking.h5 --video video.mp4 --out tracking.siesta
 ```
 
-**Convert an entire DeepLabCut project:**
+**Legacy convert an entire DeepLabCut project:**
 ```bash
 posetta convert dlc project --project dlc_project --out exports
 ```
 
-**Convert SLEAP labels:**
+**Legacy convert SLEAP labels:**
 ```bash
 posetta convert sleap --slp labels.pkg.slp --out sleap_project --fps 30 --no-videos
 ```

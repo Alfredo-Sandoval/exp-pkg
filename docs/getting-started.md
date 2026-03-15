@@ -27,10 +27,30 @@ make docs-build
 make docs-serve
 ```
 
-## Write and read your first archive
+## Start with the v1 artifact model
 
-A `.siesta` file is an HDF5 archive that stores pose annotations, videos,
-skeletons, and metrics in one archive.
+The public Posetta v1 artifact model is workspace-first:
+
+```text
+My Project/
+  PROJECT.json
+  .posetta/
+  Media/
+  Exports/
+    My Project.poseproj
+```
+
+- You edit a normal workspace folder.
+- Posetta owns authoritative mutable state inside `.posetta/`.
+- You move/share/export a single `.poseproj` file.
+- `.siesta` remains a legacy import/read compatibility format during
+  transition.
+
+Read [Artifact Contract v1](artifact_contract_v1.md) for the full public
+contract and [CLI Command Spec v1](cli_command_spec_v1.md) for the locked
+workspace command surface.
+
+## Current compatibility API
 
 ```python
 from posetta.formats import read_siesta, write_siesta
@@ -44,7 +64,8 @@ loaded = payload["labels"]
 assert isinstance(loaded, Labels)
 ```
 
-`read_siesta` returns a dict with these keys:
+These `.siesta` helpers remain useful for legacy import/read paths, fixtures,
+and transition work. `read_siesta` returns a dict with these keys:
 
 | Key | Type | Contents |
 | --- | --- | --- |
@@ -53,7 +74,7 @@ assert isinstance(loaded, Labels)
 | `"videos"` | `list[Video]` | Video references |
 | `"predictions"` | `dict` or `None` | Prediction payloads if present |
 
-## Import your first external dataset
+## Current adapter import example
 
 ```python
 from posetta.adapters import convert_dlc_csv

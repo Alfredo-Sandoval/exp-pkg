@@ -346,6 +346,9 @@ def _read_videos_group(root: h5py.File) -> dict[str, Any]:
         base_dir_val = "" if base_dir_val is None else str(base_dir_val)
 
     filenames = _read_str_dataset(group["filenames"]) if "filenames" in group else []
+    image_filenames_json = (
+        _read_str_dataset(group["image_filenames_json"]) if "image_filenames_json" in group else []
+    )
     backends = _read_str_dataset(group["backends"]) if "backends" in group else []
     sha256 = _read_str_dataset(group["sha256"]) if "sha256" in group else []
 
@@ -356,9 +359,21 @@ def _read_videos_group(root: h5py.File) -> dict[str, Any]:
         else np.zeros((0, 4), dtype=np.int32)
     )
 
+    image_filenames: list[list[str]] = []
+    for raw_entry in image_filenames_json:
+        entry = str(raw_entry).strip()
+        if not entry:
+            image_filenames.append([])
+            continue
+        parsed = parse_json(entry)
+        if not isinstance(parsed, list):
+            raise TypeError("videos.image_filenames_json entries must decode to path lists")
+        image_filenames.append([str(path).strip() for path in parsed if str(path).strip()])
+
     return {
         "base_dir": base_dir_val,
         "filenames": filenames,
+        "image_filenames": image_filenames,
         "backends": backends,
         "sha256": sha256,
         "shapes": shapes,

@@ -78,6 +78,8 @@ extra_css:
 nav:
   - Home: index.md
   - Getting Started: getting-started.md
+  - Artifact Contract v1: artifact_contract_v1.md
+  - CLI Command Spec v1: cli_command_spec_v1.md
   - Architecture:
       - Media IO Stack: architecture/media-io.md
       - Experimental Durable Store: architecture/experimental-store.md

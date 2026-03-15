@@ -779,6 +779,49 @@ def labels_load_file(
 
     del args, kwargs
     path = Path(filename)
+    if path.suffix.lower() == ".poseproj":
+        raise ValueError("Packed .poseproj artifacts must be unpacked before loading labels")
+
+    from posetta.io.project_workspace import (
+        current_project_archive_path,
+        rebase_workspace_payload_videos,
+        resolve_workspace_root,
+    )
+
+    workspace_root = resolve_workspace_root(path)
+    if workspace_root is not None:
+        archive_path = current_project_archive_path(workspace_root)
+        if not archive_path.exists():
+            obj = cls()
+            obj.path = workspace_root
+            return obj
+        payload = read_siesta(archive_path, lazy=False)
+        rebase_workspace_payload_videos(payload, workspace_root)
+        labels_payload = payload.get("labels")
+        if isinstance(labels_payload, dict):
+            labels_payload["metadata"] = payload.get("metadata", {})
+            labels_payload["provenance"] = payload.get("provenance", {})
+            obj = labels_from_siesta_payload(
+                cls,
+                labels_payload,
+                suggestions_payload=payload.get("suggestions"),
+                video_builder=video_builder,
+                video_finalizer=video_finalizer,
+            )
+        else:
+            obj = labels_from_siesta_payload(
+                cls,
+                payload,
+                suggestions_payload=payload.get("suggestions")
+                if isinstance(payload, dict)
+                else None,
+                video_builder=video_builder,
+                video_finalizer=video_finalizer,
+            )
+        obj.validate()
+        obj.path = workspace_root
+        return obj
+
     ext = path.suffix.lower()
     if ext == ".json":
         payload = read_labels_json_payload(path)
@@ -834,6 +877,18 @@ def labels_save_file(
     from posetta.io.siesta_format import write_siesta
 
     path = Path(filename)
+    from posetta.io.project_workspace import resolve_workspace_root, save_workspace_labels
+
+    workspace_root = resolve_workspace_root(path)
+    if workspace_root is not None:
+        save_workspace_labels(
+            workspace_root,
+            labels,
+            metadata=metadata,
+        )
+        labels.path = workspace_root
+        return workspace_root.as_posix()
+
     ext = path.suffix.lower() or default_suffix
     if ext == ".json":
         if not path.suffix:
