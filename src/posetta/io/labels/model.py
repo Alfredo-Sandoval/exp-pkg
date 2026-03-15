@@ -674,12 +674,16 @@ class Labels:
         payload: dict[str, Any] | None,
         *,
         suggestions_payload: dict[str, Any] | None = None,
+        video_builder: serialization.VideoBuilder | None = None,
+        video_finalizer: serialization.HydratedVideoFinalizer | None = None,
     ) -> Labels:
         """Construct `Labels` from a `.sta` payload dictionary.
 
         Args:
             payload: The main `.sta` data dictionary.
             suggestions_payload: Optional suggestions data dictionary.
+            video_builder: Optional video construction hook for product-specific media policy.
+            video_finalizer: Optional post-hydration hook for releasing media resources.
 
         Returns:
             Labels: The hydrated Labels instance.
@@ -688,6 +692,8 @@ class Labels:
             cls,
             payload,
             suggestions_payload=suggestions_payload,
+            video_builder=video_builder,
+            video_finalizer=video_finalizer,
         )
 
     def extend_from(self, new_frames: Labels | list[LabeledFrame], unify: bool = False):
