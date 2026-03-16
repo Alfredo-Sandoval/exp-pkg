@@ -18,6 +18,7 @@ import numpy as np
 
 from posetta.core.path_registry import ensure_dir, resolve_path
 from posetta.io.siesta_format import read_siesta, write_siesta
+from posetta.io.siesta_format.shared import _serialize_json
 
 if TYPE_CHECKING:
     from posetta.model import Labels
@@ -601,6 +602,142 @@ def _rewrite_internal_archive_video_paths(
     _drop_manifest_attr(archive_path)
 
 
+def _load_project_metadata_json_attr(
+    metadata_group: h5py.Group,
+    attr_key: str,
+) -> dict[str, Any] | None:
+    raw_value = metadata_group.attrs.get(attr_key)
+    if raw_value is None:
+        return None
+    if isinstance(raw_value, bytes | bytearray | np.bytes_):
+        raw_text = raw_value.decode("utf-8")
+    else:
+        raw_text = str(raw_value)
+    payload = json.loads(raw_text)
+    if not isinstance(payload, dict):
+        raise TypeError(f"project_metadata.{attr_key} must decode to a JSON object")
+    return dict(payload)
+
+
+def _rebase_legacy_workspace_path(
+    raw_path: str,
+    *,
+    legacy_root: Path,
+    workspace_root: Path,
+) -> str:
+    candidate = Path(raw_path)
+    if not raw_path.strip() or not candidate.is_absolute():
+        return raw_path
+    try:
+        relative = candidate.resolve().relative_to(legacy_root.resolve())
+    except ValueError:
+        return raw_path
+    rebased = workspace_root.resolve() / relative
+    if not rebased.exists():
+        return ""
+    return rebased.as_posix()
+
+
+def _rewrite_training_state_entry_paths(
+    entry: dict[str, Any],
+    *,
+    legacy_root: Path,
+    workspace_root: Path,
+) -> None:
+    for field in ("output_dir", "source_bundle"):
+        raw_value = entry.get(field)
+        if isinstance(raw_value, str):
+            entry[field] = _rebase_legacy_workspace_path(
+                raw_value,
+                legacy_root=legacy_root,
+                workspace_root=workspace_root,
+            )
+
+
+def _rewrite_training_state_attr_paths(
+    training_state: dict[str, Any],
+    *,
+    legacy_root: Path,
+    workspace_root: Path,
+) -> None:
+    latest = training_state.get("latest")
+    if latest is not None:
+        if not isinstance(latest, dict):
+            raise TypeError("project_metadata.training_state_json.latest must be a mapping")
+        _rewrite_training_state_entry_paths(
+            latest,
+            legacy_root=legacy_root,
+            workspace_root=workspace_root,
+        )
+    runs = training_state.get("runs")
+    if runs is None:
+        return
+    if not isinstance(runs, list):
+        raise TypeError("project_metadata.training_state_json.runs must be a JSON array")
+    for entry in runs:
+        if not isinstance(entry, dict):
+            raise TypeError("project_metadata.training_state_json.runs[] must be mappings")
+        _rewrite_training_state_entry_paths(
+            entry,
+            legacy_root=legacy_root,
+            workspace_root=workspace_root,
+        )
+
+
+def _match_workspace_media_relative_path(raw_path: str, *, workspace_root: Path) -> str:
+    target_name = Path(raw_path).name
+    if not target_name:
+        return ""
+    media_root = workspace_media_root(workspace_root).resolve()
+    matches = sorted(
+        candidate.resolve()
+        for candidate in media_root.rglob(target_name)
+        if candidate.is_file() or candidate.is_dir()
+    )
+    if len(matches) != 1:
+        return ""
+    return matches[0].relative_to(workspace_root.resolve()).as_posix()
+
+
+def _rewrite_session_attr_paths(session_state: dict[str, Any], *, workspace_root: Path) -> None:
+    active_video_path = session_state.get("active_video_path")
+    if active_video_path is None:
+        return
+    if not isinstance(active_video_path, str):
+        raise TypeError("project_metadata.session_json.active_video_path must be a string")
+    session_state["active_video_path"] = _match_workspace_media_relative_path(
+        active_video_path,
+        workspace_root=workspace_root,
+    )
+
+
+def _rewrite_staged_archive_project_metadata_paths(
+    archive_path: Path,
+    *,
+    legacy_root: Path,
+    workspace_root: Path,
+) -> None:
+    with h5py.File(archive_path, "a") as handle:
+        metadata_group = handle.get("project_metadata")
+        if not isinstance(metadata_group, h5py.Group):
+            return
+        training_state = _load_project_metadata_json_attr(
+            metadata_group,
+            "training_state_json",
+        )
+        if training_state is not None:
+            _rewrite_training_state_attr_paths(
+                training_state,
+                legacy_root=legacy_root,
+                workspace_root=workspace_root,
+            )
+            metadata_group.attrs["training_state_json"] = _serialize_json(training_state)
+        session_state = _load_project_metadata_json_attr(metadata_group, "session_json")
+        if session_state is not None:
+            _rewrite_session_attr_paths(session_state, workspace_root=workspace_root)
+            metadata_group.attrs["session_json"] = _serialize_json(session_state)
+
+
 def rebase_workspace_payload_videos(payload: dict[str, Any], workspace_root: Path) -> None:
     workspace_root = workspace_root.resolve()
 
@@ -754,6 +891,11 @@ def migrate_legacy_archive(
         _rewrite_internal_archive_video_paths(
             staged_archive,
             labels=labels,
+            workspace_root=root,
+        )
+        _rewrite_staged_archive_project_metadata_paths(
+            staged_archive,
+            legacy_root=legacy_path.parent,
             workspace_root=root,
         )
         archive_path = _workspace_store(root).commit_archive(

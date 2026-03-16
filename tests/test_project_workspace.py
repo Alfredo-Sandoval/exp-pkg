@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import json
 import shutil
 from pathlib import Path
 
 import cv2
+import h5py
 import numpy as np
 import pytest
 
@@ -12,6 +14,21 @@ def _write_test_image(path: Path, value: int = 128) -> None:
     image = np.full((12, 16, 3), value, dtype=np.uint8)
     ok = cv2.imwrite(path.as_posix(), image)
     assert ok
+
+
+def _write_test_video(path: Path) -> None:
+    writer = cv2.VideoWriter(
+        path.as_posix(),
+        cv2.VideoWriter_fourcc(*"MJPG"),
+        5.0,
+        (16, 12),
+    )
+    assert writer.isOpened()
+    for value in (32, 64, 96):
+        frame = np.full((12, 16, 3), value, dtype=np.uint8)
+        writer.write(frame)
+    writer.release()
+    assert path.exists()
 
 
 def _make_single_frame_video(tmp_path: Path):
@@ -37,6 +54,27 @@ def _make_labels(tmp_path: Path, *, x: float, y: float):
     from posetta.model import Labels, build_keypoint_skeleton
 
     _, video = _make_single_frame_video(tmp_path)
+    skeleton = build_keypoint_skeleton(["nose"], name="mouse")
+    frame = LabeledFrame(
+        video=video,
+        frame_idx=0,
+        instances=[
+            Instance(
+                skeleton=skeleton,
+                init_points={"nose": Point(x, y, visible=True, complete=True)},
+            )
+        ],
+    )
+    labels = Labels(labeled_frames=[frame], videos=[video], skeletons=[skeleton])
+    labels.validate()
+    return labels
+
+
+def _make_media_labels(video_path: Path, *, x: float, y: float):
+    from posetta.core.annotations import Instance, LabeledFrame, Point
+    from posetta.model import Labels, Video, build_keypoint_skeleton
+
+    video = Video.from_filename(video_path.as_posix())
     skeleton = build_keypoint_skeleton(["nose"], name="mouse")
     frame = LabeledFrame(
         video=video,
@@ -116,6 +154,83 @@ def test_migrate_legacy_archive_creates_workspace_and_workspace_loads(tmp_path: 
             resolved = Path(str(frame_path))
             assert _is_within(resolved, media_root)
             assert resolved.exists()
+
+
+def test_migrate_legacy_archive_rewrites_stale_project_metadata_paths(tmp_path: Path) -> None:
+    from posetta.formats import (
+        current_project_archive_path,
+        init_project,
+        migrate_legacy_archive,
+        write_siesta,
+    )
+
+    legacy_root = tmp_path / "bootstrap_2026-01-13"
+    legacy_root.mkdir()
+    downloads_root = tmp_path / "Downloads"
+    downloads_root.mkdir()
+    source_video = downloads_root / "session_video.avi"
+    _write_test_video(source_video)
+    labels = _make_media_labels(source_video, x=2.0, y=3.0)
+    legacy_output_dir = legacy_root / "models" / "pose" / "run-1"
+    legacy_output_dir.mkdir(parents=True)
+    legacy_path = legacy_root / "tracking.siesta"
+    training_state = {
+        "schema_version": 1,
+        "latest": {
+            "run_id": "latest",
+            "created_ns": 2,
+            "source_bundle": legacy_root.as_posix(),
+            "output_dir": legacy_output_dir.as_posix(),
+        },
+        "runs": [
+            {
+                "run_id": "rebased",
+                "created_ns": 1,
+                "source_bundle": legacy_root.as_posix(),
+                "output_dir": legacy_output_dir.as_posix(),
+            },
+            {
+                "run_id": "cleared",
+                "created_ns": 0,
+                "source_bundle": (legacy_root / "missing-bundle").as_posix(),
+                "output_dir": (legacy_root / "missing-output").as_posix(),
+            },
+        ],
+    }
+    session_state = {
+        "active_video_path": source_video.as_posix(),
+        "active_frame_idx": 2,
+    }
+    write_siesta(
+        legacy_path,
+        labels,
+        metadata={
+            "training_state_json": training_state,
+            "session_json": session_state,
+        },
+    )
+
+    workspace = tmp_path / "Migrated Project"
+    init_project(workspace, title="Migrated Project", force=True)
+    workspace_output_dir = workspace / "models" / "pose" / "run-1"
+    workspace_output_dir.mkdir(parents=True)
+
+    migrate_legacy_archive(legacy_path, workspace)
+
+    archive = current_project_archive_path(workspace)
+    with h5py.File(archive, "r") as handle:
+        metadata = handle["project_metadata"].attrs
+        migrated_training = json.loads(str(metadata["training_state_json"]))
+        migrated_session = json.loads(str(metadata["session_json"]))
+
+    assert migrated_training["latest"]["source_bundle"] == workspace.resolve().as_posix()
+    assert migrated_training["latest"]["output_dir"] == workspace_output_dir.resolve().as_posix()
+    assert migrated_training["runs"][0]["source_bundle"] == workspace.resolve().as_posix()
+    assert migrated_training["runs"][0]["output_dir"] == workspace_output_dir.resolve().as_posix()
+    assert migrated_training["runs"][1]["source_bundle"] == ""
+    assert migrated_training["runs"][1]["output_dir"] == ""
+    assert migrated_session["active_video_path"] == f"Media/{source_video.name}"
+    assert migrated_session["active_frame_idx"] == 2
 
 
 def test_pack_snapshot_and_unpack_roundtrip_workspace(tmp_path: Path) -> None:
