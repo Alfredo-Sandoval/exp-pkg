@@ -8,6 +8,16 @@ from pathlib import Path
 from typing import Any
 
 
+def _labels_videos_group(project: dict[str, Any]) -> dict[str, Any]:
+    labels = project.get("labels")
+    if not isinstance(labels, dict):
+        raise RuntimeError("Loaded project payload missing labels group")
+    videos = labels.get("videos")
+    if not isinstance(videos, dict):
+        raise RuntimeError("labels group missing videos payload")
+    return videos
+
+
 def _check_frame_group_consistency(group: dict, group_name: str) -> None:
     keys = ("video_index", "frame_index", "num_instances")
     arrays = {key: group[key] for key in keys if key in group}
@@ -25,12 +35,12 @@ def _validate_payload(project: dict[str, Any]) -> None:
     if not isinstance(project, dict):
         raise TypeError("Loaded project payload is not a dict")
 
-    required_keys = ("videos", "labels", "predictions")
+    required_keys = ("labels", "predictions")
     missing = [key for key in required_keys if key not in project]
     if missing:
         raise RuntimeError(f"Missing required keys: {', '.join(missing)}")
 
-    videos = project["videos"]
+    videos = _labels_videos_group(project)
     if "filenames" not in videos:
         raise RuntimeError("videos group missing filenames dataset")
     if "shapes" not in videos:
@@ -90,7 +100,7 @@ def summarize_project(path: Path) -> ProjectSummary:
 
     project = read_siesta(path, lazy=True)
 
-    videos = project.get("videos") or {}
+    videos = _labels_videos_group(project)
     labels = project.get("labels") or {}
     preds = project.get("predictions") or {}
     metadata = project.get("metadata") or {}

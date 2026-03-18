@@ -42,6 +42,8 @@ class VideoBuilder(Protocol):
 
 
 HydratedVideoFinalizer = Callable[[VideoProtocol], None]
+BundleReader = Callable[..., dict[str, Any]]
+BundleWriter = Callable[..., None]
 
 
 def _materialize(value: Any) -> Any:
@@ -109,6 +111,17 @@ def build_video_object(
 def finalize_hydrated_video(video_obj: VideoProtocol) -> None:
     """Release hydrated video decode state until the caller needs it."""
     video_obj.close()
+
+
+def _resolve_bundle_suffixes(
+    supported_bundle_suffixes: Sequence[str] | None,
+) -> tuple[str, ...]:
+    if supported_bundle_suffixes is None:
+        return SUPPORTED_BUNDLE_SUFFIXES
+    resolved = tuple(str(suffix).lower() for suffix in supported_bundle_suffixes if str(suffix))
+    if not resolved:
+        raise ValueError("supported_bundle_suffixes must contain at least one suffix")
+    return resolved
 
 
 def _image_sequence_from_payload(entry: Any, *, video_index: int) -> list[str] | None:
@@ -232,6 +245,7 @@ def _track_lookup_from_payload(payload: dict[str, Any]) -> dict[int, Track]:
             name=str(raw_track or f"track-{track_id}"),
         )
     return track_lookup
+
 
 def _normalize_keypoints_array(raw_keypoints: Any) -> np.ndarray:
     keypoints_arr = _as_array(raw_keypoints, dtype=np.float32)
@@ -772,12 +786,17 @@ def labels_load_file(
     *args: Any,
     video_builder: VideoBuilder | None = None,
     video_finalizer: HydratedVideoFinalizer | None = None,
+    read_siesta_fn: BundleReader | None = None,
+    supported_bundle_suffixes: Sequence[str] | None = None,
+    allow_json: bool = True,
     **kwargs: Any,
 ) -> Labels:
     """Load labels from disk."""
     from posetta.io.siesta_format import read_siesta
 
     del args, kwargs
+    bundle_reader = read_siesta if read_siesta_fn is None else read_siesta_fn
+    bundle_suffixes = _resolve_bundle_suffixes(supported_bundle_suffixes)
     path = Path(filename)
     if path.suffix.lower() == ".poseproj":
         raise ValueError("Packed .poseproj artifacts must be unpacked before loading labels")
@@ -795,7 +814,7 @@ def labels_load_file(
             obj = cls()
             obj.path = workspace_root
             return obj
-        payload = read_siesta(archive_path, lazy=False)
+        payload = bundle_reader(archive_path, lazy=False)
         rebase_workspace_payload_videos(payload, workspace_root)
         labels_payload = payload.get("labels")
         if isinstance(labels_payload, dict):
@@ -824,6 +843,8 @@ def labels_load_file(
 
     ext = path.suffix.lower()
     if ext == ".json":
+        if not allow_json:
+            raise ValueError(f"No serializer for extension: {ext}")
         payload = read_labels_json_payload(path)
         obj = labels_from_siesta_payload(
             cls,
@@ -835,10 +856,10 @@ def labels_load_file(
         obj.validate()
         obj.path = path
         return obj
-    if ext and ext not in SUPPORTED_BUNDLE_SUFFIXES:
+    if ext and ext not in bundle_suffixes:
         raise ValueError(f"No serializer for extension: {ext}")
 
-    payload = read_siesta(path, lazy=False)
+    payload = bundle_reader(path, lazy=False)
 
     labels_payload = payload.get("labels")
     if isinstance(labels_payload, dict):
@@ -871,11 +892,16 @@ def labels_save_file(
     *,
     default_suffix: str = "",
     metadata: dict[str, Any] | None = None,
+    write_siesta_fn: BundleWriter | None = None,
+    supported_bundle_suffixes: Sequence[str] | None = None,
+    allow_json: bool = True,
     **_: Any,
 ) -> str:
     """Save labels to disk."""
     from posetta.io.siesta_format import write_siesta
 
+    bundle_writer = write_siesta if write_siesta_fn is None else write_siesta_fn
+    bundle_suffixes = _resolve_bundle_suffixes(supported_bundle_suffixes)
     path = Path(filename)
     from posetta.io.project_workspace import resolve_workspace_root, save_workspace_labels
 
@@ -891,15 +917,17 @@ def labels_save_file(
 
     ext = path.suffix.lower() or default_suffix
     if ext == ".json":
+        if not allow_json:
+            raise ValueError(f"No serializer for extension: {ext}")
         if not path.suffix:
             path = path.with_suffix(".json")
         return write_labels_json(path, labels, metadata=metadata)
-    if ext and ext not in SUPPORTED_BUNDLE_SUFFIXES:
+    if ext and ext not in bundle_suffixes:
         raise ValueError(f"No serializer for extension: {ext}")
     if not path.suffix:
         path = path.with_suffix(CANONICAL_BUNDLE_SUFFIX)
     ensure_dir(path.parent)
-    write_siesta(path, labels, metadata=metadata)
+    bundle_writer(path, labels, metadata=metadata)
     labels.path = path
     return str(path)
 

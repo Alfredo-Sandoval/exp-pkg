@@ -58,6 +58,60 @@ def test_labels_save_file_defaults_to_siesta_suffix(tmp_path: Path) -> None:
     assert Path(written_path).exists()
 
 
+def test_labels_load_file_accepts_custom_bundle_reader(tmp_path: Path) -> None:
+    from posetta.io.labels import serialization as label_serialization
+    from posetta.io.siesta_format import read_siesta, write_siesta
+    from posetta.model import Labels
+
+    labels = _make_labels(tmp_path, x=7.0, y=8.0)
+    bundle_path = tmp_path / "labels.siesta"
+    write_siesta(bundle_path, labels)
+
+    calls: list[tuple[Path, bool]] = []
+
+    def recording_reader(path: Path, *, lazy: bool = False):
+        calls.append((path, lazy))
+        return read_siesta(path, lazy=lazy)
+
+    loaded = label_serialization.labels_load_file(
+        Labels,
+        bundle_path.as_posix(),
+        read_siesta_fn=recording_reader,
+        supported_bundle_suffixes=(".siesta",),
+        allow_json=False,
+    )
+
+    assert calls == [(bundle_path, False)]
+    assert loaded.path == bundle_path
+
+
+def test_labels_save_file_accepts_custom_bundle_writer(tmp_path: Path) -> None:
+    from posetta.io.labels import serialization as label_serialization
+    from posetta.io.siesta_format import read_siesta, write_siesta
+
+    labels = _make_labels(tmp_path, x=2.0, y=5.0)
+    raw_path = tmp_path / "custom_bundle"
+    calls: list[tuple[Path, dict[str, object] | None]] = []
+
+    def recording_writer(path: Path, labels_obj, *, metadata=None, **kwargs):
+        calls.append((path, metadata))
+        write_siesta(path, labels_obj, metadata=metadata, **kwargs)
+
+    written_path = label_serialization.labels_save_file(
+        labels,
+        raw_path.as_posix(),
+        metadata={"project_name": "demo"},
+        write_siesta_fn=recording_writer,
+        supported_bundle_suffixes=(".siesta",),
+        allow_json=False,
+    )
+
+    assert Path(written_path) == raw_path.with_suffix(".siesta")
+    assert calls == [(raw_path.with_suffix(".siesta"), {"project_name": "demo"})]
+    payload = read_siesta(Path(written_path), lazy=False)
+    assert payload["metadata"]["project_name"] == "demo"
+
+
 def test_siesta_labels_roundtrip_uses_explicit_visibility_dataset(tmp_path: Path) -> None:
     from posetta.model import Labels
 

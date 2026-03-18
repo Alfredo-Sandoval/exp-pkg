@@ -416,3 +416,33 @@ def test_labels_save_file_to_workspace_preserves_predictions(tmp_path: Path) -> 
     assert float(label_keypoints[0, 0, 0, 1]) == 22.0
     assert float(prediction_scores[0, 0, 0]) == pytest.approx(0.9)
     assert int(prediction_track_ids[0, 0]) == 4
+
+
+def test_summarize_project_and_validate_project_read_labels_video_group(tmp_path: Path) -> None:
+    from posetta.formats import (
+        current_project_archive_path,
+        init_project,
+        summarize_project,
+        validate_project,
+    )
+    from posetta.model import Labels
+
+    source_video = tmp_path / "source.avi"
+    _write_test_video(source_video)
+    labels = _make_media_labels(source_video, x=4.0, y=5.0)
+    workspace = tmp_path / "Summary Project"
+    init_project(workspace, title="Summary Project")
+
+    saved_target = Labels.save_file(labels, workspace.as_posix())
+    archive = current_project_archive_path(workspace)
+    summary = summarize_project(archive)
+
+    assert saved_target == workspace.as_posix()
+    assert archive.exists()
+    validate_project(archive)
+    assert summary.n_videos == 1
+    assert len(summary.video_filenames) == 1
+    assert Path(summary.video_filenames[0]).name == source_video.name
+    assert summary.video_shapes == (1, 4)
+    assert summary.label_frames == 1
+    assert summary.prediction_frames == 0
