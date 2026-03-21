@@ -16,6 +16,25 @@ folders plus portable `.poseproj` exports.
 codebase during the transition, but it is no longer the public native project
 contract.
 
+## Recommended Workspace API
+
+`WorkspaceService` is the primary lifecycle entrypoint for workspace-based
+projects. Use it when you want to create, open, validate, pack, or unpack a
+project with a single object-oriented boundary:
+
+```python
+from posetta.services import WorkspaceService
+
+workspace = WorkspaceService.create("./My Project", title="My Project")
+layout = workspace.validate()
+artifact = workspace.pack()
+restored = WorkspaceService.unpack(artifact, "./Restored Project")
+```
+
+The older free functions in `posetta.formats` and `posetta.api` remain
+available for compatibility and low-level workflows, but new code should prefer
+`WorkspaceService`.
+
 ## What It Does
 
 - Locked v1 project contract: workspace folder + `.posetta/` + `.poseproj`

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from posetta import adapters, formats, model
+from posetta import adapters, api, formats, model, services
 from posetta.version import __version__
 
-__all__ = ["__version__", "adapters", "formats", "model"]
+__all__ = ["__version__", "adapters", "api", "formats", "model", "services"]

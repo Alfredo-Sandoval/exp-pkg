@@ -75,6 +75,7 @@ from posetta.model import (
     load_skeleton_sleap,
     load_skeleton_ultralytics,
 )
+from posetta.services import WorkspaceLayout, WorkspaceService
 
 
 def test_public_exports_are_callable() -> None:
@@ -82,6 +83,7 @@ def test_public_exports_are_callable() -> None:
     assert posetta.adapters is not None
     assert posetta.formats is not None
     assert posetta.model is not None
+    assert posetta.services is not None
     assert ConversionResult is not None
     assert LazyDatasetHandle is not None
     assert PredictionAppendItem is not None
@@ -129,6 +131,8 @@ def test_public_exports_are_callable() -> None:
     assert callable(convert_dlc_h5_project)
     assert callable(convert_dlc_project)
     assert callable(convert_sleap_package)
+    assert WorkspaceLayout is not None
+    assert WorkspaceService is not None
 
 
 def test_model_exports_are_available() -> None:
