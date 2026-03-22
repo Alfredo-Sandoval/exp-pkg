@@ -18,7 +18,7 @@ def _decode_node_name(name: Any) -> str:
 
 
 @dataclass(frozen=True)
-class SleapAnalysisH5Track:
+class SleapTrack:
     """Arrays for one track from a SLEAP analysis H5 file."""
 
     coords: np.ndarray
@@ -34,7 +34,7 @@ def read_node_names(path: Path) -> list[str]:
     return [_decode_node_name(name) for name in names]
 
 
-def read_track(path: Path, *, track_index: int) -> SleapAnalysisH5Track:
+def read_track(path: Path, *, track_index: int) -> SleapTrack:
     """Read one track from a SLEAP analysis H5 export."""
     idx = int(track_index)
     if idx < 0:
@@ -99,7 +99,7 @@ def read_track(path: Path, *, track_index: int) -> SleapAnalysisH5Track:
     scores = np.asarray(scores, dtype=float)
     instance_score = np.asarray(instance_score, dtype=float)
 
-    return SleapAnalysisH5Track(
+    return SleapTrack(
         coords=coords,
         scores=scores,
         node_names=node_names,
@@ -129,7 +129,7 @@ def resolve_node_indices(path: Path, target_names: Sequence[str]) -> list[int]:
 
 
 __all__ = [
-    "SleapAnalysisH5Track",
+    "SleapTrack",
     "read_node_names",
     "read_track",
     "resolve_node_indices",
