@@ -10,22 +10,26 @@ def test_posetta_api_exposes_io_contract() -> None:
         "Labels",
         "ProjectDescriptor",
         "ConversionResult",
-        "SleapTrack",
+        "PoseTrack",
         "WorkspaceLayout",
         "WorkspaceService",
         "convert_dlc_csv",
         "pack_project",
-        "read_sleap_node_names",
-        "read_sleap_track",
-        "resolve_sleap_node_indices",
+        "read_pose_node_names",
+        "read_pose_track",
+        "resolve_pose_node_indices",
         "validate_workspace",
     }
 
     assert expected.issubset(set(api.__all__))
+    assert "SleapTrack" not in api.__all__
+    assert "read_sleap_node_names" not in api.__all__
+    assert "read_sleap_track" not in api.__all__
+    assert "resolve_sleap_node_indices" not in api.__all__
     assert api.Labels.__name__ == "Labels"
     assert api.ProjectDescriptor.__name__ == "ProjectDescriptor"
-    assert api.SleapTrack.__name__ == "SleapTrack"
+    assert api.PoseTrack.__name__ == "PoseTrack"
     assert api.WorkspaceService.__name__ == "WorkspaceService"
-    assert callable(api.read_sleap_node_names)
-    assert callable(api.read_sleap_track)
-    assert callable(api.resolve_sleap_node_indices)
+    assert callable(api.read_pose_node_names)
+    assert callable(api.read_pose_track)
+    assert callable(api.resolve_pose_node_indices)

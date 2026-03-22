@@ -1,8 +1,4 @@
-"""Stable public API for Posetta IO-layer integrations.
-
-`WorkspaceService` is the preferred workspace lifecycle boundary. The older
-free-function helpers remain exported for compatibility and fixture workflows.
-"""
+"""Stable public API for Posetta integrations and workspace services."""
 
 from __future__ import annotations
 
@@ -19,7 +15,7 @@ _LAZY_EXPORTS: dict[str, tuple[str, str]] = {
     "ROI": (".model", "ROI"),
     "SegmentationMask": (".model", "SegmentationMask"),
     "Skeleton": (".model", "Skeleton"),
-    "SleapTrack": (".io.readers", "SleapTrack"),
+    "PoseTrack": (".io.readers", "PoseTrack"),
     "Track": (".model", "Track"),
     "Video": (".model", "Video"),
     "WorkspaceLayout": (".services", "WorkspaceLayout"),
@@ -35,9 +31,9 @@ _LAZY_EXPORTS: dict[str, tuple[str, str]] = {
     "init_project": (".formats.project", "init_project"),
     "load_project_descriptor": (".formats.project", "load_project_descriptor"),
     "pack_project": (".formats.project", "pack_project"),
-    "read_sleap_node_names": (".io.readers", "read_node_names"),
-    "read_sleap_track": (".io.readers", "read_track"),
-    "resolve_sleap_node_indices": (".io.readers", "resolve_node_indices"),
+    "read_pose_node_names": (".io.readers", "read_pose_node_names"),
+    "read_pose_track": (".io.readers", "read_pose_track"),
+    "resolve_pose_node_indices": (".io.readers", "resolve_pose_node_indices"),
     "save_workspace_labels": (".formats.project", "save_workspace_labels"),
     "unpack_project": (".formats.project", "unpack_project"),
     "validate_workspace": (".formats.project", "validate_workspace"),

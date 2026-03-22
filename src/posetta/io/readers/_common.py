@@ -1,0 +1,96 @@
+"""Shared contracts for low-level external pose readers."""
+
+from __future__ import annotations
+
+from collections.abc import Sequence
+from dataclasses import dataclass
+
+import numpy as np
+
+
+@dataclass(frozen=True)
+class PoseTrack:
+    """Arrays for one pose track from an external tracking export."""
+
+    coords: np.ndarray
+    scores: np.ndarray
+    node_names: tuple[str, ...]
+    instance_score: np.ndarray
+
+
+def build_pose_track(
+    *,
+    coords: np.ndarray,
+    scores: np.ndarray,
+    node_names: Sequence[str],
+    instance_score: np.ndarray,
+    source_label: str,
+) -> PoseTrack:
+    """Coerce arrays into the stable PoseTrack contract."""
+
+    coords_array = np.asarray(coords, dtype=np.float64)
+    scores_array = np.asarray(scores, dtype=np.float64)
+    instance_score_array = np.asarray(instance_score, dtype=np.float64)
+    node_name_tuple = tuple(str(name) for name in node_names)
+
+    if coords_array.ndim != 3 or coords_array.shape[2] != 2:
+        raise ValueError(
+            f"{source_label} coords must have shape (frames, nodes, 2), "
+            f"got {coords_array.shape}."
+        )
+
+    frames = int(coords_array.shape[0])
+    nodes = int(coords_array.shape[1])
+    if scores_array.shape != (frames, nodes):
+        raise ValueError(
+            f"{source_label} scores shape {scores_array.shape} does not match "
+            f"(frames, nodes)=({frames}, {nodes})."
+        )
+    if instance_score_array.shape != (frames,):
+        raise ValueError(
+            f"{source_label} instance_score shape {instance_score_array.shape} does not "
+            f"match (frames,)={frames}."
+        )
+    if len(node_name_tuple) != nodes:
+        raise ValueError(
+            f"{source_label} node_names length {len(node_name_tuple)} does not match "
+            f"nodes={nodes}."
+        )
+    return PoseTrack(
+        coords=coords_array,
+        scores=scores_array,
+        node_names=node_name_tuple,
+        instance_score=instance_score_array,
+    )
+
+
+def resolve_node_indices_from_names(
+    node_names: Sequence[str],
+    target_names: Sequence[str],
+) -> list[int]:
+    """Map requested node names to unique indices in a node-name sequence."""
+
+    if not target_names:
+        raise ValueError("resolve_node_indices requires non-empty target_names.")
+
+    targets = [str(name) for name in target_names]
+    index_by_name = {str(name): idx for idx, name in enumerate(node_names)}
+    missing = [name for name in targets if name not in index_by_name]
+    if missing:
+        raise KeyError(f"Target node names not present in file: {missing}")
+
+    indices: list[int] = []
+    seen: set[int] = set()
+    for name in targets:
+        idx = index_by_name[name]
+        if idx not in seen:
+            indices.append(idx)
+            seen.add(idx)
+    return indices
+
+
+__all__ = [
+    "PoseTrack",
+    "build_pose_track",
+    "resolve_node_indices_from_names",
+]

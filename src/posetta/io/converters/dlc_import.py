@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Sequence
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any
 
 import pandas as pd
 
@@ -16,6 +16,7 @@ from posetta.io.converters.converter_helpers import (
     _emit,
     project_bundle_path,
 )
+from posetta.io.readers.dlc import read_dlc_csv_table, read_dlc_h5_table
 from posetta.io.siesta_format import write_siesta
 from posetta.io.video import Video
 
@@ -41,71 +42,14 @@ DLC_H5_PROJECT_PROGRESS_MARKERS: tuple[tuple[str, int], ...] = (
 )
 
 
-def _extract_keypoints_from_columns(columns: pd.Index) -> list[str]:
-    """Extract keypoint names from flattened DLC-style coordinate columns."""
-
-    keypoints: list[str] = []
-    seen: set[str] = set()
-    for col in columns:
-        col_name = str(col)
-        if not col_name.endswith("_x"):
-            continue
-        keypoint = col_name[:-2]
-        if keypoint in seen:
-            continue
-        keypoints.append(keypoint)
-        seen.add(keypoint)
-    return keypoints
-
-
 def _read_dlc_csv(csv_path: Path) -> tuple[pd.DataFrame, list[str]]:
     """Read a DLC-style multi-index CSV and return a flat table plus keypoint names."""
-
-    header_df = pd.read_csv(csv_path, header=None, nrows=4)
-
-    n_header = 3
-    if header_df.iloc[0, 0] in ("scorer", "model"):
-        n_header = 3
-    elif header_df.iloc[0, 0] in ("bodyparts", "keypoint"):
-        n_header = 2
-    else:
-        for i in range(min(4, len(header_df))):
-            row_vals = header_df.iloc[i].astype(str).str.lower()
-            if any("likelihood" in value or row_vals.tolist().count("x") > 1 for value in row_vals):
-                n_header = i + 1
-                break
-
-    df = pd.read_csv(csv_path, header=list(range(n_header)), index_col=0)
-
-    if isinstance(df.columns, pd.MultiIndex):
-        new_cols = []
-        for col in df.columns:
-            if len(col) == 3:
-                new_cols.append(f"{col[1]}_{col[2]}")
-            elif len(col) == 2:
-                new_cols.append(f"{col[0]}_{col[1]}")
-            else:
-                new_cols.append("_".join(str(value) for value in col))
-        df.columns = new_cols
-
-    return df, _extract_keypoints_from_columns(df.columns)
+    return read_dlc_csv_table(csv_path)
 
 
 def _read_dlc_h5(h5_path: Path) -> tuple[pd.DataFrame, list[str]]:
     """Read a DLC-style H5 tracking file and return a flat table plus keypoint names."""
-
-    df = cast(pd.DataFrame, pd.read_hdf(h5_path))
-
-    if isinstance(df.columns, pd.MultiIndex):
-        new_cols = []
-        for col in df.columns:
-            if len(col) >= 2:
-                new_cols.append(f"{col[-2]}_{col[-1]}")
-            else:
-                new_cols.append(str(col))
-        df.columns = new_cols
-
-    return df, _extract_keypoints_from_columns(df.columns)
+    return read_dlc_h5_table(h5_path)
 
 
 def _required_frame_count(index: pd.Index) -> int:
