@@ -5,15 +5,16 @@ hide:
 
 <div class="manual-head" markdown="1">
 
-<div class="manual-kicker">POSE IO LIBRARY</div>
+<div class="manual-kicker">BEHAVIOR WORKSPACE</div>
 
 # Posetta
 
 <p class="manual-deck">
-Posetta uses a locked workspace-first public artifact contract:
-editable workspace folder, private <code>.posetta/</code> store, and portable
-<code>.poseproj</code> export. The current low-level <code>.siesta</code> APIs
-remain as legacy compatibility surfaces during the transition.
+Posetta is a workspace-first toolkit for behavior-centered experiments, built
+around an editable workspace folder, a private <code>.posetta/</code> store,
+and portable <code>.expkg</code> exports. The current low-level
+<code>.siesta</code> APIs remain as legacy compatibility surfaces during the
+transition.
 </p>
 
 </div>
@@ -25,23 +26,28 @@ remain as legacy compatibility surfaces during the transition.
 
 | Item | Value |
 | --- | --- |
-| Public project contract | workspace folder + `.poseproj` |
+| Mission | behavior-centered experiment workspaces |
+| Public project contract | workspace folder + `.expkg` |
 | Authoritative mutable state | `.posetta/` inside the workspace |
 | Legacy compatibility format | `.siesta` import/read APIs |
 | External adapters | DLC, SLEAP |
-| Pose objects | `posetta.model` |
+| Core objects | `posetta.model` |
 | Low-level compatibility IO | `posetta.formats` |
-| Import tools | `posetta.adapters` |
+| Import and migration tools | `posetta.adapters` |
 </div>
 
 <div class="spec-panel" markdown="1">
 ### Choose by Task
 
 - Use `posetta.model` when you need `Labels`, `Skeleton`, `Instance`, or `Video`.
+- Use Posetta when you need a coherent experiment workspace with managed
+  artifacts and compatibility import surfaces.
 - Read [Artifact Contract v1](artifact_contract_v1.md) for the public workspace
-  and `.poseproj` contract.
+  and `.expkg` contract.
 - Read [CLI Command Spec v1](cli_command_spec_v1.md) for the locked command
   surface.
+- Read [Storage Direction](architecture/storage-direction.md) when you want the
+  blunt explanation for why `.siesta` still exists in the implementation.
 - Use `posetta.formats` when you need low-level legacy `.siesta`
   compatibility IO.
 - Use `posetta.adapters` when you need to import DLC or SLEAP.
@@ -54,7 +60,7 @@ remain as legacy compatibility surfaces during the transition.
 <div class="spec-grid spec-grid-3" markdown="1">
 
 <div class="spec-panel" markdown="1">
-### Model
+### Core Experiment Layer
 
 - `Labels`
 - `LabeledFrame`
@@ -62,10 +68,11 @@ remain as legacy compatibility surfaces during the transition.
 - `Point`, `PredictedPoint`
 - `Skeleton`, `Keypoint`, `Track`
 - `Video`
+- workspace descriptors and managed media roots
 </div>
 
 <div class="spec-panel" markdown="1">
-### Compatibility IO
+### Archive and Compatibility IO
 
 - `read_siesta`
 - `write_siesta`
@@ -77,7 +84,7 @@ remain as legacy compatibility surfaces during the transition.
 </div>
 
 <div class="spec-panel" markdown="1">
-### Adapters
+### Imports and Migration
 
 - `convert_dlc_csv`
 - `convert_dlc_h5`
@@ -96,11 +103,14 @@ My Project/
   .posetta/
   Media/
   Exports/
-    My Project.poseproj
+    My Project.expkg
 ```
 
 `.siesta` remains available as a legacy compatibility layer, but it is no
 longer the native public project artifact.
+
+The workspace contract exists because experiment state usually extends beyond a
+single archive or converter output.
 
 ## Navigation
 
@@ -112,6 +122,9 @@ longer the native public project artifact.
 - Read [CLI Command Spec v1](cli_command_spec_v1.md) for `init`, `import`,
   `pack`, `unpack`, and `migrate`.
 - Read [Media IO Stack](architecture/media-io.md) for the target ownership split between Posetta and Siesta.
+- Read [Storage Direction](architecture/storage-direction.md) for the current
+  rationale and cutover pressure around `.siesta`, `.posetta/`, and
+  `.expkg`.
 - Read [Experimental Durable Store](architecture/experimental-store.md) for the new
   commit-oriented recovery workflow.
 - Read [Model](api/model.md) for the pose object graph.

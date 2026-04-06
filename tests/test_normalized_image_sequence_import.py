@@ -63,7 +63,7 @@ def test_convert_normalized_image_sequence_annotations_writes_bundle_and_manifes
     bundle_path = project_root / "archive.sta"
     copied_frame = project_root / "videos" / "demo_sequence" / "000000_frame_0000.png"
     assert result.project_root == project_root
-    assert result.siesta_path == bundle_path
+    assert result.bundle_path == bundle_path
     assert copied_frame.is_file()
 
     with h5py.File(str(bundle_path), "r") as handle:

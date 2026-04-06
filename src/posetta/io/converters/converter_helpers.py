@@ -32,7 +32,7 @@ class ConversionResult:
     source_dir: Path
     project_root: Path
     videos: list[Path]
-    siesta_path: Path
+    bundle_path: Path
 
 
 def _emit(callback: ProgressCallback | None, message: str) -> None:

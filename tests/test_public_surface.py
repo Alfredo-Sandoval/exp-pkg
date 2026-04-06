@@ -10,7 +10,7 @@ from posetta.adapters import (
     convert_sleap_package,
 )
 from posetta.formats import (
-    POSEPROJ_SUFFIX,
+    EXPKG_SUFFIX,
     PROJECT_DESCRIPTOR_FILENAME,
     LazyDatasetHandle,
     MaxInstancesExceededError,
@@ -22,7 +22,7 @@ from posetta.formats import (
     create_store_from_archive,
     create_store_from_sta,
     current_project_archive_path,
-    default_poseproj_path,
+    default_expkg_path,
     import_dlc_csv_workspace,
     import_dlc_h5_workspace,
     import_legacy_archive,
@@ -44,7 +44,7 @@ from posetta.formats import (
     unpack_project,
     update_labels_siesta,
     validate_artifact,
-    validate_poseproj,
+    validate_expkg,
     validate_project,
     validate_workspace,
     write_labels_json,
@@ -89,7 +89,7 @@ def test_public_exports_are_callable() -> None:
     assert PredictionAppendItem is not None
     assert SerializerPredictedInstance is not None
     assert MaxInstancesExceededError is not None
-    assert POSEPROJ_SUFFIX == ".poseproj"
+    assert EXPKG_SUFFIX == ".expkg"
     assert SiestaStore is not None
     assert PROJECT_DESCRIPTOR_FILENAME == "PROJECT.json"
     assert ProjectDescriptor is not None
@@ -97,7 +97,7 @@ def test_public_exports_are_callable() -> None:
     assert callable(current_project_archive_path)
     assert callable(create_store_from_archive)
     assert callable(create_store_from_sta)
-    assert callable(default_poseproj_path)
+    assert callable(default_expkg_path)
     assert callable(import_dlc_csv_workspace)
     assert callable(import_dlc_h5_workspace)
     assert callable(import_legacy_archive)
@@ -119,7 +119,7 @@ def test_public_exports_are_callable() -> None:
     assert callable(unpack_project)
     assert callable(update_labels_siesta)
     assert callable(validate_artifact)
-    assert callable(validate_poseproj)
+    assert callable(validate_expkg)
     assert callable(validate_project)
     assert callable(validate_workspace)
     assert callable(write_labels_json)

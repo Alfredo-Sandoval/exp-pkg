@@ -48,7 +48,7 @@ def convert_dlc_h5(
             progress_callback,
             _dlc_import.DLC_H5_PROJECT_PROGRESS_MARKERS,
         ),
-        bundle_extension=".siesta",
+        bundle_extension=".sta",
     )
 
 
@@ -78,9 +78,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     """CLI entry point for DLC H5 -> native project conversion."""
     runner: CliRunner = _run_cli
     parser = build_cli_parser(
-        description="Convert DLC H5 tracking plus explicit videos into a SIESTA project"
+        description="Convert DLC H5 tracking plus explicit videos into a Posetta project"
     )
-    add_output_path_argument(parser, help_text="Output SIESTA project root directory")
+    add_output_path_argument(parser, help_text="Output Posetta project root directory")
     _configure_cli_parser(parser)
     return parse_and_run_cli(parser, argv, runner)
 

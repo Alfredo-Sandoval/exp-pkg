@@ -37,7 +37,7 @@ def convert_sleap_package(
         out_dir,
         fps=int(fps),
         encode_videos=encode_videos,
-        bundle_extension=".siesta",
+        bundle_extension=".sta",
         progress_callback=bridge_progress_callback(
             progress_callback,
             _sleap_import.SLEAP_PACKAGE_PROGRESS_MARKERS,
@@ -73,8 +73,8 @@ def _run_cli(args: argparse.Namespace, _parser: argparse.ArgumentParser) -> int:
 def main(argv: Sequence[str] | None = None) -> int:
     """CLI entry point for SLEAP package -> native project conversion."""
     runner: CliRunner = _run_cli
-    parser = build_cli_parser(description="Convert SLEAP .pkg.slp to a SIESTA project")
-    add_output_path_argument(parser, help_text="Output SIESTA project root directory")
+    parser = build_cli_parser(description="Convert SLEAP .pkg.slp to a Posetta project")
+    add_output_path_argument(parser, help_text="Output Posetta project root directory")
     _configure_cli_parser(parser)
     return parse_and_run_cli(parser, argv, runner)
 

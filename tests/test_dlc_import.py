@@ -56,17 +56,16 @@ def test_convert_dlc_h5_project_builds_multi_video_bundle(tmp_path: Path) -> Non
         tracking_path,
         [video_a, video_b],
         recording_dir,
-        bundle_extension=".siesta",
     )
 
-    assert result.siesta_path == recording_dir / "session-0.siesta"
-    payload = read_siesta(result.siesta_path, lazy=False)
+    assert result.bundle_path == recording_dir / "session-0.sta"
+    payload = read_siesta(result.bundle_path, lazy=False)
     assert payload["labels"]["videos"]["filenames"] == [
         "alpha_view/session-0-leftCam.avi",
         "beta_view/session-0-underGlass.avi",
     ]
 
-    labels = Labels.load_file(result.siesta_path.as_posix())
+    labels = Labels.load_file(result.bundle_path.as_posix())
     assert len(labels.videos) == 2
     assert len(labels.labeled_frames) == len(df) * 2
     counts = Counter(Path(frame.video.filename or "").name for frame in labels.labeled_frames)

@@ -2,6 +2,11 @@
 
 This document defines the locked public artifact contract for Posetta v1.
 
+The contract is workspace-first because Posetta is aimed at whole experiment
+sessions. The public artifact needs to hold more context than a single archive
+blob, so the contract is defined around a workspace, a private store, and a
+portable export.
+
 It supersedes the older public framing that treated `.siesta` as the native
 single-file project artifact. `.siesta` remains a legacy import/read format and
 an internal compatibility surface during the transition, but it is no longer
@@ -38,7 +43,7 @@ This is the authoritative mutable state. It is opaque to users.
 The move/share/export artifact is a single file:
 
 ```text
-My Project.poseproj
+My Project.expkg
 ```
 
 This is the only portable file type. It is not `.h5`. It is not `.zip`. It is
@@ -113,12 +118,12 @@ project for portability lives here.
 
 ### `Exports/`
 
-This is the standard location for emitted `.poseproj` files and optional legacy
+This is the standard location for emitted `.expkg` files and optional legacy
 exports.
 
 ## Portable Artifact Semantics
 
-`*.poseproj` is a packed project snapshot.
+`*.expkg` is a packed project snapshot.
 
 Rules:
 
@@ -149,9 +154,9 @@ Posetta should accept a workspace folder as the primary open target:
 My Project/
 ```
 
-GUI behavior for `.poseproj`:
+GUI behavior for `.expkg`:
 
-- `File > Open` on a `.poseproj` triggers unpack/import into a chosen folder,
+- `File > Open` on a `.expkg` triggers unpack/import into a chosen folder,
   then opens that workspace.
 - Posetta does not edit a packed file in place.
 
@@ -163,7 +168,7 @@ Example:
 
 ```bash
 posetta pack "My Project"
-# emits My Project/Exports/My Project.poseproj
+# emits My Project/Exports/My Project.expkg
 ```
 
 ### Unpack
@@ -173,7 +178,7 @@ posetta pack "My Project"
 Example:
 
 ```bash
-posetta unpack "My Project.poseproj" --out "./My Project"
+posetta unpack "My Project.expkg" --out "./My Project"
 ```
 
 ### Import
@@ -212,7 +217,7 @@ This is an optional state-only export.
 Rules:
 
 - External media references may remain external.
-- The resulting `.poseproj` is not guaranteed to fully open on another machine.
+- The resulting `.expkg` is not guaranteed to fully open on another machine.
 - The artifact must declare itself as `snapshot`, not `portable`.
 
 The default pack mode is `portable`.
@@ -233,7 +238,7 @@ Policy:
 
 - Posetta v1 must read/import `.siesta`.
 - New projects are created as workspace folders.
-- New portable exports are `.poseproj`.
+- New portable exports are `.expkg`.
 - Optional legacy export may exist behind an explicit transition flag:
 
 ```bash
@@ -250,7 +255,7 @@ posetta export-legacy "My Project" --out tracking.siesta
 - `PROJECT.json`
 - hidden store path `.posetta/`
 - standard `Media/` and `Exports/`
-- portable file suffix `.poseproj`
+- portable file suffix `.expkg`
 - pack/unpack/import/open semantics
 - media portability rules
 
@@ -258,7 +263,7 @@ posetta export-legacy "My Project" --out tracking.siesta
 
 - internal `.posetta/` subdirectory layout
 - exact storage engine
-- exact compression/container used inside `.poseproj`
+- exact compression/container used inside `.expkg`
 - cache structure
 - lock implementation
 
@@ -275,14 +280,14 @@ My Project/
   .posetta/
   Media/
   Exports/
-    My Project.poseproj
+    My Project.expkg
 ```
 
 And this:
 
 - editable project = workspace folder
 - authoritative mutable state = `.posetta/`
-- portable artifact = `.poseproj`
+- portable artifact = `.expkg`
 - no required symlink layer
 - no `.h5` public contract
 - `.siesta` is legacy import/read

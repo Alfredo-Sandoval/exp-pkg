@@ -47,14 +47,14 @@ def _make_labels(tmp_path: Path, *, x: float, y: float, visible: bool = True, fr
     return labels
 
 
-def test_labels_save_file_defaults_to_siesta_suffix(tmp_path: Path) -> None:
+def test_labels_save_file_defaults_to_sta_suffix(tmp_path: Path) -> None:
     from posetta.model import Labels
 
     labels = _make_labels(tmp_path, x=1.0, y=2.0)
     raw_path = tmp_path / "archive"
     written_path = Labels.save_file(labels, raw_path.as_posix())
 
-    assert written_path.endswith(".siesta")
+    assert written_path.endswith(".sta")
     assert Path(written_path).exists()
 
 
@@ -64,7 +64,7 @@ def test_labels_load_file_accepts_custom_bundle_reader(tmp_path: Path) -> None:
     from posetta.model import Labels
 
     labels = _make_labels(tmp_path, x=7.0, y=8.0)
-    bundle_path = tmp_path / "labels.siesta"
+    bundle_path = tmp_path / "labels.sta"
     write_siesta(bundle_path, labels)
 
     calls: list[tuple[Path, bool]] = []
@@ -77,7 +77,7 @@ def test_labels_load_file_accepts_custom_bundle_reader(tmp_path: Path) -> None:
         Labels,
         bundle_path.as_posix(),
         read_siesta_fn=recording_reader,
-        supported_bundle_suffixes=(".siesta",),
+        supported_bundle_suffixes=(".sta",),
         allow_json=False,
     )
 
@@ -102,12 +102,12 @@ def test_labels_save_file_accepts_custom_bundle_writer(tmp_path: Path) -> None:
         raw_path.as_posix(),
         metadata={"project_name": "demo"},
         write_siesta_fn=recording_writer,
-        supported_bundle_suffixes=(".siesta",),
+        supported_bundle_suffixes=(".sta",),
         allow_json=False,
     )
 
-    assert Path(written_path) == raw_path.with_suffix(".siesta")
-    assert calls == [(raw_path.with_suffix(".siesta"), {"project_name": "demo"})]
+    assert Path(written_path) == raw_path.with_suffix(".sta")
+    assert calls == [(raw_path.with_suffix(".sta"), {"project_name": "demo"})]
     payload = read_siesta(Path(written_path), lazy=False)
     assert payload["metadata"]["project_name"] == "demo"
 
@@ -116,7 +116,7 @@ def test_siesta_labels_roundtrip_uses_explicit_visibility_dataset(tmp_path: Path
     from posetta.model import Labels
 
     labels = _make_labels(tmp_path, x=3.0, y=4.0, visible=False)
-    bundle_path = tmp_path / "labels.siesta"
+    bundle_path = tmp_path / "labels.sta"
     labels.save_file(labels, bundle_path.as_posix())
 
     with h5py.File(bundle_path.as_posix(), "r") as handle:

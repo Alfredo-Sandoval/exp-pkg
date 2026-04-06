@@ -10,7 +10,7 @@ project workflow is being wired in.
 
 !!! note
     The locked public artifact contract is workspace folder +
-    <code>.poseproj</code>. The adapter functions documented here currently emit
+    <code>.expkg</code>. The adapter functions documented here currently emit
     legacy <code>.siesta</code> compatibility outputs.
 
 ## Return Type
@@ -24,14 +24,13 @@ Fields:
 - `source_dir`: the original source path or directory
 - `project_root`: the output project directory
 - `videos`: output video paths associated with the conversion
-- `siesta_path`: the current legacy `.siesta` compatibility archive path
+- `bundle_path`: the output native bundle path
 
 ## DeepLabCut
 
 ### `convert_dlc_csv(csv_path, video_path, out_path, *, skeleton_name="imported", likelihood_threshold=0.0, progress_callback=None) -> ConversionResult`
 
-Convert one DLC CSV tracking file and its matching video into a legacy
-`.siesta` compatibility archive.
+Convert one DLC CSV tracking file and its matching video into a native bundle.
 
 ### `convert_dlc_h5(h5_path, video_path, out_path, *, skeleton_name="imported", likelihood_threshold=0.0, progress_callback=None) -> ConversionResult`
 
@@ -50,12 +49,12 @@ from posetta.adapters import convert_dlc_csv
 result = convert_dlc_csv(
     "CollectedData_mouse.csv",
     "session.mp4",
-    "session.siesta",
+    "session.sta",
     skeleton_name="mouse_topdown",
     likelihood_threshold=0.2,
 )
 
-print(result.siesta_path)
+print(result.bundle_path)
 ```
 
 ## SLEAP
@@ -93,7 +92,7 @@ def on_progress(msg: str) -> None:
     print(msg)
 
 result = convert_dlc_csv(
-    "tracking.csv", "video.mp4", "out.siesta",
+    "tracking.csv", "video.mp4", "out.sta",
     progress_callback=on_progress,
 )
 ```

@@ -16,7 +16,7 @@ def test_workspace_service_create_validate_and_pack_roundtrip(tmp_path: Path) ->
     loaded = workspace.load_labels()
     assert loaded.labeled_frames == []
 
-    artifact = workspace.pack(out=tmp_path / "My Project.poseproj")
+    artifact = workspace.pack(out=tmp_path / "My Project.expkg")
     unpacked = WorkspaceService.unpack(artifact, tmp_path / "Unpacked Project")
     unpacked_layout = unpacked.validate()
 

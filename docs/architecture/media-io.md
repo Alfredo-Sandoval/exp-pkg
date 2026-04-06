@@ -16,8 +16,8 @@ is to stop splitting core media behavior across two repositories.
 
 ## Governing Idea
 
-If Posetta is the IO layer, it must own media IO as a first-class subsystem,
-not just labels, manifests, and converters. That means file videos, image
+If Posetta is the IO layer, it must own media IO as a first-class subsystem
+alongside labels, manifests, and converters. That means file videos, image
 sequences, frame decode, frame encode, media capability discovery, and
 deterministic backend behavior all belong in Posetta.
 

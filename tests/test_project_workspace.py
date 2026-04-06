@@ -139,7 +139,7 @@ def test_migrate_legacy_archive_creates_workspace_and_workspace_loads(tmp_path: 
     assert migrated_archive == current_project_archive_path(workspace)
     assert migrated_archive.exists()
     assert (workspace_store_root(workspace) / "superblock.a.json").is_file()
-    assert not (workspace_state_root(workspace) / "current.siesta").exists()
+    assert not (workspace_state_root(workspace) / "current.sta").exists()
 
     loaded = Labels.load_file(workspace.as_posix())
     pts = loaded.labeled_frames[0].instances[0].get_points_array(copy=False, full=True)
@@ -283,7 +283,7 @@ def test_pack_portable_and_unpack_uses_managed_media_after_source_removal(tmp_pa
     )
     assert managed_files
 
-    artifact = tmp_path / "Portable Project.poseproj"
+    artifact = tmp_path / "Portable Project.expkg"
     pack_project(workspace, mode="portable", out=artifact)
     validate_artifact(artifact)
 

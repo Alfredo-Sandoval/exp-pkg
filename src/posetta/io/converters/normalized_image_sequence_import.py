@@ -336,7 +336,7 @@ def convert_normalized_image_sequence_annotations(
         source_dir=annotations_path.parent,
         project_root=project_root,
         videos=list(video_dirs),
-        siesta_path=archive_path,
+        bundle_path=archive_path,
     )
 
 

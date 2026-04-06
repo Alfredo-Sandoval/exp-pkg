@@ -86,7 +86,7 @@ def test_dlc_adapter_bridges_progress_and_uses_siesta_extension(monkeypatch) -> 
             source_dir=Path("input"),
             project_root=Path(project_root),
             videos=[Path(video_paths[0])],
-            siesta_path=Path(project_root) / "project.siesta",
+            bundle_path=Path(project_root) / "project.sta",
         )
 
     monkeypatch.setattr(
@@ -107,7 +107,7 @@ def test_dlc_adapter_bridges_progress_and_uses_siesta_extension(monkeypatch) -> 
         "video_paths": ["clip.mp4"],
         "project_root": "project",
         "likelihood_threshold": 0.25,
-        "bundle_extension": ".siesta",
+        "bundle_extension": ".sta",
     }
     assert progress_events == [
         (10, "DLC_IMPORT STEP: read_h5"),
@@ -115,7 +115,7 @@ def test_dlc_adapter_bridges_progress_and_uses_siesta_extension(monkeypatch) -> 
         (55, "DLC_IMPORT STEP: build_labels"),
         (100, "DLC_IMPORT DONE"),
     ]
-    assert result.siesta_path == Path("project") / "project.siesta"
+    assert result.bundle_path == Path("project") / "project.sta"
 
 
 def test_dlc_adapter_main_routes_cli_arguments(monkeypatch, tmp_path: Path) -> None:
@@ -140,7 +140,7 @@ def test_dlc_adapter_main_routes_cli_arguments(monkeypatch, tmp_path: Path) -> N
             source_dir=Path(h5_path),
             project_root=Path(project_root),
             videos=[Path(video_path)],
-            siesta_path=Path(project_root) / f"{Path(project_root).name}.siesta",
+            bundle_path=Path(project_root) / f"{Path(project_root).name}.sta",
         )
 
     monkeypatch.setattr("posetta.adapters.dlc.convert_dlc_h5", fake_convert_dlc_h5)
@@ -199,7 +199,7 @@ def test_dlc_adapter_stores_project_relative_video_filename(tmp_path: Path) -> N
 
     result = convert_dlc_h5(tracking_path, video_path, recording_dir)
 
-    payload = read_siesta(result.siesta_path, lazy=False)
+    payload = read_siesta(result.bundle_path, lazy=False)
     assert payload["labels"]["videos"]["filenames"] == ["alpha_view/session-0-leftCam.avi"]
 
 
@@ -231,7 +231,7 @@ def test_sleap_adapter_bridges_progress_and_uses_siesta_extension(monkeypatch) -
             source_dir=Path(slp),
             project_root=Path(out_dir),
             videos=[],
-            siesta_path=Path(out_dir) / "project.siesta",
+            bundle_path=Path(out_dir) / "project.sta",
         )
 
     monkeypatch.setattr(
@@ -252,14 +252,14 @@ def test_sleap_adapter_bridges_progress_and_uses_siesta_extension(monkeypatch) -
         "out_dir": "project",
         "fps": 24,
         "encode_videos": False,
-        "bundle_extension": ".siesta",
+        "bundle_extension": ".sta",
     }
     assert progress_events == [
         (10, "SIESTA_IMPORT START: extracting_frames"),
         (45, "SIESTA_IMPORT OK: label_table_ready"),
         (100, "SIESTA_IMPORT DONE"),
     ]
-    assert result.siesta_path == Path("project") / "project.siesta"
+    assert result.bundle_path == Path("project") / "project.sta"
 
 
 def test_sleap_adapter_main_routes_cli_arguments(monkeypatch, tmp_path: Path) -> None:
@@ -284,7 +284,7 @@ def test_sleap_adapter_main_routes_cli_arguments(monkeypatch, tmp_path: Path) ->
             source_dir=Path(slp),
             project_root=Path(out_dir),
             videos=[],
-            siesta_path=Path(out_dir) / f"{Path(out_dir).name}.siesta",
+            bundle_path=Path(out_dir) / f"{Path(out_dir).name}.sta",
         )
 
     monkeypatch.setattr("posetta.adapters.sleap.convert_sleap_package", fake_convert_sleap_package)

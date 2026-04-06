@@ -10,7 +10,7 @@ workspace-first public contract.
 
 !!! note
     The public Posetta v1 artifact contract is workspace folder +
-    <code>.poseproj</code>. Use this module when you need the current
+    <code>.expkg</code>. Use this module when you need the current
     compatibility APIs for legacy <code>.siesta</code> data, fixtures, tests,
     and migration workflows.
 

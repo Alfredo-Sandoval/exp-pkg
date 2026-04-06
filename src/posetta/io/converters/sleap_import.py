@@ -149,7 +149,7 @@ def convert_sleap_package(
     *,
     fps: int = 30,
     encode_videos: bool | None = None,
-    bundle_extension: str = ".siesta",
+    bundle_extension: str = ".sta",
     progress_callback: ProgressCallback | None = None,
 ) -> ConversionResult:
     """Convert a SLEAP `.pkg.slp` archive into a native project archive."""
@@ -219,7 +219,7 @@ def convert_sleap_package(
         source_dir=slp_path,
         project_root=proj_root,
         videos=videos,
-        siesta_path=bundle_path,
+        bundle_path=bundle_path,
     )
 
     _emit(progress_callback, _DONE_MARKER)

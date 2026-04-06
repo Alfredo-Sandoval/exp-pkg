@@ -823,8 +823,8 @@ class Labels:
         return self.save_file(self, filename)
 
     def export_h5(self, filename: str) -> str:
-        """Write this archive to disk as a native `.siesta` file."""
-        return self.save_file(self, filename, _default_suffix=".siesta")
+        """Write this archive to disk as a native `.sta` file."""
+        return self.save_file(self, filename, _default_suffix=".sta")
 
     def numpy(
         self,

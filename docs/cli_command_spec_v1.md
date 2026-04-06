@@ -23,8 +23,8 @@ posetta migrate
 ## Shared Rules
 
 - The primary editable unit is a workspace folder.
-- `.poseproj` is the only portable project artifact.
-- Posetta never edits a `.poseproj` file in place.
+- `.expkg` is the only portable project artifact.
+- Posetta never edits a `.expkg` file in place.
 - Commands that create a project must produce a valid workspace containing
   `PROJECT.json` and `.posetta/`.
 - Project-internal paths are stored relative to the workspace root.
@@ -83,18 +83,18 @@ posetta import legacy --file tracking.siesta --out "./My Project"
 
 ### Non-goals
 
-- Import is not an in-place update of packed `.poseproj` artifacts.
+- Import is not an in-place update of packed `.expkg` artifacts.
 - Import is not a version-to-version migration of an existing Posetta workspace.
 
 ## `posetta pack`
 
-Create a portable `.poseproj` artifact from a workspace.
+Create a portable `.expkg` artifact from a workspace.
 
 ### Synopsis
 
 ```bash
 posetta pack "./My Project"
-posetta pack "./My Project" --out "./release/My Project.poseproj"
+posetta pack "./My Project" --out "./release/My Project.expkg"
 posetta pack "./My Project" --mode snapshot
 ```
 
@@ -102,8 +102,8 @@ posetta pack "./My Project" --mode snapshot
 
 - Reads a workspace folder as input.
 - Validates the workspace before packing.
-- Emits a `.poseproj` file.
-- Defaults output to `./My Project/Exports/My Project.poseproj` when `--out` is
+- Emits a `.expkg` file.
+- Defaults output to `./My Project/Exports/My Project.expkg` when `--out` is
   omitted.
 - Uses `portable` mode by default.
 - Fails if required media are external and unavailable for a portable pack.
@@ -118,17 +118,17 @@ posetta pack "./My Project" --mode snapshot
 
 ## `posetta unpack`
 
-Create a workspace from a `.poseproj` artifact.
+Create a workspace from a `.expkg` artifact.
 
 ### Synopsis
 
 ```bash
-posetta unpack "./My Project.poseproj" --out "./My Project"
+posetta unpack "./My Project.expkg" --out "./My Project"
 ```
 
 ### Required behavior
 
-- Accepts a `.poseproj` file as input.
+- Accepts a `.expkg` file as input.
 - Creates a valid workspace folder as output.
 - Reconstructs `PROJECT.json` and `.posetta/`.
 - Restores `Media/` when it is included in the artifact.
@@ -145,14 +145,14 @@ without changing the project’s logical contents.
 
 ```bash
 posetta migrate "./My Project"
-posetta migrate "./My Project.poseproj" --out "./My Project"
+posetta migrate "./My Project.expkg" --out "./My Project"
 ```
 
 ### Required behavior
 
 - Operates on Posetta-owned artifacts only.
 - Upgrades workspace descriptor/layout versions when needed.
-- When the input is `.poseproj`, unpacks first and then migrates into the output
+- When the input is `.expkg`, unpacks first and then migrates into the output
   workspace.
 - Preserves logical project contents across migration.
 - Leaves foreign-format ingestion to `posetta import`, not `posetta migrate`.
@@ -170,13 +170,13 @@ GUI and shell tooling should treat the workspace folder as the primary open
 target.
 
 - Opening a workspace opens it directly.
-- Opening a `.poseproj` prompts for an unpack destination, then opens the
+- Opening a `.expkg` prompts for an unpack destination, then opens the
   resulting workspace.
 - Packed artifacts remain immutable from the user’s perspective.
 
 ## Transition Guidance
 
-- New project creation follows the workspace + `.poseproj` contract.
+- New project creation follows the workspace + `.expkg` contract.
 - `.siesta` remains supported only for legacy import/read and optional explicit
   export during transition.
 - No new public examples should frame `.siesta` as the native user-facing

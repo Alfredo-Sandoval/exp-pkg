@@ -2,7 +2,8 @@
 
 <div class="page-intro">
 <p>
-Posetta is not on PyPI yet. Clone the repo and install locally.
+Posetta is a workspace-first toolkit for behavior-centered experiments. It is
+not on PyPI yet; clone the repo and install locally.
 </p>
 </div>
 
@@ -37,14 +38,18 @@ My Project/
   .posetta/
   Media/
   Exports/
-    My Project.poseproj
+    My Project.expkg
 ```
 
 - You edit a normal workspace folder.
 - Posetta owns authoritative mutable state inside `.posetta/`.
-- You move/share/export a single `.poseproj` file.
+- You move/share/export a single `.expkg` file.
 - `.siesta` remains a legacy import/read compatibility format during
   transition.
+
+This matters because the workspace is the place where media, segmentation,
+labels, and future experiment-side modalities can live together under one
+contract.
 
 Read [Artifact Contract v1](artifact_contract_v1.md) for the full public
 contract and [CLI Command Spec v1](cli_command_spec_v1.md) for the locked
@@ -82,10 +87,14 @@ from posetta.adapters import convert_dlc_csv
 result = convert_dlc_csv(
     "tracking.csv",
     "video.mp4",
-    "tracking.siesta",
+    "tracking.sta",
     skeleton_name="mouse",
     likelihood_threshold=0.25,
 )
 
-print(result.siesta_path)
+print(result.bundle_path)
 ```
+
+This is still a compatibility-oriented import example. New project-facing code
+should think in terms of workspace creation, import into a workspace, and
+portable `.expkg` export rather than a single native `.siesta` file.

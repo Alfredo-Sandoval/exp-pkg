@@ -798,13 +798,13 @@ def labels_load_file(
     bundle_reader = read_siesta if read_siesta_fn is None else read_siesta_fn
     bundle_suffixes = _resolve_bundle_suffixes(supported_bundle_suffixes)
     path = Path(filename)
-    if path.suffix.lower() == ".poseproj":
-        raise ValueError("Packed .poseproj artifacts must be unpacked before loading labels")
+    if path.suffix.lower() == ".expkg":
+        raise ValueError("Packed .expkg artifacts must be unpacked before loading labels")
 
+    from posetta.io.project_layout import resolve_workspace_root
     from posetta.io.project_workspace import (
         current_project_archive_path,
         rebase_workspace_payload_videos,
-        resolve_workspace_root,
     )
 
     workspace_root = resolve_workspace_root(path)
@@ -903,7 +903,8 @@ def labels_save_file(
     bundle_writer = write_siesta if write_siesta_fn is None else write_siesta_fn
     bundle_suffixes = _resolve_bundle_suffixes(supported_bundle_suffixes)
     path = Path(filename)
-    from posetta.io.project_workspace import resolve_workspace_root, save_workspace_labels
+    from posetta.io.project_layout import resolve_workspace_root
+    from posetta.io.project_workspace import save_workspace_labels
 
     workspace_root = resolve_workspace_root(path)
     if workspace_root is not None:

@@ -10,9 +10,12 @@ while we harden the private storage engine.
 </p>
 </div>
 
+If you want the broader rationale for why the runtime still stages
+<code>.siesta</code> archives at all, read [Storage Direction](storage-direction.md).
+
 !!! warning
     This workflow is experimental private machinery. The public v1 artifact
-    contract is workspace folder + <code>.poseproj</code>. Use the durable store
+    contract is workspace folder + <code>.expkg</code>. Use the durable store
     when you want stronger recovery semantics inside <code>.posetta/</code>, not
     as a public interchange layer.
 
@@ -26,7 +29,7 @@ My Project/
   .posetta/
   Media/
   Exports/
-    My Project.poseproj
+    My Project.expkg
 ```
 
 Inside that workspace, the current experimental prototype manages committed
@@ -152,7 +155,7 @@ known clean head over guessing about partially finished writes.
 Stable today:
 
 - public workspace contract: `PROJECT.json`, `.posetta/`, `Media/`, `Exports/`
-- `.poseproj` as the portable project artifact
+- `.expkg` as the portable project artifact
 - legacy `write_siesta(...)` / `read_siesta(...)` compatibility APIs
 
 Experimental today:
@@ -163,5 +166,5 @@ Experimental today:
 - direct application integration with staged archive commits
 
 If you are building the public project contract, think in terms of workspace +
-`.poseproj`. If you are prototyping crash-safe editing or autosave behavior,
+`.expkg`. If you are prototyping crash-safe editing or autosave behavior,
 the experimental store is the right private layer to evaluate.

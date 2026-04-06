@@ -1,4 +1,4 @@
-"""Convert DeepLabCut-style tracking data into native `.siesta` archives."""
+"""Convert DeepLabCut-style tracking data into native bundle archives."""
 
 from __future__ import annotations
 
@@ -315,7 +315,7 @@ def _write_tracking_bundle(
         source_dir=data_path.parent,
         project_root=out_path.parent,
         videos=[video_path],
-        siesta_path=out_path,
+        bundle_path=out_path,
     )
 
 
@@ -420,7 +420,7 @@ def convert_dlc_h5_project(
     *,
     likelihood_threshold: float = 0.0,
     progress_callback: ProgressCallback | None = None,
-    bundle_extension: str = ".siesta",
+    bundle_extension: str = ".sta",
 ) -> ConversionResult:
     """Convert one DLC H5 tracking file plus explicit videos into a project archive."""
 
@@ -465,7 +465,7 @@ def convert_dlc_h5_project(
         source_dir=resolved_h5.parent,
         project_root=resolved_project_root,
         videos=list(resolved_video_paths),
-        siesta_path=bundle_path,
+        bundle_path=bundle_path,
     )
 
 
@@ -476,7 +476,7 @@ def convert_dlc_project(
     likelihood_threshold: float = 0.0,
     progress_callback: ProgressCallback | None = None,
 ) -> list[ConversionResult]:
-    """Convert an entire DLC project directory into native `.siesta` archives."""
+    """Convert an entire DLC project directory into native `.sta` bundles."""
 
     project_dir = resolve_path(project_dir)
     out_dir = resolve_path(out_dir)
@@ -519,7 +519,7 @@ def convert_dlc_project(
             _emit(progress_callback, f"IMPORT: Skipping {subdir.name} (no video found)")
             continue
 
-        out_path = out_dir / f"{subdir.name}.siesta"
+        out_path = out_dir / f"{subdir.name}.sta"
         _emit(progress_callback, f"IMPORT: Converting {subdir.name}")
 
         if is_h5:

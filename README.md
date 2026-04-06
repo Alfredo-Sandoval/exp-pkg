@@ -4,17 +4,42 @@
 [![License: Proprietary](https://img.shields.io/badge/license-Proprietary-red.svg)](LICENSE)
 [![Version: 0.1.0](https://img.shields.io/badge/version-0.1.0-green.svg)](pyproject.toml)
 
-**Workspace-first IO for pose, segmentation, and related annotation data.**
+**Workspace-first toolkit for behavior-centered experiment data and portable project artifacts.**
 
-The annotation ecosystem is fragmented: DeepLabCut exports CSV and H5, SLEAP uses
-`.pkg.slp`, and every tool invents a different project shape. Posetta bridges
-that gap with a canonical `Labels` object, adapter surfaces for multiple pose
-ecosystems, and a locked v1 artifact contract built around editable workspace
-folders plus portable `.poseproj` exports.
+Many neurobehavior experiments need one project container for media, labels,
+segmentation, event-aligned state, and durable exports. Posetta is built around
+that workflow: editable workspaces, managed project state, and shareable
+artifacts for experiment packaging and downstream analysis.
+
+Today the implemented core is strongest for annotations, segmentation, media,
+and workspace lifecycle management. The broader mission is behavior-centered
+experiment packaging that keeps experiment state coherent across tools.
+
+The old annotation ecosystem is fragmented: DeepLabCut exports CSV and H5,
+SLEAP uses `.pkg.slp`, and every tool invents a different project shape.
+Posetta bridges that gap with a canonical `Labels` object, adapter surfaces for
+multiple pose ecosystems, and a locked v1 artifact contract built around
+editable workspace folders plus portable `.expkg` exports.
 
 `.siesta` is now a legacy import/read compatibility format. It remains in the
 codebase during the transition, but it is no longer the public native project
 contract.
+
+If you want the blunt storage rationale, read
+`docs/architecture/storage-direction.md`. The short answer is that `.siesta`
+is still the only fully implemented round-trip archive engine behind workspace
+saves, migration, and durable store commits.
+
+## Mission
+
+The intended stack is:
+
+- editable workspace for a whole experiment session
+- media, segmentation, labels, and experiment metadata in one project layout
+- portable project exports for sharing, packaging, and downstream tools
+
+The current codebase should be read as a workspace/project system for
+behavior-centered experiments.
 
 ## Recommended Workspace API
 
@@ -37,13 +62,30 @@ available for compatibility and low-level workflows, but new code should prefer
 
 ## What It Does
 
-- Locked v1 project contract: workspace folder + `.posetta/` + `.poseproj`
+- Locked v1 project contract: workspace folder + `.posetta/` + `.expkg`
+- Workspace lifecycle services for create/open/validate/pack/unpack flows
+- Canonical pose/annotation containers (`Labels`, `Skeleton`, `Instance`, `Video`)
+- Pose and segmentation storage plus media-aware project packaging
 - Legacy `.siesta` import/read compatibility during transition
-- Canonical labels JSON IO for fast interchange and GUI workflows
-- Metrics table storage inside archives
 - Skeleton loading from multiple formats
 - DeepLabCut adapters (CSV, H5, whole-project)
 - SLEAP adapter (`.pkg.slp` package import)
+
+## Current Scope vs Direction
+
+Implemented today:
+
+- pose tracks and labeled frames
+- skeletons and keypoint semantics
+- segmentation storage
+- managed media roots and portable project exports
+- workspace/project lifecycle operations
+
+Mission direction:
+
+- behavior-centered experiment workspaces
+- pose-aligned auxiliary modalities
+- cleaner packaging for analysis and GUI workflows built around experiment state
 
 ## Supported Formats
 
@@ -93,13 +135,16 @@ My Project/
   .posetta/
   Media/
   Exports/
-    My Project.poseproj
+    My Project.expkg
 ```
 
 - Editable project = workspace folder
 - Authoritative mutable state = `.posetta/`
-- Portable artifact = `.poseproj`
+- Portable artifact = `.expkg`
 - `.siesta` = legacy import/read only
+
+The artifact model is workspace-first so experiment state, managed media, and
+future aligned modalities have a clear home in one project layout.
 
 The locked spec lives in `docs/artifact_contract_v1.md`, with the matching
 command surface in `docs/cli_command_spec_v1.md`.
@@ -110,21 +155,25 @@ The current implementation still exposes low-level `.siesta` helpers while the
 workspace-first v1 workflow is being wired in. Those APIs remain useful for
 fixtures, migration work, and legacy import/read paths.
 
+The longer write-up on why that is still true, and what has to change before
+`.siesta` can shrink further, lives in
+`docs/architecture/storage-direction.md`.
+
 Example:
 
 ```python
 from posetta.adapters import convert_dlc_csv
 from posetta.model import Labels
 
-# Convert DeepLabCut tracking into a legacy .siesta compatibility archive
-convert_dlc_csv("tracking.csv", "video.mp4", "tracking.siesta")
+# Convert DeepLabCut tracking into a native bundle
+convert_dlc_csv("tracking.csv", "video.mp4", "tracking.sta")
 
-# Read a legacy archive back as the canonical Labels object
-labels = Labels.load_file("tracking.siesta")
+# Read a native bundle back as the canonical Labels object
+labels = Labels.load_file("tracking.sta")
 assert isinstance(labels, Labels)
 
-# Write either legacy .siesta compatibility output or fast JSON interchange
-labels.save_file(labels, "copy.siesta")
+# Write either a native .sta bundle or fast JSON interchange
+labels.save_file(labels, "copy.sta")
 labels.save_file(labels, "copy.json")
 ```
 
@@ -145,7 +194,7 @@ The locked v1 public CLI is workspace-first:
 posetta init "./My Project"
 posetta import dlc csv --csv tracking.csv --video video.mp4 --out "./My Project"
 posetta pack "./My Project"
-posetta unpack "./My Project.poseproj" --out "./My Project"
+posetta unpack "./My Project.expkg" --out "./My Project"
 posetta migrate "./My Project"
 ```
 
@@ -154,14 +203,18 @@ That command contract is documented in `docs/cli_command_spec_v1.md`.
 The current implementation still provides legacy conversion-oriented commands
 while the v1 CLI is being wired in:
 
+That split is intentional: the public contract is already workspace/project
+oriented, while the compatibility CLI still helps migrate older pipelines into
+that model.
+
 **Legacy convert DeepLabCut CSV:**
 ```bash
-posetta convert dlc csv --csv tracking.csv --video video.mp4 --out tracking.siesta
+posetta convert dlc csv --csv tracking.csv --video video.mp4 --out tracking.sta
 ```
 
 **Legacy convert DeepLabCut H5:**
 ```bash
-posetta convert dlc h5 --h5 tracking.h5 --video video.mp4 --out tracking.siesta
+posetta convert dlc h5 --h5 tracking.h5 --video video.mp4 --out tracking.sta
 ```
 
 **Legacy convert an entire DeepLabCut project:**

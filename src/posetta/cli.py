@@ -47,7 +47,7 @@ def _emit_progress(message: str) -> None:
 
 
 def _write_result(result: ConversionResult) -> None:
-    sys.stdout.write(f"Wrote {result.siesta_path}\n")
+    sys.stdout.write(f"Wrote {result.bundle_path}\n")
 
 
 def _write_path(path: Path) -> None:
@@ -63,7 +63,7 @@ def _configure_tracking_parser(
 ) -> None:
     parser.add_argument(data_flag, required=True, help=data_help)
     parser.add_argument("--video", required=True, help="Path to the matching video file.")
-    parser.add_argument("--out", required=True, help="Output .siesta file path.")
+    parser.add_argument("--out", required=True, help="Output native bundle path.")
     parser.add_argument(
         "--skeleton-name",
         default="imported",
@@ -103,7 +103,7 @@ def _add_dlc_parser(parent: argparse._SubParsersAction[argparse.ArgumentParser])
         help="Convert every supported item in a DLC project directory.",
     )
     project_parser.add_argument("--project", required=True, help="Path to the DLC project root.")
-    project_parser.add_argument("--out", required=True, help="Output directory for .siesta files.")
+    project_parser.add_argument("--out", required=True, help="Output directory for .sta files.")
     project_parser.add_argument(
         "--threshold",
         type=_likelihood_threshold,
@@ -259,9 +259,9 @@ def _add_workspace_parsers(parent: argparse._SubParsersAction[argparse.ArgumentP
     )
     migrate.set_defaults(func=_cmd_migrate)
 
-    pack = parent.add_parser("pack", help="Pack a workspace into a .poseproj artifact.")
+    pack = parent.add_parser("pack", help="Pack a workspace into a .expkg artifact.")
     pack.add_argument("workspace", help="Workspace directory to pack.")
-    pack.add_argument("--out", help="Explicit output .poseproj path.")
+    pack.add_argument("--out", help="Explicit output .expkg path.")
     pack.add_argument(
         "--mode",
         choices=("portable", "snapshot"),
@@ -274,8 +274,8 @@ def _add_workspace_parsers(parent: argparse._SubParsersAction[argparse.ArgumentP
     )
     pack.set_defaults(func=_cmd_pack)
 
-    unpack = parent.add_parser("unpack", help="Unpack a .poseproj artifact into a workspace.")
-    unpack.add_argument("artifact", help="Path to the .poseproj artifact.")
+    unpack = parent.add_parser("unpack", help="Unpack a .expkg artifact into a workspace.")
+    unpack.add_argument("artifact", help="Path to the .expkg artifact.")
     unpack.add_argument("--out", required=True, help="Destination workspace directory.")
     unpack.add_argument(
         "--force",
@@ -287,7 +287,7 @@ def _add_workspace_parsers(parent: argparse._SubParsersAction[argparse.ArgumentP
 
     validate = parent.add_parser(
         "validate",
-        help="Validate a workspace, packed .poseproj artifact, or legacy .siesta archive.",
+        help="Validate a workspace, packed .expkg artifact, or legacy .siesta archive.",
     )
     validate.add_argument("path", help="Path to validate.")
     validate.set_defaults(func=_cmd_validate)
@@ -306,7 +306,7 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     _add_import_parser(subparsers)
     convert = subparsers.add_parser(
         "convert",
-        help="Convert external pose formats into native .siesta archives.",
+        help="Convert external pose formats into native .sta bundles.",
     )
     convert_subparsers = convert.add_subparsers(dest="format", required=True)
     _add_dlc_parser(convert_subparsers)

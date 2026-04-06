@@ -251,7 +251,7 @@ def make_path_id(path: str | Path, *, prefix: str) -> PathId:
     return PathId(id=identifier, label=label, path=normalized)
 
 
-def resolve_unified_siesta_or_error(
+def resolve_unified_bundle_or_error(
     path: str | Path,
 ) -> tuple[Path | None, ValueError | FileNotFoundError | None]:
     """Resolve user input to a concrete native archive without raising.
@@ -262,16 +262,16 @@ def resolve_unified_siesta_or_error(
     candidate = resolve_path(path)
 
     if candidate.is_dir():
-        canonical = candidate / f"{candidate.name}.siesta"
+        canonical = candidate / f"{candidate.name}.sta"
         if canonical.exists():
             return canonical.resolve(), None
 
-        archives = sorted(candidate.glob("*.siesta")) or sorted(candidate.glob("*.sta"))
+        archives = sorted(candidate.glob("*.sta")) or sorted(candidate.glob("*.siesta"))
         if not archives:
             return (
                 None,
                 ValueError(
-                    "Expected a .siesta archive path, got a directory with no archives: "
+                    "Expected a native bundle path, got a directory with no bundles: "
                     f"{candidate}"
                 ),
             )
@@ -280,22 +280,22 @@ def resolve_unified_siesta_or_error(
             return (
                 None,
                 ValueError(
-                    "Expected a .siesta archive path, got a directory with multiple archives "
+                    "Expected a native bundle path, got a directory with multiple bundles "
                     f"({names}): {candidate}"
                 ),
             )
         return archives[0].resolve(), None
 
     if candidate.suffix.lower() not in (".sta", ".siesta"):
-        return None, ValueError(f"Expected a .siesta archive path, got: {candidate}")
+        return None, ValueError(f"Expected a native bundle path, got: {candidate}")
 
     if not candidate.exists():
-        return None, FileNotFoundError(f".siesta archive not found: {candidate}")
+        return None, FileNotFoundError(f"Native bundle not found: {candidate}")
 
     return candidate, None
 
 
-def resolve_unified_siesta(path: str | Path) -> Path:
+def resolve_unified_bundle(path: str | Path) -> Path:
     """Resolve user input to a concrete native archive (no discovery heuristics).
 
     Args:
@@ -308,11 +308,11 @@ def resolve_unified_siesta(path: str | Path) -> Path:
         ValueError: If the path is not a native archive or directory with a single archive.
         FileNotFoundError: If the archive is not found.
     """
-    resolved, err = resolve_unified_siesta_or_error(path)
+    resolved, err = resolve_unified_bundle_or_error(path)
     if err is not None:
         raise err
     if resolved is None:
-        raise RuntimeError("resolve_unified_siesta_or_error returned (None, None)")
+        raise RuntimeError("resolve_unified_bundle_or_error returned (None, None)")
     return resolved
 
 
@@ -326,7 +326,7 @@ def find_project_bundles(project_root: str | Path) -> list[Path]:
         A list containing the Path to the project archive if it exists, else empty.
     """
     root = Path(project_root)
-    for suffix in (".siesta", ".sta"):
+    for suffix in (".sta", ".siesta"):
         archive = root / f"{root.name}{suffix}"
         if archive.exists():
             return [archive]
@@ -437,7 +437,7 @@ __all__ = [
     "resolve_engine_meta",
     "resolve_path",
     "resolve_project_roots",
-    "resolve_unified_siesta",
+    "resolve_unified_bundle",
     "return_absolute_data_paths",
     "return_absolute_path",
     "slugify_path_component",

@@ -82,6 +82,7 @@ nav:
   - CLI Command Spec v1: cli_command_spec_v1.md
   - Architecture:
       - Media IO Stack: architecture/media-io.md
+      - Storage Direction: architecture/storage-direction.md
       - Experimental Durable Store: architecture/experimental-store.md
   - API Guide:
       - Model: api/model.md

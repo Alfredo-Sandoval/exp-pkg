@@ -28,7 +28,7 @@ def test_cli_routes_dlc_csv(monkeypatch, capsys) -> None:
             source_dir=Path("input"),
             project_root=Path("out"),
             videos=[Path(video_path)],
-            siesta_path=Path(out_path),
+            bundle_path=Path(out_path),
         )
 
     monkeypatch.setattr("posetta.cli.convert_dlc_csv", fake_convert_dlc_csv)
@@ -43,7 +43,7 @@ def test_cli_routes_dlc_csv(monkeypatch, capsys) -> None:
             "--video",
             "clip.mp4",
             "--out",
-            "tracking.siesta",
+            "tracking.sta",
             "--skeleton-name",
             "mouse",
             "--threshold",
@@ -55,14 +55,14 @@ def test_cli_routes_dlc_csv(monkeypatch, capsys) -> None:
     assert captured == {
         "csv_path": "tracking.csv",
         "video_path": "clip.mp4",
-        "out_path": "tracking.siesta",
+        "out_path": "tracking.sta",
         "skeleton_name": "mouse",
         "likelihood_threshold": 0.25,
     }
 
     stdout = capsys.readouterr().out
     assert "csv-progress" in stdout
-    assert "tracking.siesta" in stdout
+    assert "tracking.sta" in stdout
 
 
 def test_cli_routes_dlc_project(monkeypatch, capsys) -> None:
@@ -87,13 +87,13 @@ def test_cli_routes_dlc_project(monkeypatch, capsys) -> None:
                 source_dir=Path(project_dir),
                 project_root=Path(out_dir),
                 videos=[Path("video1.mp4")],
-                siesta_path=Path(out_dir) / "video1.siesta",
+                bundle_path=Path(out_dir) / "video1.sta",
             ),
             ConversionResult(
                 source_dir=Path(project_dir),
                 project_root=Path(out_dir),
                 videos=[Path("video2.mp4")],
-                siesta_path=Path(out_dir) / "video2.siesta",
+                bundle_path=Path(out_dir) / "video2.sta",
             ),
         ]
 
@@ -122,8 +122,8 @@ def test_cli_routes_dlc_project(monkeypatch, capsys) -> None:
 
     stdout = capsys.readouterr().out
     assert "Converted 2 project item(s)" in stdout
-    assert "exports/video1.siesta" in stdout
-    assert "exports/video2.siesta" in stdout
+    assert "exports/video1.sta" in stdout
+    assert "exports/video2.sta" in stdout
 
 
 def test_cli_routes_sleap(monkeypatch, capsys) -> None:
@@ -149,7 +149,7 @@ def test_cli_routes_sleap(monkeypatch, capsys) -> None:
             source_dir=Path(slp),
             project_root=Path(out_dir),
             videos=[],
-            siesta_path=Path(out_dir) / "project.siesta",
+            bundle_path=Path(out_dir) / "project.sta",
         )
 
     monkeypatch.setattr("posetta.cli.convert_sleap_package", fake_convert_sleap_package)
@@ -178,7 +178,7 @@ def test_cli_routes_sleap(monkeypatch, capsys) -> None:
 
     stdout = capsys.readouterr().out
     assert "sleap-progress" in stdout
-    assert "sleap-export/project.siesta" in stdout
+    assert "sleap-export/project.sta" in stdout
 
 
 def test_cli_routes_init_workspace(monkeypatch, capsys) -> None:
@@ -246,7 +246,7 @@ def test_cli_routes_import_legacy(monkeypatch, capsys) -> None:
         captured["title"] = title
         captured["default_pack_mode"] = default_pack_mode
         captured["force"] = force
-        return Path(workspace) / ".posetta" / "state" / "current.siesta"
+        return Path(workspace) / ".posetta" / "state" / "current.sta"
 
     monkeypatch.setattr("posetta.cli.import_legacy_archive", fake_import_legacy_archive)
 
@@ -274,7 +274,7 @@ def test_cli_routes_import_legacy(monkeypatch, capsys) -> None:
     }
     stdout = capsys.readouterr().out
     assert "Imported legacy archive tracking.siesta -> My Project" in stdout
-    assert ".posetta/state/current.siesta" in stdout
+    assert ".posetta/state/current.sta" in stdout
 
 
 def test_cli_routes_import_dlc_csv_workspace(monkeypatch, capsys) -> None:
@@ -301,7 +301,7 @@ def test_cli_routes_import_dlc_csv_workspace(monkeypatch, capsys) -> None:
         captured["default_pack_mode"] = default_pack_mode
         captured["force"] = force
         progress_callback("import-progress")
-        return Path(workspace) / ".posetta" / "state" / "current.siesta"
+        return Path(workspace) / ".posetta" / "state" / "current.sta"
 
     monkeypatch.setattr("posetta.cli.import_dlc_csv_workspace", fake_import_dlc_csv_workspace)
 
@@ -336,7 +336,7 @@ def test_cli_routes_import_dlc_csv_workspace(monkeypatch, capsys) -> None:
     stdout = capsys.readouterr().out
     assert "import-progress" in stdout
     assert "Imported DLC CSV into My Project" in stdout
-    assert ".posetta/state/current.siesta" in stdout
+    assert ".posetta/state/current.sta" in stdout
 
 
 def test_cli_routes_pack_unpack_and_validate(monkeypatch, capsys) -> None:
@@ -355,7 +355,7 @@ def test_cli_routes_pack_unpack_and_validate(monkeypatch, capsys) -> None:
         captured["pack_out"] = out
         captured["pack_mode"] = mode
         captured["pack_overwrite"] = overwrite
-        return Path("My Project.poseproj")
+        return Path("My Project.expkg")
 
     def fake_unpack_project(
         artifact: str,
@@ -381,7 +381,7 @@ def test_cli_routes_pack_unpack_and_validate(monkeypatch, capsys) -> None:
     unpack_code = main(
         [
             "unpack",
-            "My Project.poseproj",
+            "My Project.expkg",
             "--out",
             "Unpacked Project",
             "--force",
@@ -389,7 +389,7 @@ def test_cli_routes_pack_unpack_and_validate(monkeypatch, capsys) -> None:
             "Renamed Project",
         ]
     )
-    validate_code = main(["validate", "My Project.poseproj"])
+    validate_code = main(["validate", "My Project.expkg"])
 
     assert pack_code == 0
     assert unpack_code == 0
@@ -399,13 +399,13 @@ def test_cli_routes_pack_unpack_and_validate(monkeypatch, capsys) -> None:
         "pack_out": None,
         "pack_mode": "snapshot",
         "pack_overwrite": True,
-        "unpack_artifact": "My Project.poseproj",
+        "unpack_artifact": "My Project.expkg",
         "unpack_out": "Unpacked Project",
         "unpack_force": True,
         "unpack_rename_title": "Renamed Project",
-        "validated": ["My Project.poseproj"],
+        "validated": ["My Project.expkg"],
     }
     stdout = capsys.readouterr().out
     assert "Packed My Project" in stdout
-    assert "Unpacked My Project.poseproj" in stdout
-    assert "Valid My Project.poseproj" in stdout
+    assert "Unpacked My Project.expkg" in stdout
+    assert "Valid My Project.expkg" in stdout
