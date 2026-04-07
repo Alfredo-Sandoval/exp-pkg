@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any, Literal
 
 from posetta.formats.project import (
     ProjectDescriptor,
-    current_project_archive_path,
+    current_project_state_path,
     init_project,
     load_project_descriptor,
     pack_project,
@@ -40,8 +40,8 @@ class WorkspaceLayout:
     state_root: Path
     media_root: Path
     exports_root: Path
-    current_archive_path: Path
-    has_current_archive: bool
+    current_state_path: Path
+    has_current_state: bool
 
 
 @dataclass(slots=True)
@@ -98,7 +98,7 @@ class WorkspaceService:
 
     def describe(self) -> WorkspaceLayout:
         descriptor = self.descriptor()
-        archive_path = current_project_archive_path(self.workspace_root)
+        state_path = current_project_state_path(self.workspace_root)
         return WorkspaceLayout(
             workspace_root=self.workspace_root,
             descriptor=descriptor,
@@ -107,8 +107,8 @@ class WorkspaceService:
             state_root=workspace_state_root(self.workspace_root),
             media_root=workspace_media_root(self.workspace_root),
             exports_root=workspace_exports_root(self.workspace_root),
-            current_archive_path=archive_path,
-            has_current_archive=archive_path.exists(),
+            current_state_path=state_path,
+            has_current_state=state_path.exists(),
         )
 
     def validate(self) -> WorkspaceLayout:

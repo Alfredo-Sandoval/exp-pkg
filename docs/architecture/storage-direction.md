@@ -12,13 +12,19 @@ engine behind saves, migration, and durable commits.
 
 ## Current Truth
 
-Today Posetta has four different storage ideas in play:
+Today Posetta still has four storage ideas in play, but the live workspace path
+has moved forward:
 
 - workspace root as the editable project boundary
 - `.posetta/` as the private mutable store boundary
 - `.expkg` as the portable packed artifact
 - `.siesta` as the internal compatibility archive that still carries the full
   round-trip payload
+
+The normal workspace save/load/import/migrate flow now uses a native snapshot at
+`.posetta/state/current.json` as the source of truth. Archive reads still
+remain in the codebase for older workspaces, migration, fixtures, and explicit
+bundle-facing workflows.
 
 That split explains the current tension. The public contract is workspace-first,
 but the code still treats a `.siesta` archive as the canonical thing it knows
@@ -43,17 +49,14 @@ not yet have an independent storage backend with the same coverage.
 The workspace code is already public-facing, but its save path still runs
 through staged `.siesta` files.
 
-Today these flows all depend on that archive layer:
+Archive dependency is now concentrated in compatibility and migration seams:
 
-- `_commit_labels_to_workspace(...)`
-- `save_workspace_labels(...)`
 - `migrate_legacy_archive(...)`
 - `import_dlc_csv_workspace(...)`
 - `import_dlc_h5_workspace(...)`
 - `import_sleap_package_workspace(...)`
-
-That means the workspace contract is real, but the payload being committed is
-still an archive produced by the legacy serializer.
+- archive fallback when opening an older workspace that does not yet have a
+  native snapshot
 
 ### 3. The durable store commits immutable archives
 

@@ -53,10 +53,10 @@ def _is_within(path: Path, parent: Path) -> bool:
 
 
 def _workspace_media_violations(workspace_root: Path) -> list[str]:
-    from posetta.io.project_workspace import current_project_archive_path
+    from posetta.io.project_workspace import current_project_state_path
     from posetta.model import Labels
 
-    if not current_project_archive_path(workspace_root).exists():
+    if not current_project_state_path(workspace_root).exists():
         return []
     labels = Labels.load_file(workspace_root.as_posix())
     media_root = workspace_media_root(workspace_root).resolve()
@@ -202,10 +202,10 @@ def validate_workspace(workspace: str | Path) -> None:
     if exports_root.exists() and not exports_root.is_dir():
         raise ValueError(f"Workspace exports root is not a directory: {exports_root}")
 
-    from posetta.io.project_workspace import current_project_archive_path
+    from posetta.io.project_workspace import current_project_state_path
     from posetta.model import Labels
 
-    if current_project_archive_path(root).exists():
+    if current_project_state_path(root).exists():
         labels = Labels.load_file(root.as_posix())
         labels.validate()
 

@@ -8,7 +8,14 @@ from typing import TYPE_CHECKING, Any, Protocol, cast
 
 import numpy as np
 
-from posetta.core.annotations import Instance, LabeledFrame, PointArray, Track
+from posetta.core.annotations import (
+    ROI,
+    Instance,
+    LabeledFrame,
+    PointArray,
+    SegmentationMask,
+    Track,
+)
 from posetta.core.logging_utils import get_logger
 from posetta.core.path_registry import ensure_dir
 from posetta.core.skeleton import SCHEMA_VERSION as SKELETON_SCHEMA_VERSION
@@ -235,8 +242,9 @@ def _track_lookup_from_payload(payload: dict[str, Any]) -> dict[int, Track]:
             track_lookup[track_id] = raw_track
             continue
         if isinstance(raw_track, Mapping):
+            spawned_on = raw_track.get("spawned_on", track_id)
             track_lookup[track_id] = Track(
-                spawned_on=track_id,
+                spawned_on=int(spawned_on),
                 name=str(raw_track.get("name") or f"track-{track_id}"),
             )
             continue
@@ -245,6 +253,99 @@ def _track_lookup_from_payload(payload: dict[str, Any]) -> dict[int, Track]:
             name=str(raw_track or f"track-{track_id}"),
         )
     return track_lookup
+
+
+def _segmentation_frame_lookup(
+    labeled_frames: Sequence[LabeledFrame],
+    videos: Sequence[VideoProtocol],
+) -> dict[tuple[int, int], LabeledFrame]:
+    video_lookup = {id(video): idx for idx, video in enumerate(videos)}
+    frame_lookup: dict[tuple[int, int], LabeledFrame] = {}
+    for labeled_frame in labeled_frames:
+        video_idx = video_lookup.get(id(labeled_frame.video))
+        if video_idx is None:
+            raise KeyError("Segmentation payload references a video not present in labels.videos")
+        frame_lookup[(video_idx, int(labeled_frame.frame_idx))] = labeled_frame
+    return frame_lookup
+
+
+def _segmentation_track(
+    raw_entry: Mapping[str, Any],
+    track_lookup: dict[int, Track],
+) -> Track | None:
+    raw_track_id = raw_entry.get("track_id")
+    if raw_track_id is None:
+        return None
+    track_id = int(raw_track_id)
+    if track_id < 0:
+        return None
+    track_obj = track_lookup.get(track_id)
+    if track_obj is None:
+        track_obj = Track(spawned_on=track_id, name=f"track-{track_id}")
+        track_lookup[track_id] = track_obj
+    return track_obj
+
+
+def _segmentation_target_frame(
+    raw_entry: Mapping[str, Any],
+    frame_lookup: Mapping[tuple[int, int], LabeledFrame],
+) -> LabeledFrame:
+    video_idx = int(raw_entry["video_index"])
+    frame_idx = int(raw_entry["frame_index"])
+    frame = frame_lookup.get((video_idx, frame_idx))
+    if frame is None:
+        raise KeyError(
+            "Segmentation payload references a frame not present in labels: "
+            f"video_index={video_idx}, frame_index={frame_idx}"
+        )
+    return frame
+
+
+def _attach_segmentation_entries(
+    entries: Any,
+    *,
+    frame_lookup: Mapping[tuple[int, int], LabeledFrame],
+    track_lookup: dict[int, Track],
+    factory: type[SegmentationMask] | type[ROI],
+    attr_name: str,
+) -> None:
+    if entries is None:
+        return
+    if not isinstance(entries, Sequence) or isinstance(entries, str | bytes | bytearray):
+        raise TypeError(f"segmentation.{attr_name} must be a sequence")
+    for raw_entry in entries:
+        if not isinstance(raw_entry, Mapping):
+            raise TypeError(f"segmentation.{attr_name}[] must be a mapping")
+        frame = _segmentation_target_frame(raw_entry, frame_lookup)
+        track = _segmentation_track(raw_entry, track_lookup)
+        attached = getattr(frame, attr_name)
+        attached.append(factory.from_dict(dict(raw_entry), track=track))
+
+
+def _attach_segmentation_payload(
+    segmentation_payload: Any,
+    *,
+    labeled_frames: Sequence[LabeledFrame],
+    videos: Sequence[VideoProtocol],
+    track_lookup: dict[int, Track],
+) -> None:
+    if not isinstance(segmentation_payload, Mapping):
+        return
+    frame_lookup = _segmentation_frame_lookup(labeled_frames, videos)
+    _attach_segmentation_entries(
+        segmentation_payload.get("masks"),
+        frame_lookup=frame_lookup,
+        track_lookup=track_lookup,
+        factory=SegmentationMask,
+        attr_name="masks",
+    )
+    _attach_segmentation_entries(
+        segmentation_payload.get("rois"),
+        frame_lookup=frame_lookup,
+        track_lookup=track_lookup,
+        factory=ROI,
+        attr_name="rois",
+    )
 
 
 def _normalize_keypoints_array(raw_keypoints: Any) -> np.ndarray:
@@ -691,6 +792,90 @@ def _hydrate_labeled_frames(
     return labeled_frames
 
 
+def _resolve_segmentation_track(
+    raw_track_id: Any,
+    track_lookup: dict[int, Track],
+) -> Track | None:
+    if raw_track_id is None:
+        return None
+    track_id = int(raw_track_id)
+    if track_id < 0:
+        return None
+    track = track_lookup.get(track_id)
+    if track is None:
+        track = Track(spawned_on=track_id, name=f"track-{track_id}")
+        track_lookup[track_id] = track
+    return track
+
+
+def _frame_lookup_by_video_and_index(
+    labeled_frames: list[LabeledFrame],
+) -> dict[tuple[VideoProtocol, int], LabeledFrame]:
+    return {(frame.video, int(frame.frame_idx)): frame for frame in labeled_frames}
+
+
+def _attach_segmentation_entries(
+    entries: Any,
+    *,
+    item_type: type[SegmentationMask] | type[ROI],
+    attr_name: str,
+    videos: list[VideoProtocol],
+    labeled_frames: list[LabeledFrame],
+    track_lookup: dict[int, Track],
+) -> None:
+    if not isinstance(entries, Sequence) or isinstance(entries, str | bytes | bytearray):
+        return
+
+    frames_by_key = _frame_lookup_by_video_and_index(labeled_frames)
+    for raw_entry in entries:
+        if not isinstance(raw_entry, Mapping):
+            raise TypeError(f"{attr_name} entries must be mappings")
+        video_idx = int(raw_entry.get("video_index", -1))
+        if video_idx < 0 or video_idx >= len(videos):
+            raise IndexError(f"{attr_name} entry references invalid video index {video_idx}")
+        frame_idx = int(raw_entry.get("frame_index", -1))
+        frame_key = (videos[video_idx], frame_idx)
+        labeled_frame = frames_by_key.get(frame_key)
+        if labeled_frame is None:
+            labeled_frame = LabeledFrame(video=cast(Any, videos[video_idx]), frame_idx=frame_idx)
+            labeled_frames.append(labeled_frame)
+            frames_by_key[frame_key] = labeled_frame
+
+        track = _resolve_segmentation_track(raw_entry.get("track_id"), track_lookup)
+        item_payload = dict(raw_entry)
+        item_payload.pop("video_index", None)
+        item_payload.pop("frame_index", None)
+        item = item_type.from_dict(item_payload, track=track)
+        getattr(labeled_frame, attr_name).append(item)
+
+
+def _attach_segmentation_payload(
+    segmentation_payload: Any,
+    *,
+    videos: list[VideoProtocol],
+    labeled_frames: list[LabeledFrame],
+    track_lookup: dict[int, Track],
+) -> None:
+    if not isinstance(segmentation_payload, Mapping):
+        return
+    _attach_segmentation_entries(
+        segmentation_payload.get("masks"),
+        item_type=SegmentationMask,
+        attr_name="masks",
+        videos=videos,
+        labeled_frames=labeled_frames,
+        track_lookup=track_lookup,
+    )
+    _attach_segmentation_entries(
+        segmentation_payload.get("rois"),
+        item_type=ROI,
+        attr_name="rois",
+        videos=videos,
+        labeled_frames=labeled_frames,
+        track_lookup=track_lookup,
+    )
+
+
 def labels_from_siesta_payload(
     cls: type[Labels],
     payload: dict[str, Any] | None,
@@ -760,6 +945,12 @@ def labels_from_siesta_payload(
         keypoint_count=len(keypoints),
         track_lookup=track_lookup,
     )
+    _attach_segmentation_payload(
+        payload.get("segmentation"),
+        videos=videos,
+        labeled_frames=labeled_frames,
+        track_lookup=track_lookup,
+    )
 
     provenance = payload.get("provenance") or {}
     session = payload.get("session") or {}
@@ -776,8 +967,27 @@ def labels_from_siesta_payload(
         session=session,
         preferences=metadata.get("preferences", {}),
     )
+    for track in track_lookup.values():
+        if track not in labels_obj.tracks:
+            labels_obj.tracks.append(track)
     labels_obj.validate()
     return labels_obj
+
+
+def _labels_payload_from_archive_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    labels_payload = payload.get("labels")
+    if not isinstance(labels_payload, dict):
+        raise TypeError("Archive payload is missing the labels mapping")
+
+    hydrated_payload = dict(labels_payload)
+    hydrated_payload["metadata"] = payload.get("metadata", {})
+    hydrated_payload["provenance"] = payload.get("provenance", {})
+    hydrated_payload["session"] = payload.get("session", {})
+    if isinstance(payload.get("suggestions"), dict):
+        hydrated_payload["suggestions"] = payload["suggestions"]
+    if isinstance(payload.get("segmentation"), dict):
+        hydrated_payload["segmentation"] = payload["segmentation"]
+    return hydrated_payload
 
 
 def labels_load_file(
@@ -801,14 +1011,30 @@ def labels_load_file(
     if path.suffix.lower() == ".expkg":
         raise ValueError("Packed .expkg artifacts must be unpacked before loading labels")
 
-    from posetta.io.project_layout import resolve_workspace_root
+    from posetta.io.project_layout import resolve_workspace_root, workspace_current_snapshot_path
     from posetta.io.project_workspace import (
         current_project_archive_path,
         rebase_workspace_payload_videos,
     )
+    from posetta.io.workspace_snapshot_backend import read_workspace_snapshot
 
     workspace_root = resolve_workspace_root(path)
     if workspace_root is not None:
+        snapshot_path = workspace_current_snapshot_path(workspace_root)
+        if snapshot_path.exists():
+            snapshot_payload = read_workspace_snapshot(snapshot_path)
+            rebase_workspace_payload_videos(snapshot_payload, workspace_root)
+            obj = labels_from_siesta_payload(
+                cls,
+                snapshot_payload,
+                suggestions_payload=snapshot_payload.get("suggestions"),
+                video_builder=video_builder,
+                video_finalizer=video_finalizer,
+            )
+            obj.validate()
+            obj.path = workspace_root
+            return obj
+
         archive_path = current_project_archive_path(workspace_root)
         if not archive_path.exists():
             obj = cls()
@@ -816,27 +1042,13 @@ def labels_load_file(
             return obj
         payload = bundle_reader(archive_path, lazy=False)
         rebase_workspace_payload_videos(payload, workspace_root)
-        labels_payload = payload.get("labels")
-        if isinstance(labels_payload, dict):
-            labels_payload["metadata"] = payload.get("metadata", {})
-            labels_payload["provenance"] = payload.get("provenance", {})
-            obj = labels_from_siesta_payload(
-                cls,
-                labels_payload,
-                suggestions_payload=payload.get("suggestions"),
-                video_builder=video_builder,
-                video_finalizer=video_finalizer,
-            )
-        else:
-            obj = labels_from_siesta_payload(
-                cls,
-                payload,
-                suggestions_payload=payload.get("suggestions")
-                if isinstance(payload, dict)
-                else None,
-                video_builder=video_builder,
-                video_finalizer=video_finalizer,
-            )
+        obj = labels_from_siesta_payload(
+            cls,
+            _labels_payload_from_archive_payload(payload),
+            suggestions_payload=payload.get("suggestions"),
+            video_builder=video_builder,
+            video_finalizer=video_finalizer,
+        )
         obj.validate()
         obj.path = workspace_root
         return obj
@@ -860,26 +1072,13 @@ def labels_load_file(
         raise ValueError(f"No serializer for extension: {ext}")
 
     payload = bundle_reader(path, lazy=False)
-
-    labels_payload = payload.get("labels")
-    if isinstance(labels_payload, dict):
-        labels_payload["metadata"] = payload.get("metadata", {})
-        labels_payload["provenance"] = payload.get("provenance", {})
-        obj = labels_from_siesta_payload(
-            cls,
-            labels_payload,
-            suggestions_payload=payload.get("suggestions"),
-            video_builder=video_builder,
-            video_finalizer=video_finalizer,
-        )
-    else:
-        obj = labels_from_siesta_payload(
-            cls,
-            payload,
-            suggestions_payload=payload.get("suggestions") if isinstance(payload, dict) else None,
-            video_builder=video_builder,
-            video_finalizer=video_finalizer,
-        )
+    obj = labels_from_siesta_payload(
+        cls,
+        _labels_payload_from_archive_payload(payload),
+        suggestions_payload=payload.get("suggestions"),
+        video_builder=video_builder,
+        video_finalizer=video_finalizer,
+    )
 
     obj.validate()
     obj.path = path

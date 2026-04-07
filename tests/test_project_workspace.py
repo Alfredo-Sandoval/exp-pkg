@@ -5,7 +5,6 @@ import shutil
 from pathlib import Path
 
 import cv2
-import h5py
 import numpy as np
 import pytest
 
@@ -93,7 +92,7 @@ def _make_media_labels(video_path: Path, *, x: float, y: float):
 
 def test_init_project_writes_workspace_contract(tmp_path: Path) -> None:
     from posetta.formats import (
-        current_project_archive_path,
+        current_project_state_path,
         init_project,
         is_workspace_root,
         load_project_descriptor,
@@ -108,7 +107,7 @@ def test_init_project_writes_workspace_contract(tmp_path: Path) -> None:
     assert (workspace / ".posetta").is_dir()
     assert (workspace / "Media").is_dir()
     assert (workspace / "Exports").is_dir()
-    assert not current_project_archive_path(workspace).exists()
+    assert not current_project_state_path(workspace).exists()
     assert load_project_descriptor(workspace).title == "My Project"
     assert descriptor.default_pack_mode == "portable"
 
@@ -119,6 +118,7 @@ def test_init_project_writes_workspace_contract(tmp_path: Path) -> None:
 def test_migrate_legacy_archive_creates_workspace_and_workspace_loads(tmp_path: Path) -> None:
     from posetta.formats import (
         current_project_archive_path,
+        current_project_snapshot_path,
         migrate_legacy_archive,
         workspace_media_root,
         workspace_state_root,
@@ -136,10 +136,12 @@ def test_migrate_legacy_archive_creates_workspace_and_workspace_loads(tmp_path: 
 
     migrated_archive = migrate_legacy_archive(legacy_path, workspace)
 
-    assert migrated_archive == current_project_archive_path(workspace)
+    assert migrated_archive == current_project_snapshot_path(workspace)
     assert migrated_archive.exists()
-    assert (workspace_store_root(workspace) / "superblock.a.json").is_file()
+    assert not current_project_archive_path(workspace).exists()
+    assert not (workspace_store_root(workspace) / "superblock.a.json").exists()
     assert not (workspace_state_root(workspace) / "current.sta").exists()
+    assert (workspace_state_root(workspace) / "current.json").is_file()
 
     loaded = Labels.load_file(workspace.as_posix())
     pts = loaded.labeled_frames[0].instances[0].get_points_array(copy=False, full=True)
@@ -158,11 +160,12 @@ def test_migrate_legacy_archive_creates_workspace_and_workspace_loads(tmp_path: 
 
 def test_migrate_legacy_archive_rewrites_stale_project_metadata_paths(tmp_path: Path) -> None:
     from posetta.formats import (
-        current_project_archive_path,
+        current_project_snapshot_path,
         init_project,
         migrate_legacy_archive,
         write_siesta,
     )
+    from posetta.io.workspace_snapshot_backend import read_workspace_snapshot_payload
 
     legacy_root = tmp_path / "bootstrap_2026-01-13"
     legacy_root.mkdir()
@@ -217,11 +220,9 @@ def test_migrate_legacy_archive_rewrites_stale_project_metadata_paths(tmp_path: 
 
     migrate_legacy_archive(legacy_path, workspace)
 
-    archive = current_project_archive_path(workspace)
-    with h5py.File(archive, "r") as handle:
-        metadata = handle["project_metadata"].attrs
-        migrated_training = json.loads(str(metadata["training_state_json"]))
-        migrated_session = json.loads(str(metadata["session_json"]))
+    snapshot_payload = read_workspace_snapshot_payload(current_project_snapshot_path(workspace))
+    migrated_training = snapshot_payload["metadata"]["training_state_json"]
+    migrated_session = snapshot_payload["session"]
 
     assert migrated_training["latest"]["source_bundle"] == workspace.resolve().as_posix()
     assert migrated_training["latest"]["output_dir"] == workspace_output_dir.resolve().as_posix()
@@ -341,7 +342,11 @@ def test_workspace_load_auto_adopts_legacy_state_archive(tmp_path: Path) -> None
 
 
 def test_labels_save_file_to_workspace_creates_first_committed_state(tmp_path: Path) -> None:
-    from posetta.formats import current_project_archive_path, init_project
+    from posetta.formats import (
+        current_project_archive_path,
+        current_project_snapshot_path,
+        init_project,
+    )
     from posetta.model import Labels
 
     source_root = tmp_path / "source"
@@ -352,10 +357,11 @@ def test_labels_save_file_to_workspace_creates_first_committed_state(tmp_path: P
     init_project(workspace, title="Saved Workspace")
 
     saved_target = Labels.save_file(labels, workspace.as_posix())
-    current_archive = current_project_archive_path(workspace)
+    current_snapshot = current_project_snapshot_path(workspace)
 
     assert saved_target == workspace.as_posix()
-    assert current_archive.exists()
+    assert current_snapshot.exists()
+    assert not current_project_archive_path(workspace).exists()
     assert labels.path == workspace
 
     loaded = Labels.load_file(workspace.as_posix())
@@ -368,11 +374,11 @@ def test_labels_save_file_to_workspace_preserves_predictions(tmp_path: Path) -> 
     from posetta.formats import (
         PredictionAppendItem,
         SerializerPredictedInstance,
-        current_project_archive_path,
+        current_project_snapshot_path,
         migrate_legacy_archive,
-        read_siesta,
         write_siesta,
     )
+    from posetta.io.workspace_snapshot_backend import read_workspace_snapshot_payload
     from posetta.model import Labels
 
     source_root = tmp_path / "source"
@@ -401,11 +407,10 @@ def test_labels_save_file_to_workspace_preserves_predictions(tmp_path: Path) -> 
     migrate_legacy_archive(legacy_path, workspace)
 
     saved_target = Labels.save_file(updated_labels, workspace.as_posix())
-    current_archive = current_project_archive_path(workspace)
-    payload = read_siesta(current_archive, lazy=False)
+    payload = read_workspace_snapshot_payload(current_project_snapshot_path(workspace))
 
     assert saved_target == workspace.as_posix()
-    label_keypoints = np.asarray(payload["labels"]["data"]["keypoints"], dtype=np.float32)
+    label_keypoints = np.asarray(payload["data"]["keypoints"], dtype=np.float32)
     prediction_scores = np.asarray(
         payload["predictions"]["data"]["keypoint_score"],
         dtype=np.float32,
@@ -418,9 +423,34 @@ def test_labels_save_file_to_workspace_preserves_predictions(tmp_path: Path) -> 
     assert int(prediction_track_ids[0, 0]) == 4
 
 
+def test_workspace_load_prefers_current_snapshot(tmp_path: Path) -> None:
+    from posetta.formats import init_project, workspace_state_root
+    from posetta.model import Labels
+
+    source_root = tmp_path / "source"
+    source_root.mkdir()
+    labels = _make_labels(source_root, x=11.0, y=12.0)
+    workspace = tmp_path / "Snapshot Preferred"
+    init_project(workspace, title="Snapshot Preferred")
+
+    Labels.save_file(labels, workspace.as_posix())
+    snapshot_path = workspace_state_root(workspace) / "current.json"
+    snapshot_doc = json.loads(snapshot_path.read_text())
+    keypoints = snapshot_doc["payload"]["data"]["keypoints"]
+    keypoints[0][0][0][0] = 101.0
+    keypoints[0][0][0][1] = 102.0
+    snapshot_path.write_text(json.dumps(snapshot_doc, indent=2) + "\n", encoding="utf-8")
+
+    loaded = Labels.load_file(workspace.as_posix())
+    pts = loaded.labeled_frames[0].instances[0].get_points_array(copy=False, full=True)
+    assert float(pts["x"][0]) == 101.0
+    assert float(pts["y"][0]) == 102.0
+
+
 def test_summarize_project_and_validate_project_read_labels_video_group(tmp_path: Path) -> None:
     from posetta.formats import (
         current_project_archive_path,
+        current_project_snapshot_path,
         init_project,
         summarize_project,
         validate_project,
@@ -435,9 +465,11 @@ def test_summarize_project_and_validate_project_read_labels_video_group(tmp_path
 
     saved_target = Labels.save_file(labels, workspace.as_posix())
     archive = current_project_archive_path(workspace)
+    labels.save_file(labels, archive.as_posix())
     summary = summarize_project(archive)
 
     assert saved_target == workspace.as_posix()
+    assert current_project_snapshot_path(workspace).exists()
     assert archive.exists()
     validate_project(archive)
     assert summary.n_videos == 1

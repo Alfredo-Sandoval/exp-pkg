@@ -2,21 +2,18 @@
 
 from __future__ import annotations
 
-import json
 import shutil
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-import h5py
-import numpy as np
-
 from posetta.core.path_registry import ensure_dir, resolve_path
 from posetta.io.project_artifact import validate_workspace
 from posetta.io.project_layout import (
     CANONICAL_BUNDLE_SUFFIX,
     CURRENT_ARCHIVE_FILENAME,
+    CURRENT_SNAPSHOT_FILENAME,
     EXPORTS_DIRNAME,
     MEDIA_DIRNAME,
     PROJECT_DESCRIPTOR_FILENAME,
@@ -29,13 +26,20 @@ from posetta.io.project_layout import (
     _now_utc_iso,
     load_project_descriptor,
     resolve_workspace_root,
+    workspace_current_snapshot_path,
     workspace_exports_root,
     workspace_media_root,
     workspace_store_root,
     write_project_descriptor,
 )
-from posetta.io.siesta_format import read_siesta, write_siesta
-from posetta.io.siesta_format.shared import _serialize_json
+from posetta.io.siesta_format import read_siesta
+from posetta.io.workspace_snapshot_backend import (
+    normalize_predictions_payload,
+    predictions_payload_from_labels,
+    read_workspace_snapshot,
+    rewrite_workspace_metadata_paths,
+    write_workspace_snapshot,
+)
 
 if TYPE_CHECKING:
     from posetta.model import Labels
@@ -43,6 +47,17 @@ if TYPE_CHECKING:
 
 def current_project_archive_path(path: str | Path) -> Path:
     return _workspace_store(path).current_archive_path()
+
+
+def current_project_snapshot_path(path: str | Path) -> Path:
+    return workspace_current_snapshot_path(path)
+
+
+def current_project_state_path(path: str | Path) -> Path:
+    snapshot_path = current_project_snapshot_path(path)
+    if snapshot_path.exists():
+        return snapshot_path
+    return current_project_archive_path(path)
 
 
 @dataclass(slots=True)
@@ -213,27 +228,52 @@ def _clone_metadata(metadata: dict[str, Any] | None) -> dict[str, Any]:
     return dict(metadata or {})
 
 
-def _copy_metrics_group(src_path: Path, dst_path: Path) -> None:
-    with h5py.File(str(src_path), mode="r") as src, h5py.File(str(dst_path), mode="a") as dst:
-        if "metrics" not in src:
-            return
-        if "metrics" in dst:
-            del dst["metrics"]
-        src.copy("metrics", dst)
-
-
-def _drop_manifest_attr(archive_path: Path) -> None:
-    with h5py.File(str(archive_path), mode="r+") as handle:
-        metadata_group = handle.get("project_metadata")
-        if not isinstance(metadata_group, h5py.Group):
-            return
-        attrs = metadata_group.attrs
-        if "manifest_json" in attrs:
-            del attrs["manifest_json"]
-
-
 def _stage_archive_parent(workspace_root: Path) -> Path:
     return ensure_dir(_workspace_store(workspace_root).staging_root)
+
+
+def _snapshot_metadata(bundle_payload: dict[str, Any]) -> dict[str, Any] | None:
+    metadata = bundle_payload.get("metadata")
+    if not isinstance(metadata, dict):
+        return None
+    normalized = dict(metadata)
+    normalized.pop("manifest", None)
+    return normalized
+
+
+def _snapshot_metadata_from_state_payload(
+    state_payload: dict[str, Any],
+) -> dict[str, Any] | None:
+    metadata = state_payload.get("metadata")
+    if not isinstance(metadata, dict):
+        return None
+    return dict(metadata)
+
+
+def _predictions_payload_from_state_payload(
+    state_payload: dict[str, Any],
+) -> dict[str, Any] | None:
+    raw_predictions = state_payload.get("predictions")
+    if not isinstance(raw_predictions, dict):
+        return None
+    return normalize_predictions_payload(raw_predictions)
+
+
+def _write_workspace_state(
+    workspace_root: Path,
+    *,
+    labels: Labels,
+    metadata: dict[str, Any] | None = None,
+    predictions: dict[str, Any] | None = None,
+) -> Path:
+    _manage_labels_media(labels, workspace_root)
+    return write_workspace_snapshot(
+        workspace_current_snapshot_path(workspace_root),
+        labels=labels,
+        workspace_root=workspace_root,
+        metadata=metadata,
+        predictions=predictions,
+    )
 
 
 def _commit_labels_to_workspace(
@@ -245,33 +285,13 @@ def _commit_labels_to_workspace(
     metrics_source: Path | None = None,
     reason: str,
 ) -> Path:
-    _manage_labels_media(labels, workspace_root)
-    stage_parent = _stage_archive_parent(workspace_root)
-
-    with tempfile.TemporaryDirectory(prefix=".workspace_stage_", dir=str(stage_parent)) as tmp_dir:
-        staged_archive = Path(tmp_dir) / f"staged{CANONICAL_BUNDLE_SUFFIX}"
-        write_siesta(
-            staged_archive,
-            labels,
-            metadata=metadata,
-            manifest=manifest,
-        )
-        _rewrite_internal_archive_video_paths(
-            staged_archive,
-            labels=labels,
-            workspace_root=workspace_root,
-        )
-        if metrics_source is not None:
-            _copy_metrics_group(metrics_source, staged_archive)
-        return _workspace_store(workspace_root).commit_archive(
-            staged_archive,
-            reason=reason,
-        )
-
-
-def _relative_workspace_path(path: Path, workspace_root: Path) -> str:
-    resolved = path.resolve()
-    return resolved.relative_to(workspace_root.resolve()).as_posix()
+    del manifest, metrics_source, reason
+    return _write_workspace_state(
+        workspace_root,
+        labels=labels,
+        metadata=metadata,
+        predictions=predictions_payload_from_labels(labels),
+    )
 
 
 def _is_within(path: Path, parent: Path) -> bool:
@@ -381,191 +401,6 @@ def _manage_labels_media(labels: Labels, workspace_root: Path) -> None:
         video.filename = copied_file.as_posix()
 
 
-def _rewrite_internal_archive_video_paths(
-    archive_path: Path,
-    *,
-    labels: Labels,
-    workspace_root: Path,
-) -> None:
-    workspace_root = workspace_root.resolve()
-    str_dtype = h5py.string_dtype("utf-8")
-    filenames = [
-        _relative_workspace_path(Path(str(video.filename)), workspace_root)
-        if getattr(video, "filename", None)
-        else ""
-        for video in labels.videos
-    ]
-    image_filenames_json = []
-    for video in labels.videos:
-        raw_frames = [
-            str(path)
-            for path in (getattr(video, "image_filenames", None) or [])
-            if str(path).strip()
-        ]
-        if not raw_frames:
-            image_filenames_json.append("")
-            continue
-        relative_frames = [
-            _relative_workspace_path(Path(frame_path), workspace_root) for frame_path in raw_frames
-        ]
-        image_filenames_json.append(json.dumps(relative_frames))
-
-    with h5py.File(str(archive_path), mode="r+") as handle:
-        videos_group = handle.get("videos")
-        if not isinstance(videos_group, h5py.Group):
-            raise FileNotFoundError(f"Archive is missing the /videos group: {archive_path}")
-        for dataset_name in ("filenames", "image_filenames_json"):
-            if dataset_name in videos_group:
-                del videos_group[dataset_name]
-        videos_group.create_dataset(
-            "filenames",
-            data=np.array(filenames, dtype=object),
-            dtype=str_dtype,
-        )
-        videos_group.create_dataset(
-            "image_filenames_json",
-            data=np.array(image_filenames_json, dtype=object),
-            dtype=str_dtype,
-        )
-    _drop_manifest_attr(archive_path)
-
-
-def _load_project_metadata_json_attr(
-    metadata_group: h5py.Group,
-    attr_key: str,
-) -> dict[str, Any] | None:
-    raw_value = metadata_group.attrs.get(attr_key)
-    if raw_value is None:
-        return None
-    if isinstance(raw_value, bytes | bytearray | np.bytes_):
-        raw_text = raw_value.decode("utf-8")
-    else:
-        raw_text = str(raw_value)
-    payload = json.loads(raw_text)
-    if not isinstance(payload, dict):
-        raise TypeError(f"project_metadata.{attr_key} must decode to a JSON object")
-    return dict(payload)
-
-
-def _rebase_legacy_workspace_path(
-    raw_path: str,
-    *,
-    legacy_root: Path,
-    workspace_root: Path,
-) -> str:
-    candidate = Path(raw_path)
-    if not raw_path.strip() or not candidate.is_absolute():
-        return raw_path
-    try:
-        relative = candidate.resolve().relative_to(legacy_root.resolve())
-    except ValueError:
-        return raw_path
-    rebased = workspace_root.resolve() / relative
-    if not rebased.exists():
-        return ""
-    return rebased.as_posix()
-
-
-def _rewrite_training_state_entry_paths(
-    entry: dict[str, Any],
-    *,
-    legacy_root: Path,
-    workspace_root: Path,
-) -> None:
-    for field in ("output_dir", "source_bundle"):
-        raw_value = entry.get(field)
-        if isinstance(raw_value, str):
-            entry[field] = _rebase_legacy_workspace_path(
-                raw_value,
-                legacy_root=legacy_root,
-                workspace_root=workspace_root,
-            )
-
-
-def _rewrite_training_state_attr_paths(
-    training_state: dict[str, Any],
-    *,
-    legacy_root: Path,
-    workspace_root: Path,
-) -> None:
-    latest = training_state.get("latest")
-    if latest is not None:
-        if not isinstance(latest, dict):
-            raise TypeError("project_metadata.training_state_json.latest must be a mapping")
-        _rewrite_training_state_entry_paths(
-            latest,
-            legacy_root=legacy_root,
-            workspace_root=workspace_root,
-        )
-    runs = training_state.get("runs")
-    if runs is None:
-        return
-    if not isinstance(runs, list):
-        raise TypeError("project_metadata.training_state_json.runs must be a JSON array")
-    for entry in runs:
-        if not isinstance(entry, dict):
-            raise TypeError("project_metadata.training_state_json.runs[] must be mappings")
-        _rewrite_training_state_entry_paths(
-            entry,
-            legacy_root=legacy_root,
-            workspace_root=workspace_root,
-        )
-
-
-def _match_workspace_media_relative_path(raw_path: str, *, workspace_root: Path) -> str:
-    target_name = Path(raw_path).name
-    if not target_name:
-        return ""
-    media_root = workspace_media_root(workspace_root).resolve()
-    matches = sorted(
-        candidate.resolve()
-        for candidate in media_root.rglob(target_name)
-        if candidate.is_file() or candidate.is_dir()
-    )
-    if len(matches) != 1:
-        return ""
-    return matches[0].relative_to(workspace_root.resolve()).as_posix()
-
-
-def _rewrite_session_attr_paths(session_state: dict[str, Any], *, workspace_root: Path) -> None:
-    active_video_path = session_state.get("active_video_path")
-    if active_video_path is None:
-        return
-    if not isinstance(active_video_path, str):
-        raise TypeError("project_metadata.session_json.active_video_path must be a string")
-    session_state["active_video_path"] = _match_workspace_media_relative_path(
-        active_video_path,
-        workspace_root=workspace_root,
-    )
-
-
-def _rewrite_staged_archive_project_metadata_paths(
-    archive_path: Path,
-    *,
-    legacy_root: Path,
-    workspace_root: Path,
-) -> None:
-    with h5py.File(archive_path, "a") as handle:
-        metadata_group = handle.get("project_metadata")
-        if not isinstance(metadata_group, h5py.Group):
-            return
-        training_state = _load_project_metadata_json_attr(
-            metadata_group,
-            "training_state_json",
-        )
-        if training_state is not None:
-            _rewrite_training_state_attr_paths(
-                training_state,
-                legacy_root=legacy_root,
-                workspace_root=workspace_root,
-            )
-            metadata_group.attrs["training_state_json"] = _serialize_json(training_state)
-        session_state = _load_project_metadata_json_attr(metadata_group, "session_json")
-        if session_state is not None:
-            _rewrite_session_attr_paths(session_state, workspace_root=workspace_root)
-            metadata_group.attrs["session_json"] = _serialize_json(session_state)
-
-
 def rebase_workspace_payload_videos(payload: dict[str, Any], workspace_root: Path) -> None:
     workspace_root = workspace_root.resolve()
 
@@ -616,6 +451,10 @@ def rebase_workspace_payload_videos(payload: dict[str, Any], workspace_root: Pat
     labels_payload = payload.get("labels")
     if isinstance(labels_payload, dict):
         labels_videos = labels_payload.get("videos")
+        if isinstance(labels_videos, dict):
+            _rebase_videos_info(labels_videos)
+    else:
+        labels_videos = payload.get("videos")
         if isinstance(labels_videos, dict):
             _rebase_videos_info(labels_videos)
 
@@ -694,7 +533,6 @@ def migrate_legacy_archive(
     else:
         validate_workspace(root)
 
-    from posetta.io.siesta_format import update_labels_siesta
     from posetta.model import Labels
 
     labels = Labels.load_file(str(legacy_path))
@@ -702,41 +540,25 @@ def migrate_legacy_archive(
     payload = read_siesta(legacy_path, lazy=False)
     _apply_resolved_video_paths_from_payload(labels, payload)
     _manage_labels_media(labels, root)
-
-    stage_parent = _stage_archive_parent(root)
-    with tempfile.TemporaryDirectory(
-        prefix=".workspace_migrate_",
-        dir=str(stage_parent),
-    ) as tmp_dir:
-        staged_archive = Path(tmp_dir) / f"migrate{CANONICAL_BUNDLE_SUFFIX}"
-        shutil.copy2(legacy_path, staged_archive)
-        update_labels_siesta(
-            staged_archive,
-            labels,
-            journal=False,
-            regenerate_predictions=False,
-        )
-        _rewrite_internal_archive_video_paths(
-            staged_archive,
-            labels=labels,
-            workspace_root=root,
-        )
-        _rewrite_staged_archive_project_metadata_paths(
-            staged_archive,
-            legacy_root=legacy_path.parent,
-            workspace_root=root,
-        )
-        archive_path = _workspace_store(root).commit_archive(
-            staged_archive,
-            reason="migrate.legacy",
-        )
+    metadata = rewrite_workspace_metadata_paths(
+        _snapshot_metadata(payload),
+        workspace_root=root,
+        legacy_root=legacy_path.parent,
+    )
+    predictions = _predictions_payload_from_state_payload(payload)
+    snapshot_path = _write_workspace_state(
+        root,
+        labels=labels,
+        metadata=metadata,
+        predictions=predictions,
+    )
 
     descriptor = load_project_descriptor(root)
     descriptor.updated_at = _now_utc_iso()
     if title is not None and title.strip():
         descriptor.title = title.strip()
     write_project_descriptor(root, descriptor)
-    return archive_path
+    return snapshot_path
 
 
 def import_legacy_archive(
@@ -818,16 +640,14 @@ def import_dlc_csv_workspace(
         )
         labels = Labels.load_file(staged_archive.as_posix())
         payload = read_siesta(staged_archive, lazy=False)
-        metadata = _clone_metadata(payload.get("metadata") if isinstance(payload, dict) else None)
-        metadata.pop("manifest", None)
-        archive_path = _commit_labels_to_workspace(
+        snapshot_path = _write_workspace_state(
             root,
             labels=labels,
-            metadata=metadata,
-            reason="import.dlc_csv",
+            metadata=_snapshot_metadata(payload),
+            predictions=_predictions_payload_from_state_payload(payload),
         )
     _touch_descriptor(root)
-    return archive_path
+    return snapshot_path
 
 
 def import_dlc_h5_workspace(
@@ -866,16 +686,14 @@ def import_dlc_h5_workspace(
         )
         labels = Labels.load_file(staged_archive.as_posix())
         payload = read_siesta(staged_archive, lazy=False)
-        metadata = _clone_metadata(payload.get("metadata") if isinstance(payload, dict) else None)
-        metadata.pop("manifest", None)
-        archive_path = _commit_labels_to_workspace(
+        snapshot_path = _write_workspace_state(
             root,
             labels=labels,
-            metadata=metadata,
-            reason="import.dlc_h5",
+            metadata=_snapshot_metadata(payload),
+            predictions=_predictions_payload_from_state_payload(payload),
         )
     _touch_descriptor(root)
-    return archive_path
+    return snapshot_path
 
 
 def import_sleap_package_workspace(
@@ -912,16 +730,14 @@ def import_sleap_package_workspace(
         )
         labels = Labels.load_file(result.bundle_path.as_posix())
         payload = read_siesta(result.bundle_path, lazy=False)
-        metadata = _clone_metadata(payload.get("metadata") if isinstance(payload, dict) else None)
-        metadata.pop("manifest", None)
-        archive_path = _commit_labels_to_workspace(
+        snapshot_path = _write_workspace_state(
             root,
             labels=labels,
-            metadata=metadata,
-            reason="import.sleap",
+            metadata=_snapshot_metadata(payload),
+            predictions=_predictions_payload_from_state_payload(payload),
         )
     _touch_descriptor(root)
-    return archive_path
+    return snapshot_path
 
 
 def save_workspace_labels(
@@ -944,58 +760,64 @@ def save_workspace_labels(
     ensure_dir(workspace_exports_root(root))
 
     store = _workspace_store(root)
-    if metadata is not None and store.has_current_archive():
+    snapshot_path = current_project_snapshot_path(root)
+    has_snapshot = snapshot_path.exists()
+    has_archive = store.has_current_archive()
+    if metadata is not None and (has_snapshot or has_archive):
         raise ValueError(
             "Workspace saves with existing history do not accept metadata overrides. "
             "Update workspace metadata through a dedicated metadata API."
         )
 
-    if not store.has_current_archive():
-        archive_path = _commit_labels_to_workspace(
+    if not has_snapshot and not has_archive:
+        initial_metadata = rewrite_workspace_metadata_paths(
+            metadata,
+            workspace_root=root,
+        )
+        state_path = _commit_labels_to_workspace(
             root,
             labels=labels,
-            metadata=metadata,
+            metadata=initial_metadata,
             reason="workspace.save.init",
         )
         _touch_descriptor(root)
         labels.path = root
-        return archive_path
+        return state_path
 
-    current_archive = store.current_archive_path()
-    stage_parent = _stage_archive_parent(root)
-    from posetta.io.siesta_format import update_labels_siesta
+    del journal
+    state_metadata: dict[str, Any] | None = None
+    predictions: dict[str, Any] | None = None
+    if has_snapshot:
+        state_payload = read_workspace_snapshot(snapshot_path)
+        state_metadata = _snapshot_metadata_from_state_payload(state_payload)
+        predictions = _predictions_payload_from_state_payload(state_payload)
+    elif has_archive:
+        bundle_payload = read_siesta(store.current_archive_path(), lazy=False)
+        state_metadata = _snapshot_metadata(bundle_payload)
+        predictions = _predictions_payload_from_state_payload(bundle_payload)
 
-    with tempfile.TemporaryDirectory(
-        prefix=".workspace_save_",
-        dir=str(stage_parent),
-    ) as tmp_dir:
-        staged_archive = Path(tmp_dir) / f"save{CANONICAL_BUNDLE_SUFFIX}"
-        shutil.copy2(current_archive, staged_archive)
-        _manage_labels_media(labels, root)
-        update_labels_siesta(
-            staged_archive,
-            labels,
-            journal=journal,
-            regenerate_predictions=regenerate_predictions,
-        )
-        _rewrite_internal_archive_video_paths(
-            staged_archive,
-            labels=labels,
-            workspace_root=root,
-        )
-        archive_path = store.commit_archive(
-            staged_archive,
-            reason="workspace.save",
-        )
+    if regenerate_predictions:
+        predictions = predictions_payload_from_labels(labels)
+    elif predictions is None:
+        candidate_predictions = predictions_payload_from_labels(labels)
+        if int(candidate_predictions["attrs"]["committed_length"]) > 0:
+            predictions = candidate_predictions
 
+    state_path = _write_workspace_state(
+        root,
+        labels=labels,
+        metadata=state_metadata,
+        predictions=predictions,
+    )
     _touch_descriptor(root)
     labels.path = root
-    return archive_path
+    return state_path
 
 
 __all__ = [
     "CANONICAL_BUNDLE_SUFFIX",
     "CURRENT_ARCHIVE_FILENAME",
+    "CURRENT_SNAPSHOT_FILENAME",
     "EXPORTS_DIRNAME",
     "import_dlc_csv_workspace",
     "import_dlc_h5_workspace",
@@ -1006,6 +828,8 @@ __all__ = [
     "STORE_DIRNAME",
     "STORE_STATE_DIRNAME",
     "current_project_archive_path",
+    "current_project_snapshot_path",
+    "current_project_state_path",
     "import_legacy_archive",
     "init_project",
     "load_project_descriptor",

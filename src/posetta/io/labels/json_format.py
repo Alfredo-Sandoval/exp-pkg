@@ -168,6 +168,19 @@ def _suggestions_payload(
     return payload
 
 
+def _tracks_payload(labels: Labels) -> dict[str, Any] | None:
+    if not labels.tracks:
+        return None
+
+    payload: dict[str, Any] = {}
+    for track in sorted(labels.tracks, key=lambda item: (item.spawned_on, item.name)):
+        payload[str(int(track.id))] = {
+            "spawned_on": int(track.spawned_on),
+            "name": str(track.name or f"track-{track.id}"),
+        }
+    return payload
+
+
 def labels_to_json_payload(
     labels: Labels,
     *,
@@ -211,6 +224,10 @@ def labels_to_json_payload(
     suggestions_payload = _suggestions_payload(labels.suggestions, video_lookup)
     if suggestions_payload is not None:
         payload["payload"]["suggestions"] = suggestions_payload
+
+    tracks_payload = _tracks_payload(labels)
+    if tracks_payload is not None:
+        payload["payload"]["tracks"] = tracks_payload
 
     segmentation_payload = _segmentation_payload(labels, video_lookup)
     if segmentation_payload is not None:

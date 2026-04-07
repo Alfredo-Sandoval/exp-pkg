@@ -14,20 +14,23 @@ mid-refactor.
 
 ## Current Reality
 
-The public contract has moved ahead of the implementation.
+The public contract and the live workspace path are now closer.
 
-Today the code still relies on HDF5 bundle staging for the actual durable
-payload path:
+Today the workspace path uses a native JSON snapshot as its source of truth:
 
-- workspace saves still stage and commit `.sta` bundles in
-  `src/posetta/io/project_workspace.py`
+- workspace save/load/import/migrate write and read
+  `.posetta/state/current.json`
+- workspace-native predictions are preserved in the snapshot payload as a
+  detached `predictions` section
+- archive reads remain as a fallback for older workspaces and for explicit
+  bundle-facing workflows
+
+The remaining archive dependency is now below the normal workspace hot path:
+
 - the durable store still commits immutable archive objects in
   `src/posetta/io/siesta_store/store.py`
-- the only full round-trip serializer still lives in
+- explicit `.sta` / legacy `.siesta` workflows still use
   `src/posetta/io/siesta_format/`
-
-That means the product story is workspace-first, but the runtime storage engine
-is still archive-first underneath.
 
 ## Ordered Phases
 
@@ -78,11 +81,20 @@ Progress:
   `bundle_path`
 - made workspace state default to `current.sta` while still accepting
   `current.siesta` during transition
+- extracted staged bundle rewrite/update/migration mechanics into
+  `src/posetta/io/workspace_bundle_backend.py`
+- removed direct HDF5 bundle surgery from `src/posetta/io/project_workspace.py`
+- switched workspace load/save/import/migrate to the native snapshot path in
+  `src/posetta/io/workspace_snapshot_backend.py`
+- made `WorkspaceService.describe()` report current workspace state rather than
+  archive-only state
 
 Remaining:
 
-- isolate the workspace save path from the archive serializer
-- move the current `.sta` staging flow behind a backend-neutral save contract
+- move durable store commits from immutable archive blobs to workspace-native
+  snapshots
+- decide whether archive fallback should stay in the workspace loader or move to
+  explicit migration only
 
 ### Phase 3: Stop using `.siesta` as the workspace save engine
 
@@ -94,8 +106,30 @@ Required outcome:
 
 - workspace save no longer writes a staged `.sta` bundle first
 - `.posetta/` stores canonical state directly
-- save/update/load behavior no longer depends on `write_siesta(...)` and
-  `update_labels_siesta(...)`
+- save/update/load behavior prefers the snapshot path and only falls back to
+  archives for older workspaces
+
+Status:
+
+- completed for the normal workspace path
+
+Progress:
+
+- added a workspace-native snapshot backend in
+  `src/posetta/io/workspace_snapshot_backend.py`
+- workspace saves now materialize `.posetta/state/current.json` from the
+  committed workspace state
+- workspace loads now prefer `.posetta/state/current.json` over the current
+  bundle path
+- labels JSON now roundtrips named tracks and frame-level segmentation
+- workspace snapshots now preserve detached predictions alongside labels
+
+Remaining:
+
+- stop rebuilding the snapshot from a committed `.sta` bundle and write it
+  directly from workspace-native state
+- move the durable store from archive commits to snapshot/state commits
+- remove the remaining archive-first assumptions from pack/validate/store APIs
 
 ### Phase 4: Demote `.siesta` to one-way compatibility
 
@@ -108,6 +142,8 @@ Allowed uses:
 - explicit legacy import
 - fixtures needed during cutover
 - migration tooling
+- archive fallback for older workspaces while the durable store still points at
+  archive blobs
 
 Disallowed direction:
 

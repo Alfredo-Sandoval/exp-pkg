@@ -26,6 +26,8 @@ from posetta.io.project_layout import (
 )
 from posetta.io.project_workspace import (
     current_project_archive_path,
+    current_project_snapshot_path,
+    current_project_state_path,
     import_dlc_csv_workspace,
     import_dlc_h5_workspace,
     import_legacy_archive,
@@ -40,6 +42,8 @@ __all__ = [
     "PROJECT_DESCRIPTOR_FILENAME",
     "ProjectDescriptor",
     "current_project_archive_path",
+    "current_project_snapshot_path",
+    "current_project_state_path",
     "default_expkg_path",
     "import_dlc_csv_workspace",
     "import_dlc_h5_workspace",

@@ -11,7 +11,7 @@ def test_workspace_service_create_validate_and_pack_roundtrip(tmp_path: Path) ->
     layout = workspace.validate()
     assert layout.workspace_root == (tmp_path / "My Project").resolve()
     assert layout.descriptor.title == "My Project"
-    assert not layout.has_current_archive
+    assert not layout.has_current_state
 
     loaded = workspace.load_labels()
     assert loaded.labeled_frames == []

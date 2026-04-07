@@ -16,6 +16,7 @@ PROJECT_DESCRIPTOR_FILENAME = "PROJECT.json"
 EXPKG_SUFFIX = ".expkg"
 STORE_DIRNAME = ".posetta"
 STORE_STATE_DIRNAME = "state"
+CURRENT_SNAPSHOT_FILENAME = "current.json"
 CURRENT_ARCHIVE_FILENAME = f"current{CANONICAL_BUNDLE_SUFFIX}"
 SUPPORTED_CURRENT_ARCHIVE_FILENAMES = (
     CURRENT_ARCHIVE_FILENAME,
@@ -203,6 +204,10 @@ def workspace_state_root(path: str | Path) -> Path:
     return workspace_store_root(path) / STORE_STATE_DIRNAME
 
 
+def workspace_current_snapshot_path(path: str | Path) -> Path:
+    return workspace_state_root(path) / CURRENT_SNAPSHOT_FILENAME
+
+
 def workspace_media_root(path: str | Path) -> Path:
     root = resolve_workspace_root(path) or _candidate_workspace_root(path)
     try:
@@ -231,6 +236,7 @@ def default_expkg_path(path: str | Path) -> Path:
 __all__ = [
     "CANONICAL_BUNDLE_SUFFIX",
     "CURRENT_ARCHIVE_FILENAME",
+    "CURRENT_SNAPSHOT_FILENAME",
     "EXPORTS_DIRNAME",
     "EXPKG_SUFFIX",
     "LEGACY_BUNDLE_SUFFIXES",
@@ -248,6 +254,7 @@ __all__ = [
     "load_project_descriptor",
     "project_descriptor_path",
     "resolve_workspace_root",
+    "workspace_current_snapshot_path",
     "workspace_exports_root",
     "workspace_media_root",
     "workspace_state_root",

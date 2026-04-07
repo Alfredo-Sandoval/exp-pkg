@@ -77,3 +77,55 @@ def test_labels_json_roundtrip_with_image_sequence(tmp_path: Path) -> None:
         loaded.labeled_frames[0].instances[0].numpy(),
         np.array([[1.0, 2.0], [3.0, 4.0]]),
     )
+
+
+def test_labels_json_roundtrip_preserves_tracks_and_segmentation(tmp_path: Path) -> None:
+    from posetta.core.annotations import (
+        ROI,
+        Instance,
+        LabeledFrame,
+        Point,
+        SegmentationMask,
+        Track,
+    )
+    from posetta.model import Labels, Video, build_keypoint_skeleton
+
+    frames_dir = tmp_path / "frames"
+    frames_dir.mkdir()
+    frame_path = frames_dir / "frame_0000.png"
+    _write_test_frame(frame_path, 42)
+
+    skeleton = build_keypoint_skeleton(["nose"], name="mouse")
+    video = Video.from_image_filenames([frame_path.as_posix()])
+    track = Track(spawned_on=7, name="seg-track")
+    frame = LabeledFrame(
+        video=video,
+        frame_idx=0,
+        instances=[
+            Instance(
+                skeleton=skeleton,
+                init_points={"nose": Point(1.0, 2.0, visible=True, complete=True)},
+            )
+        ],
+        masks=[
+            SegmentationMask.from_polygon(
+                np.array([[0.0, 0.0], [5.0, 0.0], [5.0, 5.0]], dtype=np.float32),
+                track=track,
+                class_name="mouse",
+            )
+        ],
+        rois=[ROI(x1=1.0, y1=2.0, x2=8.0, y2=9.0, track=track, class_name="mouse")],
+    )
+
+    labels = Labels(labeled_frames=[frame], videos=[video], skeletons=[skeleton], tracks=[track])
+    json_path = tmp_path / "labels.json"
+    labels.save_file(labels, json_path.as_posix())
+
+    loaded = Labels.load_file(json_path.as_posix())
+    assert [track.name for track in loaded.tracks] == ["seg-track"]
+    assert len(loaded.labeled_frames[0].masks) == 1
+    assert loaded.labeled_frames[0].masks[0].track is not None
+    assert loaded.labeled_frames[0].masks[0].track.name == "seg-track"
+    assert len(loaded.labeled_frames[0].rois) == 1
+    assert loaded.labeled_frames[0].rois[0].track is not None
+    assert loaded.labeled_frames[0].rois[0].track.name == "seg-track"

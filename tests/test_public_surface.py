@@ -22,6 +22,8 @@ from posetta.formats import (
     create_store_from_archive,
     create_store_from_sta,
     current_project_archive_path,
+    current_project_snapshot_path,
+    current_project_state_path,
     default_expkg_path,
     import_dlc_csv_workspace,
     import_dlc_h5_workspace,
@@ -95,6 +97,8 @@ def test_public_exports_are_callable() -> None:
     assert ProjectDescriptor is not None
     assert callable(append_predictions_siesta)
     assert callable(current_project_archive_path)
+    assert callable(current_project_snapshot_path)
+    assert callable(current_project_state_path)
     assert callable(create_store_from_archive)
     assert callable(create_store_from_sta)
     assert callable(default_expkg_path)
