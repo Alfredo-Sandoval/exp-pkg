@@ -62,6 +62,6 @@ def read_archive(
     *,
     lazy: bool = False,
 ) -> dict[str, Any]:
-    """Load a canonical `.xpkg` archive or legacy `.sta` / `.sta` alias from disk."""
+    """Load a canonical `.xpkg` archive or legacy `.sta` alias from disk."""
 
     return read_archive_with_assembler(path, lazy=lazy, assemble_result=_assemble_result)

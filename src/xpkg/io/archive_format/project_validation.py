@@ -127,7 +127,7 @@ def summarize_project(path: Path) -> ProjectSummary:
         label_frames=label_frames,
         prediction_frames=prediction_frames,
         schema_version=metadata.get("schema_version") or metadata.get("version"),
-        archive_version=metadata.get("archive_version"),
+        archive_version=metadata.get("archive_version") or metadata.get("siesta_version"),
         created=metadata.get("created"),
         modified=metadata.get("modified"),
     )

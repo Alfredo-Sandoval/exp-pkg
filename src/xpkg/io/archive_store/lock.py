@@ -77,7 +77,10 @@ class StoreLock:
         self.store_root.mkdir(parents=True, exist_ok=True)
 
         while True:
-            fd, tmp_name = tempfile.mkstemp(prefix=".sta_lock_", dir=str(self.store_root))
+            fd, tmp_name = tempfile.mkstemp(
+                prefix=".archive_store_lock_",
+                dir=str(self.store_root),
+            )
             tmp_path = Path(tmp_name)
             try:
                 with os.fdopen(fd, "w", encoding="utf-8") as handle:

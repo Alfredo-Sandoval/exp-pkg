@@ -72,7 +72,7 @@ class ArchiveFileLock:
         while True:
             metadata = self._build_metadata()
             tmp_fd, tmp_name = tempfile.mkstemp(
-                prefix=".sta_lock_",
+                prefix=".archive_lock_",
                 dir=str(self.lock_path.parent),
             )
             tmp_path = Path(tmp_name)
