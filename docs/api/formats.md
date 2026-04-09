@@ -2,7 +2,7 @@
 
 <div class="page-intro">
 <p>
-<code>posetta.formats</code> documents the low-level legacy
+<code>xpkg.formats</code> documents the low-level legacy
 <code>.siesta</code> archive APIs that remain during the transition to the
 workspace-first public contract.
 </p>
@@ -39,8 +39,8 @@ Example:
 ```python
 from pathlib import Path
 
-from posetta.formats import read_siesta, write_siesta
-from posetta.model import Labels
+from xpkg.formats import read_siesta, write_siesta
+from xpkg.model import Labels
 
 path = Path("example.siesta")
 write_siesta(path, Labels())
@@ -124,8 +124,8 @@ Use `mode="replace"` to overwrite an existing table.
 ```python
 import pandas as pd
 
-from posetta.formats import read_siesta, write_metrics_table, write_siesta
-from posetta.model import Labels
+from xpkg.formats import read_siesta, write_metrics_table, write_siesta
+from xpkg.model import Labels
 
 archive_path = "session.siesta"
 write_siesta(archive_path, Labels())

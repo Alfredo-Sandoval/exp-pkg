@@ -31,7 +31,7 @@ def _write_test_video(path: Path) -> None:
 
 
 def _make_single_frame_video(tmp_path: Path):
-    from posetta.model import Video
+    from xpkg.model import Video
 
     frame_path = tmp_path / "frame.png"
     _write_test_image(frame_path)
@@ -49,8 +49,8 @@ def _is_within(path: Path, root: Path) -> bool:
 
 
 def _make_labels(tmp_path: Path, *, x: float, y: float):
-    from posetta.core.annotations import Instance, LabeledFrame, Point
-    from posetta.model import Labels, build_keypoint_skeleton
+    from xpkg.core.annotations import Instance, LabeledFrame, Point
+    from xpkg.model import Labels, build_keypoint_skeleton
 
     _, video = _make_single_frame_video(tmp_path)
     skeleton = build_keypoint_skeleton(["nose"], name="mouse")
@@ -70,8 +70,8 @@ def _make_labels(tmp_path: Path, *, x: float, y: float):
 
 
 def _make_media_labels(video_path: Path, *, x: float, y: float):
-    from posetta.core.annotations import Instance, LabeledFrame, Point
-    from posetta.model import Labels, Video, build_keypoint_skeleton
+    from xpkg.core.annotations import Instance, LabeledFrame, Point
+    from xpkg.model import Labels, Video, build_keypoint_skeleton
 
     video = Video.from_filename(video_path.as_posix())
     skeleton = build_keypoint_skeleton(["nose"], name="mouse")
@@ -91,13 +91,13 @@ def _make_media_labels(video_path: Path, *, x: float, y: float):
 
 
 def test_init_project_writes_workspace_contract(tmp_path: Path) -> None:
-    from posetta.formats import (
+    from xpkg.formats import (
         current_project_state_path,
         init_project,
         is_workspace_root,
         load_project_descriptor,
     )
-    from posetta.model import Labels
+    from xpkg.model import Labels
 
     workspace = tmp_path / "My Project"
     descriptor = init_project(workspace, title="My Project")
@@ -116,7 +116,7 @@ def test_init_project_writes_workspace_contract(tmp_path: Path) -> None:
 
 
 def test_migrate_legacy_archive_creates_workspace_and_workspace_loads(tmp_path: Path) -> None:
-    from posetta.formats import (
+    from xpkg.formats import (
         current_project_archive_path,
         current_project_snapshot_path,
         migrate_legacy_archive,
@@ -125,7 +125,7 @@ def test_migrate_legacy_archive_creates_workspace_and_workspace_loads(tmp_path: 
         workspace_store_root,
         write_siesta,
     )
-    from posetta.model import Labels
+    from xpkg.model import Labels
 
     source_root = tmp_path / "source"
     source_root.mkdir()
@@ -159,13 +159,13 @@ def test_migrate_legacy_archive_creates_workspace_and_workspace_loads(tmp_path: 
 
 
 def test_migrate_legacy_archive_rewrites_stale_project_metadata_paths(tmp_path: Path) -> None:
-    from posetta.formats import (
+    from xpkg.formats import (
         current_project_snapshot_path,
         init_project,
         migrate_legacy_archive,
         write_siesta,
     )
-    from posetta.io.workspace_snapshot_backend import read_workspace_snapshot_payload
+    from xpkg.io.workspace_snapshot_backend import read_workspace_snapshot_payload
 
     legacy_root = tmp_path / "bootstrap_2026-01-13"
     legacy_root.mkdir()
@@ -235,15 +235,15 @@ def test_migrate_legacy_archive_rewrites_stale_project_metadata_paths(tmp_path: 
 
 
 def test_pack_snapshot_and_unpack_roundtrip_workspace(tmp_path: Path) -> None:
-    from posetta.formats import pack_project, unpack_project, validate_artifact, write_siesta
-    from posetta.model import Labels
+    from xpkg.formats import pack_project, unpack_project, validate_artifact, write_siesta
+    from xpkg.model import Labels
 
     labels = _make_labels(tmp_path, x=5.0, y=6.0)
     legacy_path = tmp_path / "tracking.siesta"
     write_siesta(legacy_path, labels)
 
     workspace = tmp_path / "Roundtrip Project"
-    from posetta.formats import migrate_legacy_archive
+    from xpkg.formats import migrate_legacy_archive
 
     migrate_legacy_archive(legacy_path, workspace)
 
@@ -261,7 +261,7 @@ def test_pack_snapshot_and_unpack_roundtrip_workspace(tmp_path: Path) -> None:
 
 
 def test_pack_portable_and_unpack_uses_managed_media_after_source_removal(tmp_path: Path) -> None:
-    from posetta.formats import (
+    from xpkg.formats import (
         migrate_legacy_archive,
         pack_project,
         unpack_project,
@@ -269,7 +269,7 @@ def test_pack_portable_and_unpack_uses_managed_media_after_source_removal(tmp_pa
         workspace_media_root,
         write_siesta,
     )
-    from posetta.model import Labels
+    from xpkg.model import Labels
 
     source_root = tmp_path / "source"
     source_root.mkdir()
@@ -310,14 +310,14 @@ def test_pack_portable_and_unpack_uses_managed_media_after_source_removal(tmp_pa
 
 
 def test_workspace_load_auto_adopts_legacy_state_archive(tmp_path: Path) -> None:
-    from posetta.formats import (
+    from xpkg.formats import (
         current_project_archive_path,
         init_project,
         workspace_state_root,
         workspace_store_root,
         write_siesta,
     )
-    from posetta.model import Labels
+    from xpkg.model import Labels
 
     source_root = tmp_path / "source"
     source_root.mkdir()
@@ -342,12 +342,12 @@ def test_workspace_load_auto_adopts_legacy_state_archive(tmp_path: Path) -> None
 
 
 def test_labels_save_file_to_workspace_creates_first_committed_state(tmp_path: Path) -> None:
-    from posetta.formats import (
+    from xpkg.formats import (
         current_project_archive_path,
         current_project_snapshot_path,
         init_project,
     )
-    from posetta.model import Labels
+    from xpkg.model import Labels
 
     source_root = tmp_path / "source"
     source_root.mkdir()
@@ -371,15 +371,15 @@ def test_labels_save_file_to_workspace_creates_first_committed_state(tmp_path: P
 
 
 def test_labels_save_file_to_workspace_preserves_predictions(tmp_path: Path) -> None:
-    from posetta.formats import (
+    from xpkg.formats import (
         PredictionAppendItem,
         SerializerPredictedInstance,
         current_project_snapshot_path,
         migrate_legacy_archive,
         write_siesta,
     )
-    from posetta.io.workspace_snapshot_backend import read_workspace_snapshot_payload
-    from posetta.model import Labels
+    from xpkg.io.workspace_snapshot_backend import read_workspace_snapshot_payload
+    from xpkg.model import Labels
 
     source_root = tmp_path / "source"
     source_root.mkdir()
@@ -424,8 +424,8 @@ def test_labels_save_file_to_workspace_preserves_predictions(tmp_path: Path) -> 
 
 
 def test_workspace_load_prefers_current_snapshot(tmp_path: Path) -> None:
-    from posetta.formats import init_project, workspace_state_root
-    from posetta.model import Labels
+    from xpkg.formats import init_project, workspace_state_root
+    from xpkg.model import Labels
 
     source_root = tmp_path / "source"
     source_root.mkdir()
@@ -448,14 +448,14 @@ def test_workspace_load_prefers_current_snapshot(tmp_path: Path) -> None:
 
 
 def test_summarize_project_and_validate_project_read_labels_video_group(tmp_path: Path) -> None:
-    from posetta.formats import (
+    from xpkg.formats import (
         current_project_archive_path,
         current_project_snapshot_path,
         init_project,
         summarize_project,
         validate_project,
     )
-    from posetta.model import Labels
+    from xpkg.model import Labels
 
     source_video = tmp_path / "source.avi"
     _write_test_video(source_video)

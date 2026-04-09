@@ -1,4 +1,4 @@
-# Posetta
+# exp-pkg
 
 [![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: Proprietary](https://img.shields.io/badge/license-Proprietary-red.svg)](LICENSE)
@@ -6,8 +6,10 @@
 
 **Workspace-first toolkit for behavior-centered experiment data and portable project artifacts.**
 
+Import from `xpkg` in Python and use `xpkg` for the CLI.
+
 Many neurobehavior experiments need one project container for media, labels,
-segmentation, event-aligned state, and durable exports. Posetta is built around
+segmentation, event-aligned state, and durable exports. exp-pkg is built around
 that workflow: editable workspaces, managed project state, and shareable
 artifacts for experiment packaging and downstream analysis.
 
@@ -17,7 +19,7 @@ experiment packaging that keeps experiment state coherent across tools.
 
 The old annotation ecosystem is fragmented: DeepLabCut exports CSV and H5,
 SLEAP uses `.pkg.slp`, and every tool invents a different project shape.
-Posetta bridges that gap with a canonical `Labels` object, adapter surfaces for
+exp-pkg bridges that gap with a canonical `Labels` object, adapter surfaces for
 multiple pose ecosystems, and a locked v1 artifact contract built around
 editable workspace folders plus portable `.expkg` exports.
 
@@ -48,7 +50,7 @@ projects. Use it when you want to create, open, validate, pack, or unpack a
 project with a single object-oriented boundary:
 
 ```python
-from posetta.services import WorkspaceService
+from xpkg.services import WorkspaceService
 
 workspace = WorkspaceService.create("./My Project", title="My Project")
 layout = workspace.validate()
@@ -56,7 +58,7 @@ artifact = workspace.pack()
 restored = WorkspaceService.unpack(artifact, "./Restored Project")
 ```
 
-The older free functions in `posetta.formats` and `posetta.api` remain
+The older free functions in `xpkg.formats` and `xpkg.api` remain
 available for compatibility and low-level workflows, but new code should prefer
 `WorkspaceService`.
 
@@ -105,8 +107,8 @@ Mission direction:
 Not on PyPI yet. Clone and install locally:
 
 ```bash
-git clone https://github.com/Alfredo-Sandoval/Posetta.git
-cd Posetta
+git clone https://github.com/Alfredo-Sandoval/exp-pkg.git
+cd exp-pkg
 pip install -e .
 ```
 
@@ -127,7 +129,7 @@ make docs-serve    # live preview at localhost:8123
 
 ## Public Artifact Contract
 
-Posetta v1 defines exactly three artifact classes:
+exp-pkg v1 defines exactly three artifact classes:
 
 ```text
 My Project/
@@ -162,8 +164,8 @@ The longer write-up on why that is still true, and what has to change before
 Example:
 
 ```python
-from posetta.adapters import convert_dlc_csv
-from posetta.model import Labels
+from xpkg.adapters import convert_dlc_csv
+from xpkg.model import Labels
 
 # Convert DeepLabCut tracking into a native bundle
 convert_dlc_csv("tracking.csv", "video.mp4", "tracking.sta")
@@ -180,7 +182,7 @@ labels.save_file(labels, "copy.json")
 Load skeleton definitions from a config file:
 
 ```python
-from posetta.model import load_skeleton
+from xpkg.model import load_skeleton
 
 skeleton = load_skeleton("config.yaml")
 print(skeleton.keypoint_names)
@@ -191,11 +193,11 @@ print(skeleton.keypoint_names)
 The locked v1 public CLI is workspace-first:
 
 ```bash
-posetta init "./My Project"
-posetta import dlc csv --csv tracking.csv --video video.mp4 --out "./My Project"
-posetta pack "./My Project"
-posetta unpack "./My Project.expkg" --out "./My Project"
-posetta migrate "./My Project"
+xpkg init "./My Project"
+xpkg import dlc csv --csv tracking.csv --video video.mp4 --out "./My Project"
+xpkg pack "./My Project"
+xpkg unpack "./My Project.expkg" --out "./My Project"
+xpkg migrate "./My Project"
 ```
 
 That command contract is documented in `docs/cli_command_spec_v1.md`.
@@ -209,22 +211,22 @@ that model.
 
 **Legacy convert DeepLabCut CSV:**
 ```bash
-posetta convert dlc csv --csv tracking.csv --video video.mp4 --out tracking.sta
+xpkg convert dlc csv --csv tracking.csv --video video.mp4 --out tracking.sta
 ```
 
 **Legacy convert DeepLabCut H5:**
 ```bash
-posetta convert dlc h5 --h5 tracking.h5 --video video.mp4 --out tracking.sta
+xpkg convert dlc h5 --h5 tracking.h5 --video video.mp4 --out tracking.sta
 ```
 
 **Legacy convert an entire DeepLabCut project:**
 ```bash
-posetta convert dlc project --project dlc_project --out exports
+xpkg convert dlc project --project dlc_project --out exports
 ```
 
 **Legacy convert SLEAP labels:**
 ```bash
-posetta convert sleap --slp labels.pkg.slp --out sleap_project --fps 30 --no-videos
+xpkg convert sleap --slp labels.pkg.slp --out sleap_project --fps 30 --no-videos
 ```
 
 ## Contributing

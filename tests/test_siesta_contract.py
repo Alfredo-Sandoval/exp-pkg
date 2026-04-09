@@ -15,7 +15,7 @@ def _write_test_image(path: Path, value: int = 128) -> None:
 
 
 def _make_single_frame_video(tmp_path: Path):
-    from posetta.model import Video
+    from xpkg.model import Video
 
     frame_path = tmp_path / "frame.png"
     _write_test_image(frame_path)
@@ -25,8 +25,8 @@ def _make_single_frame_video(tmp_path: Path):
 
 
 def _make_labels(tmp_path: Path, *, x: float, y: float, visible: bool = True, frame_idx: int = 0):
-    from posetta.core.annotations import Instance, LabeledFrame, Point
-    from posetta.model import Labels, build_keypoint_skeleton
+    from xpkg.core.annotations import Instance, LabeledFrame, Point
+    from xpkg.model import Labels, build_keypoint_skeleton
 
     _, video = _make_single_frame_video(tmp_path)
     skeleton = build_keypoint_skeleton(["nose"], name="mouse")
@@ -48,7 +48,7 @@ def _make_labels(tmp_path: Path, *, x: float, y: float, visible: bool = True, fr
 
 
 def test_labels_save_file_defaults_to_sta_suffix(tmp_path: Path) -> None:
-    from posetta.model import Labels
+    from xpkg.model import Labels
 
     labels = _make_labels(tmp_path, x=1.0, y=2.0)
     raw_path = tmp_path / "archive"
@@ -59,9 +59,9 @@ def test_labels_save_file_defaults_to_sta_suffix(tmp_path: Path) -> None:
 
 
 def test_labels_load_file_accepts_custom_bundle_reader(tmp_path: Path) -> None:
-    from posetta.io.labels import serialization as label_serialization
-    from posetta.io.siesta_format import read_siesta, write_siesta
-    from posetta.model import Labels
+    from xpkg.io.labels import serialization as label_serialization
+    from xpkg.io.siesta_format import read_siesta, write_siesta
+    from xpkg.model import Labels
 
     labels = _make_labels(tmp_path, x=7.0, y=8.0)
     bundle_path = tmp_path / "labels.sta"
@@ -86,8 +86,8 @@ def test_labels_load_file_accepts_custom_bundle_reader(tmp_path: Path) -> None:
 
 
 def test_labels_save_file_accepts_custom_bundle_writer(tmp_path: Path) -> None:
-    from posetta.io.labels import serialization as label_serialization
-    from posetta.io.siesta_format import read_siesta, write_siesta
+    from xpkg.io.labels import serialization as label_serialization
+    from xpkg.io.siesta_format import read_siesta, write_siesta
 
     labels = _make_labels(tmp_path, x=2.0, y=5.0)
     raw_path = tmp_path / "custom_bundle"
@@ -113,7 +113,7 @@ def test_labels_save_file_accepts_custom_bundle_writer(tmp_path: Path) -> None:
 
 
 def test_siesta_labels_roundtrip_uses_explicit_visibility_dataset(tmp_path: Path) -> None:
-    from posetta.model import Labels
+    from xpkg.model import Labels
 
     labels = _make_labels(tmp_path, x=3.0, y=4.0, visible=False)
     bundle_path = tmp_path / "labels.sta"
@@ -137,7 +137,7 @@ def test_siesta_labels_roundtrip_uses_explicit_visibility_dataset(tmp_path: Path
 
 
 def test_update_labels_siesta_preserves_predictions_by_default(tmp_path: Path) -> None:
-    from posetta.formats import (
+    from xpkg.formats import (
         PredictionAppendItem,
         SerializerPredictedInstance,
         read_siesta,
@@ -181,7 +181,7 @@ def test_update_labels_siesta_preserves_predictions_by_default(tmp_path: Path) -
 
 
 def test_read_siesta_tolerates_missing_manifest_with_path_fallback(tmp_path: Path) -> None:
-    from posetta.formats import read_siesta, write_siesta
+    from xpkg.formats import read_siesta, write_siesta
 
     labels = _make_labels(tmp_path, x=5.0, y=6.0)
     bundle_path = tmp_path / "nometa.siesta"

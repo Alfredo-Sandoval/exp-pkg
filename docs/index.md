@@ -31,15 +31,15 @@ transition.
 | Authoritative mutable state | `.posetta/` inside the workspace |
 | Legacy compatibility format | `.siesta` import/read APIs |
 | External adapters | DLC, SLEAP |
-| Core objects | `posetta.model` |
-| Low-level compatibility IO | `posetta.formats` |
-| Import and migration tools | `posetta.adapters` |
+| Core objects | `xpkg.model` |
+| Low-level compatibility IO | `xpkg.formats` |
+| Import and migration tools | `xpkg.adapters` |
 </div>
 
 <div class="spec-panel" markdown="1">
 ### Choose by Task
 
-- Use `posetta.model` when you need `Labels`, `Skeleton`, `Instance`, or `Video`.
+- Use `xpkg.model` when you need `Labels`, `Skeleton`, `Instance`, or `Video`.
 - Use Posetta when you need a coherent experiment workspace with managed
   artifacts and compatibility import surfaces.
 - Read [Artifact Contract v1](artifact_contract_v1.md) for the public workspace
@@ -48,9 +48,9 @@ transition.
   surface.
 - Read [Storage Direction](architecture/storage-direction.md) when you want the
   blunt explanation for why `.siesta` still exists in the implementation.
-- Use `posetta.formats` when you need low-level legacy `.siesta`
+- Use `xpkg.formats` when you need low-level legacy `.siesta`
   compatibility IO.
-- Use `posetta.adapters` when you need to import DLC or SLEAP.
+- Use `xpkg.adapters` when you need to import DLC or SLEAP.
 </div>
 
 </div>

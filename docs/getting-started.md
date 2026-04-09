@@ -58,8 +58,8 @@ workspace command surface.
 ## Current compatibility API
 
 ```python
-from posetta.formats import read_siesta, write_siesta
-from posetta.model import Labels
+from xpkg.formats import read_siesta, write_siesta
+from xpkg.model import Labels
 
 labels = Labels()
 write_siesta("empty.siesta", labels)
@@ -82,7 +82,7 @@ and transition work. `read_siesta` returns a dict with these keys:
 ## Current adapter import example
 
 ```python
-from posetta.adapters import convert_dlc_csv
+from xpkg.adapters import convert_dlc_csv
 
 result = convert_dlc_csv(
     "tracking.csv",

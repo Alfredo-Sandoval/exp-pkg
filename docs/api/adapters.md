@@ -2,7 +2,7 @@
 
 <div class="page-intro">
 <p>
-<code>posetta.adapters</code> converts DLC and SLEAP tracking into Posetta data
+<code>xpkg.adapters</code> converts DLC and SLEAP tracking into Posetta data
 structures and current compatibility artifacts while the workspace-first v1
 project workflow is being wired in.
 </p>
@@ -44,7 +44,7 @@ subdirectories.
 Example:
 
 ```python
-from posetta.adapters import convert_dlc_csv
+from xpkg.adapters import convert_dlc_csv
 
 result = convert_dlc_csv(
     "CollectedData_mouse.csv",
@@ -69,7 +69,7 @@ Convert a SLEAP `.pkg.slp` archive into a current compatibility project export.
 Example:
 
 ```python
-from posetta.adapters import convert_sleap_package
+from xpkg.adapters import convert_sleap_package
 
 result = convert_sleap_package(
     "labels.pkg.slp",
@@ -86,7 +86,7 @@ The callback receives short status strings during conversion (e.g.
 `"Converting frame 10/500"`).
 
 ```python
-from posetta.adapters import convert_dlc_csv
+from xpkg.adapters import convert_dlc_csv
 
 def on_progress(msg: str) -> None:
     print(msg)

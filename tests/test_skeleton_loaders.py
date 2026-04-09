@@ -7,15 +7,15 @@ import h5py
 import pytest
 import yaml
 
-from posetta.io.skeleton_io import (
+from xpkg.io.skeleton_io import (
     dump_skeleton,
     load_any_skeleton,
 )
-from posetta.io.skeleton_io import (
+from xpkg.io.skeleton_io import (
     load_skeleton as load_json_skeleton,
 )
-from posetta.io.skeleton_loaders import detect_skeleton_format, detect_yaml_skeleton_format
-from posetta.model import Skeleton, load_skeleton, load_skeleton_dlc, load_skeleton_siesta_json
+from xpkg.io.skeleton_loaders import detect_skeleton_format, detect_yaml_skeleton_format
+from xpkg.model import Skeleton, load_skeleton, load_skeleton_dlc, load_skeleton_siesta_json
 
 
 def _write_json_skeleton(

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import posetta
-from posetta.adapters import (
+import xpkg
+from xpkg.adapters import (
     ConversionResult,
     convert_dlc_csv,
     convert_dlc_h5,
@@ -9,7 +9,7 @@ from posetta.adapters import (
     convert_dlc_project,
     convert_sleap_package,
 )
-from posetta.formats import (
+from xpkg.formats import (
     EXPKG_SUFFIX,
     PROJECT_DESCRIPTOR_FILENAME,
     LazyDatasetHandle,
@@ -54,7 +54,7 @@ from posetta.formats import (
     write_project_descriptor,
     write_siesta,
 )
-from posetta.model import (
+from xpkg.model import (
     Instance,
     Keypoint,
     KPFlag,
@@ -77,15 +77,15 @@ from posetta.model import (
     load_skeleton_sleap,
     load_skeleton_ultralytics,
 )
-from posetta.services import WorkspaceLayout, WorkspaceService
+from xpkg.services import WorkspaceLayout, WorkspaceService
 
 
 def test_public_exports_are_callable() -> None:
-    assert posetta.__version__
-    assert posetta.adapters is not None
-    assert posetta.formats is not None
-    assert posetta.model is not None
-    assert posetta.services is not None
+    assert xpkg.__version__
+    assert xpkg.adapters is not None
+    assert xpkg.formats is not None
+    assert xpkg.model is not None
+    assert xpkg.services is not None
     assert ConversionResult is not None
     assert LazyDatasetHandle is not None
     assert PredictionAppendItem is not None

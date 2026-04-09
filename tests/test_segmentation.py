@@ -10,7 +10,7 @@ import h5py
 import numpy as np
 import pytest
 
-from posetta.core.annotations.regions import (
+from xpkg.core.annotations.regions import (
     ROI,
     MaskType,
     PromptType,
@@ -227,7 +227,7 @@ class TestLabeledFrameIntegration:
         return _VideoStub()
 
     def test_masks_and_rois_on_frame(self):
-        from posetta.core.annotations.frames import LabeledFrame
+        from xpkg.core.annotations.frames import LabeledFrame
 
         video = self._make_video_stub()
         mask = SegmentationMask.from_polygon(
@@ -241,7 +241,7 @@ class TestLabeledFrameIntegration:
         assert len(lf.rois) == 1
 
     def test_default_empty(self):
-        from posetta.core.annotations.frames import LabeledFrame
+        from xpkg.core.annotations.frames import LabeledFrame
 
         video = self._make_video_stub()
         lf = LabeledFrame(video=video, frame_idx=0)
@@ -251,7 +251,7 @@ class TestLabeledFrameIntegration:
         assert lf.rois == []
 
     def test_copy_preserves_masks(self):
-        from posetta.core.annotations.frames import LabeledFrame
+        from xpkg.core.annotations.frames import LabeledFrame
 
         video = self._make_video_stub()
         mask = SegmentationMask.from_binary_mask(
@@ -269,7 +269,7 @@ class TestLabeledFrameIntegration:
         assert clone.rois[0] is not roi
 
     def test_user_vs_predicted_masks(self):
-        from posetta.core.annotations.frames import LabeledFrame
+        from xpkg.core.annotations.frames import LabeledFrame
 
         video = self._make_video_stub()
         user_mask = SegmentationMask.from_polygon(
@@ -297,7 +297,7 @@ class TestLabeledFrameIntegration:
 
 class TestHDF5Roundtrip:
     def test_masks_roundtrip(self):
-        from posetta.io.siesta_format.segmentation_hdf5 import (
+        from xpkg.io.siesta_format.segmentation_hdf5 import (
             read_segmentation_group,
             write_segmentation_group,
         )
@@ -377,7 +377,7 @@ class TestHDF5Roundtrip:
         assert roi.x1 == 5 and roi.y2 == 50
 
     def test_empty_roundtrip(self):
-        from posetta.io.siesta_format.segmentation_hdf5 import (
+        from xpkg.io.siesta_format.segmentation_hdf5 import (
             read_segmentation_group,
             write_segmentation_group,
         )
@@ -393,7 +393,7 @@ class TestHDF5Roundtrip:
         assert result["rois"] == []
 
     def test_no_segmentation_group(self):
-        from posetta.io.siesta_format.segmentation_hdf5 import read_segmentation_group
+        from xpkg.io.siesta_format.segmentation_hdf5 import read_segmentation_group
 
         with tempfile.NamedTemporaryFile(suffix=".h5", delete=True) as tmp:
             path = Path(tmp.name)
@@ -466,7 +466,7 @@ class TestJSONRoundtrip:
 
 class TestPublicAPISurface:
     def test_model_exports(self):
-        from posetta.model import (
+        from xpkg.model import (
             ROI,
             MaskType,
             PromptType,
@@ -486,7 +486,7 @@ class TestPublicAPISurface:
         assert SegmentationPrompt.__name__ == "SegmentationPrompt"
 
     def test_annotations_exports(self):
-        from posetta.core.annotations import (
+        from xpkg.core.annotations import (
             ROI,
             MaskType,
             PromptType,

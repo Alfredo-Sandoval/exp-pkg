@@ -1,4 +1,4 @@
-# Reference: `posetta.model`
+# Reference: `xpkg.model`
 
 <div class="page-intro">
 <p>
@@ -7,4 +7,4 @@ See the <a href="../api/model/">guide</a> for concepts and examples.
 </p>
 </div>
 
-::: posetta.model
+::: xpkg.model

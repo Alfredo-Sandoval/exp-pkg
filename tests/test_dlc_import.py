@@ -37,9 +37,9 @@ def _write_dummy_video(path: Path) -> None:
 
 
 def test_convert_dlc_h5_project_builds_multi_video_bundle(tmp_path: Path) -> None:
-    from posetta.io.converters.dlc_import import convert_dlc_h5_project
-    from posetta.io.siesta_format import read_siesta
-    from posetta.model import Labels
+    from xpkg.io.converters.dlc_import import convert_dlc_h5_project
+    from xpkg.io.siesta_format import read_siesta
+    from xpkg.model import Labels
 
     recording_dir = tmp_path / "session-0"
     (recording_dir / "tracking").mkdir(parents=True)

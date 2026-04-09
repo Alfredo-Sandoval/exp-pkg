@@ -4,8 +4,8 @@ from pathlib import Path
 
 
 def test_cli_routes_dlc_csv(monkeypatch, capsys) -> None:
-    from posetta.adapters import ConversionResult
-    from posetta.cli import main
+    from xpkg.adapters import ConversionResult
+    from xpkg.cli import main
 
     captured: dict[str, object] = {}
 
@@ -31,7 +31,7 @@ def test_cli_routes_dlc_csv(monkeypatch, capsys) -> None:
             bundle_path=Path(out_path),
         )
 
-    monkeypatch.setattr("posetta.cli.convert_dlc_csv", fake_convert_dlc_csv)
+    monkeypatch.setattr("xpkg.cli.convert_dlc_csv", fake_convert_dlc_csv)
 
     code = main(
         [
@@ -66,8 +66,8 @@ def test_cli_routes_dlc_csv(monkeypatch, capsys) -> None:
 
 
 def test_cli_routes_dlc_project(monkeypatch, capsys) -> None:
-    from posetta.adapters import ConversionResult
-    from posetta.cli import main
+    from xpkg.adapters import ConversionResult
+    from xpkg.cli import main
 
     captured: dict[str, object] = {}
 
@@ -97,7 +97,7 @@ def test_cli_routes_dlc_project(monkeypatch, capsys) -> None:
             ),
         ]
 
-    monkeypatch.setattr("posetta.cli.convert_dlc_project", fake_convert_dlc_project)
+    monkeypatch.setattr("xpkg.cli.convert_dlc_project", fake_convert_dlc_project)
 
     code = main(
         [
@@ -127,8 +127,8 @@ def test_cli_routes_dlc_project(monkeypatch, capsys) -> None:
 
 
 def test_cli_routes_sleap(monkeypatch, capsys) -> None:
-    from posetta.adapters import ConversionResult
-    from posetta.cli import main
+    from xpkg.adapters import ConversionResult
+    from xpkg.cli import main
 
     captured: dict[str, object] = {}
 
@@ -152,7 +152,7 @@ def test_cli_routes_sleap(monkeypatch, capsys) -> None:
             bundle_path=Path(out_dir) / "project.sta",
         )
 
-    monkeypatch.setattr("posetta.cli.convert_sleap_package", fake_convert_sleap_package)
+    monkeypatch.setattr("xpkg.cli.convert_sleap_package", fake_convert_sleap_package)
 
     code = main(
         [
@@ -182,7 +182,7 @@ def test_cli_routes_sleap(monkeypatch, capsys) -> None:
 
 
 def test_cli_routes_init_workspace(monkeypatch, capsys) -> None:
-    from posetta.cli import main
+    from xpkg.cli import main
 
     captured: dict[str, object] = {}
 
@@ -201,7 +201,7 @@ def test_cli_routes_init_workspace(monkeypatch, capsys) -> None:
         captured["force"] = force
         return object()
 
-    monkeypatch.setattr("posetta.cli.init_project", fake_init_project)
+    monkeypatch.setattr("xpkg.cli.init_project", fake_init_project)
 
     code = main(
         [
@@ -229,7 +229,7 @@ def test_cli_routes_init_workspace(monkeypatch, capsys) -> None:
 
 
 def test_cli_routes_import_legacy(monkeypatch, capsys) -> None:
-    from posetta.cli import main
+    from xpkg.cli import main
 
     captured: dict[str, object] = {}
 
@@ -248,7 +248,7 @@ def test_cli_routes_import_legacy(monkeypatch, capsys) -> None:
         captured["force"] = force
         return Path(workspace) / ".posetta" / "state" / "current.sta"
 
-    monkeypatch.setattr("posetta.cli.import_legacy_archive", fake_import_legacy_archive)
+    monkeypatch.setattr("xpkg.cli.import_legacy_archive", fake_import_legacy_archive)
 
     code = main(
         [
@@ -278,7 +278,7 @@ def test_cli_routes_import_legacy(monkeypatch, capsys) -> None:
 
 
 def test_cli_routes_import_dlc_csv_workspace(monkeypatch, capsys) -> None:
-    from posetta.cli import main
+    from xpkg.cli import main
 
     captured: dict[str, object] = {}
 
@@ -303,7 +303,7 @@ def test_cli_routes_import_dlc_csv_workspace(monkeypatch, capsys) -> None:
         progress_callback("import-progress")
         return Path(workspace) / ".posetta" / "state" / "current.sta"
 
-    monkeypatch.setattr("posetta.cli.import_dlc_csv_workspace", fake_import_dlc_csv_workspace)
+    monkeypatch.setattr("xpkg.cli.import_dlc_csv_workspace", fake_import_dlc_csv_workspace)
 
     code = main(
         [
@@ -340,7 +340,7 @@ def test_cli_routes_import_dlc_csv_workspace(monkeypatch, capsys) -> None:
 
 
 def test_cli_routes_pack_unpack_and_validate(monkeypatch, capsys) -> None:
-    from posetta.cli import main
+    from xpkg.cli import main
 
     captured: dict[str, object] = {}
 
@@ -373,9 +373,9 @@ def test_cli_routes_pack_unpack_and_validate(monkeypatch, capsys) -> None:
     def fake_validate_artifact(path: str) -> None:
         captured.setdefault("validated", []).append(path)
 
-    monkeypatch.setattr("posetta.cli.pack_project", fake_pack_project)
-    monkeypatch.setattr("posetta.cli.unpack_project", fake_unpack_project)
-    monkeypatch.setattr("posetta.cli.validate_artifact", fake_validate_artifact)
+    monkeypatch.setattr("xpkg.cli.pack_project", fake_pack_project)
+    monkeypatch.setattr("xpkg.cli.unpack_project", fake_unpack_project)
+    monkeypatch.setattr("xpkg.cli.validate_artifact", fake_validate_artifact)
 
     pack_code = main(["pack", "My Project", "--mode", "snapshot", "--overwrite"])
     unpack_code = main(

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from posetta.services import WorkspaceService
+from xpkg.services import WorkspaceService
 
 
 def test_workspace_service_create_validate_and_pack_roundtrip(tmp_path: Path) -> None:

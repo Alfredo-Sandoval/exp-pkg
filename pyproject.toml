@@ -3,7 +3,7 @@ requires = ["hatchling>=1.27.0"]
 build-backend = "hatchling.build"
 
 [project]
-name = "posetta"
+name = "exp-pkg"
 version = "0.1.0"
 description = "Workspace-first toolkit for behavior-centered experiment data and portable project artifacts."
 readme = "README.md"
@@ -28,7 +28,7 @@ docs = [
 ]
 
 [project.scripts]
-posetta = "posetta.cli:main"
+xpkg = "xpkg.cli:main"
 
 [tool.ruff]
 line-length = 100

@@ -2,11 +2,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from posetta.io.siesta_store.journal import read_journal, write_journal
-from posetta.io.siesta_store.paths import StorePaths
-from posetta.io.siesta_store.platform_io import atomic_write_json
-from posetta.io.siesta_store.schema import Journal, Superblock
-from posetta.io.siesta_store.store import SiestaStore
+from xpkg.io.siesta_store.journal import read_journal, write_journal
+from xpkg.io.siesta_store.paths import StorePaths
+from xpkg.io.siesta_store.platform_io import atomic_write_json
+from xpkg.io.siesta_store.schema import Journal, Superblock
+from xpkg.io.siesta_store.store import SiestaStore
 
 
 def test_recover_clears_staging_journal_and_keeps_last_clean_head(tmp_path: Path) -> None:

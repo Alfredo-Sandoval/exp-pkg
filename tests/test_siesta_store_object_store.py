@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from posetta.formats import create_store_from_sta, open_store
-from posetta.io.siesta_store.object_store import get_object_file, put_object_file
-from posetta.io.siesta_store.paths import StorePaths
+from xpkg.formats import create_store_from_sta, open_store
+from xpkg.io.siesta_store.object_store import get_object_file, put_object_file
+from xpkg.io.siesta_store.paths import StorePaths
 
 
 def test_put_object_file_is_content_addressed(tmp_path: Path) -> None:

@@ -1,6 +1,6 @@
 repo:
-  name: "posetta"
-  slug: "Alfredo-Sandoval/Posetta"
+  name: "exp-pkg"
+  slug: "Alfredo-Sandoval/exp-pkg"
   visibility: "private"
   preset: "base"
   support_matrix:

@@ -6,7 +6,7 @@ import h5py
 import numpy as np
 import pytest
 
-from posetta.io.readers.sleap_analysis_h5 import (
+from xpkg.io.readers.sleap_analysis_h5 import (
     read_node_names,
     read_track,
     resolve_node_indices,

@@ -17,7 +17,7 @@ def _write_frame(path: Path, value: int) -> None:
 def test_convert_normalized_image_sequence_annotations_writes_bundle_and_manifest(
     tmp_path: Path,
 ) -> None:
-    from posetta.io.converters.normalized_image_sequence_import import (
+    from xpkg.io.converters.normalized_image_sequence_import import (
         convert_normalized_image_sequence_annotations,
     )
 

@@ -2,10 +2,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from posetta.io.siesta_store.paths import StorePaths
-from posetta.io.siesta_store.platform_io import atomic_write_json
-from posetta.io.siesta_store.schema import Superblock
-from posetta.io.siesta_store.store import SiestaStore
+from xpkg.io.siesta_store.paths import StorePaths
+from xpkg.io.siesta_store.platform_io import atomic_write_json
+from xpkg.io.siesta_store.schema import Superblock
+from xpkg.io.siesta_store.store import SiestaStore
 
 
 def _superblock(

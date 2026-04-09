@@ -1,4 +1,4 @@
-# Reference: `posetta.formats`
+# Reference: `xpkg.formats`
 
 <div class="page-intro">
 <p>
@@ -8,4 +8,4 @@ See the <a href="../api/formats/">guide</a> for workflow examples.
 </p>
 </div>
 
-::: posetta.formats
+::: xpkg.formats

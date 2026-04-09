@@ -37,7 +37,7 @@ Today the repositories are split in an unhealthy way:
 
 - Posetta already owns canonical labels IO, `.siesta` archive IO, and external
   adapter logic.
-- Posetta also has a small media layer in `posetta.io.video`.
+- Posetta also has a small media layer in `xpkg.io.video`.
 - Siesta still owns a richer and partially duplicated media stack for playback,
   writer selection, backend routing, and threaded export.
 

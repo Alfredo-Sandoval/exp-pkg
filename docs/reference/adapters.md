@@ -1,4 +1,4 @@
-# Reference: `posetta.adapters`
+# Reference: `xpkg.adapters`
 
 <div class="page-intro">
 <p>
@@ -7,4 +7,4 @@ See the <a href="../api/adapters/">guide</a> for examples.
 </p>
 </div>
 
-::: posetta.adapters
+::: xpkg.adapters

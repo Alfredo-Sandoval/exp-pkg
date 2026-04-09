@@ -39,8 +39,8 @@ def _find_manifest_entry(
 
 
 def test_write_siesta_manifest_tracks_bundle_only_by_default(tmp_path: Path) -> None:
-    from posetta.formats import write_siesta
-    from posetta.model import Labels
+    from xpkg.formats import write_siesta
+    from xpkg.model import Labels
 
     project_root = tmp_path / "proj"
     project_root.mkdir(parents=True)
@@ -74,8 +74,8 @@ def test_write_siesta_manifest_tracks_bundle_only_by_default(tmp_path: Path) -> 
 
 
 def test_write_siesta_persists_preferences_payload(tmp_path: Path) -> None:
-    from posetta.formats import write_siesta
-    from posetta.model import Labels
+    from xpkg.formats import write_siesta
+    from xpkg.model import Labels
 
     bundle_path = tmp_path / "prefs.siesta"
     labels = Labels(preferences={"theme": "paper", "show_scores": True})
@@ -94,8 +94,8 @@ def test_write_siesta_registers_image_sequence_video_directory(tmp_path: Path) -
     import cv2
     import numpy as np
 
-    from posetta.formats import write_siesta
-    from posetta.model import Labels, Video
+    from xpkg.formats import write_siesta
+    from xpkg.model import Labels, Video
 
     project_root = tmp_path / "proj"
     frames_dir = project_root / "videos" / "sequence_a"
@@ -134,8 +134,8 @@ def test_write_siesta_rejects_image_sequence_with_multiple_parent_dirs(tmp_path:
     import cv2
     import numpy as np
 
-    from posetta.formats import write_siesta
-    from posetta.model import Labels, Video
+    from xpkg.formats import write_siesta
+    from xpkg.model import Labels, Video
 
     first_dir = tmp_path / "first"
     second_dir = tmp_path / "second"

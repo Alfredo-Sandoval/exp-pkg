@@ -7,7 +7,7 @@ import cv2
 import numpy as np
 import pandas as pd
 
-from posetta.io.converters.converter_helpers import ConversionResult, remap_labels_to_videos
+from xpkg.io.converters.converter_helpers import ConversionResult, remap_labels_to_videos
 
 
 def test_remap_labels_to_videos_preserves_multi_suffix_directory_names(
@@ -31,7 +31,7 @@ def test_remap_labels_to_videos_preserves_multi_suffix_directory_names(
     mp4_path.write_bytes(b"mp4")
     encoded_video = SimpleNamespace(filename=mp4_path.as_posix(), image_filenames=[])
     monkeypatch.setattr(
-        "posetta.io.converters.converter_helpers.Video.from_filename",
+        "xpkg.io.converters.converter_helpers.Video.from_filename",
         lambda path: encoded_video,
     )
 
@@ -58,7 +58,7 @@ def test_remap_labels_to_videos_preserves_multi_suffix_directory_names(
 
 
 def test_dlc_adapter_bridges_progress_and_uses_siesta_extension(monkeypatch) -> None:
-    from posetta.adapters.dlc import convert_dlc_h5
+    from xpkg.adapters.dlc import convert_dlc_h5
 
     captured: dict[str, object] = {}
     progress_events: list[tuple[int, str]] = []
@@ -90,7 +90,7 @@ def test_dlc_adapter_bridges_progress_and_uses_siesta_extension(monkeypatch) -> 
         )
 
     monkeypatch.setattr(
-        "posetta.io.converters.dlc_import.convert_dlc_h5_project",
+        "xpkg.io.converters.dlc_import.convert_dlc_h5_project",
         fake_convert_dlc_h5_project,
     )
 
@@ -119,7 +119,7 @@ def test_dlc_adapter_bridges_progress_and_uses_siesta_extension(monkeypatch) -> 
 
 
 def test_dlc_adapter_main_routes_cli_arguments(monkeypatch, tmp_path: Path) -> None:
-    from posetta.adapters.dlc import main
+    from xpkg.adapters.dlc import main
 
     captured: dict[str, object] = {}
 
@@ -143,7 +143,7 @@ def test_dlc_adapter_main_routes_cli_arguments(monkeypatch, tmp_path: Path) -> N
             bundle_path=Path(project_root) / f"{Path(project_root).name}.sta",
         )
 
-    monkeypatch.setattr("posetta.adapters.dlc.convert_dlc_h5", fake_convert_dlc_h5)
+    monkeypatch.setattr("xpkg.adapters.dlc.convert_dlc_h5", fake_convert_dlc_h5)
 
     rc = main(
         [
@@ -167,8 +167,8 @@ def test_dlc_adapter_main_routes_cli_arguments(monkeypatch, tmp_path: Path) -> N
 
 
 def test_dlc_adapter_stores_project_relative_video_filename(tmp_path: Path) -> None:
-    from posetta.adapters.dlc import convert_dlc_h5
-    from posetta.io.siesta_format import read_siesta
+    from xpkg.adapters.dlc import convert_dlc_h5
+    from xpkg.io.siesta_format import read_siesta
 
     recording_dir = tmp_path / "session-0"
     tracking_dir = recording_dir / "tracking"
@@ -204,7 +204,7 @@ def test_dlc_adapter_stores_project_relative_video_filename(tmp_path: Path) -> N
 
 
 def test_sleap_adapter_bridges_progress_and_uses_siesta_extension(monkeypatch) -> None:
-    from posetta.adapters.sleap import convert_sleap_package
+    from xpkg.adapters.sleap import convert_sleap_package
 
     captured: dict[str, object] = {}
     progress_events: list[tuple[int, str]] = []
@@ -235,7 +235,7 @@ def test_sleap_adapter_bridges_progress_and_uses_siesta_extension(monkeypatch) -
         )
 
     monkeypatch.setattr(
-        "posetta.io.converters.sleap_import.convert_sleap_package",
+        "xpkg.io.converters.sleap_import.convert_sleap_package",
         fake_convert_sleap_package,
     )
 
@@ -263,7 +263,7 @@ def test_sleap_adapter_bridges_progress_and_uses_siesta_extension(monkeypatch) -
 
 
 def test_sleap_adapter_main_routes_cli_arguments(monkeypatch, tmp_path: Path) -> None:
-    from posetta.adapters.sleap import main
+    from xpkg.adapters.sleap import main
 
     captured: dict[str, object] = {}
 
@@ -287,7 +287,7 @@ def test_sleap_adapter_main_routes_cli_arguments(monkeypatch, tmp_path: Path) ->
             bundle_path=Path(out_dir) / f"{Path(out_dir).name}.sta",
         )
 
-    monkeypatch.setattr("posetta.adapters.sleap.convert_sleap_package", fake_convert_sleap_package)
+    monkeypatch.setattr("xpkg.adapters.sleap.convert_sleap_package", fake_convert_sleap_package)
 
     rc = main(
         [

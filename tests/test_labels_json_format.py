@@ -13,9 +13,9 @@ def _write_test_frame(path: Path, value: int) -> None:
 
 
 def test_labels_json_roundtrip_with_image_sequence(tmp_path: Path) -> None:
-    from posetta.core.annotations import Instance, LabeledFrame, Point
-    from posetta.formats import read_labels_json_payload
-    from posetta.model import Labels, Video, build_keypoint_skeleton
+    from xpkg.core.annotations import Instance, LabeledFrame, Point
+    from xpkg.formats import read_labels_json_payload
+    from xpkg.model import Labels, Video, build_keypoint_skeleton
 
     frames_dir = tmp_path / "frames"
     frames_dir.mkdir()
@@ -80,7 +80,7 @@ def test_labels_json_roundtrip_with_image_sequence(tmp_path: Path) -> None:
 
 
 def test_labels_json_roundtrip_preserves_tracks_and_segmentation(tmp_path: Path) -> None:
-    from posetta.core.annotations import (
+    from xpkg.core.annotations import (
         ROI,
         Instance,
         LabeledFrame,
@@ -88,7 +88,7 @@ def test_labels_json_roundtrip_preserves_tracks_and_segmentation(tmp_path: Path)
         SegmentationMask,
         Track,
     )
-    from posetta.model import Labels, Video, build_keypoint_skeleton
+    from xpkg.model import Labels, Video, build_keypoint_skeleton
 
     frames_dir = tmp_path / "frames"
     frames_dir.mkdir()

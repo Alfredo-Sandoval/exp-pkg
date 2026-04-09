@@ -83,13 +83,13 @@ Example:
 ```python
 from pathlib import Path
 
-from posetta.formats import (
+from xpkg.formats import (
     create_store_from_archive,
     open_store,
     read_siesta,
     write_siesta,
 )
-from posetta.model import Labels
+from xpkg.model import Labels
 
 labels = Labels()
 

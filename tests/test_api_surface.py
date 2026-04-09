@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import posetta.api as api
+import xpkg.api as api
 
 
 def test_posetta_api_exposes_io_contract() -> None:

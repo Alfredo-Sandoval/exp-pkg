@@ -7,8 +7,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from posetta.io.readers import read_pose_node_names, read_pose_track, resolve_pose_node_indices
-from posetta.io.readers.dlc import read_node_names, read_track, resolve_node_indices
+from xpkg.io.readers import read_pose_node_names, read_pose_track, resolve_pose_node_indices
+from xpkg.io.readers.dlc import read_node_names, read_track, resolve_node_indices
 
 
 def _make_dlc_dataframe(*, include_likelihood: bool = True) -> pd.DataFrame:

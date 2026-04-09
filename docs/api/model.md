@@ -2,7 +2,7 @@
 
 <div class="page-intro">
 <p>
-<code>posetta.model</code> holds the pose-data objects used across the library.
+<code>xpkg.model</code> holds the pose-data objects used across the library.
 If you are building tools on top of Posetta, this is usually the first module
 to import.
 </p>
@@ -79,7 +79,7 @@ model outputs.
 ## Creating a Skeleton
 
 ```python
-from posetta.model import build_keypoint_skeleton
+from xpkg.model import build_keypoint_skeleton
 
 skeleton = build_keypoint_skeleton(
     ["nose", "left_ear", "right_ear", "tail_base"],
@@ -92,7 +92,7 @@ no explicit links yet.
 
 ## Loading a Skeleton Definition
 
-`posetta.model` also exposes skeleton loading helpers:
+`xpkg.model` also exposes skeleton loading helpers:
 
 - `load_skeleton`
 - `load_skeleton_dlc`
@@ -103,7 +103,7 @@ no explicit links yet.
 Example:
 
 ```python
-from posetta.model import load_skeleton
+from xpkg.model import load_skeleton
 
 skeleton = load_skeleton("config.yaml")
 print(skeleton.name)
@@ -113,7 +113,7 @@ print(skeleton.keypoint_names)
 ## Creating a Minimal Labels Archive
 
 ```python
-from posetta.model import (
+from xpkg.model import (
     Labels,
     LabeledFrame,
     Instance,

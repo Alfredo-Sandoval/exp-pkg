@@ -14,8 +14,8 @@ If instructions conflict, follow this order:
 
 Canonical identity lives in `repo_profile.yaml`.
 
-- `repo.name`: `posetta`
-- `repo.slug`: `Alfredo-Sandoval/Posetta`
+- `repo.name`: `exp-pkg`
+- `repo.slug`: `Alfredo-Sandoval/exp-pkg`
 - `repo.preset`: `base`
 - `repo.support_matrix`: `macos`, `linux`
 

@@ -36,9 +36,9 @@ how to stage, validate, and commit safely.
 
 The current round-trip serializer lives in the legacy archive layer:
 
-- `posetta.io.siesta_format.write_siesta`
-- `posetta.io.siesta_format.update_labels_siesta`
-- `posetta.io.siesta_format.read_siesta`
+- `xpkg.io.siesta_format.write_siesta`
+- `xpkg.io.siesta_format.update_labels_siesta`
+- `xpkg.io.siesta_format.read_siesta`
 
 Those functions already know how to carry labels, predictions, segmentation,
 metrics, metadata, and manifest information together. The workspace layer does
@@ -154,7 +154,7 @@ change.
 
 The current code suggests a practical sequence.
 
-1. Split `posetta.io.project_workspace` into smaller layers.
+1. Split `xpkg.io.project_workspace` into smaller layers.
    Right now descriptor logic, media management, imports, migration, save
    staging, packing, and validation all live in one module.
 2. Separate store protocol from archive semantics.
