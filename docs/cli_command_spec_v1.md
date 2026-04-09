@@ -4,8 +4,8 @@ This document defines the shipped CLI contract for the xpkg v1 project and
 artifact workflow.
 
 The current CLI is workspace-first for project creation, packing, unpacking,
-and validation, while still exposing transition helpers for `.sta` archives and
-older `.siesta` aliases.
+and validation, while still exposing transition helpers for `.xpkg` archives
+and legacy `.sta` / `.siesta` aliases.
 
 ## Command Surface
 
@@ -68,7 +68,7 @@ Import foreign or legacy data into a workspace.
 xpkg import dlc csv --csv tracking.csv --video video.mp4 --out "./My Project"
 xpkg import dlc h5 --h5 tracking.h5 --video video.mp4 --out "./My Project"
 xpkg import sleap --slp labels.pkg.slp --out "./My Project"
-xpkg import legacy --file tracking.sta --out "./My Project"
+xpkg import legacy --file tracking.xpkg --out "./My Project"
 ```
 
 ### Required behavior
@@ -79,8 +79,8 @@ xpkg import legacy --file tracking.sta --out "./My Project"
 - Writes authoritative mutable state into `.xpkg/`.
 - Populates `Media/` when the import produces managed media.
 - Updates `PROJECT.json` metadata and timestamps.
-- Accepts legacy `.sta` input, along with older `.siesta` aliases, through the
-  `legacy` importer.
+- Accepts canonical `.xpkg` input, along with older `.sta` / `.siesta`
+  aliases, through the `legacy` importer.
 
 ### Non-goals
 
@@ -139,40 +139,40 @@ xpkg unpack "./My Project.expkg" --out "./My Project"
 
 ## `xpkg validate`
 
-Validate a workspace, packed `.expkg` artifact, or legacy `.sta` / `.siesta`
-archive.
+Validate a workspace, packed `.expkg` artifact, or native `.xpkg` /
+legacy `.sta` / `.siesta` archive.
 
 ### Synopsis
 
 ```bash
 xpkg validate "./My Project"
 xpkg validate "./My Project.expkg"
-xpkg validate "./tracking.sta"
+xpkg validate "./tracking.xpkg"
 ```
 
 ### Required behavior
 
-- Accepts a workspace folder, `.expkg` file, or legacy `.sta` / `.siesta`
-  archive.
+- Accepts a workspace folder, `.expkg` file, or native `.xpkg` /
+  legacy `.sta` / `.siesta` archive.
 - Fails loudly when the supplied path does not satisfy the corresponding
   contract.
 - Leaves the validated artifact unchanged.
 
 ## `xpkg migrate`
 
-Migrate a legacy `.sta` archive, or older `.siesta` alias, into a
+Migrate a `.xpkg` archive, or older `.sta` / `.siesta` alias, into a
 workspace-first xpkg project.
 
 ### Synopsis
 
 ```bash
-xpkg migrate "./tracking.sta" --out "./My Project"
+xpkg migrate "./tracking.xpkg" --out "./My Project"
 ```
 
 ### Required behavior
 
-- Accepts a legacy `.sta` archive as input, with `.siesta` retained as an
-  older alias.
+- Accepts a canonical `.xpkg` archive as input, with `.sta` / `.siesta`
+  retained as older aliases.
 - Creates or updates a workspace at the requested output path.
 - Preserves the logical project contents while rewriting them into the
   workspace-first xpkg layout.
@@ -197,7 +197,7 @@ target.
 ## Transition Guidance
 
 - New project creation follows the workspace + `.expkg` contract.
-- `.sta` remains the canonical edge archive suffix during transition work.
-- `.siesta` remains supported only as a legacy alias for import/read paths.
+- `.xpkg` is the canonical edge archive suffix during transition work.
+- `.sta` / `.siesta` remain supported only as legacy aliases for import/read paths.
 - No new public examples should frame `.siesta` as the native or preferred
   user-facing archive format.

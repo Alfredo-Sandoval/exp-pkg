@@ -23,8 +23,8 @@ workspace lifecycle operations, and portable project artifacts.
 
 `.siesta` now belongs to the edge of the system: migration, legacy aliases,
 fixtures, and compatibility workflows. The explicit edge surface for that work
-is `xpkg.compat`, with `.sta` as the canonical archive suffix and `.siesta` as
-the older compatibility alias.
+is `xpkg.compat`, with `.xpkg` as the canonical archive suffix and `.sta` /
+`.siesta` as older compatibility aliases.
 
 ## Positioning
 
@@ -159,8 +159,8 @@ command surface in `docs/cli_command_spec_v1.md`.
 
 ## Current Compatibility Layer
 
-The current implementation still exposes low-level `.sta` archive helpers and
-older `.siesta` aliases, but they should be treated as edge compatibility
+The current implementation still exposes low-level `.xpkg` archive helpers and
+older `.sta` / `.siesta` aliases, but they should be treated as edge compatibility
 surfaces rather than the center of the product.
 
 Use them for:
@@ -177,14 +177,14 @@ exists, and what has to happen before it can shrink further, lives in
 Example:
 
 ```python
-from xpkg.compat import read_sta
+from xpkg.compat import read_xpkg
 from xpkg.adapters import convert_dlc_csv
 
-# Convert DeepLabCut tracking into a canonical .sta bundle
-convert_dlc_csv("tracking.csv", "video.mp4", "tracking.sta")
+# Convert DeepLabCut tracking into a canonical .xpkg bundle
+convert_dlc_csv("tracking.csv", "video.mp4", "tracking.xpkg")
 
 # Read the compatibility bundle back when you need direct archive access
-payload = read_sta("tracking.sta", lazy=False)
+payload = read_xpkg("tracking.xpkg", lazy=False)
 labels = payload["labels"]
 ```
 
@@ -203,7 +203,7 @@ print(skeleton.keypoint_names)
 ## CLI
 
 The current CLI is a hybrid of workspace-first project commands and transition
-helpers for `.sta` archives and older `.siesta` aliases:
+helpers for `.xpkg` archives and legacy `.sta` / `.siesta` aliases:
 
 ```bash
 xpkg init "./My Project"
@@ -211,22 +211,22 @@ xpkg import dlc csv --csv tracking.csv --video video.mp4 --out "./My Project"
 xpkg pack "./My Project"
 xpkg unpack "./My Project.expkg" --out "./My Project"
 xpkg validate "./My Project"
-xpkg migrate "./legacy.sta" --out "./My Project"
+xpkg migrate "./legacy.xpkg" --out "./My Project"
 ```
 
 The shipped command surface is documented in `docs/cli_command_spec_v1.md`.
 
 The compatibility `convert` commands remain available during the transition for
-pipelines that still need legacy `.sta` outputs at the edge of the system.
+pipelines that still need direct `.xpkg` outputs at the edge of the system.
 
 **Legacy convert DeepLabCut CSV:**
 ```bash
-xpkg convert dlc csv --csv tracking.csv --video video.mp4 --out tracking.sta
+xpkg convert dlc csv --csv tracking.csv --video video.mp4 --out tracking.xpkg
 ```
 
 **Legacy convert DeepLabCut H5:**
 ```bash
-xpkg convert dlc h5 --h5 tracking.h5 --video video.mp4 --out tracking.sta
+xpkg convert dlc h5 --h5 tracking.h5 --video video.mp4 --out tracking.xpkg
 ```
 
 **Legacy convert an entire DeepLabCut project:**

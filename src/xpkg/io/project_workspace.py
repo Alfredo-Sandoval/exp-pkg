@@ -34,6 +34,7 @@ from xpkg.io.project_layout import (
 )
 from xpkg.io.siesta_format import read_siesta
 from xpkg.io.workspace_snapshot_backend import (
+    WORKSPACE_COMMIT_ID_KEY,
     normalize_predictions_payload,
     predictions_payload_from_labels,
     read_workspace_snapshot,
@@ -51,6 +52,10 @@ def current_project_archive_path(path: str | Path) -> Path:
 
 def current_project_snapshot_path(path: str | Path) -> Path:
     return workspace_current_snapshot_path(path)
+
+
+def current_project_commit_id(path: str | Path) -> str | None:
+    return _workspace_store(path).current_commit_id()
 
 
 def current_project_state_path(path: str | Path) -> Path:
@@ -100,6 +105,11 @@ class WorkspaceStore:
         if self.has_durable_store():
             return self.open().current_archive_path().exists()
         return self.has_legacy_archive()
+
+    def current_commit_id(self) -> str | None:
+        if not self.has_durable_store():
+            return None
+        return self.open().load_current_commit().commit_id
 
     def open(self):
         from xpkg.io.siesta_store import SiestaStore
@@ -238,6 +248,7 @@ def _snapshot_metadata(bundle_payload: dict[str, Any]) -> dict[str, Any] | None:
         return None
     normalized = dict(metadata)
     normalized.pop("manifest", None)
+    normalized.pop(WORKSPACE_COMMIT_ID_KEY, None)
     return normalized
 
 
@@ -247,7 +258,9 @@ def _snapshot_metadata_from_state_payload(
     metadata = state_payload.get("metadata")
     if not isinstance(metadata, dict):
         return None
-    return dict(metadata)
+    normalized = dict(metadata)
+    normalized.pop(WORKSPACE_COMMIT_ID_KEY, None)
+    return normalized
 
 
 def _predictions_payload_from_state_payload(
@@ -265,6 +278,7 @@ def _write_workspace_state(
     labels: Labels,
     metadata: dict[str, Any] | None = None,
     predictions: dict[str, Any] | None = None,
+    commit_id: str | None = None,
 ) -> Path:
     _manage_labels_media(labels, workspace_root)
     return write_workspace_snapshot(
@@ -273,7 +287,104 @@ def _write_workspace_state(
         workspace_root=workspace_root,
         metadata=metadata,
         predictions=predictions,
+        commit_id=commit_id,
     )
+
+
+def _prediction_items_from_payload(predictions: dict[str, Any] | None) -> list[Any]:
+    from xpkg.io.siesta_format.predictions_datasets import (
+        PredictionAppendItem,
+        SerializerPredictedInstance,
+    )
+
+    normalized = normalize_predictions_payload(predictions)
+    attrs = normalized.get("attrs")
+    frames = normalized.get("frames")
+    data = normalized.get("data")
+    if not isinstance(attrs, dict) or not isinstance(frames, dict) or not isinstance(data, dict):
+        return []
+
+    committed_length = int(attrs.get("committed_length", 0) or 0)
+    if committed_length <= 0:
+        return []
+
+    video_index = list(frames.get("video_index") or [])
+    frame_index = list(frames.get("frame_index") or [])
+    num_instances = list(frames.get("num_instances") or [])
+    keypoints = list(data.get("keypoints") or [])
+    keypoint_score = list(data.get("keypoint_score") or [])
+    instance_score = list(data.get("instance_score") or [])
+    track_id = list(data.get("track_id") or [])
+    deleted = list(data.get("deleted") or [])
+    heatmaps = data.get("heatmaps")
+
+    row_count = min(committed_length, len(video_index), len(frame_index), len(num_instances))
+    items: list[Any] = []
+
+    for row_idx in range(row_count):
+        instance_count = int(num_instances[row_idx] or 0)
+        row_keypoints = keypoints[row_idx] if row_idx < len(keypoints) else []
+        row_keypoint_scores = keypoint_score[row_idx] if row_idx < len(keypoint_score) else []
+        row_instance_scores = instance_score[row_idx] if row_idx < len(instance_score) else []
+        row_track_ids = track_id[row_idx] if row_idx < len(track_id) else []
+        row_deleted = deleted[row_idx] if row_idx < len(deleted) else []
+        row_heatmaps = None
+        if isinstance(heatmaps, list) and row_idx < len(heatmaps):
+            row_heatmaps = heatmaps[row_idx]
+
+        instances: list[Any] = []
+        for inst_idx in range(instance_count):
+            point_rows = row_keypoints[inst_idx] if inst_idx < len(row_keypoints) else []
+            point_score_rows = (
+                row_keypoint_scores[inst_idx] if inst_idx < len(row_keypoint_scores) else []
+            )
+            serialized_keypoints: list[tuple[float, float, float]] = []
+            serialized_scores: list[float] = []
+
+            for point_idx, point in enumerate(point_rows):
+                if not isinstance(point, list | tuple) or len(point) < 3:
+                    continue
+                x = float(point[0])
+                y = float(point[1])
+                score = float(point[2])
+                serialized_keypoints.append((x, y, score))
+                if point_idx < len(point_score_rows):
+                    serialized_scores.append(float(point_score_rows[point_idx]))
+                else:
+                    serialized_scores.append(score)
+
+            score_value = None
+            if inst_idx < len(row_instance_scores):
+                score_value = float(row_instance_scores[inst_idx])
+
+            track_value = None
+            if inst_idx < len(row_track_ids):
+                track_value = int(row_track_ids[inst_idx])
+
+            deleted_value = False
+            if inst_idx < len(row_deleted):
+                deleted_value = bool(row_deleted[inst_idx])
+
+            instances.append(
+                SerializerPredictedInstance(
+                    keypoints=serialized_keypoints,
+                    keypoint_scores=serialized_scores,
+                    score=score_value,
+                    track_id=track_value,
+                    deleted=deleted_value,
+                )
+            )
+
+        items.append(
+            PredictionAppendItem(
+                video_index=int(video_index[row_idx]),
+                frame_index=int(frame_index[row_idx]),
+                instances=instances,
+                heatmaps=row_heatmaps,
+            )
+        )
+
+    return items
 
 
 def _commit_labels_to_workspace(
@@ -281,16 +392,60 @@ def _commit_labels_to_workspace(
     *,
     labels: Labels,
     metadata: dict[str, Any] | None = None,
-    manifest: dict[str, Any] | None = None,
-    metrics_source: Path | None = None,
+    predictions: dict[str, Any] | None = None,
     reason: str,
 ) -> Path:
-    del manifest, metrics_source, reason
+    from xpkg.io.siesta_format import write_siesta
+
+    _manage_labels_media(labels, workspace_root)
+    normalized_metadata = rewrite_workspace_metadata_paths(
+        metadata,
+        workspace_root=workspace_root,
+    )
+    normalized_predictions = (
+        predictions_payload_from_labels(labels)
+        if predictions is None
+        else normalize_predictions_payload(predictions)
+    )
+
+    stage_parent = _stage_archive_parent(workspace_root)
+    with tempfile.TemporaryDirectory(
+        prefix=".workspace_commit_",
+        dir=str(stage_parent),
+    ) as tmp_dir:
+        staged_archive = Path(tmp_dir) / f"workspace{CANONICAL_BUNDLE_SUFFIX}"
+        write_siesta(
+            staged_archive,
+            labels,
+            metadata=normalized_metadata,
+            predictions=_prediction_items_from_payload(normalized_predictions),
+        )
+        store = _workspace_store(workspace_root)
+        store.commit_archive(staged_archive, reason=reason)
+        commit_id = store.current_commit_id()
+
     return _write_workspace_state(
         workspace_root,
         labels=labels,
-        metadata=metadata,
-        predictions=predictions_payload_from_labels(labels),
+        metadata=normalized_metadata,
+        predictions=normalized_predictions,
+        commit_id=commit_id,
+    )
+
+
+def rebuild_workspace_snapshot_cache(workspace_root: Path) -> Path:
+    from xpkg.model import Labels
+
+    store = _workspace_store(workspace_root)
+    archive_path = store.current_archive_path()
+    bundle_payload = read_siesta(archive_path, lazy=False)
+    labels = Labels.load_file(archive_path.as_posix())
+    return _write_workspace_state(
+        workspace_root,
+        labels=labels,
+        metadata=_snapshot_metadata(bundle_payload),
+        predictions=_predictions_payload_from_state_payload(bundle_payload),
+        commit_id=store.current_commit_id(),
     )
 
 
@@ -546,11 +701,12 @@ def migrate_legacy_archive(
         legacy_root=legacy_path.parent,
     )
     predictions = _predictions_payload_from_state_payload(payload)
-    snapshot_path = _write_workspace_state(
+    snapshot_path = _commit_labels_to_workspace(
         root,
         labels=labels,
         metadata=metadata,
         predictions=predictions,
+        reason="workspace.migrate",
     )
 
     descriptor = load_project_descriptor(root)
@@ -640,11 +796,12 @@ def import_dlc_csv_workspace(
         )
         labels = Labels.load_file(staged_archive.as_posix())
         payload = read_siesta(staged_archive, lazy=False)
-        snapshot_path = _write_workspace_state(
+        snapshot_path = _commit_labels_to_workspace(
             root,
             labels=labels,
             metadata=_snapshot_metadata(payload),
             predictions=_predictions_payload_from_state_payload(payload),
+            reason="workspace.import.dlc_csv",
         )
     _touch_descriptor(root)
     return snapshot_path
@@ -686,11 +843,12 @@ def import_dlc_h5_workspace(
         )
         labels = Labels.load_file(staged_archive.as_posix())
         payload = read_siesta(staged_archive, lazy=False)
-        snapshot_path = _write_workspace_state(
+        snapshot_path = _commit_labels_to_workspace(
             root,
             labels=labels,
             metadata=_snapshot_metadata(payload),
             predictions=_predictions_payload_from_state_payload(payload),
+            reason="workspace.import.dlc_h5",
         )
     _touch_descriptor(root)
     return snapshot_path
@@ -730,11 +888,12 @@ def import_sleap_package_workspace(
         )
         labels = Labels.load_file(result.bundle_path.as_posix())
         payload = read_siesta(result.bundle_path, lazy=False)
-        snapshot_path = _write_workspace_state(
+        snapshot_path = _commit_labels_to_workspace(
             root,
             labels=labels,
             metadata=_snapshot_metadata(payload),
             predictions=_predictions_payload_from_state_payload(payload),
+            reason="workspace.import.sleap",
         )
     _touch_descriptor(root)
     return snapshot_path
@@ -778,6 +937,7 @@ def save_workspace_labels(
             root,
             labels=labels,
             metadata=initial_metadata,
+            predictions=predictions_payload_from_labels(labels),
             reason="workspace.save.init",
         )
         _touch_descriptor(root)
@@ -803,11 +963,12 @@ def save_workspace_labels(
         if int(candidate_predictions["attrs"]["committed_length"]) > 0:
             predictions = candidate_predictions
 
-    state_path = _write_workspace_state(
+    state_path = _commit_labels_to_workspace(
         root,
         labels=labels,
         metadata=state_metadata,
         predictions=predictions,
+        reason="workspace.save",
     )
     _touch_descriptor(root)
     labels.path = root

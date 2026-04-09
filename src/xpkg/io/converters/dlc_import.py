@@ -10,7 +10,6 @@ import pandas as pd
 
 from xpkg.core.path_registry import ensure_dir, resolve_path
 from xpkg.core.skeleton import build_keypoint_skeleton
-from xpkg.io.siesta_format.shared import CANONICAL_BUNDLE_SUFFIX
 from xpkg.io.converters.converter_helpers import (
     ConversionResult,
     ProgressCallback,
@@ -19,6 +18,7 @@ from xpkg.io.converters.converter_helpers import (
 )
 from xpkg.io.readers.dlc import read_dlc_csv_table, read_dlc_h5_table
 from xpkg.io.siesta_format import write_siesta
+from xpkg.io.siesta_format.shared import CANONICAL_BUNDLE_SUFFIX
 from xpkg.io.video import Video
 
 if TYPE_CHECKING:

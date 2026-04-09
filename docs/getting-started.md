@@ -50,8 +50,8 @@ My Project/
 - You edit a normal workspace folder.
 - xpkg owns authoritative mutable state inside `.xpkg/`.
 - You move/share/export a single `.expkg` file.
-- `.sta` is the canonical archive suffix for the compatibility layer.
-- `.siesta` remains a legacy alias during transition.
+- `.xpkg` is the canonical archive suffix for the compatibility layer.
+- `.sta` and `.siesta` remain legacy aliases during transition.
 
 This matters because the workspace is the place where media, segmentation,
 labels, and future experiment-side modalities can live together under one
@@ -64,19 +64,19 @@ workspace command surface.
 ## Edge compatibility API
 
 ```python
-from xpkg.compat import read_sta, write_sta
+from xpkg.compat import read_xpkg, write_xpkg
 from xpkg.model import Labels
 
 labels = Labels()
-write_sta("empty.sta", labels)
+write_xpkg("empty.xpkg", labels)
 
-payload = read_sta("empty.sta", lazy=False)
+payload = read_xpkg("empty.xpkg", lazy=False)
 loaded = payload["labels"]
 assert isinstance(loaded, Labels)
 ```
 
 These compatibility helpers remain useful for legacy import/read paths,
-fixtures, and transition work. `read_sta` returns a dict with these keys:
+fixtures, and transition work. `read_xpkg` returns a dict with these keys:
 
 | Key | Type | Contents |
 | --- | --- | --- |
@@ -93,7 +93,7 @@ from xpkg.adapters import convert_dlc_csv
 result = convert_dlc_csv(
     "tracking.csv",
     "video.mp4",
-    "tracking.sta",
+    "tracking.xpkg",
     skeleton_name="mouse",
     likelihood_threshold=0.25,
 )

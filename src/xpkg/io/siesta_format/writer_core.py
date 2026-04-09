@@ -381,7 +381,7 @@ def update_labels_siesta(
     """Overwrite label data while preserving other archive stores by default."""
 
     if not path.exists():
-        raise FileNotFoundError(f".siesta archive does not exist: {path}")
+        raise FileNotFoundError(f"archive does not exist: {path}")
 
     tmp_path: Path | None = None
 
@@ -404,7 +404,7 @@ def update_labels_siesta(
             with h5py.File(str(path), "r") as src:
                 _require_project_metadata_group(
                     src,
-                    missing_message=".siesta archive is missing the /project_metadata group",
+                    missing_message="archive is missing the /project_metadata group",
                 )
 
                 existing_tracks = read_tracks_group(src)

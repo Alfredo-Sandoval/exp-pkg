@@ -102,7 +102,7 @@ write_siesta(seed_archive, labels)
 store = create_store_from_archive(workspace_root / ".xpkg", seed_archive)
 
 # 3. Later, stage a fresh compatibility archive with the normal writer
-staged_archive = workspace_root / "Exports" / "session-next.siesta"
+staged_archive = workspace_root / "Exports" / "session-next.xpkg"
 write_siesta(staged_archive, labels)
 
 # 4. Commit the staged archive as the new durable head
@@ -118,8 +118,9 @@ payload = read_siesta(store.current_archive_path(), lazy=False)
 The experimental format surface currently exposes:
 
 - `create_store_from_archive(store_root, initial_archive)`
+- `create_store_from_xpkg(store_root, initial_xpkg)`
 - `create_store_from_sta(store_root, initial_sta)`
-  This is a compatibility alias. It still accepts `.siesta` archives.
+  This is a compatibility alias. It still accepts `.sta` / `.siesta` archives.
 - `open_store(store_root)`
 - `SiestaStore.current_archive_path()`
 - `SiestaStore.commit_new_archive(...)`

@@ -75,9 +75,9 @@ This matches the current workspace layout in `src/xpkg/io/project_layout.py`.
       000000000002/
         commit.json
     objects/
-      ab/cd/obj_<sha256>.sta
+      ab/cd/obj_<sha256>.xpkg
     workspace/
-      tmp-<txn>.sta
+      tmp-<txn>.xpkg
     state/
       current.json
   Media/
@@ -93,7 +93,7 @@ These files define committed state:
 - `superblock.a.json`
 - `superblock.b.json`
 - `commits/*/commit.json`
-- `objects/**/obj_<sha256>.sta`
+- `objects/**/obj_<sha256>.xpkg`
 
 ### Rebuildable cache
 
@@ -112,7 +112,7 @@ committed head and regenerate it.
 3. Commit metadata is immutable.
 4. `state/current.json` may lag the committed head, but it must never get ahead
    of it.
-5. No commit mutates an existing committed `.sta` object in place.
+5. No commit mutates an existing committed `.xpkg` object in place.
 
 ## Storage Primitives
 
@@ -148,7 +148,7 @@ store lock.
 ### Step 1: prepare staged payload
 
 - Normalize and copy media into the workspace if needed.
-- Materialize a fresh staged `.sta` archive under `.xpkg/workspace/`.
+- Materialize a fresh staged `.xpkg` archive under `.xpkg/workspace/`.
 - Flush and `fsync()` the staged archive before it is referenced by anything
   else.
 
@@ -271,7 +271,7 @@ change from:
 
 to:
 
-- "produce fresh `.sta` payload"
+- "produce fresh `.xpkg` payload"
 - "commit into durable store"
 - "refresh `state/current.json` cache"
 
@@ -306,7 +306,7 @@ Manual verification should cover:
 1. Keep the current `SiestaStore` metadata model and recovery shape.
 2. Make the committed head authoritative for workspace saves.
 3. Downgrade `state/current.json` from source of truth to rebuildable cache.
-4. Keep `.sta` as the committed immutable payload for now.
+4. Keep `.xpkg` as the committed immutable payload for now.
 5. Leave oplog and richer autosave recovery for a later phase.
 
 ## Bottom Line

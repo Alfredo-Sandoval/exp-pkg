@@ -1,15 +1,7 @@
-# Runtime dependencies
-numpy>=1.26
-pandas>=2.2
-h5py>=3.11
-opencv-python>=4.10
-imageio>=2.36
-imageio-ffmpeg>=0.5
-cattrs>=24.1
-PyYAML>=6.0
-av>=12.0
-
-# Quality gates
+# Local development and docs tooling.
 pytest>=8.3
 ruff>=0.9
 ty>=0.0.20
+mkdocs>=1.6
+mkdocs-material>=9.5
+mkdocstrings[python]>=0.24

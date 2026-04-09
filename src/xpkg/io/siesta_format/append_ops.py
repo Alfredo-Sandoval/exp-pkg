@@ -103,13 +103,13 @@ def append_predictions_siesta(
             frames_group = preds_group.get("frames")
             data_group = preds_group.get("data")
             if frames_group is None or data_group is None:
-                raise ValueError(".siesta archive is missing predictions frames/data groups")
+                raise ValueError("archive is missing predictions frames/data groups")
             if not isinstance(frames_group, h5py.Group) or not isinstance(data_group, h5py.Group):
                 raise TypeError("Predictions frames/data must be h5py Groups")
 
             keypoints_ds = data_group.get("keypoints")
             if keypoints_ds is None:
-                raise ValueError(".siesta archive is missing predictions/data/keypoints dataset")
+                raise ValueError("archive is missing predictions/data/keypoints dataset")
             if not isinstance(keypoints_ds, h5py.Dataset):
                 raise TypeError("Predictions keypoints must be an h5py Dataset")
 

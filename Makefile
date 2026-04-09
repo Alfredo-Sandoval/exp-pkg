@@ -1,9 +1,10 @@
-.PHONY: env setup bootstrap env-macos env-linux env-windows loc lint typecheck test qa build package-check docs-build docs-serve clean
+.PHONY: env setup bootstrap env-macos env-linux env-windows loc lint typecheck test qa ci-local build package-check docs-build docs-serve clean
 
 ENV_ARGS ?=
 PYTHON ?= python
 SOURCE_DIRS ?= src
 DOCS_ADDR ?= 127.0.0.1:8123
+RUN_IN_ENV := bash environment/run-in-env.sh
 EXCLUDE_PATHS ?= .git .venv venv env node_modules .next .turbo out __pycache__ *.egg-info .eggs .pytest_cache .ruff_cache .mypy_cache .cache build dist htmlcov coverage .coverage site results data external
 LOC_PRUNE_NAMES := $(foreach p,$(EXCLUDE_PATHS),-name '$(p)' -o ) -false
 LOC_GROUP_DEPTH ?= 2
@@ -30,29 +31,32 @@ env-windows:
 	@echo "powershell -ExecutionPolicy Bypass -File environment/windows/setup.ps1"
 
 lint:
-	ruff check .
+	$(RUN_IN_ENV) ruff check .
 
 typecheck:
-	ty check
+	$(RUN_IN_ENV) ty check
 
 test:
-	pytest
+	$(RUN_IN_ENV) pytest
 
 qa: lint typecheck test
 
+ci-local: lint typecheck test package-check docs-build
+
 build:
-	env UV_CACHE_DIR="$${UV_CACHE_DIR:-/tmp/uv-cache}" uv build --out-dir dist --clear
+	$(RUN_IN_ENV) env UV_CACHE_DIR="$${UV_CACHE_DIR:-/tmp/uv-cache}" uv build --out-dir dist --clear
 
 package-check:
 	@tmpdir="$$(mktemp -d)"; \
-	env UV_CACHE_DIR="$${UV_CACHE_DIR:-/tmp/uv-cache}" uv build --out-dir "$$tmpdir" --clear; \
-	env UV_CACHE_DIR="$${UV_CACHE_DIR:-/tmp/uv-cache}" UV_TOOL_DIR="$${UV_TOOL_DIR:-/tmp/uv-tools}" uvx twine check "$$tmpdir"/*
+	$(RUN_IN_ENV) env UV_CACHE_DIR="$${UV_CACHE_DIR:-/tmp/uv-cache}" uv build --out-dir "$$tmpdir" --clear; \
+	$(RUN_IN_ENV) env UV_CACHE_DIR="$${UV_CACHE_DIR:-/tmp/uv-cache}" UV_TOOL_DIR="$${UV_TOOL_DIR:-/tmp/uv-tools}" uvx twine check "$$tmpdir"/*; \
+	rm -rf "$$tmpdir"
 
 docs-build:
-	python -m mkdocs build --strict
+	$(RUN_IN_ENV) python -m mkdocs build --strict
 
 docs-serve:
-	python -m mkdocs serve -a $(DOCS_ADDR)
+	$(RUN_IN_ENV) python -m mkdocs serve -a $(DOCS_ADDR)
 
 # LOC summary: module breakdown (by depth) + language breakdown + file count.
 loc:

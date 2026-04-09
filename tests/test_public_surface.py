@@ -96,8 +96,8 @@ from xpkg.model import (
     load_skeleton_siesta_json,
     load_skeleton_sleap,
     load_skeleton_sta_json,
-    load_skeleton_xpkg_json,
     load_skeleton_ultralytics,
+    load_skeleton_xpkg_json,
 )
 from xpkg.services import WorkspaceLayout, WorkspaceService
 

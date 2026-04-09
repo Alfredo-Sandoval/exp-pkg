@@ -10,13 +10,13 @@ readme = "README.md"
 requires-python = ">=3.12"
 license = "LicenseRef-Proprietary"
 dependencies = [
-  "cattrs>=23.1",
-  "h5py>=3.9,<4",
-  "imageio>=2.31",
+  "cattrs>=24.1",
+  "h5py>=3.11,<4",
+  "imageio>=2.36",
   "imageio-ffmpeg>=0.5",
   "numpy>=1.26,<3",
-  "opencv-python-headless>=4.8",
-  "pandas>=2.0",
+  "opencv-python-headless>=4.10",
+  "pandas>=2.2",
   "pyyaml>=6.0",
   "tables>=3.9",
 ]
@@ -27,6 +27,11 @@ Repository = "https://github.com/Alfredo-Sandoval/exp-pkg"
 Documentation = "https://github.com/Alfredo-Sandoval/exp-pkg/tree/main/docs"
 
 [project.optional-dependencies]
+dev = [
+  "pytest>=8.3",
+  "ruff>=0.9",
+  "ty>=0.0.20",
+]
 docs = [
   "mkdocs>=1.6",
   "mkdocs-material>=9.5",

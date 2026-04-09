@@ -23,6 +23,9 @@ if TYPE_CHECKING:
     from xpkg.model import Labels
 
 
+WORKSPACE_COMMIT_ID_KEY = "xpkg_commit_id"
+
+
 def current_workspace_snapshot_path(path: str | Path) -> Path:
     """Return the canonical workspace snapshot path."""
     return workspace_state_root(path) / CURRENT_SNAPSHOT_FILENAME
@@ -326,6 +329,7 @@ def write_workspace_snapshot(
     workspace_root: Path,
     metadata: dict[str, Any] | None = None,
     predictions: dict[str, Any] | None = None,
+    commit_id: str | None = None,
 ) -> Path:
     target = resolve_path(path)
     ensure_dir(target.parent)
@@ -333,6 +337,8 @@ def write_workspace_snapshot(
         metadata,
         workspace_root=workspace_root,
     )
+    if commit_id is not None:
+        normalized_metadata[WORKSPACE_COMMIT_ID_KEY] = str(commit_id)
     document = labels_to_json_payload(labels, metadata=normalized_metadata)
     payload = document["payload"]
     _relativize_video_payload_paths(payload["videos"], workspace_root)
@@ -353,6 +359,17 @@ def read_workspace_snapshot_payload(path: str | Path) -> dict[str, Any]:
     return read_workspace_snapshot(path)
 
 
+def snapshot_commit_id(payload: Mapping[str, Any]) -> str | None:
+    metadata = payload.get("metadata")
+    if not isinstance(metadata, Mapping):
+        return None
+    raw_commit_id = metadata.get(WORKSPACE_COMMIT_ID_KEY)
+    if not isinstance(raw_commit_id, str):
+        return None
+    commit_id = raw_commit_id.strip()
+    return commit_id or None
+
+
 __all__ = [
     "current_workspace_snapshot_path",
     "normalize_predictions_payload",
@@ -360,5 +377,7 @@ __all__ = [
     "read_workspace_snapshot",
     "read_workspace_snapshot_payload",
     "rewrite_workspace_metadata_paths",
+    "snapshot_commit_id",
+    "WORKSPACE_COMMIT_ID_KEY",
     "write_workspace_snapshot",
 ]

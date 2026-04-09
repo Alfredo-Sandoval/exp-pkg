@@ -23,7 +23,7 @@ EDGE_TYPE_BODY = 1
 EDGE_TYPE_SYMMETRY = 2
 
 type YamlSkeletonFormat = Literal["dlc", "sleap", "ultralytics"]
-type SkeletonFormat = Literal["dlc", "siesta_json", "sleap", "sleap_pkg_slp", "ultralytics"]
+type SkeletonFormat = Literal["dlc", "xpkg_json", "sleap", "sleap_pkg_slp", "ultralytics"]
 
 
 def build_sleap_skeleton(
@@ -199,7 +199,7 @@ def detect_skeleton_format(path: str | Path) -> SkeletonFormat:
     ext = path.suffix.lower()
 
     if ext == ".json":
-        return "siesta_json"
+        return "xpkg_json"
     if ext == ".slp":
         if str(path).lower().endswith(".pkg.slp"):
             return "sleap_pkg_slp"
@@ -228,7 +228,7 @@ def load_skeleton(path: str | Path) -> Skeleton:
     path = Path(path)
     detected_format = detect_skeleton_format(path)
 
-    if detected_format == "siesta_json":
+    if detected_format == "xpkg_json":
         return load_skeleton_xpkg_json(path)
     if detected_format == "sleap_pkg_slp":
         return _load_skeleton_sleap_pkg_slp(path)

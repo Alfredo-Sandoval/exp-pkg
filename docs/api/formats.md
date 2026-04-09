@@ -10,7 +10,7 @@ and <code>.expkg</code>.
 
 !!! note
     Use <code>xpkg.compat</code> when you need edge archive compatibility for
-    <code>.sta</code> or legacy <code>.siesta</code> flows. Use
+    <code>.xpkg</code> or legacy <code>.sta</code> / <code>.siesta</code> flows. Use
     <code>xpkg.formats</code> for the stable project/workspace boundary.
 
 ## Project Contract

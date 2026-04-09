@@ -13,8 +13,8 @@ hide:
 xpkg is the canonical IO and artifact layer for experiment data, built around
 an editable workspace folder, a private <code>.xpkg/</code> store, and portable
 <code>.expkg</code> exports. Edge archive compatibility lives in
-<code>xpkg.compat</code>, with <code>.sta</code> as the canonical archive suffix
-and <code>.siesta</code> kept as a legacy alias during the transition.
+<code>xpkg.compat</code>, with <code>.xpkg</code> as the canonical archive suffix
+and <code>.sta</code> / <code>.siesta</code> kept as legacy aliases during the transition.
 </p>
 
 </div>
@@ -29,7 +29,7 @@ and <code>.siesta</code> kept as a legacy alias during the transition.
 | Mission | experiment-data IO and artifact contracts |
 | Public project contract | workspace folder + `.expkg` |
 | Authoritative mutable state | `.xpkg/` inside the workspace |
-| Edge compatibility layer | `xpkg.compat` for `.sta` / legacy `.siesta` |
+| Edge compatibility layer | `xpkg.compat` for `.xpkg` / legacy `.sta` / `.siesta` |
 | External adapters | DLC, SLEAP |
 | Core objects | `xpkg.model` |
 | Low-level compatibility IO | `xpkg.compat` |
@@ -48,8 +48,8 @@ and <code>.siesta</code> kept as a legacy alias during the transition.
   surface.
 - Read [Storage Direction](architecture/storage-direction.md) when you want the
   blunt explanation for why `.siesta` still exists in the implementation.
-- Use `xpkg.compat` when you need low-level `.sta` archive IO or legacy
-  `.siesta` compatibility.
+- Use `xpkg.compat` when you need low-level `.xpkg` archive IO or legacy
+  `.sta` / `.siesta` compatibility.
 - Use `xpkg.adapters` when you need to import DLC or SLEAP.
 </div>
 
@@ -74,9 +74,9 @@ and <code>.siesta</code> kept as a legacy alias during the transition.
 <div class="spec-panel" markdown="1">
 ### Archive and Compatibility IO
 
-- `read_sta`
-- `write_sta`
-- `update_labels_sta`
+- `read_xpkg`
+- `write_xpkg`
+- `update_labels_xpkg`
 - prediction append and merge
 - metrics table IO
 - validation and summary
@@ -106,8 +106,9 @@ My Project/
     My Project.expkg
 ```
 
-`.sta` is the canonical edge archive suffix. `.siesta` remains available as a
-legacy compatibility alias, but neither is the native public project artifact.
+`.xpkg` is the canonical edge archive suffix. `.sta` and `.siesta` remain
+available as legacy compatibility aliases, but none of them are the portable
+public project artifact.
 
 The workspace contract exists because experiment state usually extends beyond a
 single archive or converter output.
@@ -128,8 +129,8 @@ single archive or converter output.
 - Read [Experimental Durable Store](architecture/experimental-store.md) for the new
   commit-oriented recovery workflow.
 - Read [Model](api/model.md) for the pose object graph.
-- Read [Compatibility](api/compat.md) for the edge `.sta` / legacy `.siesta`
-  APIs.
+- Read [Compatibility](api/compat.md) for the edge `.xpkg` / legacy `.sta` /
+  `.siesta` APIs.
 - Read [Adapters](api/adapters.md) for DLC and SLEAP conversion.
 - Use the reference pages when you need exact signatures and docstrings.
 

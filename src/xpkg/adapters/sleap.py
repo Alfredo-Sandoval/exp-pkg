@@ -6,7 +6,6 @@ import argparse
 from collections.abc import Sequence
 
 import xpkg.io.converters.sleap_import as _sleap_import
-from xpkg.io.siesta_format.shared import CANONICAL_BUNDLE_SUFFIX
 from xpkg.io.converters.converter_helpers import (
     CliRunner,
     ConversionResult,
@@ -21,6 +20,7 @@ from xpkg.io.converters.progress import (
 from xpkg.io.converters.progress import (
     bridge_progress_callback,
 )
+from xpkg.io.siesta_format.shared import CANONICAL_BUNDLE_SUFFIX
 
 
 def convert_sleap_package(

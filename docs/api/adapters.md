@@ -11,7 +11,8 @@ project workflow is being wired in.
 !!! note
     The locked public artifact contract is workspace folder +
     <code>.expkg</code>. The adapter functions documented here currently emit
-    legacy <code>.siesta</code> compatibility outputs.
+    edge <code>.xpkg</code> compatibility outputs, with older
+    <code>.sta</code> / <code>.siesta</code> inputs still accepted where needed.
 
 ## Return Type
 
@@ -49,7 +50,7 @@ from xpkg.adapters import convert_dlc_csv
 result = convert_dlc_csv(
     "CollectedData_mouse.csv",
     "session.mp4",
-    "session.sta",
+    "session.xpkg",
     skeleton_name="mouse_topdown",
     likelihood_threshold=0.2,
 )
@@ -92,7 +93,7 @@ def on_progress(msg: str) -> None:
     print(msg)
 
 result = convert_dlc_csv(
-    "tracking.csv", "video.mp4", "out.sta",
+    "tracking.csv", "video.mp4", "out.xpkg",
     progress_callback=on_progress,
 )
 ```

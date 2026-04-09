@@ -246,7 +246,7 @@ def test_cli_routes_import_legacy(monkeypatch, capsys) -> None:
         captured["title"] = title
         captured["default_pack_mode"] = default_pack_mode
         captured["force"] = force
-        return Path(workspace) / ".xpkg" / "state" / "current.xpkg"
+        return Path(workspace) / ".xpkg" / "state" / "current.json"
 
     monkeypatch.setattr("xpkg.cli.import_legacy_archive", fake_import_legacy_archive)
 
@@ -274,7 +274,7 @@ def test_cli_routes_import_legacy(monkeypatch, capsys) -> None:
     }
     stdout = capsys.readouterr().out
     assert "Imported archive tracking.xpkg -> My Project" in stdout
-    assert ".xpkg/state/current.xpkg" in stdout
+    assert ".xpkg/state/current.json" in stdout
 
 
 def test_cli_routes_import_dlc_csv_workspace(monkeypatch, capsys) -> None:
@@ -301,7 +301,7 @@ def test_cli_routes_import_dlc_csv_workspace(monkeypatch, capsys) -> None:
         captured["default_pack_mode"] = default_pack_mode
         captured["force"] = force
         progress_callback("import-progress")
-        return Path(workspace) / ".xpkg" / "state" / "current.xpkg"
+        return Path(workspace) / ".xpkg" / "state" / "current.json"
 
     monkeypatch.setattr("xpkg.cli.import_dlc_csv_workspace", fake_import_dlc_csv_workspace)
 
@@ -336,7 +336,7 @@ def test_cli_routes_import_dlc_csv_workspace(monkeypatch, capsys) -> None:
     stdout = capsys.readouterr().out
     assert "import-progress" in stdout
     assert "Imported DLC CSV into My Project" in stdout
-    assert ".xpkg/state/current.xpkg" in stdout
+    assert ".xpkg/state/current.json" in stdout
 
 
 def test_cli_routes_pack_unpack_and_validate(monkeypatch, capsys) -> None:

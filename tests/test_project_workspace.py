@@ -123,6 +123,7 @@ def test_init_project_writes_workspace_contract(tmp_path: Path) -> None:
 
 
 def test_migrate_legacy_archive_creates_workspace_and_workspace_loads(tmp_path: Path) -> None:
+    from xpkg.compat import write_siesta
     from xpkg.formats import (
         current_project_archive_path,
         current_project_snapshot_path,
@@ -131,7 +132,6 @@ def test_migrate_legacy_archive_creates_workspace_and_workspace_loads(tmp_path: 
         workspace_state_root,
         workspace_store_root,
     )
-    from xpkg.compat import write_siesta
     from xpkg.model import Labels
 
     source_root = tmp_path / "source"
@@ -145,8 +145,8 @@ def test_migrate_legacy_archive_creates_workspace_and_workspace_loads(tmp_path: 
 
     assert migrated_archive == current_project_snapshot_path(workspace)
     assert migrated_archive.exists()
-    assert not current_project_archive_path(workspace).exists()
-    assert not (workspace_store_root(workspace) / "superblock.a.json").exists()
+    assert current_project_archive_path(workspace).exists()
+    assert (workspace_store_root(workspace) / "superblock.a.json").is_file()
     assert not (workspace_state_root(workspace) / "current.xpkg").exists()
     assert (workspace_state_root(workspace) / "current.json").is_file()
 
@@ -166,12 +166,12 @@ def test_migrate_legacy_archive_creates_workspace_and_workspace_loads(tmp_path: 
 
 
 def test_migrate_legacy_archive_rewrites_stale_project_metadata_paths(tmp_path: Path) -> None:
+    from xpkg.compat import write_siesta
     from xpkg.formats import (
         current_project_snapshot_path,
         init_project,
         migrate_legacy_archive,
     )
-    from xpkg.compat import write_siesta
     from xpkg.io.workspace_snapshot_backend import read_workspace_snapshot_payload
 
     legacy_root = tmp_path / "bootstrap_2026-01-13"
@@ -269,6 +269,7 @@ def test_pack_snapshot_and_unpack_roundtrip_workspace(tmp_path: Path) -> None:
 
 
 def test_pack_portable_and_unpack_uses_managed_media_after_source_removal(tmp_path: Path) -> None:
+    from xpkg.compat import write_siesta
     from xpkg.formats import (
         migrate_legacy_archive,
         pack_project,
@@ -276,7 +277,6 @@ def test_pack_portable_and_unpack_uses_managed_media_after_source_removal(tmp_pa
         validate_artifact,
         workspace_media_root,
     )
-    from xpkg.compat import write_siesta
     from xpkg.model import Labels
 
     source_root = tmp_path / "source"
@@ -318,13 +318,13 @@ def test_pack_portable_and_unpack_uses_managed_media_after_source_removal(tmp_pa
 
 
 def test_workspace_load_auto_adopts_legacy_state_archive(tmp_path: Path) -> None:
+    from xpkg.compat import write_siesta
     from xpkg.formats import (
         current_project_archive_path,
         init_project,
         workspace_state_root,
         workspace_store_root,
     )
-    from xpkg.compat import write_siesta
     from xpkg.model import Labels
 
     source_root = tmp_path / "source"
@@ -369,7 +369,7 @@ def test_labels_save_file_to_workspace_creates_first_committed_state(tmp_path: P
 
     assert saved_target == workspace.as_posix()
     assert current_snapshot.exists()
-    assert not current_project_archive_path(workspace).exists()
+    assert current_project_archive_path(workspace).exists()
     assert labels.path == workspace
 
     loaded = Labels.load_file(workspace.as_posix())
@@ -379,11 +379,11 @@ def test_labels_save_file_to_workspace_creates_first_committed_state(tmp_path: P
 
 
 def test_labels_save_file_to_workspace_preserves_predictions(tmp_path: Path) -> None:
+    from xpkg.compat import PredictionAppendItem, SerializerPredictedInstance, write_siesta
     from xpkg.formats import (
         current_project_snapshot_path,
         migrate_legacy_archive,
     )
-    from xpkg.compat import PredictionAppendItem, SerializerPredictedInstance, write_siesta
     from xpkg.io.workspace_snapshot_backend import read_workspace_snapshot_payload
     from xpkg.model import Labels
 
@@ -453,13 +453,59 @@ def test_workspace_load_prefers_current_snapshot(tmp_path: Path) -> None:
     assert float(pts["y"][0]) == 102.0
 
 
+def test_workspace_load_rebuilds_missing_snapshot_from_committed_archive(tmp_path: Path) -> None:
+    from xpkg.formats import current_project_snapshot_path, init_project
+    from xpkg.model import Labels
+
+    source_root = tmp_path / "source"
+    source_root.mkdir()
+    labels = _make_labels(source_root, x=21.0, y=22.0)
+    workspace = tmp_path / "Rebuild Missing Snapshot"
+    init_project(workspace, title="Rebuild Missing Snapshot")
+
+    Labels.save_file(labels, workspace.as_posix())
+    snapshot_path = current_project_snapshot_path(workspace)
+    snapshot_path.unlink()
+
+    loaded = Labels.load_file(workspace.as_posix())
+    pts = loaded.labeled_frames[0].instances[0].get_points_array(copy=False, full=True)
+
+    assert float(pts["x"][0]) == 21.0
+    assert float(pts["y"][0]) == 22.0
+    assert snapshot_path.exists()
+
+
+def test_workspace_load_ignores_stale_snapshot_when_commit_id_mismatches(tmp_path: Path) -> None:
+    from xpkg.formats import current_project_snapshot_path, init_project
+    from xpkg.model import Labels
+
+    source_root = tmp_path / "source"
+    source_root.mkdir()
+    initial_labels = _make_labels(source_root, x=11.0, y=12.0)
+    updated_labels = _make_labels(source_root, x=31.0, y=32.0)
+    workspace = tmp_path / "Stale Snapshot"
+    init_project(workspace, title="Stale Snapshot")
+
+    Labels.save_file(initial_labels, workspace.as_posix())
+    snapshot_path = current_project_snapshot_path(workspace)
+    stale_snapshot = json.loads(snapshot_path.read_text(encoding="utf-8"))
+
+    Labels.save_file(updated_labels, workspace.as_posix())
+    snapshot_path.write_text(json.dumps(stale_snapshot, indent=2) + "\n", encoding="utf-8")
+
+    loaded = Labels.load_file(workspace.as_posix())
+    pts = loaded.labeled_frames[0].instances[0].get_points_array(copy=False, full=True)
+    assert float(pts["x"][0]) == 31.0
+    assert float(pts["y"][0]) == 32.0
+
+
 def test_summarize_project_and_validate_project_read_labels_video_group(tmp_path: Path) -> None:
+    from xpkg.compat import summarize_project, validate_project
     from xpkg.formats import (
         current_project_archive_path,
         current_project_snapshot_path,
         init_project,
     )
-    from xpkg.compat import summarize_project, validate_project
     from xpkg.model import Labels
 
     source_video = tmp_path / "source.avi"

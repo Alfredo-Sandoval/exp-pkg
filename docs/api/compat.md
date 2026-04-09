@@ -3,8 +3,8 @@
 <div class="page-intro">
 <p>
 <code>xpkg.compat</code> is the edge compatibility layer for archive-first
-flows. It exposes the canonical <code>.sta</code> helpers and keeps older
-<code>.siesta</code> names as aliases during the transition.
+flows. It exposes the canonical <code>.xpkg</code> helpers and keeps older
+<code>.sta</code> / <code>.siesta</code> names as aliases during the transition.
 </p>
 </div>
 
@@ -17,13 +17,13 @@ flows. It exposes the canonical <code>.sta</code> helpers and keeps older
 
 ## Canonical Archive Helpers
 
-### `write_sta(path, labels, predictions=None, suggestions=None, metadata=None, metrics=None, manifest=None)`
+### `write_xpkg(path, labels, predictions=None, suggestions=None, metadata=None, metrics=None, manifest=None)`
 
-Create or overwrite a canonical `.sta` archive on disk.
+Create or overwrite a canonical `.xpkg` archive on disk.
 
-### `read_sta(path, *, lazy=False)`
+### `read_xpkg(path, *, lazy=False)`
 
-Load a `.sta` archive and return a dict with:
+Load a `.xpkg` archive and return a dict with:
 
 | Key | Type | Contents |
 | --- | --- | --- |
@@ -32,23 +32,23 @@ Load a `.sta` archive and return a dict with:
 | `"videos"` | `list[Video]` | Video references |
 | `"predictions"` | `dict` or `None` | Prediction payloads if present |
 
-### `update_labels_sta(path, labels, *, journal=True, regenerate_predictions=False)`
+### `update_labels_xpkg(path, labels, *, journal=True, regenerate_predictions=False)`
 
 Overwrite the labels portion of an existing archive while preserving the rest.
 
-### `append_predictions_sta(path, batch, *, allow_max_inst_growth=False, journal=True, fsync=True, run_metadata=None) -> int`
+### `append_predictions_xpkg(path, batch, *, allow_max_inst_growth=False, journal=True, fsync=True, run_metadata=None) -> int`
 
 Append predictions to an existing archive.
 
-### `merge_predictions_sta(path, batch, *, allow_max_inst_growth=True, journal=True, fsync=True, run_metadata=None) -> int`
+### `merge_predictions_xpkg(path, batch, *, allow_max_inst_growth=True, journal=True, fsync=True, run_metadata=None) -> int`
 
 Merge predictions into existing archive frames.
 
-### `summarize_sta(path)`
+### `summarize_xpkg(path)`
 
 Return a lightweight summary of an archive or project path.
 
-### `validate_sta(path)`
+### `validate_xpkg(path)`
 
 Run structural validation against the archive layout and raise if invalid.
 
@@ -66,6 +66,11 @@ Write or append one metrics table into an archive.
 
 The following names remain available as compatibility aliases:
 
+- `read_sta`
+- `write_sta`
+- `update_labels_sta`
+- `append_predictions_sta`
+- `merge_predictions_sta`
 - `read_siesta`
 - `write_siesta`
 - `update_labels_siesta`
@@ -81,9 +86,13 @@ tooling that still speaks in `.siesta` terms.
 
 Create a directory-backed durable store from an existing archive payload.
 
+### `create_store_from_xpkg(store_root, initial_xpkg) -> SiestaStore`
+
+Canonical entrypoint that makes the `.xpkg` naming explicit.
+
 ### `create_store_from_sta(store_root, initial_sta) -> SiestaStore`
 
-Compatibility-friendly entrypoint that makes the `.sta` naming explicit.
+Legacy alias that keeps older `.sta` naming available at the edge.
 
 ### `open_store(store_root) -> SiestaStore`
 

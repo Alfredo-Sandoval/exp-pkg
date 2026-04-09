@@ -70,7 +70,7 @@ def _as_array(
 ) -> np.ndarray:
     obj = _materialize(value)
     if obj is None:
-        raise ValueError(f"Required field '{name}' missing in .siesta archive payload")
+        raise ValueError(f"Required field '{name}' missing in archive payload")
     arr = np.asarray(obj, dtype=dtype)
     if arr.ndim == 0:
         arr = arr.reshape(1)
@@ -921,26 +921,31 @@ def labels_load_file(
     from xpkg.io.project_layout import resolve_workspace_root, workspace_current_snapshot_path
     from xpkg.io.project_workspace import (
         current_project_archive_path,
+        current_project_commit_id,
         rebase_workspace_payload_videos,
+        rebuild_workspace_snapshot_cache,
     )
-    from xpkg.io.workspace_snapshot_backend import read_workspace_snapshot
+    from xpkg.io.workspace_snapshot_backend import read_workspace_snapshot, snapshot_commit_id
 
     workspace_root = resolve_workspace_root(path)
     if workspace_root is not None:
         snapshot_path = workspace_current_snapshot_path(workspace_root)
         if snapshot_path.exists():
             snapshot_payload = read_workspace_snapshot(snapshot_path)
-            rebase_workspace_payload_videos(snapshot_payload, workspace_root)
-            obj = labels_from_siesta_payload(
-                cls,
-                snapshot_payload,
-                suggestions_payload=snapshot_payload.get("suggestions"),
-                video_builder=video_builder,
-                video_finalizer=video_finalizer,
-            )
-            obj.validate()
-            obj.path = workspace_root
-            return obj
+            snapshot_head = snapshot_commit_id(snapshot_payload)
+            current_head = current_project_commit_id(workspace_root)
+            if current_head is None or snapshot_head == current_head:
+                rebase_workspace_payload_videos(snapshot_payload, workspace_root)
+                obj = labels_from_siesta_payload(
+                    cls,
+                    snapshot_payload,
+                    suggestions_payload=snapshot_payload.get("suggestions"),
+                    video_builder=video_builder,
+                    video_finalizer=video_finalizer,
+                )
+                obj.validate()
+                obj.path = workspace_root
+                return obj
 
         archive_path = current_project_archive_path(workspace_root)
         if not archive_path.exists():
@@ -957,6 +962,7 @@ def labels_load_file(
             video_finalizer=video_finalizer,
         )
         obj.validate()
+        rebuild_workspace_snapshot_cache(workspace_root)
         obj.path = workspace_root
         return obj
 
