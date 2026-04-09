@@ -1,4 +1,4 @@
-"""Public format exports for the native `.siesta` archive format."""
+"""Compatibility exports for canonical `.xpkg` archives and legacy aliases."""
 
 from __future__ import annotations
 

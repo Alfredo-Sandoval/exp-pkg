@@ -229,7 +229,7 @@ def load_skeleton(path: str | Path) -> Skeleton:
     detected_format = detect_skeleton_format(path)
 
     if detected_format == "siesta_json":
-        return load_skeleton_siesta_json(path)
+        return load_skeleton_xpkg_json(path)
     if detected_format == "sleap_pkg_slp":
         return _load_skeleton_sleap_pkg_slp(path)
     if detected_format == "sleap":
@@ -241,8 +241,8 @@ def load_skeleton(path: str | Path) -> Skeleton:
     raise AssertionError(f"Unhandled skeleton format: {detected_format}")
 
 
-def load_skeleton_siesta_json(path: str | Path, **kwargs: Any) -> Skeleton:
-    """Load skeleton from xpkg JSON format.
+def load_skeleton_xpkg_json(path: str | Path, **kwargs: Any) -> Skeleton:
+    """Load skeleton from canonical xpkg JSON / `.xpkg`-era format.
 
     Args:
         path: Path to JSON file with 'keypoints' and optional 'links'.
@@ -251,6 +251,16 @@ def load_skeleton_siesta_json(path: str | Path, **kwargs: Any) -> Skeleton:
         Skeleton: Normalized skeleton instance.
     """
     return Skeleton.load(Path(path), **kwargs)
+
+
+def load_skeleton_sta_json(path: str | Path, **kwargs: Any) -> Skeleton:
+    """Legacy alias for `load_skeleton_xpkg_json(...)`."""
+    return load_skeleton_xpkg_json(path, **kwargs)
+
+
+def load_skeleton_siesta_json(path: str | Path, **kwargs: Any) -> Skeleton:
+    """Compatibility alias for `load_skeleton_xpkg_json(...)`."""
+    return load_skeleton_xpkg_json(path, **kwargs)
 
 
 def load_skeleton_dlc(path: str | Path) -> Skeleton:
@@ -435,6 +445,8 @@ __all__ = [
     "detect_yaml_skeleton_format",
     "load_skeleton",
     "load_skeleton_dlc",
+    "load_skeleton_xpkg_json",
+    "load_skeleton_sta_json",
     "load_skeleton_siesta_json",
     "load_skeleton_sleap",
     "load_skeleton_ultralytics",

@@ -1,22 +1,22 @@
 # xpkg v1 CLI Command Spec
 
-This document defines the locked public CLI contract for the xpkg v1 artifact
-model.
-
-It describes the intended public commands for workspace-first project handling.
-Current code may still expose legacy `.siesta` conversion helpers during the
-transition. Those are compatibility interfaces, not the long-term public
+This document defines the shipped CLI contract for the xpkg v1 project and
 artifact workflow.
+
+The current CLI is workspace-first for project creation, packing, unpacking,
+and validation, while still exposing transition helpers for `.sta` archives and
+older `.siesta` aliases.
 
 ## Command Surface
 
-The v1 public command surface is:
+The shipped command surface is:
 
 ```text
 xpkg init
 xpkg import
 xpkg pack
 xpkg unpack
+xpkg validate
 xpkg migrate
 ```
 
@@ -68,7 +68,7 @@ Import foreign or legacy data into a workspace.
 xpkg import dlc csv --csv tracking.csv --video video.mp4 --out "./My Project"
 xpkg import dlc h5 --h5 tracking.h5 --video video.mp4 --out "./My Project"
 xpkg import sleap --slp labels.pkg.slp --out "./My Project"
-xpkg import legacy --file tracking.siesta --out "./My Project"
+xpkg import legacy --file tracking.sta --out "./My Project"
 ```
 
 ### Required behavior
@@ -79,7 +79,8 @@ xpkg import legacy --file tracking.siesta --out "./My Project"
 - Writes authoritative mutable state into `.xpkg/`.
 - Populates `Media/` when the import produces managed media.
 - Updates `PROJECT.json` metadata and timestamps.
-- Accepts legacy `.siesta` input through the `legacy` importer.
+- Accepts legacy `.sta` input, along with older `.siesta` aliases, through the
+  `legacy` importer.
 
 ### Non-goals
 
@@ -136,33 +137,52 @@ xpkg unpack "./My Project.expkg" --out "./My Project"
 - Refuses to unpack into a conflicting non-empty directory unless an explicit
   future overwrite flag is added.
 
-## `xpkg migrate`
+## `xpkg validate`
 
-Upgrade an existing xpkg artifact to the latest supported public contract
-without changing the project’s logical contents.
+Validate a workspace, packed `.expkg` artifact, or legacy `.sta` / `.siesta`
+archive.
 
 ### Synopsis
 
 ```bash
-xpkg migrate "./My Project"
-xpkg migrate "./My Project.expkg" --out "./My Project"
+xpkg validate "./My Project"
+xpkg validate "./My Project.expkg"
+xpkg validate "./tracking.sta"
 ```
 
 ### Required behavior
 
-- Operates on xpkg-owned artifacts only.
-- Upgrades workspace descriptor/layout versions when needed.
-- When the input is `.expkg`, unpacks first and then migrates into the output
-  workspace.
-- Preserves logical project contents across migration.
-- Leaves foreign-format ingestion to `xpkg import`, not `xpkg migrate`.
+- Accepts a workspace folder, `.expkg` file, or legacy `.sta` / `.siesta`
+  archive.
+- Fails loudly when the supplied path does not satisfy the corresponding
+  contract.
+- Leaves the validated artifact unchanged.
+
+## `xpkg migrate`
+
+Migrate a legacy `.sta` archive, or older `.siesta` alias, into a
+workspace-first xpkg project.
+
+### Synopsis
+
+```bash
+xpkg migrate "./tracking.sta" --out "./My Project"
+```
+
+### Required behavior
+
+- Accepts a legacy `.sta` archive as input, with `.siesta` retained as an
+  older alias.
+- Creates or updates a workspace at the requested output path.
+- Preserves the logical project contents while rewriting them into the
+  workspace-first xpkg layout.
+- Leaves DLC, SLEAP, and other third-party ingestion to `xpkg import`.
 
 ### Non-goals
 
-- `migrate` is not the primary entrypoint for importing DLC, SLEAP, or other
-  third-party formats.
+- `migrate` is not currently a general xpkg-to-xpkg upgrade command.
 - `migrate` does not define or freeze the private internal `.xpkg/`
-  sublayout. It upgrades it as needed behind the public contract.
+  sublayout.
 
 ## Open Behavior
 
@@ -177,7 +197,7 @@ target.
 ## Transition Guidance
 
 - New project creation follows the workspace + `.expkg` contract.
-- `.siesta` remains supported only for legacy import/read and optional explicit
-  export during transition.
-- No new public examples should frame `.siesta` as the native user-facing
-  project artifact.
+- `.sta` remains the canonical edge archive suffix during transition work.
+- `.siesta` remains supported only as a legacy alias for import/read paths.
+- No new public examples should frame `.siesta` as the native or preferred
+  user-facing archive format.

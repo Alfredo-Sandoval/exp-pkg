@@ -1,6 +1,10 @@
-"""Public format entry points."""
+"""Public format entry points for workspace and project artifacts."""
 
 from __future__ import annotations
+
+import importlib
+import warnings
+from typing import Any
 
 from xpkg.formats.project import (
     EXPKG_SUFFIX,
@@ -32,45 +36,15 @@ from xpkg.formats.project import (
     workspace_store_root,
     write_project_descriptor,
 )
-from xpkg.formats.siesta import (
-    LazyDatasetHandle,
-    MaxInstancesExceededError,
-    PredictionAppendItem,
-    SerializerPredictedInstance,
-    append_predictions_siesta,
-    merge_predictions_siesta,
-    read_metrics_table,
-    read_siesta,
-    summarize_project,
-    update_labels_siesta,
-    validate_project,
-    write_metrics_table,
-    write_siesta,
-)
-from xpkg.formats.siesta_store import (
-    SiestaStore,
-    create_store_from_archive,
-    create_store_from_sta,
-    open_store,
-)
 from xpkg.io.labels.json_format import read_labels_json_payload, write_labels_json
 
 __all__ = [
-    "LazyDatasetHandle",
-    "MaxInstancesExceededError",
     "EXPKG_SUFFIX",
-    "PredictionAppendItem",
     "PROJECT_DESCRIPTOR_FILENAME",
     "ProjectDescriptor",
-    "SerializerPredictedInstance",
-    "SiestaStore",
-    "append_predictions_siesta",
     "current_project_archive_path",
     "current_project_snapshot_path",
     "current_project_state_path",
-    "create_store_from_archive",
-    "merge_predictions_siesta",
-    "create_store_from_sta",
     "default_expkg_path",
     "import_dlc_csv_workspace",
     "import_dlc_h5_workspace",
@@ -80,20 +54,14 @@ __all__ = [
     "is_workspace_root",
     "load_project_descriptor",
     "migrate_legacy_archive",
-    "open_store",
     "pack_project",
     "project_descriptor_path",
-    "read_metrics_table",
     "read_labels_json_payload",
-    "read_siesta",
     "resolve_workspace_root",
     "save_workspace_labels",
-    "summarize_project",
     "unpack_project",
-    "update_labels_siesta",
     "validate_artifact",
     "validate_expkg",
-    "validate_project",
     "validate_workspace",
     "workspace_exports_root",
     "workspace_media_root",
@@ -101,6 +69,44 @@ __all__ = [
     "workspace_store_root",
     "write_labels_json",
     "write_project_descriptor",
-    "write_metrics_table",
-    "write_siesta",
 ]
+
+_COMPAT_EXPORTS = frozenset(
+    {
+        "LazyDatasetHandle",
+        "MaxInstancesExceededError",
+        "PredictionAppendItem",
+        "SerializerPredictedInstance",
+        "SiestaStore",
+        "append_predictions_siesta",
+        "create_store_from_archive",
+        "create_store_from_sta",
+        "merge_predictions_siesta",
+        "open_store",
+        "read_metrics_table",
+        "read_siesta",
+        "summarize_project",
+        "update_labels_siesta",
+        "validate_project",
+        "write_metrics_table",
+        "write_siesta",
+    }
+)
+
+
+def __getattr__(name: str) -> Any:
+    if name in _COMPAT_EXPORTS:
+        warnings.warn(
+            f"xpkg.formats.{name} is compatibility-only and has moved to xpkg.compat.{name}",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        compat = importlib.import_module("xpkg.compat")
+        value = getattr(compat, name)
+        globals()[name] = value
+        return value
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
+def __dir__() -> list[str]:
+    return sorted(set(globals()) | set(__all__) | set(_COMPAT_EXPORTS))

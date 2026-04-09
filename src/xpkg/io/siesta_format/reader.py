@@ -1,4 +1,4 @@
-"""Read-only helpers for native `.siesta` archives."""
+"""Read-only helpers for canonical `.sta` archives and legacy `.siesta` aliases."""
 
 from __future__ import annotations
 
@@ -62,6 +62,6 @@ def read_siesta(
     *,
     lazy: bool = False,
 ) -> dict[str, Any]:
-    """Load a native `.siesta` archive from disk."""
+    """Load a canonical `.sta` archive or legacy `.siesta` alias from disk."""
 
     return read_siesta_with_assembler(path, lazy=lazy, assemble_result=_assemble_result)

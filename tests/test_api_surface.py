@@ -5,7 +5,7 @@ from __future__ import annotations
 import xpkg.api as api
 
 
-def test_posetta_api_exposes_io_contract() -> None:
+def test_xpkg_api_exposes_io_contract() -> None:
     expected = {
         "Labels",
         "ProjectDescriptor",

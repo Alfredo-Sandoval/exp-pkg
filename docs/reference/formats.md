@@ -2,8 +2,7 @@
 
 <div class="page-intro">
 <p>
-Full API reference for the legacy low-level <code>.siesta</code> compatibility
-surface.
+Full API reference for the core workspace/project format surface.
 See the <a href="../api/formats/">guide</a> for workflow examples.
 </p>
 </div>

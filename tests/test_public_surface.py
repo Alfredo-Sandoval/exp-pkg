@@ -9,18 +9,39 @@ from xpkg.adapters import (
     convert_dlc_project,
     convert_sleap_package,
 )
-from xpkg.formats import (
-    EXPKG_SUFFIX,
-    PROJECT_DESCRIPTOR_FILENAME,
+from xpkg.compat import (
+    ArchiveStore,
     LazyDatasetHandle,
     MaxInstancesExceededError,
     PredictionAppendItem,
-    ProjectDescriptor,
     SerializerPredictedInstance,
     SiestaStore,
     append_predictions_siesta,
+    append_predictions_sta,
+    create_archive_store,
     create_store_from_archive,
     create_store_from_sta,
+    merge_predictions_siesta,
+    merge_predictions_sta,
+    open_archive_store,
+    open_store,
+    read_metrics_table,
+    read_siesta,
+    read_sta,
+    summarize_project,
+    summarize_sta,
+    update_labels_siesta,
+    update_labels_sta,
+    validate_project,
+    validate_sta,
+    write_metrics_table,
+    write_siesta,
+    write_sta,
+)
+from xpkg.formats import (
+    EXPKG_SUFFIX,
+    PROJECT_DESCRIPTOR_FILENAME,
+    ProjectDescriptor,
     current_project_archive_path,
     current_project_snapshot_path,
     current_project_state_path,
@@ -32,27 +53,18 @@ from xpkg.formats import (
     init_project,
     is_workspace_root,
     load_project_descriptor,
-    merge_predictions_siesta,
     migrate_legacy_archive,
-    open_store,
     pack_project,
     project_descriptor_path,
     read_labels_json_payload,
-    read_metrics_table,
-    read_siesta,
     resolve_workspace_root,
     save_workspace_labels,
-    summarize_project,
     unpack_project,
-    update_labels_siesta,
     validate_artifact,
     validate_expkg,
-    validate_project,
     validate_workspace,
     write_labels_json,
-    write_metrics_table,
     write_project_descriptor,
-    write_siesta,
 )
 from xpkg.model import (
     Instance,
@@ -75,6 +87,7 @@ from xpkg.model import (
     load_skeleton_dlc,
     load_skeleton_siesta_json,
     load_skeleton_sleap,
+    load_skeleton_sta_json,
     load_skeleton_ultralytics,
 )
 from xpkg.services import WorkspaceLayout, WorkspaceService
@@ -83,9 +96,11 @@ from xpkg.services import WorkspaceLayout, WorkspaceService
 def test_public_exports_are_callable() -> None:
     assert xpkg.__version__
     assert xpkg.adapters is not None
+    assert xpkg.compat is not None
     assert xpkg.formats is not None
     assert xpkg.model is not None
     assert xpkg.services is not None
+    assert ArchiveStore is not None
     assert ConversionResult is not None
     assert LazyDatasetHandle is not None
     assert PredictionAppendItem is not None
@@ -96,11 +111,13 @@ def test_public_exports_are_callable() -> None:
     assert PROJECT_DESCRIPTOR_FILENAME == "PROJECT.json"
     assert ProjectDescriptor is not None
     assert callable(append_predictions_siesta)
+    assert callable(append_predictions_sta)
+    assert callable(create_archive_store)
+    assert callable(create_store_from_archive)
+    assert callable(create_store_from_sta)
     assert callable(current_project_archive_path)
     assert callable(current_project_snapshot_path)
     assert callable(current_project_state_path)
-    assert callable(create_store_from_archive)
-    assert callable(create_store_from_sta)
     assert callable(default_expkg_path)
     assert callable(import_dlc_csv_workspace)
     assert callable(import_dlc_h5_workspace)
@@ -110,26 +127,33 @@ def test_public_exports_are_callable() -> None:
     assert callable(is_workspace_root)
     assert callable(load_project_descriptor)
     assert callable(merge_predictions_siesta)
+    assert callable(merge_predictions_sta)
     assert callable(migrate_legacy_archive)
+    assert callable(open_archive_store)
     assert callable(open_store)
     assert callable(pack_project)
     assert callable(project_descriptor_path)
     assert callable(read_labels_json_payload)
     assert callable(read_metrics_table)
     assert callable(read_siesta)
+    assert callable(read_sta)
     assert callable(resolve_workspace_root)
     assert callable(save_workspace_labels)
     assert callable(summarize_project)
+    assert callable(summarize_sta)
     assert callable(unpack_project)
     assert callable(update_labels_siesta)
+    assert callable(update_labels_sta)
     assert callable(validate_artifact)
     assert callable(validate_expkg)
     assert callable(validate_project)
+    assert callable(validate_sta)
     assert callable(validate_workspace)
     assert callable(write_labels_json)
-    assert callable(write_project_descriptor)
     assert callable(write_metrics_table)
+    assert callable(write_project_descriptor)
     assert callable(write_siesta)
+    assert callable(write_sta)
     assert callable(convert_dlc_csv)
     assert callable(convert_dlc_h5)
     assert callable(convert_dlc_h5_project)
@@ -158,6 +182,14 @@ def test_model_exports_are_available() -> None:
     assert callable(is_predicted_instance)
     assert callable(load_skeleton)
     assert callable(load_skeleton_dlc)
+    assert callable(load_skeleton_sta_json)
     assert callable(load_skeleton_siesta_json)
     assert callable(load_skeleton_sleap)
     assert callable(load_skeleton_ultralytics)
+
+
+def test_formats_core_surface_excludes_compat_symbols() -> None:
+    assert "read_siesta" not in xpkg.formats.__all__
+    assert "write_siesta" not in xpkg.formats.__all__
+    assert "create_store_from_sta" not in xpkg.formats.__all__
+    assert "pack_project" in xpkg.formats.__all__

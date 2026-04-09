@@ -63,7 +63,7 @@ def _configure_tracking_parser(
 ) -> None:
     parser.add_argument(data_flag, required=True, help=data_help)
     parser.add_argument("--video", required=True, help="Path to the matching video file.")
-    parser.add_argument("--out", required=True, help="Output native bundle path.")
+    parser.add_argument("--out", required=True, help="Output legacy native bundle path.")
     parser.add_argument(
         "--skeleton-name",
         default="imported",
@@ -146,8 +146,15 @@ def _add_import_parser(parent: argparse._SubParsersAction[argparse.ArgumentParse
     )
     import_subparsers = imported.add_subparsers(dest="import_source", required=True)
 
-    legacy = import_subparsers.add_parser("legacy", help="Import a legacy .siesta archive.")
-    legacy.add_argument("--file", required=True, help="Path to the legacy .siesta archive.")
+    legacy = import_subparsers.add_parser(
+        "legacy",
+        help="Import a legacy .sta archive or older .siesta alias.",
+    )
+    legacy.add_argument(
+        "--file",
+        required=True,
+        help="Path to a legacy .sta archive or older .siesta alias.",
+    )
     legacy.add_argument("--out", required=True, help="Output workspace directory.")
     legacy.add_argument("--title", help="Optional project title override.")
     legacy.add_argument(
@@ -247,9 +254,12 @@ def _add_workspace_parsers(parent: argparse._SubParsersAction[argparse.ArgumentP
 
     migrate = parent.add_parser(
         "migrate",
-        help="Migrate a legacy .siesta archive into a workspace-first project.",
+        help="Migrate a legacy .sta archive or older .siesta alias into a workspace-first project.",
     )
-    migrate.add_argument("legacy_archive", help="Path to the legacy .siesta archive.")
+    migrate.add_argument(
+        "legacy_archive",
+        help="Path to a legacy .sta archive or older .siesta alias.",
+    )
     migrate.add_argument("--out", required=True, help="Output workspace directory.")
     migrate.add_argument("--title", help="Optional project title override.")
     migrate.add_argument(
@@ -287,7 +297,7 @@ def _add_workspace_parsers(parent: argparse._SubParsersAction[argparse.ArgumentP
 
     validate = parent.add_parser(
         "validate",
-        help="Validate a workspace, packed .expkg artifact, or legacy .siesta archive.",
+        help="Validate a workspace, packed .expkg artifact, or legacy .sta/.siesta archive.",
     )
     validate.add_argument("path", help="Path to validate.")
     validate.set_defaults(func=_cmd_validate)
@@ -306,7 +316,7 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     _add_import_parser(subparsers)
     convert = subparsers.add_parser(
         "convert",
-        help="Convert external pose formats into native .sta bundles.",
+        help="Convert external pose formats into legacy native .sta bundles.",
     )
     convert_subparsers = convert.add_subparsers(dest="format", required=True)
     _add_dlc_parser(convert_subparsers)

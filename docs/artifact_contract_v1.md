@@ -8,9 +8,9 @@ blob, so the contract is defined around a workspace, a private store, and a
 portable export.
 
 It supersedes the older public framing that treated `.siesta` as the native
-single-file project artifact. `.siesta` remains a legacy import/read format and
-an internal compatibility surface during the transition, but it is no longer
-the user-facing project contract.
+single-file project artifact. `.sta` is now the canonical edge archive suffix,
+with `.siesta` retained only as a legacy alias during the transition. Neither
+is the user-facing project contract.
 
 ## Artifact Classes
 
@@ -191,7 +191,7 @@ Examples:
 ```bash
 xpkg import dlc csv --csv tracking.csv --video video.mp4 --out "./My Project"
 xpkg import sleap --slp labels.pkg.slp --out "./My Project"
-xpkg import legacy --file tracking.siesta --out "./My Project"
+xpkg import legacy --file tracking.sta --out "./My Project"
 ```
 
 The locked command surface is documented in `docs/cli_command_spec_v1.md`.
@@ -232,20 +232,22 @@ The default pack mode is `portable`.
 
 ## Legacy Migration Policy
 
-`.siesta` becomes a legacy import/read format.
+`.sta` becomes the canonical edge archive format, with `.siesta` preserved as a
+legacy alias.
 
 Policy:
 
-- xpkg v1 must read/import `.siesta`.
+- xpkg v1 must read/import `.sta`.
+- xpkg v1 should continue accepting older `.siesta` aliases during migration.
 - New projects are created as workspace folders.
 - New portable exports are `.expkg`.
 - Optional legacy export may exist behind an explicit transition flag:
 
 ```bash
-xpkg export-legacy "My Project" --out tracking.siesta
+xpkg export-legacy "My Project" --out tracking.sta
 ```
 
-- No new core features should depend on `.siesta`.
+- No new core features should depend on `.siesta` naming or semantics.
 
 ## What Is Public vs Private
 

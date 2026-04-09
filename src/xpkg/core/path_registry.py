@@ -262,11 +262,15 @@ def resolve_unified_bundle_or_error(
     candidate = resolve_path(path)
 
     if candidate.is_dir():
-        canonical = candidate / f"{candidate.name}.sta"
+        canonical = candidate / f"{candidate.name}.xpkg"
         if canonical.exists():
             return canonical.resolve(), None
 
-        archives = sorted(candidate.glob("*.sta")) or sorted(candidate.glob("*.siesta"))
+        archives = (
+            sorted(candidate.glob("*.xpkg"))
+            or sorted(candidate.glob("*.sta"))
+            or sorted(candidate.glob("*.siesta"))
+        )
         if not archives:
             return (
                 None,
@@ -286,7 +290,7 @@ def resolve_unified_bundle_or_error(
             )
         return archives[0].resolve(), None
 
-    if candidate.suffix.lower() not in (".sta", ".siesta"):
+    if candidate.suffix.lower() not in (".xpkg", ".sta", ".siesta"):
         return None, ValueError(f"Expected a native bundle path, got: {candidate}")
 
     if not candidate.exists():
@@ -326,7 +330,7 @@ def find_project_bundles(project_root: str | Path) -> list[Path]:
         A list containing the Path to the project archive if it exists, else empty.
     """
     root = Path(project_root)
-    for suffix in (".sta", ".siesta"):
+    for suffix in (".xpkg", ".sta", ".siesta"):
         archive = root / f"{root.name}{suffix}"
         if archive.exists():
             return [archive]
@@ -391,20 +395,20 @@ def resolve_project_roots(
 
 
 def locate_annotation_bundle(project_root: Path, annotation_files: list[str]) -> Path | None:
-    """Locate the first existing .sta archive from a list of relative/absolute paths.
+    """Locate the first existing native archive from a list of relative/absolute paths.
 
     Args:
         project_root: The root directory of the project.
         annotation_files: A list of potential annotation file paths.
 
     Returns:
-        The Path to the first existing .sta archive, or None if none found.
+        The Path to the first existing native archive, or None if none found.
     """
     for entry in annotation_files:
         candidate = Path(entry)
         if not candidate.is_absolute():
             candidate = project_root / candidate
-        if candidate.suffix.lower() in (".sta", ".siesta") and candidate.exists():
+        if candidate.suffix.lower() in (".xpkg", ".sta", ".siesta") and candidate.exists():
             return candidate
     return None
 

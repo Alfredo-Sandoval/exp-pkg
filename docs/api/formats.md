@@ -2,172 +2,141 @@
 
 <div class="page-intro">
 <p>
-<code>xpkg.formats</code> documents the low-level legacy
-<code>.siesta</code> archive APIs that remain during the transition to the
-workspace-first public contract.
+<code>xpkg.formats</code> is the core project/workspace format surface. It
+defines the public artifact contract around workspaces, <code>.xpkg/</code>,
+and <code>.expkg</code>.
 </p>
 </div>
 
 !!! note
-    The public xpkg v1 artifact contract is workspace folder +
-    <code>.expkg</code>. Use this module when you need the current
-    compatibility APIs for legacy <code>.siesta</code> data, fixtures, tests,
-    and migration workflows.
+    Use <code>xpkg.compat</code> when you need edge archive compatibility for
+    <code>.sta</code> or legacy <code>.siesta</code> flows. Use
+    <code>xpkg.formats</code> for the stable project/workspace boundary.
 
-## Read and Write Legacy Archives
+## Project Contract
 
-### `write_siesta(path, labels, predictions=None, suggestions=None, metadata=None, metrics=None, manifest=None)`
+### `ProjectDescriptor`
 
-Create or overwrite a `.siesta` archive on disk.
+The public descriptor object for `PROJECT.json`. It carries the stable
+workspace metadata and locator fields for the xpkg v1 artifact contract.
 
-### `read_siesta(path, *, lazy=False)`
+### `PROJECT_DESCRIPTOR_FILENAME`
 
-Load a `.siesta` archive and return a dict:
+Always `"PROJECT.json"`.
 
-| Key | Type | Contents |
-| --- | --- | --- |
-| `"labels"` | `Labels` | The main annotation container |
-| `"metadata"` | `dict` | Archive-level metadata |
-| `"videos"` | `list[Video]` | Video references |
-| `"predictions"` | `dict` or `None` | Prediction payloads if present |
+### `EXPKG_SUFFIX`
 
-- `lazy=False` materializes archive arrays immediately.
-- `lazy=True` keeps dataset-backed handles for larger reads.
+Always `".expkg"`.
 
-Example:
+## Workspace Lifecycle
 
-```python
-from pathlib import Path
+### `init_project(workspace, *, title=None, project_id=None, default_pack_mode="portable", force=False)`
 
-from xpkg.formats import read_siesta, write_siesta
-from xpkg.model import Labels
+Create a new workspace root with the canonical public layout.
 
-path = Path("example.siesta")
-write_siesta(path, Labels())
-payload = read_siesta(path, lazy=False)
-labels = payload["labels"]
+### `load_project_descriptor(path)`
+
+Load and validate `PROJECT.json` from a workspace.
+
+### `write_project_descriptor(path, descriptor)`
+
+Write a normalized `PROJECT.json` back to disk.
+
+### `resolve_workspace_root(path)`
+
+Resolve a path into the owning workspace root when possible.
+
+### `is_workspace_root(path)`
+
+Return whether a path points at a valid workspace root.
+
+## Paths and Managed Roots
+
+### `project_descriptor_path(path)`
+
+Resolve the `PROJECT.json` path for a workspace or workspace-adjacent input.
+
+### `workspace_store_root(path)`
+
+Resolve the internal `.xpkg/` directory for a workspace.
+
+### `workspace_state_root(path)`
+
+Resolve the private state directory under `.xpkg/`.
+
+### `workspace_media_root(path)`
+
+Resolve the managed `Media/` directory.
+
+### `workspace_exports_root(path)`
+
+Resolve the standard `Exports/` directory.
+
+### `default_expkg_path(path)`
+
+Resolve the default packed artifact destination:
+
+```text
+<workspace>/Exports/<workspace-name>.expkg
 ```
 
-## Typical Compatibility Workflow
+## Pack / Unpack / Validate
 
-<div class="panel-grid panel-grid-3" markdown="1">
+### `pack_project(workspace, *, out=None, mode=None, overwrite=False)`
 
-<div class="surface-card" markdown="1">
-<div class="surface-kicker">READ</div>
-Load an archive with `read_siesta(...)` to get labels, metadata, videos,
-and prediction payloads in one call.
-</div>
+Pack a workspace into a portable `.expkg` artifact.
 
-<div class="surface-card" markdown="1">
-<div class="surface-kicker">WRITE</div>
-Create or replace an archive with `write_siesta(...)` when your `Labels` object is
-ready.
-</div>
+### `unpack_project(artifact, out, *, force=False, rename_title=None)`
 
-<div class="surface-card" markdown="1">
-<div class="surface-kicker">UPDATE</div>
-Use append, merge, and metrics helpers to modify archive contents in place.
-</div>
+Unpack a `.expkg` artifact into a workspace.
 
-</div>
+### `validate_workspace(path)`
 
-## Update Existing Archives
+Validate a workspace root.
 
-### `update_labels_siesta(path, labels, *, journal=True, regenerate_predictions=False)`
+### `validate_expkg(path)`
 
-Overwrite the labels portion of an existing `.siesta` archive while preserving
-the rest of the archive structure.
+Validate a packed `.expkg` artifact.
 
-## Append or Merge Predictions
+### `validate_artifact(path)`
 
-### `append_predictions_siesta(path, batch, *, allow_max_inst_growth=False, journal=True, fsync=True, run_metadata=None) -> int`
+Validate either a workspace or a packed artifact, dispatching by path type.
 
-Append new prediction rows to an existing archive.
+## Import Into Workspaces
 
-### `merge_predictions_siesta(path, batch, *, allow_max_inst_growth=True, journal=True, fsync=True, run_metadata=None) -> int`
+### `import_dlc_csv_workspace(...)`
 
-Merge predictions into already-existing frames in an archive.
+Import a DeepLabCut CSV into a workspace.
 
-Both functions operate on sequences of `PredictionAppendItem`.
+### `import_dlc_h5_workspace(...)`
 
-### Prediction helper types
+Import a DeepLabCut H5 into a workspace.
 
-- `PredictionAppendItem`
-- `SerializerPredictedInstance`
-- `MaxInstancesExceededError`
+### `import_sleap_package_workspace(...)`
 
-## Validate and Summarize
+Import a SLEAP package into a workspace.
 
-### `summarize_project(path)`
+### `import_legacy_archive(...)`
 
-Return a lightweight summary of an archive or project path.
+Import a legacy archive into a workspace.
 
-### `validate_project(path)`
+### `migrate_legacy_archive(...)`
 
-Run structural validation against the archive layout and raise if the file is not
-valid.
+Migrate a legacy archive into the workspace-first xpkg contract.
 
-## Metrics Tables
+## Save Current Workspace State
 
-### `read_metrics_table(bundle_path, name) -> pandas.DataFrame`
+### `save_workspace_labels(...)`
 
-Read one named metrics table from `/metrics/<name>`.
+Persist the current `Labels` state into a workspace and refresh the managed
+project state.
 
-### `write_metrics_table(bundle_path, name, dataframe, *, mode="append")`
+## JSON Label Interchange
 
-Write or append one metrics table into an archive.
+### `read_labels_json_payload(path)`
 
-Use `mode="replace"` to overwrite an existing table.
+Load the JSON interchange payload for labels.
 
-## Minimal Write Plus Metrics Example
+### `write_labels_json(labels, path, *, indent=2)`
 
-```python
-import pandas as pd
-
-from xpkg.formats import read_siesta, write_metrics_table, write_siesta
-from xpkg.model import Labels
-
-archive_path = "session.siesta"
-write_siesta(archive_path, Labels())
-write_metrics_table(
-    archive_path,
-    "pose_eval",
-    pd.DataFrame({"video": ["session.mp4"], "score": [0.94]}),
-    mode="replace",
-)
-
-payload = read_siesta(archive_path, lazy=False)
-print(payload["labels"])
-```
-
-## Experimental Durable Store
-
-!!! warning
-    The durable store is experimental private machinery, not a public artifact
-    contract. In the v1 model it belongs under the workspace-owned
-    <code>.xpkg/</code> state, even though the current prototype still wraps
-    staged <code>.siesta</code> compatibility archives internally.
-
-Use the store when you want commit-style recovery around staged archive writes.
-Keep using `write_siesta(...)` and `read_siesta(...)` for the ordinary single-file
-archive workflow.
-
-### `create_store_from_archive(store_root, initial_archive) -> SiestaStore`
-
-Create a directory-backed durable store from an existing `.siesta` archive.
-
-### `create_store_from_sta(store_root, initial_sta) -> SiestaStore`
-
-Compatibility alias for `create_store_from_archive(...)`.
-
-### `open_store(store_root) -> SiestaStore`
-
-Open a durable store and run recovery before returning it.
-
-The mounted store then gives you:
-
-- `current_archive_path()` to resolve the current committed archive
-- `commit_new_archive(...)` to commit a staged archive as the new head
-
-For the full workflow and on-disk layout, read
-[Experimental Durable Store](../architecture/experimental-store.md).
+Write labels as JSON interchange rather than a managed workspace artifact.

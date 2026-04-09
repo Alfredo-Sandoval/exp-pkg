@@ -4,44 +4,38 @@
 [![License: Proprietary](https://img.shields.io/badge/license-Proprietary-red.svg)](LICENSE)
 [![Version: 0.1.0](https://img.shields.io/badge/version-0.1.0-green.svg)](pyproject.toml)
 
-**Workspace-first toolkit for behavior-centered experiment data and portable project artifacts.**
+**Canonical IO and artifact layer for experiment data, managed workspaces, and portable project artifacts.**
 
 Import from `xpkg` in Python and use `xpkg` for the CLI.
 
-Many neurobehavior experiments need one project container for media, labels,
-segmentation, event-aligned state, and durable exports. exp-pkg is built around
-that workflow: editable workspaces, managed project state, and shareable
-artifacts for experiment packaging and downstream analysis.
+exp-pkg exists to give other repos one stable boundary for experiment-data IO.
+It imports external formats, normalizes them into canonical `xpkg` objects,
+stores them in a workspace-first project contract, and emits portable `.expkg`
+artifacts.
 
-Today the implemented core is strongest for annotations, segmentation, media,
-and workspace lifecycle management. The broader mission is behavior-centered
-experiment packaging that keeps experiment state coherent across tools.
+This repo is not an analysis platform. It is the IO layer that analysis tools,
+GUIs, and automation can build on when they need a coherent project/workspace
+surface instead of a pile of ad hoc CSV, H5, JSON, and archive files.
 
-The old annotation ecosystem is fragmented: DeepLabCut exports CSV and H5,
-SLEAP uses `.pkg.slp`, and every tool invents a different project shape.
-exp-pkg bridges that gap with a canonical `Labels` object, adapter surfaces for
-multiple pose ecosystems, and a locked v1 artifact contract built around
-editable workspace folders plus portable `.expkg` exports.
+The codebase grew out of older SLEAP / `.siesta`-shaped IO work, but the public
+boundary is now generic: `Labels`, `Video`, `Skeleton`, adapter imports,
+workspace lifecycle operations, and portable project artifacts.
 
-`.siesta` is now a legacy import/read compatibility format. It remains in the
-codebase during the transition, but it is no longer the public native project
-contract.
+`.siesta` now belongs to the edge of the system: migration, legacy aliases,
+fixtures, and compatibility workflows. The explicit edge surface for that work
+is `xpkg.compat`, with `.sta` as the canonical archive suffix and `.siesta` as
+the older compatibility alias.
 
-If you want the blunt storage rationale, read
-`docs/architecture/storage-direction.md`. The short answer is that `.siesta`
-is still the only fully implemented round-trip archive engine behind workspace
-saves, migration, and durable store commits.
-
-## Mission
+## Positioning
 
 The intended stack is:
 
-- editable workspace for a whole experiment session
-- media, segmentation, labels, and experiment metadata in one project layout
-- portable project exports for sharing, packaging, and downstream tools
+- external pose / annotation formats at the edge
+- canonical in-memory objects in the middle
+- editable workspace + private store + portable artifact at the boundary
 
-The current codebase should be read as a workspace/project system for
-behavior-centered experiments.
+The current codebase should be read as a generic IO and packaging layer for
+experiment projects, not as an analysis framework.
 
 ## Recommended Workspace API
 
@@ -62,32 +56,35 @@ The older free functions in `xpkg.formats` and `xpkg.api` remain
 available for compatibility and low-level workflows, but new code should prefer
 `WorkspaceService`.
 
+If you are wiring another repo into xpkg, this is the place to start.
+
 ## What It Does
 
-- Locked v1 project contract: workspace folder + `.xpkg/` + `.expkg`
-- Workspace lifecycle services for create/open/validate/pack/unpack flows
-- Canonical pose/annotation containers (`Labels`, `Skeleton`, `Instance`, `Video`)
-- Pose and segmentation storage plus media-aware project packaging
-- Legacy `.siesta` import/read compatibility during transition
-- Skeleton loading from multiple formats
-- DeepLabCut adapters (CSV, H5, whole-project)
-- SLEAP adapter (`.pkg.slp` package import)
+- Imports external pose / annotation formats into canonical xpkg objects
+- Defines a stable project contract: workspace folder + `.xpkg/` + `.expkg`
+- Manages workspace lifecycle: create, open, validate, pack, unpack
+- Carries canonical containers such as `Labels`, `Skeleton`, `Instance`, and `Video`
+- Handles media-aware packaging and workspace-relative project state
+- Exposes migration and legacy compatibility surfaces where needed
+- Ships DeepLabCut and SLEAP adapters today
 
 ## Current Scope vs Direction
 
 Implemented today:
 
-- pose tracks and labeled frames
-- skeletons and keypoint semantics
-- segmentation storage
-- managed media roots and portable project exports
-- workspace/project lifecycle operations
+- canonical annotation and media data objects
+- import adapters and readers for external formats
+- workspace/store/artifact lifecycle operations
+- media-aware packaging and portable exports
+- legacy compatibility for `.siesta` migration and read/write
 
 Mission direction:
 
-- behavior-centered experiment workspaces
-- pose-aligned auxiliary modalities
-- cleaner packaging for analysis and GUI workflows built around experiment state
+- keep xpkg narrow as the stable IO and artifact boundary
+- support more external ecosystems through adapters
+- make downstream analysis and GUI repos depend on xpkg instead of inventing
+  their own project formats
+- continue shrinking `.siesta` toward an edge-only migration layer
 
 ## Supported Formats
 
@@ -105,6 +102,9 @@ Mission direction:
 ## Install
 
 Not on PyPI yet. Clone and install locally:
+
+When published, the distribution name will be `exp-pkg`. The Python import
+name and CLI command remain `xpkg`.
 
 ```bash
 git clone https://github.com/Alfredo-Sandoval/exp-pkg.git
@@ -159,31 +159,37 @@ command surface in `docs/cli_command_spec_v1.md`.
 
 ## Current Compatibility Layer
 
-The current implementation still exposes low-level `.siesta` helpers while the
-workspace-first v1 workflow is being wired in. Those APIs remain useful for
-fixtures, migration work, and legacy import/read paths.
+The current implementation still exposes low-level `.sta` archive helpers and
+older `.siesta` aliases, but they should be treated as edge compatibility
+surfaces rather than the center of the product.
 
-The longer write-up on why that is still true, and what has to change before
-`.siesta` can shrink further, lives in
+Use them for:
+
+- migration from older `.siesta` archives
+- fixtures and compatibility tests
+- legacy read/write paths that have not been cut over yet
+
+Use `xpkg.compat` when you need that edge layer. Avoid using it as the primary
+integration boundary for new code. The longer write-up on why this layer still
+exists, and what has to happen before it can shrink further, lives in
 `docs/architecture/storage-direction.md`.
 
 Example:
 
 ```python
+from xpkg.compat import read_sta
 from xpkg.adapters import convert_dlc_csv
-from xpkg.model import Labels
 
-# Convert DeepLabCut tracking into a native bundle
+# Convert DeepLabCut tracking into a canonical .sta bundle
 convert_dlc_csv("tracking.csv", "video.mp4", "tracking.sta")
 
-# Read a native bundle back as the canonical Labels object
-labels = Labels.load_file("tracking.sta")
-assert isinstance(labels, Labels)
-
-# Write either a native .sta bundle or fast JSON interchange
-labels.save_file(labels, "copy.sta")
-labels.save_file(labels, "copy.json")
+# Read the compatibility bundle back when you need direct archive access
+payload = read_sta("tracking.sta", lazy=False)
+labels = payload["labels"]
 ```
+
+That example is intentionally compatibility-oriented. New integrations should
+prefer workspace import + pack/unpack flows over direct legacy archive handling.
 
 Load skeleton definitions from a config file:
 
@@ -196,24 +202,22 @@ print(skeleton.keypoint_names)
 
 ## CLI
 
-The locked v1 public CLI is workspace-first:
+The current CLI is a hybrid of workspace-first project commands and transition
+helpers for `.sta` archives and older `.siesta` aliases:
 
 ```bash
 xpkg init "./My Project"
 xpkg import dlc csv --csv tracking.csv --video video.mp4 --out "./My Project"
 xpkg pack "./My Project"
 xpkg unpack "./My Project.expkg" --out "./My Project"
-xpkg migrate "./My Project"
+xpkg validate "./My Project"
+xpkg migrate "./legacy.sta" --out "./My Project"
 ```
 
-That command contract is documented in `docs/cli_command_spec_v1.md`.
+The shipped command surface is documented in `docs/cli_command_spec_v1.md`.
 
-The current implementation still provides legacy conversion-oriented commands
-while the v1 CLI is being wired in:
-
-That split is intentional: the public contract is already workspace/project
-oriented, while the compatibility CLI still helps migrate older pipelines into
-that model.
+The compatibility `convert` commands remain available during the transition for
+pipelines that still need legacy `.sta` outputs at the edge of the system.
 
 **Legacy convert DeepLabCut CSV:**
 ```bash

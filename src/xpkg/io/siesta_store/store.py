@@ -31,7 +31,7 @@ class MountedHead:
     superblock: Superblock
 
 
-def _object_ext_for_path(path: Path, *, default: str = ".sta") -> str:
+def _object_ext_for_path(path: Path, *, default: str = ".xpkg") -> str:
     suffix = Path(path).suffix.strip()
     if not suffix:
         return default

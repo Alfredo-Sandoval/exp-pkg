@@ -1,4 +1,4 @@
-.PHONY: env setup bootstrap env-macos env-linux env-windows loc lint typecheck test qa docs-build docs-serve clean
+.PHONY: env setup bootstrap env-macos env-linux env-windows loc lint typecheck test qa build package-check docs-build docs-serve clean
 
 ENV_ARGS ?=
 PYTHON ?= python
@@ -39,6 +39,14 @@ test:
 	pytest
 
 qa: lint typecheck test
+
+build:
+	env UV_CACHE_DIR="$${UV_CACHE_DIR:-/tmp/uv-cache}" uv build --out-dir dist --clear
+
+package-check:
+	@tmpdir="$$(mktemp -d)"; \
+	env UV_CACHE_DIR="$${UV_CACHE_DIR:-/tmp/uv-cache}" uv build --out-dir "$$tmpdir" --clear; \
+	env UV_CACHE_DIR="$${UV_CACHE_DIR:-/tmp/uv-cache}" UV_TOOL_DIR="$${UV_TOOL_DIR:-/tmp/uv-tools}" uvx twine check "$$tmpdir"/*
 
 docs-build:
 	python -m mkdocs build --strict

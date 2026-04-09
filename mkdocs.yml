@@ -87,8 +87,10 @@ nav:
   - API Guide:
       - Model: api/model.md
       - Formats: api/formats.md
+      - Compatibility: api/compat.md
       - Adapters: api/adapters.md
   - Reference:
       - xpkg.model: reference/model.md
       - xpkg.formats: reference/formats.md
+      - xpkg.compat: reference/compat.md
       - xpkg.adapters: reference/adapters.md

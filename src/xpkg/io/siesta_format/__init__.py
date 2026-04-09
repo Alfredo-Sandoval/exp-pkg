@@ -1,4 +1,4 @@
-"""Public API for the native `.siesta` serializer."""
+"""Archive serializer for canonical `.sta` bundles and legacy `.siesta` aliases."""
 
 from __future__ import annotations
 

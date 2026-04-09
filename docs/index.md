@@ -10,11 +10,11 @@ hide:
 # xpkg
 
 <p class="manual-deck">
-xpkg is a workspace-first toolkit for behavior-centered experiments, built
-around an editable workspace folder, a private <code>.xpkg/</code> store,
-and portable <code>.expkg</code> exports. The current low-level
-<code>.siesta</code> APIs remain as legacy compatibility surfaces during the
-transition.
+xpkg is the canonical IO and artifact layer for experiment data, built around
+an editable workspace folder, a private <code>.xpkg/</code> store, and portable
+<code>.expkg</code> exports. Edge archive compatibility lives in
+<code>xpkg.compat</code>, with <code>.sta</code> as the canonical archive suffix
+and <code>.siesta</code> kept as a legacy alias during the transition.
 </p>
 
 </div>
@@ -26,13 +26,13 @@ transition.
 
 | Item | Value |
 | --- | --- |
-| Mission | behavior-centered experiment workspaces |
+| Mission | experiment-data IO and artifact contracts |
 | Public project contract | workspace folder + `.expkg` |
 | Authoritative mutable state | `.xpkg/` inside the workspace |
-| Legacy compatibility format | `.siesta` import/read APIs |
+| Edge compatibility layer | `xpkg.compat` for `.sta` / legacy `.siesta` |
 | External adapters | DLC, SLEAP |
 | Core objects | `xpkg.model` |
-| Low-level compatibility IO | `xpkg.formats` |
+| Low-level compatibility IO | `xpkg.compat` |
 | Import and migration tools | `xpkg.adapters` |
 </div>
 
@@ -48,8 +48,8 @@ transition.
   surface.
 - Read [Storage Direction](architecture/storage-direction.md) when you want the
   blunt explanation for why `.siesta` still exists in the implementation.
-- Use `xpkg.formats` when you need low-level legacy `.siesta`
-  compatibility IO.
+- Use `xpkg.compat` when you need low-level `.sta` archive IO or legacy
+  `.siesta` compatibility.
 - Use `xpkg.adapters` when you need to import DLC or SLEAP.
 </div>
 
@@ -74,9 +74,9 @@ transition.
 <div class="spec-panel" markdown="1">
 ### Archive and Compatibility IO
 
-- `read_siesta`
-- `write_siesta`
-- `update_labels_siesta`
+- `read_sta`
+- `write_sta`
+- `update_labels_sta`
 - prediction append and merge
 - metrics table IO
 - validation and summary
@@ -106,8 +106,8 @@ My Project/
     My Project.expkg
 ```
 
-`.siesta` remains available as a legacy compatibility layer, but it is no
-longer the native public project artifact.
+`.sta` is the canonical edge archive suffix. `.siesta` remains available as a
+legacy compatibility alias, but neither is the native public project artifact.
 
 The workspace contract exists because experiment state usually extends beyond a
 single archive or converter output.
@@ -128,7 +128,8 @@ single archive or converter output.
 - Read [Experimental Durable Store](architecture/experimental-store.md) for the new
   commit-oriented recovery workflow.
 - Read [Model](api/model.md) for the pose object graph.
-- Read [Formats](api/formats.md) for the legacy `.siesta` compatibility APIs.
+- Read [Compatibility](api/compat.md) for the edge `.sta` / legacy `.siesta`
+  APIs.
 - Read [Adapters](api/adapters.md) for DLC and SLEAP conversion.
 - Use the reference pages when you need exact signatures and docstrings.
 

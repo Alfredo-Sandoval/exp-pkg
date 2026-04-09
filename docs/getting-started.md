@@ -2,7 +2,7 @@
 
 <div class="page-intro">
 <p>
-xpkg is a workspace-first toolkit for behavior-centered experiments. It is
+xpkg is the canonical IO and artifact layer for experiment-data projects. It is
 not on PyPI yet; clone the repo and install locally.
 </p>
 </div>
@@ -50,8 +50,8 @@ My Project/
 - You edit a normal workspace folder.
 - xpkg owns authoritative mutable state inside `.xpkg/`.
 - You move/share/export a single `.expkg` file.
-- `.siesta` remains a legacy import/read compatibility format during
-  transition.
+- `.sta` is the canonical archive suffix for the compatibility layer.
+- `.siesta` remains a legacy alias during transition.
 
 This matters because the workspace is the place where media, segmentation,
 labels, and future experiment-side modalities can live together under one
@@ -61,22 +61,22 @@ Read [Artifact Contract v1](artifact_contract_v1.md) for the full public
 contract and [CLI Command Spec v1](cli_command_spec_v1.md) for the locked
 workspace command surface.
 
-## Current compatibility API
+## Edge compatibility API
 
 ```python
-from xpkg.formats import read_siesta, write_siesta
+from xpkg.compat import read_sta, write_sta
 from xpkg.model import Labels
 
 labels = Labels()
-write_siesta("empty.siesta", labels)
+write_sta("empty.sta", labels)
 
-payload = read_siesta("empty.siesta", lazy=False)
+payload = read_sta("empty.sta", lazy=False)
 loaded = payload["labels"]
 assert isinstance(loaded, Labels)
 ```
 
-These `.siesta` helpers remain useful for legacy import/read paths, fixtures,
-and transition work. `read_siesta` returns a dict with these keys:
+These compatibility helpers remain useful for legacy import/read paths,
+fixtures, and transition work. `read_sta` returns a dict with these keys:
 
 | Key | Type | Contents |
 | --- | --- | --- |
@@ -103,4 +103,4 @@ print(result.bundle_path)
 
 This is still a compatibility-oriented import example. New project-facing code
 should think in terms of workspace creation, import into a workspace, and
-portable `.expkg` export rather than a single native `.siesta` file.
+portable `.expkg` export rather than a direct archive-first workflow.
