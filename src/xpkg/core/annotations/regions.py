@@ -152,6 +152,8 @@ class SegmentationMask:
         For RLE masks, decodes run lengths.
         """
         if self.mask_type == MaskType.RLE:
+            if self.rle_counts is None:
+                raise ValueError("RLE mask is missing run-length counts.")
             return rle_decode(
                 self.rle_counts, self.rle_start, self.rle_height, self.rle_width
             )

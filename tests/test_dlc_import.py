@@ -8,6 +8,13 @@ import numpy as np
 import pandas as pd
 
 
+def _video_writer_fourcc(code: str) -> int:
+    fourcc_fn = getattr(cv2, "VideoWriter_fourcc", None)
+    if not callable(fourcc_fn):
+        raise RuntimeError("OpenCV build does not expose VideoWriter_fourcc")
+    return int(fourcc_fn(*code))
+
+
 def _write_sample_dlc_h5(path: Path) -> pd.DataFrame:
     columns = pd.MultiIndex.from_product(
         [["demo"], ["nose", "tail"], ["x", "y", "likelihood"]],
@@ -25,7 +32,7 @@ def _write_sample_dlc_h5(path: Path) -> pd.DataFrame:
 
 
 def _write_dummy_video(path: Path) -> None:
-    fourcc = cv2.VideoWriter_fourcc(*"MJPG")
+    fourcc = _video_writer_fourcc("MJPG")
     writer = cv2.VideoWriter(path.as_posix(), fourcc, 5.0, (16, 12))
     assert writer.isOpened()
     try:

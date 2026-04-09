@@ -131,6 +131,7 @@ class TestSegmentationMask:
         assert restored.mask_type == MaskType.POLYGON
         assert restored.class_name == "body"
         assert abs(restored.confidence - 0.95) < 1e-6
+        assert restored.polygon_vertices is not None
         assert len(restored.polygon_vertices) == 2
         np.testing.assert_array_almost_equal(
             restored.polygon_vertices[0], verts[0]
@@ -435,6 +436,7 @@ class TestJSONRoundtrip:
         assert restored.mask_type == MaskType.POLYGON
         assert restored.class_name == "mouse"
         assert restored.is_predicted
+        assert restored.prompt is not None
         assert restored.prompt.prompt_type == PromptType.TEXT
         assert restored.prompt.text == "a mouse"
 

@@ -9,6 +9,13 @@ import numpy as np
 import pytest
 
 
+def _video_writer_fourcc(code: str) -> int:
+    fourcc_fn = getattr(cv2, "VideoWriter_fourcc", None)
+    if not callable(fourcc_fn):
+        raise RuntimeError("OpenCV build does not expose VideoWriter_fourcc")
+    return int(fourcc_fn(*code))
+
+
 def _write_test_image(path: Path, value: int = 128) -> None:
     image = np.full((12, 16, 3), value, dtype=np.uint8)
     ok = cv2.imwrite(path.as_posix(), image)
@@ -18,7 +25,7 @@ def _write_test_image(path: Path, value: int = 128) -> None:
 def _write_test_video(path: Path) -> None:
     writer = cv2.VideoWriter(
         path.as_posix(),
-        cv2.VideoWriter_fourcc(*"MJPG"),
+        _video_writer_fourcc("MJPG"),
         5.0,
         (16, 12),
     )

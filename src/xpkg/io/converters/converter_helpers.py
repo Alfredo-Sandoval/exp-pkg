@@ -8,7 +8,7 @@ import sys
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Protocol
 
 from xpkg.core.logging_utils import get_logger
 from xpkg.core.path_registry import ensure_dir
@@ -23,6 +23,17 @@ ProgressCallback = Callable[[str], None]
 
 _LOGGER = get_logger(__name__)
 _NON_ALNUM_RE = re.compile(r"[^a-z0-9]+")
+
+
+class LabelsVideoRemapProtocol(Protocol):
+    """Minimal mutable labels surface required for video remapping."""
+
+    videos: list[Any]
+    labeled_frames: list[Any]
+
+    def merge_matching_frames(self) -> None: ...
+
+    def update_cache(self) -> None: ...
 
 
 @dataclass(slots=True)
@@ -134,7 +145,7 @@ def _image_sequence_dir_key(image_filenames: Sequence[str]) -> str | None:
 
 
 def remap_labels_to_videos(
-    labels: _Labels,
+    labels: LabelsVideoRemapProtocol,
     videos: Sequence[Path],
     project_root: Path,
 ) -> None:

@@ -25,6 +25,9 @@ class VideoProtocol(Protocol):
     last_frame_idx: int
     _image_filenames: list[str]
 
+    @property
+    def image_filenames(self) -> list[str]: ...
+
     def get_frame(self, idx: int) -> np.ndarray: ...
 
     def iter_frames(self) -> Iterator[np.ndarray]: ...

@@ -43,6 +43,13 @@ class SingleImageVideo:
     EXTS = (".png", ".jpg", ".jpeg", ".bmp", ".tif", ".tiff")
 
 
+def _video_writer_fourcc(code: str) -> int:
+    fourcc_fn = getattr(cv2, "VideoWriter_fourcc", None)
+    if not callable(fourcc_fn):
+        raise RuntimeError("OpenCV build does not expose VideoWriter_fourcc")
+    return int(fourcc_fn(code[0], code[1], code[2], code[3]))
+
+
 def available_video_exts() -> list[str]:
     """Return normalized extensions treated as video-like media."""
     exts: list[str] = []
@@ -339,7 +346,7 @@ class VideoWriterOpenCV:
             raise ValueError(f"fourcc must be exactly 4 characters, got {code!r}")
         writer = cv2.VideoWriter(
             filename,
-            int(cv2.VideoWriter_fourcc(code[0], code[1], code[2], code[3])),
+            _video_writer_fourcc(code),
             fps,
             (int(width), int(height)),
             bool(is_color),

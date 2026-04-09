@@ -10,6 +10,13 @@ import pandas as pd
 from xpkg.io.converters.converter_helpers import ConversionResult, remap_labels_to_videos
 
 
+def _video_writer_fourcc(code: str) -> int:
+    fourcc_fn = getattr(cv2, "VideoWriter_fourcc", None)
+    if not callable(fourcc_fn):
+        raise RuntimeError("OpenCV build does not expose VideoWriter_fourcc")
+    return int(fourcc_fn(*code))
+
+
 def test_remap_labels_to_videos_preserves_multi_suffix_directory_names(
     monkeypatch,
     tmp_path: Path,
@@ -187,7 +194,7 @@ def test_dlc_adapter_stores_project_relative_video_filename(tmp_path: Path) -> N
     video_path = video_dir / "session-0-leftCam.avi"
     writer = cv2.VideoWriter(
         video_path.as_posix(),
-        cv2.VideoWriter_fourcc(*"MJPG"),
+        _video_writer_fourcc("MJPG"),
         5.0,
         (16, 12),
     )

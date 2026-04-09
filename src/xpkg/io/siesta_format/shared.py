@@ -256,6 +256,10 @@ def _normalize_runs_entries(entries: Any) -> list[dict[str, Any]]:
     else:
         raise TypeError("run metadata must be a mapping or a sequence of mappings")
 
-    normalized = [_normalize_run_entry(item) for item in candidates if isinstance(item, Mapping)]
+    normalized = [
+        _normalize_run_entry({str(key): value for key, value in item.items()})
+        for item in candidates
+        if isinstance(item, Mapping)
+    ]
     normalized.sort(key=lambda entry: (entry["created_ns"], entry["run_id"]))
     return normalized

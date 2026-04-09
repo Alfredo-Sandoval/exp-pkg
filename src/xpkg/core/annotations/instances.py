@@ -150,8 +150,8 @@ class Instance:
         if isinstance(value, np.ndarray):
             if value.shape != (2,):
                 raise ValueError("Instance point values must be (x, y) coordinates.")
-            coords = value.tolist()
-            if not isinstance(coords, list) or len(coords) != 2:
+            coords = tuple(value)
+            if len(coords) != 2:
                 raise ValueError("Instance point values must be (x, y) coordinates.")
             x = cls._coerce_coordinate(coords[0], axis="x")
             y = cls._coerce_coordinate(coords[1], axis="y")

@@ -343,6 +343,7 @@ def test_cli_routes_pack_unpack_and_validate(monkeypatch, capsys) -> None:
     from xpkg.cli import main
 
     captured: dict[str, object] = {}
+    validated: list[str] = []
 
     def fake_pack_project(
         workspace: str,
@@ -371,7 +372,7 @@ def test_cli_routes_pack_unpack_and_validate(monkeypatch, capsys) -> None:
         return Path(out)
 
     def fake_validate_artifact(path: str) -> None:
-        captured.setdefault("validated", []).append(path)
+        validated.append(path)
 
     monkeypatch.setattr("xpkg.cli.pack_project", fake_pack_project)
     monkeypatch.setattr("xpkg.cli.unpack_project", fake_unpack_project)
@@ -403,8 +404,8 @@ def test_cli_routes_pack_unpack_and_validate(monkeypatch, capsys) -> None:
         "unpack_out": "Unpacked Project",
         "unpack_force": True,
         "unpack_rename_title": "Renamed Project",
-        "validated": ["My Project.expkg"],
     }
+    assert validated == ["My Project.expkg"]
     stdout = capsys.readouterr().out
     assert "Packed My Project" in stdout
     assert "Unpacked My Project.expkg" in stdout

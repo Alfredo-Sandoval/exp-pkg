@@ -171,9 +171,7 @@ def merge_matching_frames(labels: Labels, video: VideoProtocol | None = None):
     """Merge frames that refer to the same video into a merged list."""
     if video is None:
         for vid in {lf.video for lf in labels.labeled_frames}:
-            labels.labeled_frames = LabeledFrame.merge_frames(
-                labels.labeled_frames, video=cast(Video, vid)
-            )
+            labels.labeled_frames = LabeledFrame.merge_frames(labels.labeled_frames, video=vid)
         return
     labels.labeled_frames = LabeledFrame.merge_frames(
         labels.labeled_frames, video=cast(Video, video)

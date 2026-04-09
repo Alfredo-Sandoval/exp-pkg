@@ -16,8 +16,8 @@ if TYPE_CHECKING:
     from xpkg.io.labels.model import Labels, SuggestionFrame
     from xpkg.io.labels.video_types import VideoProtocol
 
-POSETTA_LABELS_JSON_FORMAT = "xpkg.labels-json"
-POSETTA_LABELS_JSON_VERSION = "2.0.0"
+XPKG_LABELS_JSON_FORMAT = "xpkg.labels-json"
+XPKG_LABELS_JSON_VERSION = "2.0.0"
 
 
 def _sorted_labeled_frames(labels: Labels) -> list[Any]:
@@ -90,7 +90,8 @@ def _instance_point_payload(
     visible = np.asarray(points["visible"], dtype=bool)
     coords[~visible, :2] = np.nan
     flags[:] = np.asarray(points["flags"], dtype=np.uint8)
-    if "score" in points.dtype.names:
+    point_field_names = points.dtype.names
+    if point_field_names is not None and "score" in point_field_names:
         coords[:, 2] = np.asarray(points["score"], dtype=np.float32)
     else:
         coords[visible, 2] = 1.0
@@ -201,8 +202,8 @@ def labels_to_json_payload(
     metadata_payload["preferences"] = dict(labels.preferences)
 
     payload: dict[str, Any] = {
-        "format": POSETTA_LABELS_JSON_FORMAT,
-        "version": POSETTA_LABELS_JSON_VERSION,
+        "format": XPKG_LABELS_JSON_FORMAT,
+        "version": XPKG_LABELS_JSON_VERSION,
         "payload": {
             "frames": frames_payload,
             "data": data_payload,
@@ -295,9 +296,9 @@ def write_labels_json(
 def read_labels_json_payload(path: str | Path) -> dict[str, Any]:
     raw = load_json_dict(path)
     fmt = str(raw.get("format", "")).strip()
-    if fmt != POSETTA_LABELS_JSON_FORMAT:
+    if fmt != XPKG_LABELS_JSON_FORMAT:
         raise ValueError(
-            f"Unsupported labels JSON format {fmt!r}; expected {POSETTA_LABELS_JSON_FORMAT!r}"
+            f"Unsupported labels JSON format {fmt!r}; expected {XPKG_LABELS_JSON_FORMAT!r}"
         )
     payload = raw.get("payload")
     if not isinstance(payload, dict):

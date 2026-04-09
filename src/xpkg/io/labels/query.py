@@ -102,8 +102,10 @@ class LabelsQuery:
         if isinstance(key, slice):
             start, stop, step = key.indices(len(self._labels))
             key = range(start, stop, step)
-        elif isinstance(key, np.integer | np.ndarray):
-            key = key.tolist()
+        elif isinstance(key, np.integer):
+            key = int(key)
+        elif isinstance(key, np.ndarray):
+            key = list(key.flat)
 
         if isinstance(key, int):
             return self._labels.labels.__getitem__(key)
@@ -120,8 +122,10 @@ class LabelsQuery:
                 if raise_errors:
                     raise KeyError("Video not found in labels.")
                 return None
-            if isinstance(frame_selector, np.integer | np.ndarray):
-                frame_selector = frame_selector.tolist()
+            if isinstance(frame_selector, np.integer):
+                frame_selector = int(frame_selector)
+            elif isinstance(frame_selector, np.ndarray):
+                frame_selector = list(frame_selector.flat)
             if isinstance(frame_selector, int):
                 _hit = self.find_first(video=video, frame_idx=frame_selector, use_cache=use_cache)
                 if _hit is None:
@@ -132,7 +136,7 @@ class LabelsQuery:
                     return None
                 return _hit
             if isinstance(frame_selector, list):
-                frame_indices = [int(cast(Any, idx)) for idx in frame_selector]
+                frame_indices = [int(idx) for idx in frame_selector]
                 return self.find(video=video, frame_idx=frame_indices)
             if isinstance(frame_selector, range):
                 return self.find(video=video, frame_idx=frame_selector)

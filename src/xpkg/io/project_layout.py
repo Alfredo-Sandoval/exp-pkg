@@ -82,6 +82,16 @@ class ProjectDescriptor:
         missing = sorted(required.difference(data))
         if missing:
             raise ValueError(f"PROJECT.json missing required field(s): {', '.join(missing)}")
+        raw_pack_mode = str(data["default_pack_mode"])
+        if raw_pack_mode == "portable":
+            default_pack_mode: PackMode = "portable"
+        elif raw_pack_mode == "snapshot":
+            default_pack_mode = "snapshot"
+        else:
+            raise ValueError(
+                "default_pack_mode must be 'portable' or 'snapshot', "
+                f"got {raw_pack_mode!r}"
+            )
         descriptor = cls(
             format=str(data["format"]),
             project_schema_version=int(data["project_schema_version"]),
@@ -93,7 +103,7 @@ class ProjectDescriptor:
             store_path=str(data["store_path"]),
             media_root=str(data["media_root"]),
             exports_root=str(data["exports_root"]),
-            default_pack_mode=str(data["default_pack_mode"]),  # type: ignore[arg-type]
+            default_pack_mode=default_pack_mode,
         )
         descriptor.validate()
         return descriptor
