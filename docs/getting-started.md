@@ -21,10 +21,11 @@ Fallback if you do not want the canonical setup target:
 bash environment/setup.sh
 ```
 
-For the documentation toolchain:
+`make env` installs the local dev and docs toolchain. The main local checks are:
 
 ```bash
-mamba run -n xpkg uv pip install -e '.[docs]'
+make qa
+make ci-local
 ```
 
 ## Preview the docs locally

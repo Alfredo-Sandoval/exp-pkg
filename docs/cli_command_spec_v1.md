@@ -9,7 +9,7 @@ and legacy `.sta` / `.siesta` aliases.
 
 ## Command Surface
 
-The shipped command surface is:
+The primary workspace-first command surface is:
 
 ```text
 xpkg init
@@ -18,6 +18,12 @@ xpkg pack
 xpkg unpack
 xpkg validate
 xpkg migrate
+```
+
+The CLI also ships one legacy compatibility helper during the transition:
+
+```text
+xpkg convert
 ```
 
 ## Shared Rules
@@ -184,6 +190,21 @@ xpkg migrate "./tracking.xpkg" --out "./My Project"
 - `migrate` does not define or freeze the private internal `.xpkg/`
   sublayout.
 
+## `xpkg convert`
+
+Convert external tracking formats directly into edge `.xpkg` archives.
+
+This command remains available for compatibility pipelines, fixtures, and
+archive-first workflows that have not moved to workspace import yet. It is not
+the recommended project-facing entrypoint for new integrations.
+
+### Supported families today
+
+- `xpkg convert dlc csv`
+- `xpkg convert dlc h5`
+- `xpkg convert dlc project`
+- `xpkg convert sleap`
+
 ## Open Behavior
 
 GUI and shell tooling should treat the workspace folder as the primary open
@@ -199,5 +220,7 @@ target.
 - New project creation follows the workspace + `.expkg` contract.
 - `.xpkg` is the canonical edge archive suffix during transition work.
 - `.sta` / `.siesta` remain supported only as legacy aliases for import/read paths.
+- `xpkg convert` remains available as an edge compatibility helper, not as the
+  primary project workflow.
 - No new public examples should frame `.siesta` as the native or preferred
   user-facing archive format.

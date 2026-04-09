@@ -3,7 +3,6 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ENV_FILE="${SCRIPT_DIR}/environment.yml"
-REQ_FILE="${SCRIPT_DIR}/requirements.txt"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
 install_js_dependencies_if_present() {
@@ -65,11 +64,6 @@ if [[ ! -f "${ENV_FILE}" ]]; then
   exit 1
 fi
 
-if [[ ! -f "${REQ_FILE}" ]]; then
-  echo "Missing requirements file: ${REQ_FILE}" >&2
-  exit 1
-fi
-
 if command -v mamba >/dev/null 2>&1; then
   MAMBA_BIN="mamba"
 elif command -v conda >/dev/null 2>&1; then
@@ -95,8 +89,7 @@ if "${MAMBA_BIN}" env list | awk '{print $1}' | grep -Fxq "${ENV_NAME}"; then
 else
   "${MAMBA_BIN}" env create -n "${ENV_NAME}" -f "${ENV_FILE}" -y
 fi
-"${MAMBA_BIN}" run -n "${ENV_NAME}" uv pip install -r "${REQ_FILE}"
-"${MAMBA_BIN}" run -n "${ENV_NAME}" uv pip install -e "${REPO_ROOT}"
+"${MAMBA_BIN}" run -n "${ENV_NAME}" uv pip install -e "${REPO_ROOT}[dev,docs]"
 install_js_dependencies_if_present
 
 echo "Environment '${ENV_NAME}' is ready."

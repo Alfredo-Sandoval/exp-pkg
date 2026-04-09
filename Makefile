@@ -49,7 +49,7 @@ build:
 package-check:
 	@tmpdir="$$(mktemp -d)"; \
 	$(RUN_IN_ENV) env UV_CACHE_DIR="$${UV_CACHE_DIR:-/tmp/uv-cache}" uv build --out-dir "$$tmpdir" --clear; \
-	$(RUN_IN_ENV) env UV_CACHE_DIR="$${UV_CACHE_DIR:-/tmp/uv-cache}" UV_TOOL_DIR="$${UV_TOOL_DIR:-/tmp/uv-tools}" uvx twine check "$$tmpdir"/*; \
+	$(RUN_IN_ENV) python -m twine check "$$tmpdir"/*; \
 	rm -rf "$$tmpdir"
 
 docs-build:

@@ -30,6 +30,7 @@ Documentation = "https://github.com/Alfredo-Sandoval/exp-pkg/tree/main/docs"
 dev = [
   "pytest>=8.3",
   "ruff>=0.9",
+  "twine>=6.1",
   "ty>=0.0.20",
 ]
 docs = [

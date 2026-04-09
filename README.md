@@ -76,7 +76,7 @@ Implemented today:
 - import adapters and readers for external formats
 - workspace/store/artifact lifecycle operations
 - media-aware packaging and portable exports
-- legacy compatibility for `.siesta` migration and read/write
+- legacy compatibility for direct `.xpkg` archives and older `.sta` / `.siesta` aliases
 
 Mission direction:
 
@@ -118,10 +118,11 @@ Fallback if you do not want the canonical setup target:
 bash environment/setup.sh
 ```
 
-For the documentation toolchain:
+Then use the local quality gates:
 
 ```bash
-mamba run -n xpkg uv pip install -e '.[docs]'
+make qa
+make ci-local
 ```
 
 ## Documentation
@@ -149,7 +150,7 @@ My Project/
 - Editable project = workspace folder
 - Authoritative mutable state = `.xpkg/`
 - Portable artifact = `.expkg`
-- `.siesta` = legacy import/read only
+- Edge archive compatibility = `.xpkg`, with `.sta` / `.siesta` retained as legacy aliases
 
 The artifact model is workspace-first so experiment state, managed media, and
 future aligned modalities have a clear home in one project layout.
@@ -202,8 +203,7 @@ print(skeleton.keypoint_names)
 
 ## CLI
 
-The current CLI is a hybrid of workspace-first project commands and transition
-helpers for `.xpkg` archives and legacy `.sta` / `.siesta` aliases:
+The primary workspace-first CLI surface is:
 
 ```bash
 xpkg init "./My Project"
@@ -216,8 +216,9 @@ xpkg migrate "./legacy.xpkg" --out "./My Project"
 
 The shipped command surface is documented in `docs/cli_command_spec_v1.md`.
 
-The compatibility `convert` commands remain available during the transition for
-pipelines that still need direct `.xpkg` outputs at the edge of the system.
+A legacy compatibility `convert` helper also remains available during the
+transition for pipelines that still need direct `.xpkg` outputs at the edge of
+the system.
 
 **Legacy convert DeepLabCut CSV:**
 ```bash
@@ -245,7 +246,7 @@ Contributions are welcome! If you'd like to add an adapter for a new pose-estima
 
 1. Open an issue describing the change you'd like to make.
 2. Fork the repo and create a feature branch.
-3. Make sure all tests pass with `pytest`.
+3. Run `make qa` for the fast gate, and `make ci-local` before you hand off a larger change.
 4. Submit a pull request.
 
 Please follow the existing code style (enforced by [Ruff](https://docs.astral.sh/ruff/) with the settings in `pyproject.toml`).

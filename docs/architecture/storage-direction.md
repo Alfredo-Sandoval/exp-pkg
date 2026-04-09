@@ -4,11 +4,16 @@
 <p>
 If <code>.siesta</code> feels wrong in the current xpkg story, that reaction is
 reasonable. The public product story is now workspace folder + private
-<code>.xpkg/</code> state + portable <code>.expkg</code> export, but the
-implementation still relies on <code>.siesta</code> as the only complete archive
-engine behind saves, migration, and durable commits.
+<code>.xpkg/</code> state + portable <code>.expkg</code> export, while the
+implementation still relies on legacy-named compatibility archive internals for
+saves, migration, and durable commits.
 </p>
 </div>
+
+!!! info
+    Status: current implementation notes. Today the committed source of truth is
+    the durable store head under <code>.xpkg/</code>, while
+    <code>.xpkg/state/current.json</code> is a rebuildable cache.
 
 ## Current Truth
 
@@ -18,23 +23,24 @@ has moved forward:
 - workspace root as the editable project boundary
 - `.xpkg/` as the private mutable store boundary
 - `.expkg` as the portable packed artifact
-- `.siesta` as the internal compatibility archive that still carries the full
-  round-trip payload
+- `.xpkg` as the canonical compatibility archive suffix, with `.sta` /
+  `.siesta` retained as older aliases
 
-The normal workspace save/load/import/migrate flow now uses a native snapshot at
-`.xpkg/state/current.json` as the source of truth. Archive reads still
-remain in the codebase for older workspaces, migration, fixtures, and explicit
-bundle-facing workflows.
+The normal workspace save/load/import/migrate flow now treats the durable store
+head as committed truth and uses `.xpkg/state/current.json` as a rebuildable
+local cache. Direct archive reads still remain in the codebase for older
+workspaces, migration, fixtures, and explicit bundle-facing workflows.
 
 That split explains the current tension. The public contract is workspace-first,
 but the code still treats a `.siesta` archive as the canonical thing it knows
 how to stage, validate, and commit safely.
 
-## Why `.siesta` Is Still Here
+## Why The Legacy Archive Engine Is Still Here
 
 ### 1. It is still the complete storage engine
 
-The current round-trip serializer lives in the legacy archive layer:
+The current round-trip serializer still lives in the legacy-named archive
+layer:
 
 - `xpkg.io.siesta_format.write_siesta`
 - `xpkg.io.siesta_format.update_labels_siesta`
@@ -47,7 +53,7 @@ not yet have an independent storage backend with the same coverage.
 ### 2. Workspace saves still stage archives
 
 The workspace code is already public-facing, but its save path still runs
-through staged `.siesta` files.
+through staged compatibility archive files.
 
 Archive dependency is now concentrated in compatibility and migration seams:
 
@@ -58,7 +64,7 @@ Archive dependency is now concentrated in compatibility and migration seams:
 - archive fallback when opening an older workspace that does not yet have a
   native snapshot
 
-### 3. The durable store commits immutable archives
+### 3. The durable store still commits immutable archive objects
 
 The new private store is not fake. It has real recovery semantics, journaled
 commit boundaries, and immutable objects under `.xpkg/`.
@@ -74,9 +80,9 @@ format instead of replacing it.
 
 ### 4. Migration and compatibility still matter
 
-Existing adapters, tests, fixtures, and migration flows still move through
-`.siesta`. Keeping it available has practical value while the workspace-first
-surface hardens.
+Existing adapters, tests, fixtures, and migration flows still move through the
+legacy compatibility engine. Keeping it available has practical value while the
+workspace-first surface hardens.
 
 That part is not irrational. The problem is not that `.siesta` exists at all.
 The problem is that it still occupies too much conceptual space compared with
@@ -100,19 +106,19 @@ is no longer the product we want to talk about.
 
 ## Recommended Position
 
-xpkg should treat `.siesta` as a transition mechanism, not the product
-identity.
+xpkg should treat the legacy compatibility archive layer as a transition
+mechanism, not the product identity.
 
 That means:
 
-- keep `.siesta` available for migration, fixtures, import, and low-level
-  compatibility work
-- stop expanding the public product story around `.siesta`
-- keep `.siesta` out of the primary artifact contract
+- keep `.xpkg` compatibility archives, plus older `.sta` / `.siesta` aliases,
+  available for migration, fixtures, import, and low-level compatibility work
+- stop expanding the public product story around `.siesta` naming
+- keep legacy archive naming out of the primary artifact contract
 - be explicit that the workspace/store layer is the future-facing boundary
 
-In other words: `.siesta` can stay for a while, but it should feel private and
-transitional rather than native and aspirational.
+In other words: the old engine can stay for a while, but it should feel private
+and transitional rather than native and aspirational.
 
 ## Cutover Paths
 

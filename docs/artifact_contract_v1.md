@@ -241,12 +241,7 @@ Policy:
 - xpkg v1 should continue accepting older `.sta` / `.siesta` aliases during migration.
 - New projects are created as workspace folders.
 - New portable exports are `.expkg`.
-- Optional legacy export may exist behind an explicit transition flag:
-
-```bash
-xpkg export-legacy "My Project" --out tracking.xpkg
-```
-
+- No dedicated workspace-to-`.xpkg` export command is part of the locked v1 surface.
 - No new core features should depend on `.siesta` naming or semantics.
 
 ## What Is Public vs Private
@@ -290,6 +285,6 @@ And this:
 - editable project = workspace folder
 - authoritative mutable state = `.xpkg/`
 - portable artifact = `.expkg`
+- edge archive compatibility = `.xpkg`, with `.sta` / `.siesta` retained as older aliases
 - no required symlink layer
 - no `.h5` public contract
-- `.siesta` is legacy import/read

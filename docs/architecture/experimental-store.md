@@ -5,19 +5,23 @@
 xpkg now has an <strong>experimental</strong> durable store layer for crash-safe,
 commit-oriented project state. In the locked v1 artifact contract this belongs
 under the workspace-owned <code>.xpkg/</code> directory. The current prototype
-still wraps staged legacy <code>.siesta</code> compatibility archives internally
-while we harden the private storage engine.
+still wraps staged compatibility archives internally while we harden the
+private storage engine.
 </p>
 </div>
 
 If you want the broader rationale for why the runtime still stages
-<code>.siesta</code> archives at all, read [Storage Direction](storage-direction.md).
+legacy archive payloads at all, read [Storage Direction](storage-direction.md).
 
 !!! warning
     This workflow is experimental private machinery. The public v1 artifact
     contract is workspace folder + <code>.expkg</code>. Use the durable store
     when you want stronger recovery semantics inside <code>.xpkg/</code>, not
     as a public interchange layer.
+
+!!! info
+    Status: current private prototype. The committed source of truth is the
+    durable store head; <code>.xpkg/state/current.json</code> is only a cache.
 
 ## What Changed
 
@@ -45,9 +49,11 @@ My Project/.xpkg/
   commits/
     000000000001/commit.json
   objects/
-    ab/cd/obj_<sha256>.siesta
+    ab/cd/obj_<sha256>.xpkg
   workspace/
-  snapshots/
+    tmp-<txn>.xpkg
+  state/
+    current.json
 ```
 
 That internal layout is intentionally private and versioned. The only public
@@ -69,10 +75,10 @@ dies mid-save.
 
 ## Recommended Experimental Workflow
 
-The current prototype sits on top of the existing `.siesta` compatibility
-writer while targeting the future `.xpkg/` private state layer.
+The current prototype sits on top of the existing compatibility archive writer
+while targeting the `.xpkg/` private state layer.
 
-1. Produce a normal `.siesta` archive with the regular archive API.
+1. Produce a normal `.xpkg` compatibility archive with the regular archive API.
 2. Create a store root from that archive.
 3. For each new save boundary, write a fresh staged archive.
 4. Commit that staged archive into the store.
@@ -83,11 +89,11 @@ Example:
 ```python
 from pathlib import Path
 
-from xpkg.formats import (
+from xpkg.compat import (
     create_store_from_archive,
     open_store,
-    read_siesta,
-    write_siesta,
+    read_xpkg,
+    write_xpkg,
 )
 from xpkg.model import Labels
 
@@ -95,22 +101,23 @@ labels = Labels()
 
 # 1. Create the first staged compatibility archive
 workspace_root = Path("My Project")
-seed_archive = workspace_root / "Exports" / "seed.siesta"
-write_siesta(seed_archive, labels)
+seed_archive = workspace_root / ".xpkg" / "workspace" / "seed.xpkg"
+seed_archive.parent.mkdir(parents=True, exist_ok=True)
+write_xpkg(seed_archive, labels)
 
 # 2. Wrap it in the experimental private store root
 store = create_store_from_archive(workspace_root / ".xpkg", seed_archive)
 
 # 3. Later, stage a fresh compatibility archive with the normal writer
-staged_archive = workspace_root / "Exports" / "session-next.xpkg"
-write_siesta(staged_archive, labels)
+staged_archive = workspace_root / ".xpkg" / "workspace" / "session-next.xpkg"
+write_xpkg(staged_archive, labels)
 
 # 4. Commit the staged archive as the new durable head
 store.commit_new_archive(staged_archive, reason="autosave")
 
 # 5. Reopen with recovery semantics and resolve the current committed archive
 store = open_store(workspace_root / ".xpkg")
-payload = read_siesta(store.current_archive_path(), lazy=False)
+payload = read_xpkg(store.current_archive_path(), lazy=False)
 ```
 
 ## Public Entry Points
@@ -157,7 +164,8 @@ Stable today:
 
 - public workspace contract: `PROJECT.json`, `.xpkg/`, `Media/`, `Exports/`
 - `.expkg` as the portable project artifact
-- legacy `write_siesta(...)` / `read_siesta(...)` compatibility APIs
+- `xpkg.compat` as the edge compatibility surface for `.xpkg` archives and
+  legacy aliases
 
 Experimental today:
 

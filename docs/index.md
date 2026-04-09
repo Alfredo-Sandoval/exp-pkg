@@ -15,6 +15,8 @@ an editable workspace folder, a private <code>.xpkg/</code> store, and portable
 <code>.expkg</code> exports. Edge archive compatibility lives in
 <code>xpkg.compat</code>, with <code>.xpkg</code> as the canonical archive suffix
 and <code>.sta</code> / <code>.siesta</code> kept as legacy aliases during the transition.
+The repo and distribution name are <code>exp-pkg</code>; the Python import and CLI name are
+<code>xpkg</code>.
 </p>
 
 </div>
@@ -121,7 +123,7 @@ single archive or converter output.
 - Read [Artifact Contract v1](artifact_contract_v1.md) for the locked public
   workspace and portable artifact semantics.
 - Read [CLI Command Spec v1](cli_command_spec_v1.md) for `init`, `import`,
-  `pack`, `unpack`, and `migrate`.
+  `pack`, `unpack`, `validate`, `migrate`, and the legacy `convert` helper.
 - Read [Media IO Stack](architecture/media-io.md) for the target ownership split between xpkg and Siesta.
 - Read [Storage Direction](architecture/storage-direction.md) for the current
   rationale and cutover pressure around `.siesta`, `.xpkg/`, and

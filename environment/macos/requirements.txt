@@ -1,7 +1,0 @@
-# Local development and docs tooling.
-pytest>=8.3
-ruff>=0.9
-ty>=0.0.20
-mkdocs>=1.6
-mkdocs-material>=9.5
-mkdocstrings[python]>=0.24
