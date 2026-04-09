@@ -18,7 +18,7 @@ from xpkg.formats import (
     unpack_project,
     validate_artifact,
 )
-from xpkg.io.archive_format.shared import CANONICAL_BUNDLE_SUFFIX, LEGACY_BUNDLE_SUFFIXES
+from xpkg.io.archive_format.shared import CANONICAL_ARCHIVE_SUFFIX
 from xpkg.io.converters.converter_helpers import ConversionResult
 from xpkg.io.converters.dlc_import import convert_dlc_csv, convert_dlc_h5, convert_dlc_project
 from xpkg.io.converters.sleap_import import convert_sleap_package
@@ -48,14 +48,11 @@ def _emit_progress(message: str) -> None:
 
 
 def _write_result(result: ConversionResult) -> None:
-    sys.stdout.write(f"Wrote {result.bundle_path}\n")
+    sys.stdout.write(f"Wrote {result.archive_path}\n")
 
 
 def _write_path(path: Path) -> None:
     sys.stdout.write(f"{path}\n")
-
-
-_LEGACY_BUNDLE_LABEL = "/".join(LEGACY_BUNDLE_SUFFIXES)
 
 
 def _configure_tracking_parser(
@@ -67,11 +64,15 @@ def _configure_tracking_parser(
 ) -> None:
     parser.add_argument(data_flag, required=True, help=data_help)
     parser.add_argument("--video", required=True, help="Path to the matching video file.")
-    parser.add_argument("--out", required=True, help="Output legacy native bundle path.")
+    parser.add_argument(
+        "--out",
+        required=True,
+        help="Output edge compatibility archive path.",
+    )
     parser.add_argument(
         "--skeleton-name",
         default="imported",
-        help="Skeleton name to store in the converted archive.",
+        help="Skeleton name to store in the converted compatibility archive.",
     )
     parser.add_argument(
         "--threshold",
@@ -110,7 +111,7 @@ def _add_dlc_parser(parent: argparse._SubParsersAction[argparse.ArgumentParser])
     project_parser.add_argument(
         "--out",
         required=True,
-        help=f"Output directory for {CANONICAL_BUNDLE_SUFFIX} files.",
+        help=f"Output directory for edge compatibility {CANONICAL_ARCHIVE_SUFFIX} files.",
     )
     project_parser.add_argument(
         "--threshold",
@@ -156,18 +157,12 @@ def _add_import_parser(parent: argparse._SubParsersAction[argparse.ArgumentParse
 
     legacy = import_subparsers.add_parser(
         "legacy",
-        help=(
-            f"Import a canonical {CANONICAL_BUNDLE_SUFFIX} archive or "
-            f"legacy {_LEGACY_BUNDLE_LABEL} alias."
-        ),
+        help=f"Import a canonical {CANONICAL_ARCHIVE_SUFFIX} archive.",
     )
     legacy.add_argument(
         "--file",
         required=True,
-        help=(
-            f"Path to a canonical {CANONICAL_BUNDLE_SUFFIX} archive or "
-            f"legacy {_LEGACY_BUNDLE_LABEL} alias."
-        ),
+        help=f"Path to a canonical {CANONICAL_ARCHIVE_SUFFIX} archive.",
     )
     legacy.add_argument("--out", required=True, help="Output workspace directory.")
     legacy.add_argument("--title", help="Optional project title override.")
@@ -269,16 +264,13 @@ def _add_workspace_parsers(parent: argparse._SubParsersAction[argparse.ArgumentP
     migrate = parent.add_parser(
         "migrate",
         help=(
-            f"Migrate a canonical {CANONICAL_BUNDLE_SUFFIX} archive or "
-            f"legacy {_LEGACY_BUNDLE_LABEL} alias into a workspace-first project."
+            f"Migrate a canonical {CANONICAL_ARCHIVE_SUFFIX} archive into a "
+            "workspace-first project."
         ),
     )
     migrate.add_argument(
         "legacy_archive",
-        help=(
-            f"Path to a canonical {CANONICAL_BUNDLE_SUFFIX} archive or "
-            f"legacy {_LEGACY_BUNDLE_LABEL} alias."
-        ),
+        help=f"Path to a canonical {CANONICAL_ARCHIVE_SUFFIX} archive.",
     )
     migrate.add_argument("--out", required=True, help="Output workspace directory.")
     migrate.add_argument("--title", help="Optional project title override.")
@@ -319,7 +311,7 @@ def _add_workspace_parsers(parent: argparse._SubParsersAction[argparse.ArgumentP
         "validate",
         help=(
             f"Validate a workspace, packed .expkg artifact, or native "
-            f"{CANONICAL_BUNDLE_SUFFIX}/{_LEGACY_BUNDLE_LABEL} archive."
+            f"{CANONICAL_ARCHIVE_SUFFIX} archive."
         ),
     )
     validate.add_argument("path", help="Path to validate.")
@@ -339,7 +331,10 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     _add_import_parser(subparsers)
     convert = subparsers.add_parser(
         "convert",
-        help=f"Convert external pose formats into native {CANONICAL_BUNDLE_SUFFIX} bundles.",
+        help=(
+            f"Convert external pose formats into edge compatibility "
+            f"{CANONICAL_ARCHIVE_SUFFIX} archives."
+        ),
     )
     convert_subparsers = convert.add_subparsers(dest="format", required=True)
     _add_dlc_parser(convert_subparsers)

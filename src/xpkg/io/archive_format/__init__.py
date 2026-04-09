@@ -1,4 +1,4 @@
-"""Archive serializer for canonical `.xpkg` bundles and legacy aliases."""
+"""Archive serializer for canonical `.xpkg` archives."""
 
 from __future__ import annotations
 

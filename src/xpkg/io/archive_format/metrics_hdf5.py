@@ -1,5 +1,5 @@
 # pyright: reportMissingImports=false
-# Justification: h5py lacks bundled type stubs in this environment.
+# Justification: h5py lacks packaged type stubs in this environment.
 
 """
 Utilities for managing metrics tables stored inside `.xpkg` archives.
@@ -55,18 +55,18 @@ class MetricsError(Exception):
 class MissingMetricsGroupError(MetricsError):
     """Raised when the `/metrics` group is absent."""
 
-    def __init__(self, bundle_path: Path, group: str = _METRICS_GROUP) -> None:
-        super().__init__(f"{bundle_path} does not contain /{group}")
-        self.bundle_path = bundle_path
+    def __init__(self, archive_path: Path, group: str = _METRICS_GROUP) -> None:
+        super().__init__(f"{archive_path} does not contain /{group}")
+        self.archive_path = archive_path
         self.group = group
 
 
 class MissingMetricsTableError(MetricsError):
     """Raised when a requested metrics table is missing."""
 
-    def __init__(self, bundle_path: Path, table: str) -> None:
-        super().__init__(f"{bundle_path} does not contain metrics table '{table}'")
-        self.bundle_path = bundle_path
+    def __init__(self, archive_path: Path, table: str) -> None:
+        super().__init__(f"{archive_path} does not contain metrics table '{table}'")
+        self.archive_path = archive_path
         self.table = table
 
 
@@ -132,13 +132,13 @@ def _coerce_text(value: Any) -> str:
     return str(value)
 
 
-def ensure_group(bundle_path: str | Path) -> None:
+def ensure_group(archive_path: str | Path) -> None:
     """Guarantee that a `.xpkg` archive exposes a `/metrics` group.
 
     Args:
-        bundle_path: Path to the .xpkg archive.
+        archive_path: Path to the .xpkg archive.
     """
-    path = Path(bundle_path)
+    path = Path(archive_path)
     with h5py.File(str(path), "a") as handle:
         _ensure_metrics_group_handle(handle)
 
@@ -152,16 +152,16 @@ def _ensure_metrics_group_handle(handle: h5py.File) -> h5py.Group:
     return group
 
 
-def has_metrics_group(bundle_path: str | Path) -> bool:
+def has_metrics_group(archive_path: str | Path) -> bool:
     """Return True when the archive exposes a `/metrics` group.
 
     Args:
-        bundle_path: Path to the .xpkg archive.
+        archive_path: Path to the .xpkg archive.
 
     Returns:
         True if the group exists, False otherwise.
     """
-    path = Path(bundle_path)
+    path = Path(archive_path)
     if not path.exists():
         return False
     with h5py.File(str(path), "r") as handle:
@@ -169,17 +169,17 @@ def has_metrics_group(bundle_path: str | Path) -> bool:
         return metrics_group is not None
 
 
-def has_metrics_table(bundle_path: str | Path, name: str) -> bool:
+def has_metrics_table(archive_path: str | Path, name: str) -> bool:
     """Return True when the archive exposes a given metrics table.
 
     Args:
-        bundle_path: Path to the .xpkg archive.
+        archive_path: Path to the .xpkg archive.
         name: Name of the table to check.
 
     Returns:
         True if the table exists, False otherwise.
     """
-    path = Path(bundle_path)
+    path = Path(archive_path)
     if not path.exists():
         return False
     with h5py.File(str(path), "r") as handle:
@@ -191,11 +191,11 @@ def has_metrics_table(bundle_path: str | Path, name: str) -> bool:
         )
 
 
-def read_table(bundle_path: str | Path, name: str) -> pd.DataFrame:
+def read_table(archive_path: str | Path, name: str) -> pd.DataFrame:
     """Load a metrics table from a `.xpkg` archive.
 
     Args:
-        bundle_path: Path to the .xpkg archive.
+        archive_path: Path to the .xpkg archive.
         name: Name of the table to read.
 
     Returns:
@@ -206,7 +206,7 @@ def read_table(bundle_path: str | Path, name: str) -> pd.DataFrame:
         MissingMetricsTableError: If the requested table is missing.
         MetricsReadError: If the table or group is malformed.
     """
-    path = Path(bundle_path)
+    path = Path(archive_path)
     with h5py.File(str(path), "r") as handle:
         metrics_group = handle.get(_METRICS_GROUP)
         if metrics_group is None:
@@ -265,7 +265,7 @@ def write_table_to_handle(
 
 
 def write_table(
-    bundle_path: str | Path,
+    archive_path: str | Path,
     name: str,
     dataframe: pd.DataFrame,
     *,
@@ -274,7 +274,7 @@ def write_table(
     """Persist a metrics DataFrame as `/metrics/<name>`.
 
     Args:
-        bundle_path: Path to the .xpkg archive.
+        archive_path: Path to the .xpkg archive.
         name: Name of the table to write.
         dataframe: The pandas DataFrame to persist.
         mode: Either 'append' or 'replace'.
@@ -282,7 +282,7 @@ def write_table(
     Raises:
         ValueError: If mode is invalid.
     """
-    path = Path(bundle_path)
+    path = Path(archive_path)
     with h5py.File(str(path), "a") as handle:
         write_table_to_handle(handle, name, dataframe, mode=mode)
 
@@ -530,11 +530,11 @@ def _group_to_dataframe(group: h5py.Group) -> pd.DataFrame:
     return df.reset_index(drop=True)
 
 
-def iter_tables(bundle_path: str | Path) -> Iterable[str]:
+def iter_tables(archive_path: str | Path) -> Iterable[str]:
     """Yield table names under `/metrics`.
 
     Args:
-        bundle_path: Path to the .xpkg archive.
+        archive_path: Path to the .xpkg archive.
 
     Yields:
         The names of the metrics tables found in the archive.
@@ -542,7 +542,7 @@ def iter_tables(bundle_path: str | Path) -> Iterable[str]:
     Raises:
         MissingMetricsGroupError: If the /metrics group is missing.
     """
-    path = Path(bundle_path)
+    path = Path(archive_path)
     with h5py.File(str(path), "r") as handle:
         metrics_group = handle.get(_METRICS_GROUP)
         if metrics_group is None:
@@ -556,46 +556,46 @@ class MetricStore:
     """Read and write typed metrics tables from `.xpkg` archives."""
 
     @staticmethod
-    def read_prediction_errors(bundle_path: Path) -> pd.DataFrame | None:
+    def read_prediction_errors(archive_path: Path) -> pd.DataFrame | None:
         """Read and normalize `/metrics/prediction_errors` from the archive."""
-        if not bundle_path.exists():
-            raise FileNotFoundError(f"Archive not found: {bundle_path}")
-        df = read_table(bundle_path, "prediction_errors")
+        if not archive_path.exists():
+            raise FileNotFoundError(f"Archive not found: {archive_path}")
+        df = read_table(archive_path, "prediction_errors")
         return MetricStore._normalize_prediction_errors(df)
 
     @staticmethod
-    def read_pixel_error(bundle_path: Path) -> pd.DataFrame | None:
+    def read_pixel_error(archive_path: Path) -> pd.DataFrame | None:
         """Read and normalize `/metrics/pixel_error` from the archive."""
-        if not bundle_path.exists():
-            raise FileNotFoundError(f"Archive not found: {bundle_path}")
-        if not has_metrics_table(bundle_path, "pixel_error"):
+        if not archive_path.exists():
+            raise FileNotFoundError(f"Archive not found: {archive_path}")
+        if not has_metrics_table(archive_path, "pixel_error"):
             return None
-        df = read_table(bundle_path, "pixel_error")
+        df = read_table(archive_path, "pixel_error")
         return MetricStore._normalize_pixel_error(df)
 
     @staticmethod
     def write_prediction_errors(
-        bundle_path: Path,
+        archive_path: Path,
         df: pd.DataFrame,
         *,
         mode: Literal["append", "replace"] = "append",
     ) -> None:
         """Persist `/metrics/prediction_errors`."""
-        write_table(bundle_path, "prediction_errors", df, mode=mode)
+        write_table(archive_path, "prediction_errors", df, mode=mode)
 
     @staticmethod
-    def read_training_metrics(bundle_path: Path) -> pd.DataFrame | None:
+    def read_training_metrics(archive_path: Path) -> pd.DataFrame | None:
         """Read epoch-style training metrics from archive tables."""
-        if not has_metrics_group(bundle_path):
+        if not has_metrics_group(archive_path):
             return None
 
-        table_names = list(iter_tables(bundle_path))
+        table_names = list(iter_tables(archive_path))
         preferred = ("training", "training_metrics", "trainer", "metrics")
         df: pd.DataFrame | None = None
 
         for name in preferred:
             if name in table_names:
-                candidate = read_table(bundle_path, name)
+                candidate = read_table(archive_path, name)
                 if MetricStore._table_has_epoch_v2(candidate):
                     df = candidate
                     break
@@ -604,7 +604,7 @@ class MetricStore:
             for name in table_names:
                 if name in preferred:
                     continue
-                candidate = read_table(bundle_path, name)
+                candidate = read_table(archive_path, name)
                 if MetricStore._table_has_epoch_v2(candidate):
                     df = candidate
                     break
@@ -735,14 +735,14 @@ class LabelStore:
     """Read and write labeled-frame metadata tables from `.xpkg` archives."""
 
     @staticmethod
-    def read_labels_metadata(bundle_path: Path) -> pd.DataFrame | None:
-        if not bundle_path.exists():
-            raise FileNotFoundError(f"Archive not found: {bundle_path}")
-        return read_table(bundle_path, "labels_lp_images")
+    def read_labels_metadata(archive_path: Path) -> pd.DataFrame | None:
+        if not archive_path.exists():
+            raise FileNotFoundError(f"Archive not found: {archive_path}")
+        return read_table(archive_path, "labels_lp_images")
 
     @staticmethod
-    def write_labels_metadata(bundle_path: Path, df: pd.DataFrame) -> None:
-        write_table(bundle_path, "labels_lp_images", df, mode="replace")
+    def write_labels_metadata(archive_path: Path, df: pd.DataFrame) -> None:
+        write_table(archive_path, "labels_lp_images", df, mode="replace")
 
 
 __all__ = [

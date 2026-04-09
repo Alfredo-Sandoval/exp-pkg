@@ -1,4 +1,4 @@
-"""Canonical archive IO surface for `.xpkg` compatibility bundles."""
+"""Canonical archive IO surface for `.xpkg` compatibility archives."""
 
 from __future__ import annotations
 

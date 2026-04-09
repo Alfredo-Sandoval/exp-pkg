@@ -28,7 +28,7 @@ def _superblock(
 
 
 def test_recover_picks_highest_generation_superblock(tmp_path: Path) -> None:
-    paths = StorePaths(root=tmp_path / "project.sta")
+    paths = StorePaths(root=tmp_path / "project.xpkg")
     paths.root.mkdir(parents=True)
 
     superblock_a = _superblock(
@@ -52,7 +52,7 @@ def test_recover_picks_highest_generation_superblock(tmp_path: Path) -> None:
 
 
 def test_recover_breaks_generation_ties_with_updated_at(tmp_path: Path) -> None:
-    paths = StorePaths(root=tmp_path / "project.sta")
+    paths = StorePaths(root=tmp_path / "project.xpkg")
     paths.root.mkdir(parents=True)
 
     superblock_a = _superblock(

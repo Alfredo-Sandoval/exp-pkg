@@ -4,8 +4,8 @@ This document defines the shipped CLI contract for the xpkg v1 project and
 artifact workflow.
 
 The current CLI is workspace-first for project creation, packing, unpacking,
-and validation, while still exposing transition helpers for `.xpkg` archives
-and the legacy `.sta` alias.
+and validation, while still exposing transition helpers for direct `.xpkg`
+archives.
 
 ## Command Surface
 
@@ -85,8 +85,7 @@ xpkg import legacy --file tracking.xpkg --out "./My Project"
 - Writes authoritative mutable state into `.xpkg/`.
 - Populates `Media/` when the import produces managed media.
 - Updates `PROJECT.json` metadata and timestamps.
-- Accepts canonical `.xpkg` input, along with the older `.sta`
-  alias, through the `legacy` importer.
+- Accepts canonical `.xpkg` input through the `legacy` importer.
 
 ### Non-goals
 
@@ -145,8 +144,7 @@ xpkg unpack "./My Project.expkg" --out "./My Project"
 
 ## `xpkg validate`
 
-Validate a workspace, packed `.expkg` artifact, or native `.xpkg` /
-legacy `.sta` archive.
+Validate a workspace, packed `.expkg` artifact, or direct `.xpkg` archive.
 
 ### Synopsis
 
@@ -158,16 +156,14 @@ xpkg validate "./tracking.xpkg"
 
 ### Required behavior
 
-- Accepts a workspace folder, `.expkg` file, or native `.xpkg` /
-  legacy `.sta` archive.
+- Accepts a workspace folder, `.expkg` file, or direct `.xpkg` archive.
 - Fails loudly when the supplied path does not satisfy the corresponding
   contract.
 - Leaves the validated artifact unchanged.
 
 ## `xpkg migrate`
 
-Migrate a `.xpkg` archive, or older `.sta` alias, into a
-workspace-first xpkg project.
+Migrate a `.xpkg` archive into a workspace-first xpkg project.
 
 ### Synopsis
 
@@ -177,8 +173,7 @@ xpkg migrate "./tracking.xpkg" --out "./My Project"
 
 ### Required behavior
 
-- Accepts a canonical `.xpkg` archive as input, with `.sta`
-  retained as an older alias.
+- Accepts a canonical `.xpkg` archive as input.
 - Creates or updates a workspace at the requested output path.
 - Preserves the logical project contents while rewriting them into the
   workspace-first xpkg layout.
@@ -219,8 +214,7 @@ target.
 
 - New project creation follows the workspace + `.expkg` contract.
 - `.xpkg` is the canonical edge archive suffix during transition work.
-- `.sta` remains supported only as a legacy alias for import/read paths.
 - `xpkg convert` remains available as an edge compatibility helper, not as the
   primary project workflow.
-- No new public examples should frame `.sta` as the native or preferred
-  user-facing archive format.
+- No new public examples should frame direct `.xpkg` archive handling as the
+  native or preferred project workflow.

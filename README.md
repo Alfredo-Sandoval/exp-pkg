@@ -21,10 +21,9 @@ The codebase grew out of older SLEAP / archive-shaped IO work, but the public
 boundary is now generic: `Labels`, `Video`, `Skeleton`, adapter imports,
 workspace lifecycle operations, and portable project artifacts.
 
-Legacy archive naming now belongs at the edge of the system: migration,
+Low-level archive access now belongs at the edge of the system: migration,
 fixtures, and compatibility workflows. The explicit edge surface for that work
-is `xpkg.compat`, with `.xpkg` as the canonical archive suffix and `.sta` as
-the only retained legacy alias.
+is `xpkg.compat`, with `.xpkg` as the canonical direct-archive suffix.
 
 ## Positioning
 
@@ -78,7 +77,7 @@ Implemented today:
 - import adapters and readers for external formats
 - workspace/store/artifact lifecycle operations
 - media-aware packaging and portable exports
-- legacy compatibility for direct `.xpkg` archives and older `.sta` aliases
+- low-level `.xpkg` archive IO for edge workflows
 
 Mission direction:
 
@@ -86,7 +85,7 @@ Mission direction:
 - support more external ecosystems through adapters
 - make downstream analysis and GUI repos depend on xpkg instead of inventing
   their own project formats
-- continue shrinking `.sta` toward an edge-only migration layer
+- keep direct archive handling narrow and clearly secondary to workspace flows
 
 ## Supported Formats
 
@@ -152,7 +151,7 @@ My Project/
 - Editable project = workspace folder
 - Authoritative mutable state = `.xpkg/`
 - Portable artifact = `.expkg`
-- Edge archive compatibility = `.xpkg`, with `.sta` retained as a legacy alias
+- Direct archive compatibility = `.xpkg`
 
 The artifact model is workspace-first so experiment state, managed media, and
 future aligned modalities have a clear home in one project layout.
@@ -162,19 +161,19 @@ command surface in `docs/cli_command_spec_v1.md`.
 
 ## Current Compatibility Layer
 
-The current implementation still exposes low-level `.xpkg` archive helpers and
-the older `.sta` alias, but they should be treated as edge compatibility
-surfaces rather than the center of the product.
+The current implementation still exposes low-level `.xpkg` archive helpers,
+but they should be treated as edge compatibility surfaces rather than the
+center of the product.
 
 Use them for:
 
-- migration from older `.sta` archives
+- direct archive inspection and transformation
 - fixtures and compatibility tests
-- legacy read/write paths that have not been cut over yet
+- migration-oriented workflows that have not been cut over yet
 
 Use `xpkg.compat` when you need that edge layer. Avoid using it as the primary
 integration boundary for new code. The longer write-up on why this layer still
-exists, and what has to happen before it can shrink further, lives in
+exists, and how it relates to the workspace/store architecture, lives in
 `docs/architecture/storage-direction.md`.
 
 Example:
@@ -183,10 +182,10 @@ Example:
 from xpkg.compat import read_xpkg
 from xpkg.adapters import convert_dlc_csv
 
-# Convert DeepLabCut tracking into a canonical .xpkg bundle
+# Legacy edge conversion example
 convert_dlc_csv("tracking.csv", "video.mp4", "tracking.xpkg")
 
-# Read the compatibility bundle back when you need direct archive access
+# Read the compatibility archive back when you need direct archive access
 payload = read_xpkg("tracking.xpkg", lazy=False)
 labels = payload["labels"]
 ```

@@ -28,7 +28,7 @@ def test_cli_routes_dlc_csv(monkeypatch, capsys) -> None:
             source_dir=Path("input"),
             project_root=Path("out"),
             videos=[Path(video_path)],
-            bundle_path=Path(out_path),
+            archive_path=Path(out_path),
         )
 
     monkeypatch.setattr("xpkg.cli.convert_dlc_csv", fake_convert_dlc_csv)
@@ -87,13 +87,13 @@ def test_cli_routes_dlc_project(monkeypatch, capsys) -> None:
                 source_dir=Path(project_dir),
                 project_root=Path(out_dir),
                 videos=[Path("video1.mp4")],
-                bundle_path=Path(out_dir) / "video1.xpkg",
+                archive_path=Path(out_dir) / "video1.xpkg",
             ),
             ConversionResult(
                 source_dir=Path(project_dir),
                 project_root=Path(out_dir),
                 videos=[Path("video2.mp4")],
-                bundle_path=Path(out_dir) / "video2.xpkg",
+                archive_path=Path(out_dir) / "video2.xpkg",
             ),
         ]
 
@@ -149,7 +149,7 @@ def test_cli_routes_sleap(monkeypatch, capsys) -> None:
             source_dir=Path(slp),
             project_root=Path(out_dir),
             videos=[],
-            bundle_path=Path(out_dir) / "project.xpkg",
+            archive_path=Path(out_dir) / "project.xpkg",
         )
 
     monkeypatch.setattr("xpkg.cli.convert_sleap_package", fake_convert_sleap_package)

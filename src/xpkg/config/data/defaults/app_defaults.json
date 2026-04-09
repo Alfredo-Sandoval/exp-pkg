@@ -5,7 +5,7 @@
   },
   "metrics": {
     "hdf5_compression_opts": 4,
-    "max_bundle_discovery_depth": 3,
-    "max_bundle_discovery_files": 64
+    "max_archive_discovery_depth": 3,
+    "max_archive_discovery_files": 64
   }
 }

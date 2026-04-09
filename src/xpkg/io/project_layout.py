@@ -10,17 +10,16 @@ from typing import Any, Literal
 from uuid import uuid4
 
 from xpkg.core.path_registry import ensure_dir, resolve_path
-from xpkg.io.archive_format.shared import CANONICAL_BUNDLE_SUFFIX, LEGACY_BUNDLE_SUFFIXES
+from xpkg.io.archive_format.shared import CANONICAL_ARCHIVE_SUFFIX
 
 PROJECT_DESCRIPTOR_FILENAME = "PROJECT.json"
 EXPKG_SUFFIX = ".expkg"
 STORE_DIRNAME = ".xpkg"
 STORE_STATE_DIRNAME = "state"
 CURRENT_SNAPSHOT_FILENAME = "current.json"
-CURRENT_ARCHIVE_FILENAME = f"current{CANONICAL_BUNDLE_SUFFIX}"
+CURRENT_ARCHIVE_FILENAME = f"current{CANONICAL_ARCHIVE_SUFFIX}"
 SUPPORTED_CURRENT_ARCHIVE_FILENAMES = (
     CURRENT_ARCHIVE_FILENAME,
-    *(f"current{suffix}" for suffix in LEGACY_BUNDLE_SUFFIXES),
 )
 MEDIA_DIRNAME = "Media"
 EXPORTS_DIRNAME = "Exports"
@@ -244,12 +243,11 @@ def default_expkg_path(path: str | Path) -> Path:
 
 
 __all__ = [
-    "CANONICAL_BUNDLE_SUFFIX",
+    "CANONICAL_ARCHIVE_SUFFIX",
     "CURRENT_ARCHIVE_FILENAME",
     "CURRENT_SNAPSHOT_FILENAME",
     "EXPORTS_DIRNAME",
     "EXPKG_SUFFIX",
-    "LEGACY_BUNDLE_SUFFIXES",
     "MEDIA_DIRNAME",
     "PROJECT_DESCRIPTOR_FILENAME",
     "PackMode",

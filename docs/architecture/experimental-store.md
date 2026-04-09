@@ -5,13 +5,13 @@
 xpkg now has an <strong>experimental</strong> durable store layer for crash-safe,
 commit-oriented project state. In the locked v1 artifact contract this belongs
 under the workspace-owned <code>.xpkg/</code> directory. The current prototype
-still wraps staged compatibility archives internally while we harden the
+still wraps staged <code>.xpkg</code> archives internally while we harden the
 private storage engine.
 </p>
 </div>
 
 If you want the broader rationale for why the runtime still stages
-legacy archive payloads at all, read [Storage Direction](storage-direction.md).
+direct archive payloads at all, read [Storage Direction](storage-direction.md).
 
 !!! warning
     This workflow is experimental private machinery. The public v1 artifact
@@ -90,7 +90,7 @@ Example:
 from pathlib import Path
 
 from xpkg.compat import (
-    create_store_from_archive,
+    create_store_from_xpkg,
     open_store,
     read_xpkg,
     write_xpkg,
@@ -106,7 +106,7 @@ seed_archive.parent.mkdir(parents=True, exist_ok=True)
 write_xpkg(seed_archive, labels)
 
 # 2. Wrap it in the experimental private store root
-store = create_store_from_archive(workspace_root / ".xpkg", seed_archive)
+store = create_store_from_xpkg(workspace_root / ".xpkg", seed_archive)
 
 # 3. Later, stage a fresh compatibility archive with the normal writer
 staged_archive = workspace_root / ".xpkg" / "workspace" / "session-next.xpkg"
@@ -124,21 +124,10 @@ payload = read_xpkg(store.current_archive_path(), lazy=False)
 
 The experimental format surface currently exposes:
 
-- `create_store_from_archive(store_root, initial_archive)`
 - `create_store_from_xpkg(store_root, initial_xpkg)`
 - `open_store(store_root)`
 - `ArchiveStore.current_archive_path()`
 - `ArchiveStore.commit_new_archive(...)`
-
-The store class also keeps compatibility aliases:
-
-- `current_bundle_path()`
-  This is a legacy alias for `current_archive_path()`.
-- `commit_new_bundle(...)`
-  This is a legacy alias for `commit_new_archive(...)`.
-
-Those exist so we can layer the feature in without breaking older naming while
-we transition the user-facing language toward `archive`.
 
 ## Recovery Model
 
@@ -162,8 +151,7 @@ Stable today:
 
 - public workspace contract: `PROJECT.json`, `.xpkg/`, `Media/`, `Exports/`
 - `.expkg` as the portable project artifact
-- `xpkg.compat` as the edge compatibility surface for `.xpkg` archives and
-  legacy aliases
+- `xpkg.compat` as the edge compatibility surface for direct `.xpkg` archives
 
 Experimental today:
 

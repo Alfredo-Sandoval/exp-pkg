@@ -12,12 +12,12 @@ import pandas as pd
 from xpkg.core.json_utils import parse_json_dict
 from xpkg.core.path_registry import ensure_dir, resolve_path
 from xpkg.io.archive_format import write_archive
-from xpkg.io.archive_format.shared import CANONICAL_BUNDLE_SUFFIX
+from xpkg.io.archive_format.shared import CANONICAL_ARCHIVE_SUFFIX
 from xpkg.io.converters.converter_helpers import (
     ConversionResult,
     ProgressCallback,
     _emit,
-    project_bundle_path,
+    project_archive_path,
     rebase_image_sequences,
     remap_labels_to_videos,
 )
@@ -41,8 +41,8 @@ _OK_LABEL_TABLE_READY_MARKER = "XPKG_IMPORT OK: label_table_ready"
 _ASSEMBLE_LABELS_MARKER = "XPKG_IMPORT STEP: assemble_labels"
 _BUILD_VIDEO_MARKER = "XPKG_IMPORT STEP: build_video"
 _COPY_FRAMES_MARKER = "XPKG_IMPORT STEP: copy_frames"
-_WRITE_BUNDLE_MARKER = "XPKG_IMPORT STEP: write_xpkg"
-_OK_BUNDLE_WRITTEN_MARKER = "XPKG_IMPORT OK: xpkg_written"
+_WRITE_ARCHIVE_MARKER = "XPKG_IMPORT STEP: write_xpkg"
+_OK_ARCHIVE_WRITTEN_MARKER = "XPKG_IMPORT OK: xpkg_written"
 _CLEANUP_TEMP_MARKER = "XPKG_IMPORT STEP: cleanup_temp_folders"
 _DONE_MARKER = "XPKG_IMPORT DONE"
 
@@ -54,8 +54,8 @@ SLEAP_PACKAGE_PROGRESS_MARKERS: tuple[tuple[str, int], ...] = (
     (_ASSEMBLE_LABELS_MARKER, 55),
     (_BUILD_VIDEO_MARKER, 70),
     (_COPY_FRAMES_MARKER, 72),
-    (_WRITE_BUNDLE_MARKER, 80),
-    (_OK_BUNDLE_WRITTEN_MARKER, 92),
+    (_WRITE_ARCHIVE_MARKER, 80),
+    (_OK_ARCHIVE_WRITTEN_MARKER, 92),
     (_CLEANUP_TEMP_MARKER, 96),
     (_DONE_MARKER, 100),
 )
@@ -150,7 +150,7 @@ def convert_sleap_package(
     *,
     fps: int = 30,
     encode_videos: bool | None = None,
-    bundle_extension: str = CANONICAL_BUNDLE_SUFFIX,
+    archive_extension: str = CANONICAL_ARCHIVE_SUFFIX,
     progress_callback: ProgressCallback | None = None,
 ) -> ConversionResult:
     """Convert a SLEAP `.pkg.slp` archive into a native project archive."""
@@ -202,15 +202,15 @@ def convert_sleap_package(
     if videos:
         remap_labels_to_videos(labels, videos, proj_root)
 
-    bundle_path = project_bundle_path(proj_root, bundle_extension=bundle_extension)
+    archive_path = project_archive_path(proj_root, archive_extension=archive_extension)
     metadata = {
         "project_name": proj_root.name,
         "source": "sleap_pkg_import",
         "source_package": slp_path.as_posix(),
     }
-    _emit(progress_callback, _WRITE_BUNDLE_MARKER)
-    write_archive(bundle_path, labels, metadata=metadata)
-    _emit(progress_callback, _OK_BUNDLE_WRITTEN_MARKER)
+    _emit(progress_callback, _WRITE_ARCHIVE_MARKER)
+    write_archive(archive_path, labels, metadata=metadata)
+    _emit(progress_callback, _OK_ARCHIVE_WRITTEN_MARKER)
 
     _emit(progress_callback, _CLEANUP_TEMP_MARKER)
     if tmp_extract.exists():
@@ -220,7 +220,7 @@ def convert_sleap_package(
         source_dir=slp_path,
         project_root=proj_root,
         videos=videos,
-        bundle_path=bundle_path,
+        archive_path=archive_path,
     )
 
     _emit(progress_callback, _DONE_MARKER)

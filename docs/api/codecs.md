@@ -12,7 +12,7 @@ compatibility code.
 !!! note
     Use <code>xpkg.model</code> for the object graph, <code>xpkg.formats</code>
     for workspace and project artifacts, and <code>xpkg.compat</code> for
-    edge <code>.xpkg</code> / legacy <code>.sta</code> archive compatibility.
+    direct <code>.xpkg</code> archive IO.
     Use <code>xpkg.codecs</code> when you want pure in-memory conversions.
 
 ## Current Surface

@@ -9,8 +9,8 @@ and <code>.expkg</code>.
 </div>
 
 !!! note
-    Use <code>xpkg.compat</code> when you need edge archive compatibility for
-    <code>.xpkg</code> or legacy <code>.sta</code> flows. Use
+    Use <code>xpkg.compat</code> when you need low-level direct archive access
+    for <code>.xpkg</code> files. Use
     <code>xpkg.formats</code> for the stable project/workspace boundary.
 
 ## Project Contract

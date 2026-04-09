@@ -12,7 +12,7 @@ from xpkg.core.path_registry import ensure_dir, resolve_path
 from xpkg.io.archive_format import read_archive
 from xpkg.io.project_artifact import validate_workspace
 from xpkg.io.project_layout import (
-    CANONICAL_BUNDLE_SUFFIX,
+    CANONICAL_ARCHIVE_SUFFIX,
     CURRENT_ARCHIVE_FILENAME,
     CURRENT_SNAPSHOT_FILENAME,
     EXPORTS_DIRNAME,
@@ -242,8 +242,8 @@ def _stage_archive_parent(workspace_root: Path) -> Path:
     return ensure_dir(_workspace_store(workspace_root).staging_root)
 
 
-def _snapshot_metadata(bundle_payload: dict[str, Any]) -> dict[str, Any] | None:
-    metadata = bundle_payload.get("metadata")
+def _snapshot_metadata(archive_payload: dict[str, Any]) -> dict[str, Any] | None:
+    metadata = archive_payload.get("metadata")
     if not isinstance(metadata, dict):
         return None
     normalized = dict(metadata)
@@ -413,7 +413,7 @@ def _commit_labels_to_workspace(
         prefix=".workspace_commit_",
         dir=str(stage_parent),
     ) as tmp_dir:
-        staged_archive = Path(tmp_dir) / f"workspace{CANONICAL_BUNDLE_SUFFIX}"
+        staged_archive = Path(tmp_dir) / f"workspace{CANONICAL_ARCHIVE_SUFFIX}"
         write_archive(
             staged_archive,
             labels,
@@ -438,13 +438,13 @@ def rebuild_workspace_snapshot_cache(workspace_root: Path) -> Path:
 
     store = _workspace_store(workspace_root)
     archive_path = store.current_archive_path()
-    bundle_payload = read_archive(archive_path, lazy=False)
+    archive_payload = read_archive(archive_path, lazy=False)
     labels = Labels.load_file(archive_path.as_posix())
     return _write_workspace_state(
         workspace_root,
         labels=labels,
-        metadata=_snapshot_metadata(bundle_payload),
-        predictions=_predictions_payload_from_state_payload(bundle_payload),
+        metadata=_snapshot_metadata(archive_payload),
+        predictions=_predictions_payload_from_state_payload(archive_payload),
         commit_id=store.current_commit_id(),
     )
 
@@ -785,7 +785,7 @@ def import_dlc_csv_workspace(
         prefix=".workspace_import_",
         dir=str(stage_parent),
     ) as tmp_dir:
-        staged_archive = Path(tmp_dir) / f"dlc_csv{CANONICAL_BUNDLE_SUFFIX}"
+        staged_archive = Path(tmp_dir) / f"dlc_csv{CANONICAL_ARCHIVE_SUFFIX}"
         convert_dlc_csv(
             csv_path,
             video_path,
@@ -832,7 +832,7 @@ def import_dlc_h5_workspace(
         prefix=".workspace_import_",
         dir=str(stage_parent),
     ) as tmp_dir:
-        staged_archive = Path(tmp_dir) / f"dlc_h5{CANONICAL_BUNDLE_SUFFIX}"
+        staged_archive = Path(tmp_dir) / f"dlc_h5{CANONICAL_ARCHIVE_SUFFIX}"
         convert_dlc_h5(
             h5_path,
             video_path,
@@ -886,8 +886,8 @@ def import_sleap_package_workspace(
             encode_videos=encode_videos,
             progress_callback=progress_callback,
         )
-        labels = Labels.load_file(result.bundle_path.as_posix())
-        payload = read_archive(result.bundle_path, lazy=False)
+        labels = Labels.load_file(result.archive_path.as_posix())
+        payload = read_archive(result.archive_path, lazy=False)
         snapshot_path = _commit_labels_to_workspace(
             root,
             labels=labels,
@@ -952,9 +952,9 @@ def save_workspace_labels(
         state_metadata = _snapshot_metadata_from_state_payload(state_payload)
         predictions = _predictions_payload_from_state_payload(state_payload)
     elif has_archive:
-        bundle_payload = read_archive(store.current_archive_path(), lazy=False)
-        state_metadata = _snapshot_metadata(bundle_payload)
-        predictions = _predictions_payload_from_state_payload(bundle_payload)
+        archive_payload = read_archive(store.current_archive_path(), lazy=False)
+        state_metadata = _snapshot_metadata(archive_payload)
+        predictions = _predictions_payload_from_state_payload(archive_payload)
 
     if regenerate_predictions:
         predictions = predictions_payload_from_labels(labels)
@@ -976,7 +976,7 @@ def save_workspace_labels(
 
 
 __all__ = [
-    "CANONICAL_BUNDLE_SUFFIX",
+    "CANONICAL_ARCHIVE_SUFFIX",
     "CURRENT_ARCHIVE_FILENAME",
     "CURRENT_SNAPSHOT_FILENAME",
     "EXPORTS_DIRNAME",

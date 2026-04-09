@@ -48,7 +48,7 @@ from xpkg.io.archive_format.shared import (
     _DEFAULT_PROVENANCE_MAX_BYTES,
     ARCHIVE_SCHEMA_NAME,
     ARCHIVE_SCHEMA_VERSION,
-    CANONICAL_BUNDLE_SUFFIX,
+    CANONICAL_ARCHIVE_SUFFIX,
     LABEL_TRACK_ID_DATASET,
     LABEL_VISIBILITY_DATASET,
     _coerce_int,
@@ -172,7 +172,7 @@ def write_archive(
         "created": now_iso,
         "modified": now_iso,
         "archive_version": str(package_version),
-        "bundle_suffix": CANONICAL_BUNDLE_SUFFIX,
+        "archive_suffix": CANONICAL_ARCHIVE_SUFFIX,
         "instance_layout": "dense_fixed_width",
         "base_dir": path.name,
         "provenance_max_bytes": _DEFAULT_PROVENANCE_MAX_BYTES,
@@ -242,7 +242,7 @@ def write_archive(
         manifest_obj = ProjectManifest()
     register_videos(manifest_obj, videos=videos, project_root=project_root)
     register_archive(manifest_obj, path)
-    register_metadata_assets(manifest_obj, bundle_path=path, metadata_input=metadata_input)
+    register_metadata_assets(manifest_obj, archive_path=path, metadata_input=metadata_input)
 
     suggestions_data = suggestions
     if suggestions_data is None:

@@ -7,10 +7,9 @@ sessions. The public artifact needs to hold more context than a single archive
 blob, so the contract is defined around a workspace, a private store, and a
 portable export.
 
-It supersedes the older public framing that treated legacy archive naming as the
-native single-file project artifact. `.xpkg` is now the canonical edge archive
-suffix, with `.sta` retained only as a legacy alias during the transition.
-None of these are the portable user-facing project contract.
+It supersedes the older public framing that treated a direct archive file as
+the native single-file project artifact. `.xpkg` is now the canonical edge
+archive suffix. It is not the portable user-facing project contract.
 
 ## Artifact Classes
 
@@ -47,7 +46,7 @@ My Project.expkg
 ```
 
 This is the only portable file type. It is not `.h5`. It is not `.zip`. It is
-not `.bundle`.
+not `.archive`.
 
 ## Canonical Workspace Layout
 
@@ -118,7 +117,7 @@ project for portability lives here.
 
 ### `Exports/`
 
-This is the standard location for emitted `.expkg` files and optional legacy
+This is the standard location for emitted `.expkg` files and other project
 exports.
 
 ## Portable Artifact Semantics
@@ -230,19 +229,18 @@ The default pack mode is `portable`.
 - Symlinks may exist in user content, but official project validity must not
   depend on them.
 
-## Legacy Migration Policy
+## Archive Migration Policy
 
-`.xpkg` is the canonical edge archive format, with `.sta`
-preserved as a legacy alias.
+`.xpkg` is the canonical edge archive format.
 
 Policy:
 
 - xpkg v1 must read/import `.xpkg`.
-- xpkg v1 should continue accepting older `.sta` archives during migration.
 - New projects are created as workspace folders.
 - New portable exports are `.expkg`.
 - No dedicated workspace-to-`.xpkg` export command is part of the locked v1 surface.
-- No new core features should depend on `.sta` naming or semantics.
+- No new core features should depend on direct archive handling as the primary
+  project contract.
 
 ## What Is Public vs Private
 
@@ -285,6 +283,6 @@ And this:
 - editable project = workspace folder
 - authoritative mutable state = `.xpkg/`
 - portable artifact = `.expkg`
-- edge archive compatibility = `.xpkg`, with `.sta` retained as an older alias
+- edge archive compatibility = `.xpkg`
 - no required symlink layer
 - no `.h5` public contract

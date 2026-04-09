@@ -28,7 +28,7 @@ def test_commit_and_journal_checksums_fail_after_tampering() -> None:
         created_at=now_utc_iso(),
         reason="init",
         created_by={},
-        roots={"archive": {"object_id": "obj_deadbeef", "ext": ".sta"}},
+        roots={"archive": {"object_id": "obj_deadbeef", "ext": ".xpkg"}},
     ).with_checksum()
     journal = Journal(
         txn_id="txn_deadbeef",

@@ -21,10 +21,10 @@ from xpkg.core.path_registry import ensure_dir
 from xpkg.core.skeleton import SCHEMA_VERSION as SKELETON_SCHEMA_VERSION
 from xpkg.core.skeleton import Keypoint, Skeleton
 from xpkg.io.archive_format.shared import (
-    CANONICAL_BUNDLE_SUFFIX,
+    CANONICAL_ARCHIVE_SUFFIX,
     LABEL_TRACK_ID_DATASET,
     LABEL_VISIBILITY_DATASET,
-    SUPPORTED_BUNDLE_SUFFIXES,
+    SUPPORTED_ARCHIVE_SUFFIXES,
 )
 from xpkg.io.labels.video_types import VideoProtocol
 from xpkg.io.video import Video, gui_playback_backend_for_path
@@ -49,8 +49,8 @@ class VideoBuilder(Protocol):
 
 
 HydratedVideoFinalizer = Callable[[VideoProtocol], None]
-BundleReader = Callable[..., dict[str, Any]]
-BundleWriter = Callable[..., None]
+ArchiveReader = Callable[..., dict[str, Any]]
+ArchiveWriter = Callable[..., None]
 
 
 def _materialize(value: Any) -> Any:
@@ -120,14 +120,14 @@ def finalize_hydrated_video(video_obj: VideoProtocol) -> None:
     video_obj.close()
 
 
-def _resolve_bundle_suffixes(
-    supported_bundle_suffixes: Sequence[str] | None,
+def _resolve_archive_suffixes(
+    supported_archive_suffixes: Sequence[str] | None,
 ) -> tuple[str, ...]:
-    if supported_bundle_suffixes is None:
-        return SUPPORTED_BUNDLE_SUFFIXES
-    resolved = tuple(str(suffix).lower() for suffix in supported_bundle_suffixes if str(suffix))
+    if supported_archive_suffixes is None:
+        return SUPPORTED_ARCHIVE_SUFFIXES
+    resolved = tuple(str(suffix).lower() for suffix in supported_archive_suffixes if str(suffix))
     if not resolved:
-        raise ValueError("supported_bundle_suffixes must contain at least one suffix")
+        raise ValueError("supported_archive_suffixes must contain at least one suffix")
     return resolved
 
 
@@ -903,8 +903,8 @@ def labels_load_file(
     *args: Any,
     video_builder: VideoBuilder | None = None,
     video_finalizer: HydratedVideoFinalizer | None = None,
-    read_archive_fn: BundleReader | None = None,
-    supported_bundle_suffixes: Sequence[str] | None = None,
+    read_archive_fn: ArchiveReader | None = None,
+    supported_archive_suffixes: Sequence[str] | None = None,
     allow_json: bool = True,
     **kwargs: Any,
 ) -> Labels:
@@ -912,8 +912,8 @@ def labels_load_file(
     from xpkg.io.archive_format import read_archive
 
     del args, kwargs
-    bundle_reader = read_archive if read_archive_fn is None else read_archive_fn
-    bundle_suffixes = _resolve_bundle_suffixes(supported_bundle_suffixes)
+    archive_reader = read_archive if read_archive_fn is None else read_archive_fn
+    archive_suffixes = _resolve_archive_suffixes(supported_archive_suffixes)
     path = Path(filename)
     if path.suffix.lower() == ".expkg":
         raise ValueError("Packed .expkg artifacts must be unpacked before loading labels")
@@ -952,7 +952,7 @@ def labels_load_file(
             obj = cls()
             obj.path = workspace_root
             return obj
-        payload = bundle_reader(archive_path, lazy=False)
+        payload = archive_reader(archive_path, lazy=False)
         rebase_workspace_payload_videos(payload, workspace_root)
         obj = labels_from_archive_payload(
             cls,
@@ -981,10 +981,10 @@ def labels_load_file(
         obj.validate()
         obj.path = path
         return obj
-    if ext and ext not in bundle_suffixes:
+    if ext and ext not in archive_suffixes:
         raise ValueError(f"No serializer for extension: {ext}")
 
-    payload = bundle_reader(path, lazy=False)
+    payload = archive_reader(path, lazy=False)
     obj = labels_from_archive_payload(
         cls,
         _labels_payload_from_archive_payload(payload),
@@ -1004,16 +1004,16 @@ def labels_save_file(
     *,
     default_suffix: str = "",
     metadata: dict[str, Any] | None = None,
-    write_archive_fn: BundleWriter | None = None,
-    supported_bundle_suffixes: Sequence[str] | None = None,
+    write_archive_fn: ArchiveWriter | None = None,
+    supported_archive_suffixes: Sequence[str] | None = None,
     allow_json: bool = True,
     **_: Any,
 ) -> str:
     """Save labels to disk."""
     from xpkg.io.archive_format import write_archive
 
-    bundle_writer = write_archive if write_archive_fn is None else write_archive_fn
-    bundle_suffixes = _resolve_bundle_suffixes(supported_bundle_suffixes)
+    archive_writer = write_archive if write_archive_fn is None else write_archive_fn
+    archive_suffixes = _resolve_archive_suffixes(supported_archive_suffixes)
     path = Path(filename)
     from xpkg.io.project_layout import resolve_workspace_root
     from xpkg.io.project_workspace import save_workspace_labels
@@ -1035,12 +1035,12 @@ def labels_save_file(
         if not path.suffix:
             path = path.with_suffix(".json")
         return write_labels_json(path, labels, metadata=metadata)
-    if ext and ext not in bundle_suffixes:
+    if ext and ext not in archive_suffixes:
         raise ValueError(f"No serializer for extension: {ext}")
     if not path.suffix:
-        path = path.with_suffix(CANONICAL_BUNDLE_SUFFIX)
+        path = path.with_suffix(CANONICAL_ARCHIVE_SUFFIX)
     ensure_dir(path.parent)
-    bundle_writer(path, labels, metadata=metadata)
+    archive_writer(path, labels, metadata=metadata)
     labels.path = path
     return str(path)
 

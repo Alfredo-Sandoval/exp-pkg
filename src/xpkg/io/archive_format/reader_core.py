@@ -876,7 +876,7 @@ def _resolve_video_entries(
     filenames: list[str],
     *,
     manifest_obj: Any,
-    bundle_root: Path,
+    archive_root: Path,
 ) -> tuple[list[str], list[bool], list[str], list[str]]:
     resolved_paths: list[str] = [""] * len(filenames)
     resolved_exists: list[bool] = [False] * len(filenames)
@@ -889,7 +889,7 @@ def _resolve_video_entries(
             if not isinstance(raw_index, int) or not (0 <= raw_index < len(filenames)):
                 continue
             raw_path = entry.metadata.get("resolved_path", entry.path)
-            _, resolved_path = resolve_project_path(raw_path, project_root=bundle_root)
+            _, resolved_path = resolve_project_path(raw_path, project_root=archive_root)
             resolved_paths[raw_index] = str(resolved_path)
             resolved_exists[raw_index] = resolved_path.exists()
             video_ids[raw_index] = str(entry.id)
@@ -901,7 +901,7 @@ def _resolve_video_entries(
                 raw_name,
                 asset_type=AssetType.VIDEO,
                 manifest=manifest_obj,
-                project_root=bundle_root,
+                project_root=archive_root,
                 strict=False,
             )
             resolved_paths[idx] = str(resolved_candidate)
@@ -917,7 +917,7 @@ def _resolve_video_entries(
 def _read_videos_info(
     handle: h5py.File,
     *,
-    bundle_root: Path,
+    archive_root: Path,
     manifest_obj: Any,
 ) -> dict[str, Any]:
     videos_info = _read_videos_group(handle)
@@ -925,7 +925,7 @@ def _read_videos_info(
     resolved = _resolve_video_entries(
         filenames,
         manifest_obj=manifest_obj,
-        bundle_root=bundle_root,
+        archive_root=archive_root,
     )
     (
         videos_info["resolved_paths"],
@@ -1003,7 +1003,7 @@ def build_common_reader_state(
     handle: h5py.File,
     *,
     path: Path,
-    bundle_root: Path,
+    archive_root: Path,
     lazy_read: bool,
 ) -> ReaderCommonState:
     metadata, provenance = _read_project_metadata(handle, path=path)
@@ -1016,7 +1016,7 @@ def build_common_reader_state(
     preferences_override = _decode_preferences_override(metadata)
     session_state = _decode_session_state(metadata)
     manifest_obj = _decode_manifest(metadata)
-    videos_info = _read_videos_info(handle, bundle_root=bundle_root, manifest_obj=manifest_obj)
+    videos_info = _read_videos_info(handle, archive_root=archive_root, manifest_obj=manifest_obj)
     skeleton_info = _read_skeleton_group(handle)
     labels_payload = _attach_labels_payload(
         handle,
@@ -1073,11 +1073,11 @@ def read_archive_with_assembler(
         raise FileNotFoundError(f"No such file: {path}")
 
     handle = h5py.File(str(path), mode="r")
-    bundle_root = path.parent
+    archive_root = path.parent
 
     with contextlib.ExitStack() as stack:
         stack.callback(handle.close)
-        result = assemble_result(handle, path, bundle_root, lazy)
+        result = assemble_result(handle, path, archive_root, lazy)
         if lazy:
             stack.pop_all()
             result["h5_handle"] = LazyArchiveHandle(handle)

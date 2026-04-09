@@ -58,14 +58,14 @@ def test_labels_save_file_defaults_to_xpkg_suffix(tmp_path: Path) -> None:
     assert Path(written_path).exists()
 
 
-def test_labels_load_file_accepts_custom_bundle_reader(tmp_path: Path) -> None:
+def test_labels_load_file_accepts_custom_archive_reader(tmp_path: Path) -> None:
     from xpkg.io.archive_format import read_archive, write_archive
     from xpkg.io.labels import serialization as label_serialization
     from xpkg.model import Labels
 
     labels = _make_labels(tmp_path, x=7.0, y=8.0)
-    bundle_path = tmp_path / "labels.xpkg"
-    write_archive(bundle_path, labels)
+    archive_path = tmp_path / "labels.xpkg"
+    write_archive(archive_path, labels)
 
     calls: list[tuple[Path, bool]] = []
 
@@ -75,22 +75,22 @@ def test_labels_load_file_accepts_custom_bundle_reader(tmp_path: Path) -> None:
 
     loaded = label_serialization.labels_load_file(
         Labels,
-        bundle_path.as_posix(),
+        archive_path.as_posix(),
         read_archive_fn=recording_reader,
-        supported_bundle_suffixes=(".xpkg", ".sta"),
+        supported_archive_suffixes=(".xpkg",),
         allow_json=False,
     )
 
-    assert calls == [(bundle_path, False)]
-    assert loaded.path == bundle_path
+    assert calls == [(archive_path, False)]
+    assert loaded.path == archive_path
 
 
-def test_labels_save_file_accepts_custom_bundle_writer(tmp_path: Path) -> None:
+def test_labels_save_file_accepts_custom_archive_writer(tmp_path: Path) -> None:
     from xpkg.io.archive_format import read_archive, write_archive
     from xpkg.io.labels import serialization as label_serialization
 
     labels = _make_labels(tmp_path, x=2.0, y=5.0)
-    raw_path = tmp_path / "custom_bundle"
+    raw_path = tmp_path / "custom_archive"
     calls: list[tuple[Path, dict[str, object] | None]] = []
 
     def recording_writer(path: Path, labels_obj, *, metadata=None, **kwargs):
@@ -102,7 +102,7 @@ def test_labels_save_file_accepts_custom_bundle_writer(tmp_path: Path) -> None:
         raw_path.as_posix(),
         metadata={"project_name": "demo"},
         write_archive_fn=recording_writer,
-        supported_bundle_suffixes=(".xpkg", ".sta"),
+        supported_archive_suffixes=(".xpkg",),
         allow_json=False,
     )
 
@@ -116,10 +116,10 @@ def test_archive_labels_roundtrip_uses_explicit_visibility_dataset(tmp_path: Pat
     from xpkg.model import Labels
 
     labels = _make_labels(tmp_path, x=3.0, y=4.0, visible=False)
-    bundle_path = tmp_path / "labels.xpkg"
-    labels.save_file(labels, bundle_path.as_posix())
+    archive_path = tmp_path / "labels.xpkg"
+    labels.save_file(labels, archive_path.as_posix())
 
-    with h5py.File(bundle_path.as_posix(), "r") as handle:
+    with h5py.File(archive_path.as_posix(), "r") as handle:
         keypoints = np.asarray(handle["labels"]["data"]["keypoints"][...], dtype=np.float32)
         visibility = np.asarray(handle["labels"]["data"]["visibility"][...], dtype=np.uint8)
         track_id = np.asarray(handle["labels"]["data"]["track_id"][...], dtype=np.int32)
@@ -128,7 +128,7 @@ def test_archive_labels_roundtrip_uses_explicit_visibility_dataset(tmp_path: Pat
     assert int(visibility[0, 0, 0]) == 0
     assert int(track_id[0, 0]) == -1
 
-    loaded = Labels.load_file(bundle_path.as_posix())
+    loaded = Labels.load_file(archive_path.as_posix())
     pts = loaded.labeled_frames[0].instances[0].get_points_array(copy=False, full=True)
     assert float(pts["x"][0]) == 3.0
     assert float(pts["y"][0]) == 4.0
@@ -136,18 +136,18 @@ def test_archive_labels_roundtrip_uses_explicit_visibility_dataset(tmp_path: Pat
     assert bool(pts["complete"][0]) is True
 
 
-def test_update_labels_archive_preserves_predictions_by_default(tmp_path: Path) -> None:
+def test_update_labels_xpkg_preserves_predictions_by_default(tmp_path: Path) -> None:
     from xpkg.compat import (
         PredictionAppendItem,
         SerializerPredictedInstance,
-        read_archive,
-        update_labels_archive,
-        write_archive,
+        read_xpkg,
+        update_labels_xpkg,
+        write_xpkg,
     )
 
     initial_labels = _make_labels(tmp_path, x=1.0, y=2.0)
     updated_labels = _make_labels(tmp_path, x=9.0, y=10.0)
-    bundle_path = tmp_path / "project.sta"
+    archive_path = tmp_path / "project.xpkg"
     predictions = [
         PredictionAppendItem(
             video_index=0,
@@ -163,10 +163,10 @@ def test_update_labels_archive_preserves_predictions_by_default(tmp_path: Path) 
         )
     ]
 
-    write_archive(bundle_path, initial_labels, predictions=predictions)
-    update_labels_archive(bundle_path, updated_labels)
+    write_xpkg(archive_path, initial_labels, predictions=predictions)
+    update_labels_xpkg(archive_path, updated_labels)
 
-    payload = read_archive(bundle_path, lazy=False)
+    payload = read_xpkg(archive_path, lazy=False)
     label_keypoints = np.asarray(payload["labels"]["data"]["keypoints"], dtype=np.float32)
     prediction_scores = np.asarray(
         payload["predictions"]["data"]["keypoint_score"],
@@ -180,17 +180,17 @@ def test_update_labels_archive_preserves_predictions_by_default(tmp_path: Path) 
     assert int(prediction_track_ids[0, 0]) == 7
 
 
-def test_read_archive_tolerates_missing_manifest_with_path_fallback(tmp_path: Path) -> None:
-    from xpkg.compat import read_archive, write_archive
+def test_read_xpkg_tolerates_missing_manifest_with_path_fallback(tmp_path: Path) -> None:
+    from xpkg.compat import read_xpkg, write_xpkg
 
     labels = _make_labels(tmp_path, x=5.0, y=6.0)
-    bundle_path = tmp_path / "nometa.sta"
-    write_archive(bundle_path, labels)
+    archive_path = tmp_path / "nometa.xpkg"
+    write_xpkg(archive_path, labels)
 
-    with h5py.File(bundle_path.as_posix(), "r+") as handle:
+    with h5py.File(archive_path.as_posix(), "r+") as handle:
         del handle["project_metadata"].attrs["manifest_json"]
 
-    payload = read_archive(bundle_path, lazy=False)
+    payload = read_xpkg(archive_path, lazy=False)
 
     assert payload["metadata"]["manifest"] is None
     videos_info = payload["metadata"]["videos"]

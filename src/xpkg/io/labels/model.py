@@ -22,7 +22,7 @@ from xpkg.core.skeleton import (
     Keypoint,
     Skeleton,
 )
-from xpkg.io.archive_format.shared import CANONICAL_BUNDLE_SUFFIX
+from xpkg.io.archive_format.shared import CANONICAL_ARCHIVE_SUFFIX
 
 from . import export_ops, serialization
 from .cache import LabelsDataCache
@@ -825,7 +825,7 @@ class Labels:
 
     def export_h5(self, filename: str) -> str:
         """Write this archive to disk as a native `.xpkg` file."""
-        return self.save_file(self, filename, _default_suffix=CANONICAL_BUNDLE_SUFFIX)
+        return self.save_file(self, filename, _default_suffix=CANONICAL_ARCHIVE_SUFFIX)
 
     def numpy(
         self,

@@ -1,4 +1,4 @@
-"""Read-only helpers for canonical `.xpkg` archives and legacy aliases."""
+"""Read-only helpers for canonical `.xpkg` archives."""
 
 from __future__ import annotations
 
@@ -37,13 +37,13 @@ __all__ = [
 def _assemble_result(
     handle: h5py.File,
     path: Path,
-    bundle_root: Path,
+    archive_root: Path,
     lazy_read: bool,
 ) -> dict[str, Any]:
     common = build_common_reader_state(
         handle,
         path=path,
-        bundle_root=bundle_root,
+        archive_root=archive_root,
         lazy_read=lazy_read,
     )
 
@@ -62,6 +62,6 @@ def read_archive(
     *,
     lazy: bool = False,
 ) -> dict[str, Any]:
-    """Load a canonical `.xpkg` archive or legacy `.sta` alias from disk."""
+    """Load a canonical `.xpkg` archive from disk."""
 
     return read_archive_with_assembler(path, lazy=lazy, assemble_result=_assemble_result)

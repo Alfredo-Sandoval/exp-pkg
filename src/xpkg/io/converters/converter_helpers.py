@@ -43,7 +43,7 @@ class ConversionResult:
     source_dir: Path
     project_root: Path
     videos: list[Path]
-    bundle_path: Path
+    archive_path: Path
 
 
 def _emit(callback: ProgressCallback | None, message: str) -> None:
@@ -248,13 +248,6 @@ def project_archive_path(project_root: Path, *, archive_extension: str) -> Path:
     return project_root / f"{project_root.name}{archive_extension}"
 
 
-def project_bundle_path(project_root: Path, *, bundle_extension: str) -> Path:
-    """Legacy alias for `project_archive_path`."""
-    if not bundle_extension.startswith("."):
-        raise ValueError(f"bundle_extension must start with '.', got {bundle_extension!r}")
-    return project_archive_path(project_root, archive_extension=bundle_extension)
-
-
 def build_cli_parser(description: str) -> argparse.ArgumentParser:
     """Create a converter CLI parser with the provided description."""
 
@@ -311,7 +304,6 @@ __all__ = [
     "encode_videos",
     "parse_and_run_cli",
     "project_archive_path",
-    "project_bundle_path",
     "rebase_image_sequences",
     "remap_labels_to_videos",
 ]

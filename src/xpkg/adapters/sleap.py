@@ -6,7 +6,7 @@ import argparse
 from collections.abc import Sequence
 
 import xpkg.io.converters.sleap_import as _sleap_import
-from xpkg.io.archive_format.shared import CANONICAL_BUNDLE_SUFFIX
+from xpkg.io.archive_format.shared import CANONICAL_ARCHIVE_SUFFIX
 from xpkg.io.converters.converter_helpers import (
     CliRunner,
     ConversionResult,
@@ -38,7 +38,7 @@ def convert_sleap_package(
         out_dir,
         fps=int(fps),
         encode_videos=encode_videos,
-        bundle_extension=CANONICAL_BUNDLE_SUFFIX,
+        archive_extension=CANONICAL_ARCHIVE_SUFFIX,
         progress_callback=bridge_progress_callback(
             progress_callback,
             _sleap_import.SLEAP_PACKAGE_PROGRESS_MARKERS,

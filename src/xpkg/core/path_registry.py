@@ -251,7 +251,7 @@ def make_path_id(path: str | Path, *, prefix: str) -> PathId:
     return PathId(id=identifier, label=label, path=normalized)
 
 
-def resolve_unified_bundle_or_error(
+def resolve_unified_archive_or_error(
     path: str | Path,
 ) -> tuple[Path | None, ValueError | FileNotFoundError | None]:
     """Resolve user input to a concrete native archive without raising.
@@ -268,13 +268,12 @@ def resolve_unified_bundle_or_error(
 
         archives = (
             sorted(candidate.glob("*.xpkg"))
-            or sorted(candidate.glob("*.sta"))
         )
         if not archives:
             return (
                 None,
                 ValueError(
-                    "Expected a native bundle path, got a directory with no bundles: "
+                    "Expected a native archive path, got a directory with no archives: "
                     f"{candidate}"
                 ),
             )
@@ -283,22 +282,22 @@ def resolve_unified_bundle_or_error(
             return (
                 None,
                 ValueError(
-                    "Expected a native bundle path, got a directory with multiple bundles "
+                    "Expected a native archive path, got a directory with multiple archives "
                     f"({names}): {candidate}"
                 ),
             )
         return archives[0].resolve(), None
 
-    if candidate.suffix.lower() not in (".xpkg", ".sta"):
-        return None, ValueError(f"Expected a native bundle path, got: {candidate}")
+    if candidate.suffix.lower() != ".xpkg":
+        return None, ValueError(f"Expected a native archive path, got: {candidate}")
 
     if not candidate.exists():
-        return None, FileNotFoundError(f"Native bundle not found: {candidate}")
+        return None, FileNotFoundError(f"Native archive not found: {candidate}")
 
     return candidate, None
 
 
-def resolve_unified_bundle(path: str | Path) -> Path:
+def resolve_unified_archive(path: str | Path) -> Path:
     """Resolve user input to a concrete native archive (no discovery heuristics).
 
     Args:
@@ -311,15 +310,15 @@ def resolve_unified_bundle(path: str | Path) -> Path:
         ValueError: If the path is not a native archive or directory with a single archive.
         FileNotFoundError: If the archive is not found.
     """
-    resolved, err = resolve_unified_bundle_or_error(path)
+    resolved, err = resolve_unified_archive_or_error(path)
     if err is not None:
         raise err
     if resolved is None:
-        raise RuntimeError("resolve_unified_bundle_or_error returned (None, None)")
+        raise RuntimeError("resolve_unified_archive_or_error returned (None, None)")
     return resolved
 
 
-def find_project_bundles(project_root: str | Path) -> list[Path]:
+def find_project_archives(project_root: str | Path) -> list[Path]:
     """Return the project archive path if it exists.
 
     Args:
@@ -329,7 +328,7 @@ def find_project_bundles(project_root: str | Path) -> list[Path]:
         A list containing the Path to the project archive if it exists, else empty.
     """
     root = Path(project_root)
-    for suffix in (".xpkg", ".sta"):
+    for suffix in (".xpkg",):
         archive = root / f"{root.name}{suffix}"
         if archive.exists():
             return [archive]
@@ -393,7 +392,7 @@ def resolve_project_roots(
     return root, video_dir
 
 
-def locate_annotation_bundle(project_root: Path, annotation_files: list[str]) -> Path | None:
+def locate_annotation_archive(project_root: Path, annotation_files: list[str]) -> Path | None:
     """Locate the first existing native archive from a list of relative/absolute paths.
 
     Args:
@@ -407,7 +406,7 @@ def locate_annotation_bundle(project_root: Path, annotation_files: list[str]) ->
         candidate = Path(entry)
         if not candidate.is_absolute():
             candidate = project_root / candidate
-        if candidate.suffix.lower() in (".xpkg", ".sta") and candidate.exists():
+        if candidate.suffix.lower() == ".xpkg" and candidate.exists():
             return candidate
     return None
 
@@ -428,19 +427,19 @@ def get_package_file(filename: str) -> str:
 __all__ = [
     "PathId",
     "ensure_dir",
-    "find_project_bundles",
+    "find_project_archives",
     "get_package_file",
     "get_repo_devtools_dir",
     "get_repo_root",
     "iter_image_files",
-    "locate_annotation_bundle",
+    "locate_annotation_archive",
     "make_path_id",
     "normalize_separators",
     "parse_uri_path",
     "resolve_engine_meta",
     "resolve_path",
     "resolve_project_roots",
-    "resolve_unified_bundle",
+    "resolve_unified_archive",
     "return_absolute_data_paths",
     "return_absolute_path",
     "slugify_path_component",

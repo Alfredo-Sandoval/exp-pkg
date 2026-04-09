@@ -13,9 +13,8 @@ from typing import Any
 from xpkg.core.path_registry import resolve_path
 from xpkg.io.archive_format import read_archive
 from xpkg.io.project_layout import (
-    CANONICAL_BUNDLE_SUFFIX,
+    CANONICAL_ARCHIVE_SUFFIX,
     EXPKG_SUFFIX,
-    LEGACY_BUNDLE_SUFFIXES,
     PROJECT_DESCRIPTOR_FILENAME,
     ProjectDescriptor,
     _candidate_workspace_root,
@@ -243,7 +242,7 @@ def validate_artifact(path: str | Path) -> None:
     if resolved.suffix.lower() == EXPKG_SUFFIX:
         validate_expkg(resolved)
         return
-    if resolved.suffix.lower() in (CANONICAL_BUNDLE_SUFFIX, *LEGACY_BUNDLE_SUFFIXES):
+    if resolved.suffix.lower() == CANONICAL_ARCHIVE_SUFFIX:
         read_archive(resolved, lazy=False)
         return
     raise ValueError(f"Unsupported artifact path: {resolved}")

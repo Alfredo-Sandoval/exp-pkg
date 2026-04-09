@@ -129,15 +129,10 @@ def register_archive(manifest: ProjectManifest, archive_path: Path) -> None:
     )
 
 
-def register_bundle(manifest: ProjectManifest, bundle_path: Path) -> None:
-    """Legacy alias for `register_archive`."""
-    register_archive(manifest, bundle_path)
-
-
 def register_metadata_assets(
     manifest: ProjectManifest,
     *,
-    bundle_path: Path,
+    archive_path: Path,
     metadata_input: Mapping[str, Any],
 ) -> None:
     def _coerce_path(path_val: Any) -> Path | None:
@@ -155,7 +150,7 @@ def register_metadata_assets(
             return None
 
         if not candidate.is_absolute():
-            candidate = resolve_path(bundle_path.parent / candidate)
+            candidate = resolve_path(archive_path.parent / candidate)
         return candidate
 
     def _register_asset(path_val: Any, asset_type: AssetType, *, role: str | None = None) -> None:
@@ -165,7 +160,7 @@ def register_metadata_assets(
         meta: dict[str, Any] = {}
         if role is not None:
             meta["role"] = role
-        manifest.register(path_obj, asset_type, project_root=bundle_path.parent, metadata=meta)
+        manifest.register(path_obj, asset_type, project_root=archive_path.parent, metadata=meta)
 
     def _lookup(mapping: Mapping[str, Any], dotted_key: str) -> Any:
         if dotted_key in mapping:
@@ -199,7 +194,7 @@ def register_metadata_assets(
 
 __all__ = [
     "load_manifest_from_metadata",
-    "register_bundle",
+    "register_archive",
     "register_metadata_assets",
     "register_videos",
 ]

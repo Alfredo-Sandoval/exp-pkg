@@ -77,13 +77,13 @@ def test_dlc_adapter_bridges_progress_and_uses_xpkg_extension(monkeypatch) -> No
         *,
         likelihood_threshold: float,
         progress_callback,
-        bundle_extension: str,
+        archive_extension: str,
     ) -> ConversionResult:
         captured["h5_path"] = h5_path
         captured["video_paths"] = video_paths
         captured["project_root"] = project_root
         captured["likelihood_threshold"] = likelihood_threshold
-        captured["bundle_extension"] = bundle_extension
+        captured["archive_extension"] = archive_extension
         assert progress_callback is not None
         progress_callback("DLC_IMPORT STEP: read_h5")
         progress_callback("IMPORT: still reading")
@@ -93,7 +93,7 @@ def test_dlc_adapter_bridges_progress_and_uses_xpkg_extension(monkeypatch) -> No
             source_dir=Path("input"),
             project_root=Path(project_root),
             videos=[Path(video_paths[0])],
-            bundle_path=Path(project_root) / "project.xpkg",
+            archive_path=Path(project_root) / "project.xpkg",
         )
 
     monkeypatch.setattr(
@@ -114,7 +114,7 @@ def test_dlc_adapter_bridges_progress_and_uses_xpkg_extension(monkeypatch) -> No
         "video_paths": ["clip.mp4"],
         "project_root": "project",
         "likelihood_threshold": 0.25,
-        "bundle_extension": ".xpkg",
+        "archive_extension": ".xpkg",
     }
     assert progress_events == [
         (10, "DLC_IMPORT STEP: read_h5"),
@@ -122,7 +122,7 @@ def test_dlc_adapter_bridges_progress_and_uses_xpkg_extension(monkeypatch) -> No
         (55, "DLC_IMPORT STEP: build_labels"),
         (100, "DLC_IMPORT DONE"),
     ]
-    assert result.bundle_path == Path("project") / "project.xpkg"
+    assert result.archive_path == Path("project") / "project.xpkg"
 
 
 def test_dlc_adapter_main_routes_cli_arguments(monkeypatch, tmp_path: Path) -> None:
@@ -147,7 +147,7 @@ def test_dlc_adapter_main_routes_cli_arguments(monkeypatch, tmp_path: Path) -> N
             source_dir=Path(h5_path),
             project_root=Path(project_root),
             videos=[Path(video_path)],
-            bundle_path=Path(project_root) / f"{Path(project_root).name}.xpkg",
+            archive_path=Path(project_root) / f"{Path(project_root).name}.xpkg",
         )
 
     monkeypatch.setattr("xpkg.adapters.dlc.convert_dlc_h5", fake_convert_dlc_h5)
@@ -206,7 +206,7 @@ def test_dlc_adapter_stores_project_relative_video_filename(tmp_path: Path) -> N
 
     result = convert_dlc_h5(tracking_path, video_path, recording_dir)
 
-    payload = read_archive(result.bundle_path, lazy=False)
+    payload = read_archive(result.archive_path, lazy=False)
     assert payload["labels"]["videos"]["filenames"] == ["alpha_view/session-0-leftCam.avi"]
 
 
@@ -222,14 +222,14 @@ def test_sleap_adapter_bridges_progress_and_uses_xpkg_extension(monkeypatch) -> 
         *,
         fps: int,
         encode_videos: bool | None,
-        bundle_extension: str,
+        archive_extension: str,
         progress_callback,
     ) -> ConversionResult:
         captured["slp"] = slp
         captured["out_dir"] = out_dir
         captured["fps"] = fps
         captured["encode_videos"] = encode_videos
-        captured["bundle_extension"] = bundle_extension
+        captured["archive_extension"] = archive_extension
         assert progress_callback is not None
         progress_callback("XPKG_IMPORT START: extracting_frames")
         progress_callback("XPKG_IMPORT OK: label_table_ready")
@@ -238,7 +238,7 @@ def test_sleap_adapter_bridges_progress_and_uses_xpkg_extension(monkeypatch) -> 
             source_dir=Path(slp),
             project_root=Path(out_dir),
             videos=[],
-            bundle_path=Path(out_dir) / "project.xpkg",
+            archive_path=Path(out_dir) / "project.xpkg",
         )
 
     monkeypatch.setattr(
@@ -259,14 +259,14 @@ def test_sleap_adapter_bridges_progress_and_uses_xpkg_extension(monkeypatch) -> 
         "out_dir": "project",
         "fps": 24,
         "encode_videos": False,
-        "bundle_extension": ".xpkg",
+        "archive_extension": ".xpkg",
     }
     assert progress_events == [
         (10, "XPKG_IMPORT START: extracting_frames"),
         (45, "XPKG_IMPORT OK: label_table_ready"),
         (100, "XPKG_IMPORT DONE"),
     ]
-    assert result.bundle_path == Path("project") / "project.xpkg"
+    assert result.archive_path == Path("project") / "project.xpkg"
 
 
 def test_sleap_adapter_main_routes_cli_arguments(monkeypatch, tmp_path: Path) -> None:
@@ -291,7 +291,7 @@ def test_sleap_adapter_main_routes_cli_arguments(monkeypatch, tmp_path: Path) ->
             source_dir=Path(slp),
             project_root=Path(out_dir),
             videos=[],
-            bundle_path=Path(out_dir) / f"{Path(out_dir).name}.xpkg",
+            archive_path=Path(out_dir) / f"{Path(out_dir).name}.xpkg",
         )
 
     monkeypatch.setattr("xpkg.adapters.sleap.convert_sleap_package", fake_convert_sleap_package)

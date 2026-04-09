@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 from xpkg.core.json_utils import load_json_dict
-from xpkg.io.archive_format.shared import CANONICAL_BUNDLE_SUFFIX, SUPPORTED_BUNDLE_SUFFIXES
+from xpkg.io.archive_format.shared import CANONICAL_ARCHIVE_SUFFIX
 from xpkg.io.archive_store.errors import (
     ChecksumError,
     IncompatibleStoreVersionError,
@@ -104,10 +104,10 @@ def _commit_root_entry(object_id: str, *, ext: str) -> dict[str, str]:
 
 
 def _normalize_object_ext(path: Path) -> str:
-    suffix = _object_ext_for_path(path, default=CANONICAL_BUNDLE_SUFFIX).lower()
-    if suffix in SUPPORTED_BUNDLE_SUFFIXES:
+    suffix = _object_ext_for_path(path, default=CANONICAL_ARCHIVE_SUFFIX).lower()
+    if suffix == CANONICAL_ARCHIVE_SUFFIX:
         return suffix
-    return CANONICAL_BUNDLE_SUFFIX
+    return CANONICAL_ARCHIVE_SUFFIX
 
 
 class ArchiveStore:
@@ -291,35 +291,18 @@ class ArchiveStore:
             raise ChecksumError("Commit checksum invalid")
         return commit
 
-    def current_bundle_path(self) -> Path:
-        """Legacy alias for `current_archive_path`."""
+    def current_archive_path(self) -> Path:
+        """Return the current immutable archive payload path."""
         commit = self.load_current_commit()
-        root = commit.roots.get("archive") or commit.roots.get("bundle")
+        root = commit.roots.get("archive")
         if not isinstance(root, dict):
-            raise StoreCorruptionError(
-                "Commit missing roots.archive "
-                "(legacy roots.bundle also accepted)"
-            )
+            raise StoreCorruptionError("Commit missing roots.archive")
         object_id = str(root.get("object_id", ""))
-        ext = str(root.get("ext", CANONICAL_BUNDLE_SUFFIX))
+        ext = str(root.get("ext", CANONICAL_ARCHIVE_SUFFIX))
         path = get_object_file(self.paths, object_id, ext=ext)
         if not path.exists():
             raise StoreCorruptionError(f"Archive object missing: {path}")
         return path
-
-    def current_archive_path(self) -> Path:
-        """Alias for the current immutable payload path using archive terminology."""
-        return self.current_bundle_path()
-
-    def commit_new_bundle(
-        self,
-        bundle_path: Path,
-        *,
-        reason: str,
-        created_by: dict[str, Any] | None = None,
-    ) -> str:
-        """Legacy alias for `commit_new_archive`."""
-        return self.commit_new_archive(bundle_path, reason=reason, created_by=created_by)
 
     def commit_new_archive(
         self,

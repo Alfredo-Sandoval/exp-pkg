@@ -51,8 +51,7 @@ My Project/
 - You edit a normal workspace folder.
 - xpkg owns authoritative mutable state inside `.xpkg/`.
 - You move/share/export a single `.expkg` file.
-- `.xpkg` is the canonical archive suffix for the compatibility layer.
-- `.sta` remains the legacy archive alias during transition.
+- `.xpkg` is the canonical archive suffix for low-level direct archive IO.
 
 This matters because the workspace is the place where media, segmentation,
 labels, and future experiment-side modalities can live together under one
@@ -62,29 +61,19 @@ Read [Artifact Contract v1](artifact_contract_v1.md) for the full public
 contract and [CLI Command Spec v1](cli_command_spec_v1.md) for the locked
 workspace command surface.
 
-## Edge compatibility API
+## Workspace-first API
 
 ```python
-from xpkg.compat import read_xpkg, write_xpkg
-from xpkg.model import Labels
+from xpkg.services import WorkspaceService
 
-labels = Labels()
-write_xpkg("empty.xpkg", labels)
-
-payload = read_xpkg("empty.xpkg", lazy=False)
-loaded = payload["labels"]
-assert isinstance(loaded, Labels)
+workspace = WorkspaceService.create("./My Project", title="My Project")
+workspace.validate()
+artifact = workspace.pack()
+restored = WorkspaceService.unpack(artifact, "./Restored Project")
 ```
 
-These compatibility helpers remain useful for legacy import/read paths,
-fixtures, and transition work. `read_xpkg` returns a dict with these keys:
-
-| Key | Type | Contents |
-| --- | --- | --- |
-| `"labels"` | `Labels` | The main annotation container |
-| `"metadata"` | `dict` | Archive-level metadata |
-| `"videos"` | `list[Video]` | Video references |
-| `"predictions"` | `dict` or `None` | Prediction payloads if present |
+Start here when another repo needs a stable project boundary. This is the
+normal xpkg contract.
 
 ## In-memory codec API
 
@@ -98,7 +87,31 @@ roundtripped = labels_from_json_payload(payload)
 ```
 
 Use `xpkg.codecs` when another repo needs an in-memory handoff boundary rather
-than a workspace path or compatibility archive path.
+than a workspace path or direct archive path.
+
+## Advanced: Edge compatibility API
+
+```python
+from xpkg.compat import read_xpkg, write_xpkg
+from xpkg.model import Labels
+
+labels = Labels()
+write_xpkg("empty.xpkg", labels)
+
+payload = read_xpkg("empty.xpkg", lazy=False)
+loaded = payload["labels"]
+assert isinstance(loaded, Labels)
+```
+
+These compatibility helpers remain useful for low-level import/read paths,
+fixtures, and transition work. `read_xpkg` returns a dict with these keys:
+
+| Key | Type | Contents |
+| --- | --- | --- |
+| `"labels"` | `Labels` | The main annotation container |
+| `"metadata"` | `dict` | Archive-level metadata |
+| `"videos"` | `list[Video]` | Video references |
+| `"predictions"` | `dict` or `None` | Prediction payloads if present |
 
 ## Current adapter import example
 
@@ -113,7 +126,7 @@ result = convert_dlc_csv(
     likelihood_threshold=0.25,
 )
 
-print(result.bundle_path)
+print(result.project_root)
 ```
 
 This is still a compatibility-oriented import example. New project-facing code

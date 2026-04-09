@@ -14,7 +14,7 @@ def _write_frame(path: Path, value: int) -> None:
     assert ok
 
 
-def test_convert_normalized_image_sequence_annotations_writes_bundle_and_manifest(
+def test_convert_normalized_image_sequence_annotations_writes_archive_and_manifest(
     tmp_path: Path,
 ) -> None:
     from xpkg.io.converters.normalized_image_sequence_import import (
@@ -60,13 +60,13 @@ def test_convert_normalized_image_sequence_annotations_writes_bundle_and_manifes
         project_root,
     )
 
-    bundle_path = project_root / "archive.xpkg"
+    archive_path = project_root / "archive.xpkg"
     copied_frame = project_root / "videos" / "demo_sequence" / "000000_frame_0000.png"
     assert result.project_root == project_root
-    assert result.bundle_path == bundle_path
+    assert result.archive_path == archive_path
     assert copied_frame.is_file()
 
-    with h5py.File(str(bundle_path), "r") as handle:
+    with h5py.File(str(archive_path), "r") as handle:
         raw = handle["project_metadata"].attrs["manifest_json"]
         if isinstance(raw, bytes | bytearray):
             raw = raw.decode("utf-8")

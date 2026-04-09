@@ -10,10 +10,10 @@ from xpkg.io.archive_store.store import ArchiveStore
 
 
 def test_recover_clears_staging_journal_and_keeps_last_clean_head(tmp_path: Path) -> None:
-    archive = tmp_path / "initial.sta"
+    archive = tmp_path / "initial.xpkg"
     archive.write_bytes(b"initial")
 
-    store_root = tmp_path / "project.sta"
+    store_root = tmp_path / "project.xpkg"
     store = ArchiveStore.create_from_archive(store_root, archive)
     initial_head = store.recover()
 
@@ -35,10 +35,10 @@ def test_recover_clears_staging_journal_and_keeps_last_clean_head(tmp_path: Path
 
 
 def test_recover_reverts_committing_state_when_commit_file_is_missing(tmp_path: Path) -> None:
-    archive = tmp_path / "initial.sta"
+    archive = tmp_path / "initial.xpkg"
     archive.write_bytes(b"initial")
 
-    store_root = tmp_path / "project.sta"
+    store_root = tmp_path / "project.xpkg"
     store = ArchiveStore.create_from_archive(store_root, archive)
     initial_head = store.recover()
     paths = StorePaths(store_root)

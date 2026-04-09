@@ -3,8 +3,8 @@
 <div class="page-intro">
 <p>
 <code>xpkg.compat</code> is the edge compatibility layer for archive-first
-flows. It exposes the canonical <code>.xpkg</code> helpers and keeps older
-<code>.sta</code> files readable at the edge during migration.
+flows. It exposes the canonical <code>.xpkg</code> helpers for direct archive
+reads, writes, and archive-level migration work.
 </p>
 </div>
 
@@ -13,7 +13,8 @@ flows. It exposes the canonical <code>.xpkg</code> helpers and keeps older
     <code>xpkg.formats</code>, <code>xpkg.api</code>, or
     <code>xpkg.services.WorkspaceService</code> for the workspace-first
     project contract. Reach for <code>xpkg.compat</code> only when you are
-    migrating legacy bundles, writing fixtures, or touching edge archive flows.
+    migrating archive-first workflows, writing fixtures, or touching edge
+    archive flows.
 
 ## Canonical Archive Helpers
 
@@ -54,23 +55,15 @@ Run structural validation against the archive layout and raise if invalid.
 
 ## Metrics Tables
 
-### `read_metrics_table(bundle_path, name) -> pandas.DataFrame`
+### `read_metrics_table(archive_path, name) -> pandas.DataFrame`
 
 Read one named metrics table from `/metrics/<name>`.
 
-### `write_metrics_table(bundle_path, name, dataframe, *, mode="append")`
+### `write_metrics_table(archive_path, name, dataframe, *, mode="append")`
 
 Write or append one metrics table into an archive.
 
-The canonical helpers above still accept older `.sta` files when you are
-migrating existing archives, but the public API no longer duplicates that
-support through parallel `_sta` function names.
-
 ## Durable Archive Store
-
-### `create_store_from_archive(store_root, initial_archive) -> ArchiveStore`
-
-Create a directory-backed durable store from an existing archive payload.
 
 ### `create_store_from_xpkg(store_root, initial_xpkg) -> ArchiveStore`
 
@@ -79,11 +72,3 @@ Canonical entrypoint that makes the `.xpkg` naming explicit.
 ### `open_store(store_root) -> ArchiveStore`
 
 Open a durable store and run recovery before returning it.
-
-### `create_archive_store(store_root, initial_archive) -> ArchiveStore`
-
-Alias for `create_store_from_archive(...)`.
-
-### `open_archive_store(store_root) -> ArchiveStore`
-
-Alias for `open_store(...)`.

@@ -143,7 +143,7 @@ def _rewrite_training_state_paths(
         entries.extend(entry for entry in runs if isinstance(entry, dict))
 
     for entry in entries:
-        for field in ("output_dir", "source_bundle"):
+        for field in ("output_dir", "source_archive"):
             raw_value = entry.get(field)
             if not isinstance(raw_value, str):
                 continue

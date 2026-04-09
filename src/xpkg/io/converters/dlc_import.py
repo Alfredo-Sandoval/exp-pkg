@@ -1,4 +1,4 @@
-"""Convert DeepLabCut-style tracking data into native bundle archives."""
+"""Convert DeepLabCut-style tracking data into native archive projects."""
 
 from __future__ import annotations
 
@@ -11,12 +11,12 @@ import pandas as pd
 from xpkg.core.path_registry import ensure_dir, resolve_path
 from xpkg.core.skeleton import build_keypoint_skeleton
 from xpkg.io.archive_format import write_archive
-from xpkg.io.archive_format.shared import CANONICAL_BUNDLE_SUFFIX
+from xpkg.io.archive_format.shared import CANONICAL_ARCHIVE_SUFFIX
 from xpkg.io.converters.converter_helpers import (
     ConversionResult,
     ProgressCallback,
     _emit,
-    project_bundle_path,
+    project_archive_path,
 )
 from xpkg.io.readers.dlc import read_dlc_csv_table, read_dlc_h5_table
 from xpkg.io.video import Video
@@ -31,14 +31,14 @@ DlcReader = Callable[[Path], tuple[pd.DataFrame, list[str]]]
 _DLC_READ_H5_MARKER = "DLC_IMPORT STEP: read_h5"
 _DLC_VALIDATE_VIDEOS_MARKER = "DLC_IMPORT STEP: validate_videos"
 _DLC_BUILD_LABELS_MARKER = "DLC_IMPORT STEP: build_labels"
-_DLC_WRITE_BUNDLE_MARKER = "DLC_IMPORT STEP: write_bundle"
+_DLC_WRITE_ARCHIVE_MARKER = "DLC_IMPORT STEP: write_archive"
 _DLC_DONE_MARKER = "DLC_IMPORT DONE"
 
 DLC_H5_PROJECT_PROGRESS_MARKERS: tuple[tuple[str, int], ...] = (
     (_DLC_READ_H5_MARKER, 10),
     (_DLC_VALIDATE_VIDEOS_MARKER, 30),
     (_DLC_BUILD_LABELS_MARKER, 55),
-    (_DLC_WRITE_BUNDLE_MARKER, 80),
+    (_DLC_WRITE_ARCHIVE_MARKER, 80),
     (_DLC_DONE_MARKER, 100),
 )
 
@@ -291,7 +291,7 @@ def _build_tracking_labels(
     return labels
 
 
-def _write_tracking_bundle(
+def _write_tracking_archive(
     labels: _Labels,
     *,
     out_path: Path,
@@ -316,7 +316,7 @@ def _write_tracking_bundle(
         source_dir=data_path.parent,
         project_root=out_path.parent,
         videos=[video_path],
-        bundle_path=out_path,
+        archive_path=out_path,
     )
 
 
@@ -353,7 +353,7 @@ def _convert_dlc_tracking(
         likelihood_threshold=likelihood_threshold,
         progress_callback=progress_callback,
     )
-    return _write_tracking_bundle(
+    return _write_tracking_archive(
         labels,
         out_path=resolved_out_path,
         data_path=resolved_data_path,
@@ -421,7 +421,7 @@ def convert_dlc_h5_project(
     *,
     likelihood_threshold: float = 0.0,
     progress_callback: ProgressCallback | None = None,
-    bundle_extension: str = CANONICAL_BUNDLE_SUFFIX,
+    archive_extension: str = CANONICAL_ARCHIVE_SUFFIX,
 ) -> ConversionResult:
     """Convert one DLC H5 tracking file plus explicit videos into a project archive."""
 
@@ -429,9 +429,9 @@ def convert_dlc_h5_project(
     resolved_project_root = ensure_dir(project_root)
     resolved_video_paths = _resolve_video_paths(video_paths)
     videos = _load_project_videos(resolved_video_paths, project_root=resolved_project_root)
-    bundle_path = project_bundle_path(
+    archive_path = project_archive_path(
         resolved_project_root,
-        bundle_extension=bundle_extension,
+        archive_extension=archive_extension,
     )
     try:
         _emit(progress_callback, f"{_DLC_READ_H5_MARKER} {resolved_h5.name}")
@@ -456,8 +456,8 @@ def convert_dlc_h5_project(
                 for video_path in resolved_video_paths
             ],
         }
-        _emit(progress_callback, f"{_DLC_WRITE_BUNDLE_MARKER} {bundle_path.name}")
-        write_archive(bundle_path, labels, metadata=metadata)
+        _emit(progress_callback, f"{_DLC_WRITE_ARCHIVE_MARKER} {archive_path.name}")
+        write_archive(archive_path, labels, metadata=metadata)
     finally:
         for video in videos:
             video.close()
@@ -466,7 +466,7 @@ def convert_dlc_h5_project(
         source_dir=resolved_h5.parent,
         project_root=resolved_project_root,
         videos=list(resolved_video_paths),
-        bundle_path=bundle_path,
+        archive_path=archive_path,
     )
 
 
@@ -477,7 +477,7 @@ def convert_dlc_project(
     likelihood_threshold: float = 0.0,
     progress_callback: ProgressCallback | None = None,
 ) -> list[ConversionResult]:
-    """Convert an entire DLC project directory into native `.xpkg` bundles."""
+    """Convert an entire DLC project directory into native `.xpkg` archives."""
 
     project_dir = resolve_path(project_dir)
     out_dir = resolve_path(out_dir)
@@ -520,7 +520,7 @@ def convert_dlc_project(
             _emit(progress_callback, f"IMPORT: Skipping {subdir.name} (no video found)")
             continue
 
-        out_path = out_dir / f"{subdir.name}{CANONICAL_BUNDLE_SUFFIX}"
+        out_path = out_dir / f"{subdir.name}{CANONICAL_ARCHIVE_SUFFIX}"
         _emit(progress_callback, f"IMPORT: Converting {subdir.name}")
 
         if is_h5:

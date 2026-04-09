@@ -7,8 +7,8 @@ import h5py
 import pytest
 
 
-def _load_manifest_entries(bundle_path: Path) -> list[dict[str, object]]:
-    with h5py.File(str(bundle_path), "r") as handle:
+def _load_manifest_entries(archive_path: Path) -> list[dict[str, object]]:
+    with h5py.File(str(archive_path), "r") as handle:
         raw = handle["project_metadata"].attrs["manifest_json"]
         if isinstance(raw, bytes | bytearray):
             raw = raw.decode("utf-8")
@@ -38,25 +38,25 @@ def _find_manifest_entry(
     )
 
 
-def test_write_archive_manifest_tracks_bundle_only_by_default(tmp_path: Path) -> None:
-    from xpkg.compat import write_archive
+def test_write_archive_manifest_tracks_archive_only_by_default(tmp_path: Path) -> None:
+    from xpkg.compat import write_xpkg
     from xpkg.model import Labels
 
     project_root = tmp_path / "proj"
     project_root.mkdir(parents=True)
 
-    bundle_path = project_root / "proj.xpkg"
+    archive_path = project_root / "proj.xpkg"
     labels = Labels()
-    write_archive(bundle_path, labels)
+    write_xpkg(archive_path, labels)
 
-    with h5py.File(str(bundle_path), "r") as handle:
+    with h5py.File(str(archive_path), "r") as handle:
         raw = handle["project_metadata"].attrs["manifest_json"]
         if isinstance(raw, bytes | bytearray):
             raw = raw.decode("utf-8")
         payload = json.loads(str(raw))
 
     entries = payload["entries"]
-    expected_bundle = "proj.xpkg"
+    expected_archive = "proj.xpkg"
 
     def _has(asset_type: str, path: str, role: str) -> bool:
         for entry in entries:
@@ -70,18 +70,18 @@ def test_write_archive_manifest_tracks_bundle_only_by_default(tmp_path: Path) ->
         return False
 
     assert len(entries) == 1
-    assert _has("predictions", expected_bundle, "archive")
+    assert _has("predictions", expected_archive, "archive")
 
 
 def test_write_archive_persists_preferences_payload(tmp_path: Path) -> None:
-    from xpkg.compat import write_archive
+    from xpkg.compat import write_xpkg
     from xpkg.model import Labels
 
-    bundle_path = tmp_path / "prefs.xpkg"
+    archive_path = tmp_path / "prefs.xpkg"
     labels = Labels(preferences={"theme": "paper", "show_scores": True})
-    write_archive(bundle_path, labels)
+    write_xpkg(archive_path, labels)
 
-    with h5py.File(str(bundle_path), "r") as handle:
+    with h5py.File(str(archive_path), "r") as handle:
         raw = handle["project_metadata"].attrs["preferences_json"]
         if isinstance(raw, bytes | bytearray):
             raw = raw.decode("utf-8")
@@ -94,7 +94,7 @@ def test_write_archive_registers_image_sequence_video_directory(tmp_path: Path) 
     import cv2
     import numpy as np
 
-    from xpkg.compat import write_archive
+    from xpkg.compat import write_xpkg
     from xpkg.model import Labels, Video
 
     project_root = tmp_path / "proj"
@@ -109,11 +109,11 @@ def test_write_archive_registers_image_sequence_video_directory(tmp_path: Path) 
         assert ok
         frame_paths.append(frame_path.as_posix())
 
-    bundle_path = project_root / "proj.xpkg"
+    archive_path = project_root / "proj.xpkg"
     labels = Labels(videos=[Video.from_image_filenames(frame_paths)])
-    write_archive(bundle_path, labels)
+    write_xpkg(archive_path, labels)
 
-    entries = _load_manifest_entries(bundle_path)
+    entries = _load_manifest_entries(archive_path)
     entry = _find_manifest_entry(
         entries,
         asset_type="video",
@@ -134,7 +134,7 @@ def test_write_archive_rejects_image_sequence_with_multiple_parent_dirs(tmp_path
     import cv2
     import numpy as np
 
-    from xpkg.compat import write_archive
+    from xpkg.compat import write_xpkg
     from xpkg.model import Labels, Video
 
     first_dir = tmp_path / "first"
@@ -148,11 +148,11 @@ def test_write_archive_rejects_image_sequence_with_multiple_parent_dirs(tmp_path
     assert cv2.imwrite(first_path.as_posix(), frame)
     assert cv2.imwrite(second_path.as_posix(), frame)
 
-    bundle_path = tmp_path / "mixed" / "mixed.xpkg"
-    bundle_path.parent.mkdir()
+    archive_path = tmp_path / "mixed" / "mixed.xpkg"
+    archive_path.parent.mkdir()
     labels = Labels(
         videos=[Video.from_image_filenames([first_path.as_posix(), second_path.as_posix()])]
     )
 
     with pytest.raises(ValueError, match="share exactly one parent directory"):
-        write_archive(bundle_path, labels)
+        write_xpkg(archive_path, labels)

@@ -43,7 +43,7 @@ def _write_dummy_video(path: Path) -> None:
         writer.release()
 
 
-def test_convert_dlc_h5_project_builds_multi_video_bundle(tmp_path: Path) -> None:
+def test_convert_dlc_h5_project_builds_multi_video_archive(tmp_path: Path) -> None:
     from xpkg.io.archive_format import read_archive
     from xpkg.io.converters.dlc_import import convert_dlc_h5_project
     from xpkg.model import Labels
@@ -65,14 +65,14 @@ def test_convert_dlc_h5_project_builds_multi_video_bundle(tmp_path: Path) -> Non
         recording_dir,
     )
 
-    assert result.bundle_path == recording_dir / "session-0.xpkg"
-    payload = read_archive(result.bundle_path, lazy=False)
+    assert result.archive_path == recording_dir / "session-0.xpkg"
+    payload = read_archive(result.archive_path, lazy=False)
     assert payload["labels"]["videos"]["filenames"] == [
         "alpha_view/session-0-leftCam.avi",
         "beta_view/session-0-underGlass.avi",
     ]
 
-    labels = Labels.load_file(result.bundle_path.as_posix())
+    labels = Labels.load_file(result.archive_path.as_posix())
     assert len(labels.videos) == 2
     assert len(labels.labeled_frames) == len(df) * 2
     counts = Counter(Path(frame.video.filename or "").name for frame in labels.labeled_frames)
