@@ -1,4 +1,4 @@
-"""Converters for Posetta IO."""
+"""Converters for xpkg IO."""
 
 from __future__ import annotations
 

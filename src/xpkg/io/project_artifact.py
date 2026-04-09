@@ -85,7 +85,7 @@ def pack_project(
 ) -> Path:
     root = resolve_workspace_root(workspace)
     if root is None:
-        raise FileNotFoundError(f"Not a Posetta workspace: {workspace}")
+        raise FileNotFoundError(f"Not an xpkg workspace: {workspace}")
     validate_workspace(root)
 
     descriptor = load_project_descriptor(root)
@@ -187,7 +187,7 @@ def unpack_project(
 def validate_workspace(workspace: str | Path) -> None:
     root = resolve_workspace_root(workspace)
     if root is None:
-        raise FileNotFoundError(f"Not a Posetta workspace: {workspace}")
+        raise FileNotFoundError(f"Not an xpkg workspace: {workspace}")
     descriptor = load_project_descriptor(root)
     descriptor.validate()
 

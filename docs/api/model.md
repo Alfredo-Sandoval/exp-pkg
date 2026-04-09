@@ -3,7 +3,7 @@
 <div class="page-intro">
 <p>
 <code>xpkg.model</code> holds the pose-data objects used across the library.
-If you are building tools on top of Posetta, this is usually the first module
+If you are building tools on top of xpkg, this is usually the first module
 to import.
 </p>
 </div>

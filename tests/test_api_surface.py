@@ -1,4 +1,4 @@
-"""Smoke tests for the Posetta public API facade."""
+"""Smoke tests for the xpkg public API facade."""
 
 from __future__ import annotations
 

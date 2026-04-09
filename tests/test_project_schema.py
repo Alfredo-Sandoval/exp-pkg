@@ -25,10 +25,10 @@ def test_project_schema_locks_required_v1_descriptor_fields() -> None:
     ]
 
     properties = schema["properties"]
-    assert properties["format"]["const"] == "posetta-project"
+    assert properties["format"]["const"] == "xpkg-project"
     assert properties["project_schema_version"]["const"] == 1
     assert properties["layout_version"]["const"] == 1
-    assert properties["store_path"]["const"] == ".posetta"
+    assert properties["store_path"]["const"] == ".xpkg"
     assert properties["media_root"]["const"] == "Media"
     assert properties["exports_root"]["const"] == "Exports"
     assert properties["default_pack_mode"]["enum"] == ["portable", "snapshot"]

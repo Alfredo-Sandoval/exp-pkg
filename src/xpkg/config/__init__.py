@@ -1,4 +1,4 @@
-"""Minimal runtime configuration for Posetta."""
+"""Minimal runtime configuration for xpkg."""
 
 from __future__ import annotations
 

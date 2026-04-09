@@ -104,7 +104,7 @@ def test_init_project_writes_workspace_contract(tmp_path: Path) -> None:
 
     assert is_workspace_root(workspace)
     assert (workspace / "PROJECT.json").is_file()
-    assert (workspace / ".posetta").is_dir()
+    assert (workspace / ".xpkg").is_dir()
     assert (workspace / "Media").is_dir()
     assert (workspace / "Exports").is_dir()
     assert not current_project_state_path(workspace).exists()

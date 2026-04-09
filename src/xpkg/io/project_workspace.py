@@ -1,4 +1,4 @@
-"""Workspace save/import and store helpers for Posetta v1."""
+"""Workspace save/import and store helpers for xpkg v1."""
 
 from __future__ import annotations
 
@@ -62,7 +62,7 @@ def current_project_state_path(path: str | Path) -> Path:
 
 @dataclass(slots=True)
 class WorkspaceStore:
-    """Private workspace store boundary for `.posetta/`."""
+    """Private workspace store boundary for `.xpkg/`."""
 
     workspace_root: Path
 
@@ -216,7 +216,7 @@ def init_project(
     ensure_dir(workspace_exports_root(root))
 
     descriptor = ProjectDescriptor.new(
-        title=(title or root.name or "Posetta Project").strip(),
+        title=(title or root.name or "exp-pkg Project").strip(),
         project_id=project_id,
         default_pack_mode=default_pack_mode,
     )
@@ -751,7 +751,7 @@ def save_workspace_labels(
     """Commit a label save into the workspace's private store."""
     root = resolve_workspace_root(workspace)
     if root is None:
-        raise FileNotFoundError(f"Not a Posetta workspace: {workspace}")
+        raise FileNotFoundError(f"Not an xpkg workspace: {workspace}")
 
     descriptor = load_project_descriptor(root)
     descriptor.validate()

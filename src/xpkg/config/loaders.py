@@ -1,7 +1,7 @@
 """Centralized JSON/YAML load helpers for package configuration assets.
 
 Single authoritative module for loading packaged JSON/YAML configuration
-files used by Posetta's format and adapter stack.
+files used by xpkg's format and adapter stack.
 """
 
 from __future__ import annotations

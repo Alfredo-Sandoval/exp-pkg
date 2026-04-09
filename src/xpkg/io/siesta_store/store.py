@@ -22,7 +22,7 @@ from xpkg.io.siesta_store.platform_io import atomic_write_json
 from xpkg.io.siesta_store.schema import Commit, Journal, Superblock, now_utc_iso
 
 _SUPPORTED_STORE_VERSION = 1
-_STORE_FORMAT = "posetta.siesta-store"
+_STORE_FORMAT = "xpkg.siesta-store"
 
 
 @dataclass(slots=True)

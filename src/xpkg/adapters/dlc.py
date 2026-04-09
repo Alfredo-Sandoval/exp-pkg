@@ -78,9 +78,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     """CLI entry point for DLC H5 -> native project conversion."""
     runner: CliRunner = _run_cli
     parser = build_cli_parser(
-        description="Convert DLC H5 tracking plus explicit videos into a Posetta project"
+        description="Convert DLC H5 tracking plus explicit videos into an xpkg project"
     )
-    add_output_path_argument(parser, help_text="Output Posetta project root directory")
+    add_output_path_argument(parser, help_text="Output xpkg project root directory")
     _configure_cli_parser(parser)
     return parse_and_run_cli(parser, argv, runner)
 

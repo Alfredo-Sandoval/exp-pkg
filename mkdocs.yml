@@ -1,7 +1,7 @@
-site_name: Posetta
-site_description: API documentation for the Posetta pose IO toolkit.
-repo_name: Alfredo-Sandoval/Posetta
-repo_url: https://github.com/Alfredo-Sandoval/Posetta
+site_name: exp-pkg
+site_description: API documentation for exp-pkg and the xpkg Python package.
+repo_name: Alfredo-Sandoval/exp-pkg
+repo_url: https://github.com/Alfredo-Sandoval/exp-pkg
 
 theme:
   name: material
@@ -89,6 +89,6 @@ nav:
       - Formats: api/formats.md
       - Adapters: api/adapters.md
   - Reference:
-      - posetta.model: reference/model.md
-      - posetta.formats: reference/formats.md
-      - posetta.adapters: reference/adapters.md
+      - xpkg.model: reference/model.md
+      - xpkg.formats: reference/formats.md
+      - xpkg.adapters: reference/adapters.md

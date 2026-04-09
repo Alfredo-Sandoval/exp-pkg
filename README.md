@@ -64,7 +64,7 @@ available for compatibility and low-level workflows, but new code should prefer
 
 ## What It Does
 
-- Locked v1 project contract: workspace folder + `.posetta/` + `.expkg`
+- Locked v1 project contract: workspace folder + `.xpkg/` + `.expkg`
 - Workspace lifecycle services for create/open/validate/pack/unpack flows
 - Canonical pose/annotation containers (`Labels`, `Skeleton`, `Instance`, `Video`)
 - Pose and segmentation storage plus media-aware project packaging
@@ -109,13 +109,19 @@ Not on PyPI yet. Clone and install locally:
 ```bash
 git clone https://github.com/Alfredo-Sandoval/exp-pkg.git
 cd exp-pkg
-pip install -e .
+make env
+```
+
+Fallback if you do not want the canonical setup target:
+
+```bash
+bash environment/setup.sh
 ```
 
 For the documentation toolchain:
 
 ```bash
-pip install -e '.[docs]'
+mamba run -n xpkg uv pip install -e '.[docs]'
 ```
 
 ## Documentation
@@ -134,14 +140,14 @@ exp-pkg v1 defines exactly three artifact classes:
 ```text
 My Project/
   PROJECT.json
-  .posetta/
+  .xpkg/
   Media/
   Exports/
     My Project.expkg
 ```
 
 - Editable project = workspace folder
-- Authoritative mutable state = `.posetta/`
+- Authoritative mutable state = `.xpkg/`
 - Portable artifact = `.expkg`
 - `.siesta` = legacy import/read only
 

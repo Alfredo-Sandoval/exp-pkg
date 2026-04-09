@@ -30,6 +30,9 @@ docs = [
 [project.scripts]
 xpkg = "xpkg.cli:main"
 
+[tool.hatch.build.targets.wheel]
+packages = ["src/xpkg"]
+
 [tool.ruff]
 line-length = 100
 target-version = "py312"

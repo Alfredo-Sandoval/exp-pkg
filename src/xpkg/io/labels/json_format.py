@@ -16,7 +16,7 @@ if TYPE_CHECKING:
     from xpkg.io.labels.model import Labels, SuggestionFrame
     from xpkg.io.labels.video_types import VideoProtocol
 
-POSETTA_LABELS_JSON_FORMAT = "posetta.labels-json"
+POSETTA_LABELS_JSON_FORMAT = "xpkg.labels-json"
 POSETTA_LABELS_JSON_VERSION = "2.0.0"
 
 

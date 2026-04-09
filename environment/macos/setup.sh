@@ -96,6 +96,7 @@ else
   "${MAMBA_BIN}" env create -n "${ENV_NAME}" -f "${ENV_FILE}" -y
 fi
 "${MAMBA_BIN}" run -n "${ENV_NAME}" uv pip install -r "${REQ_FILE}"
+"${MAMBA_BIN}" run -n "${ENV_NAME}" uv pip install -e "${REPO_ROOT}"
 install_js_dependencies_if_present
 
 echo "Environment '${ENV_NAME}' is ready."

@@ -1,4 +1,4 @@
-"""Static configuration definitions used by Posetta core IO code."""
+"""Static configuration definitions used by xpkg core IO code."""
 
 from __future__ import annotations
 

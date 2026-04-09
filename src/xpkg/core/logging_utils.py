@@ -1,4 +1,4 @@
-"""Small logging helpers for the extracted Posetta package."""
+"""Small logging helpers for the extracted xpkg package."""
 
 from __future__ import annotations
 
@@ -31,7 +31,7 @@ def ensure_basic_config() -> None:
 
 def get_logger(name: str | None = None) -> logging.Logger:
     ensure_basic_config()
-    logger = logging.getLogger(name if name else "posetta")
+    logger = logging.getLogger(name if name else "xpkg")
     if not any(isinstance(handler, logging.NullHandler) for handler in logger.handlers):
         logger.addHandler(logging.NullHandler())
     return logger

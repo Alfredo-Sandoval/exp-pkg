@@ -2,7 +2,7 @@
 
 <div class="page-intro">
 <p>
-Posetta is a workspace-first toolkit for behavior-centered experiments. It is
+xpkg is a workspace-first toolkit for behavior-centered experiments. It is
 not on PyPI yet; clone the repo and install locally.
 </p>
 </div>
@@ -10,15 +10,21 @@ not on PyPI yet; clone the repo and install locally.
 ## Install
 
 ```bash
-git clone https://github.com/Alfredo-Sandoval/Posetta.git
-cd Posetta
-pip install -e .
+git clone https://github.com/Alfredo-Sandoval/exp-pkg.git
+cd exp-pkg
+make env
+```
+
+Fallback if you do not want the canonical setup target:
+
+```bash
+bash environment/setup.sh
 ```
 
 For the documentation toolchain:
 
 ```bash
-pip install -e '.[docs]'
+mamba run -n xpkg uv pip install -e '.[docs]'
 ```
 
 ## Preview the docs locally
@@ -30,19 +36,19 @@ make docs-serve
 
 ## Start with the v1 artifact model
 
-The public Posetta v1 artifact model is workspace-first:
+The public xpkg v1 artifact model is workspace-first:
 
 ```text
 My Project/
   PROJECT.json
-  .posetta/
+  .xpkg/
   Media/
   Exports/
     My Project.expkg
 ```
 
 - You edit a normal workspace folder.
-- Posetta owns authoritative mutable state inside `.posetta/`.
+- xpkg owns authoritative mutable state inside `.xpkg/`.
 - You move/share/export a single `.expkg` file.
 - `.siesta` remains a legacy import/read compatibility format during
   transition.

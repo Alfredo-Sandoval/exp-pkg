@@ -1,14 +1,14 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "Posetta PROJECT.json",
-  "description": "Schema for the public Posetta v1 workspace descriptor.",
+  "title": "xpkg PROJECT.json",
+  "description": "Schema for the public xpkg v1 workspace descriptor.",
   "type": "object",
   "additionalProperties": false,
   "properties": {
     "format": {
       "type": "string",
-      "const": "posetta-project",
-      "description": "Locked public descriptor type for Posetta workspaces."
+      "const": "xpkg-project",
+      "description": "Locked public descriptor type for xpkg workspaces."
     },
     "project_schema_version": {
       "type": "integer",
@@ -44,7 +44,7 @@
     },
     "store_path": {
       "type": "string",
-      "const": ".posetta",
+      "const": ".xpkg",
       "description": "Relative path to the private authoritative store."
     },
     "media_root": {
@@ -82,14 +82,14 @@
   ],
   "examples": [
     {
-      "format": "posetta-project",
+      "format": "xpkg-project",
       "project_schema_version": 1,
       "layout_version": 1,
       "title": "My Project",
       "project_id": "01JPKB4QH3Y3FQ1XCB4Q9D4YJ7",
       "created_at": "2026-03-15T00:00:00Z",
       "updated_at": "2026-03-15T00:00:00Z",
-      "store_path": ".posetta",
+      "store_path": ".xpkg",
       "media_root": "Media",
       "exports_root": "Exports",
       "default_pack_mode": "portable"

@@ -2,9 +2,9 @@
 
 <div class="page-intro">
 <p>
-If <code>.siesta</code> feels wrong in the current Posetta story, that reaction is
+If <code>.siesta</code> feels wrong in the current xpkg story, that reaction is
 reasonable. The public product story is now workspace folder + private
-<code>.posetta/</code> state + portable <code>.expkg</code> export, but the
+<code>.xpkg/</code> state + portable <code>.expkg</code> export, but the
 implementation still relies on <code>.siesta</code> as the only complete archive
 engine behind saves, migration, and durable commits.
 </p>
@@ -12,17 +12,17 @@ engine behind saves, migration, and durable commits.
 
 ## Current Truth
 
-Today Posetta still has four storage ideas in play, but the live workspace path
+Today xpkg still has four storage ideas in play, but the live workspace path
 has moved forward:
 
 - workspace root as the editable project boundary
-- `.posetta/` as the private mutable store boundary
+- `.xpkg/` as the private mutable store boundary
 - `.expkg` as the portable packed artifact
 - `.siesta` as the internal compatibility archive that still carries the full
   round-trip payload
 
 The normal workspace save/load/import/migrate flow now uses a native snapshot at
-`.posetta/state/current.json` as the source of truth. Archive reads still
+`.xpkg/state/current.json` as the source of truth. Archive reads still
 remain in the codebase for older workspaces, migration, fixtures, and explicit
 bundle-facing workflows.
 
@@ -61,7 +61,7 @@ Archive dependency is now concentrated in compatibility and migration seams:
 ### 3. The durable store commits immutable archives
 
 The new private store is not fake. It has real recovery semantics, journaled
-commit boundaries, and immutable objects under `.posetta/`.
+commit boundaries, and immutable objects under `.xpkg/`.
 
 But the object it currently commits is still an archive file:
 
@@ -100,7 +100,7 @@ is no longer the product we want to talk about.
 
 ## Recommended Position
 
-Posetta should treat `.siesta` as a transition mechanism, not the product
+xpkg should treat `.siesta` as a transition mechanism, not the product
 identity.
 
 That means:

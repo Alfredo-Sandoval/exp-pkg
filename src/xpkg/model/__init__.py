@@ -1,4 +1,4 @@
-"""Canonical in-memory pose model for Posetta."""
+"""Canonical in-memory pose model for xpkg."""
 
 from __future__ import annotations
 

@@ -1,6 +1,6 @@
-# Posetta v1 CLI Command Spec
+# xpkg v1 CLI Command Spec
 
-This document defines the locked public CLI contract for the Posetta v1 artifact
+This document defines the locked public CLI contract for the xpkg v1 artifact
 model.
 
 It describes the intended public commands for workspace-first project handling.
@@ -13,41 +13,41 @@ artifact workflow.
 The v1 public command surface is:
 
 ```text
-posetta init
-posetta import
-posetta pack
-posetta unpack
-posetta migrate
+xpkg init
+xpkg import
+xpkg pack
+xpkg unpack
+xpkg migrate
 ```
 
 ## Shared Rules
 
 - The primary editable unit is a workspace folder.
 - `.expkg` is the only portable project artifact.
-- Posetta never edits a `.expkg` file in place.
+- xpkg never edits a `.expkg` file in place.
 - Commands that create a project must produce a valid workspace containing
-  `PROJECT.json` and `.posetta/`.
+  `PROJECT.json` and `.xpkg/`.
 - Project-internal paths are stored relative to the workspace root.
 - Portable mode defaults to `portable`.
 - Pack must fail loudly if required media are missing from a portable export.
 
-## `posetta init`
+## `xpkg init`
 
 Create a new empty workspace with the canonical public layout.
 
 ### Synopsis
 
 ```bash
-posetta init "./My Project"
-posetta init "./My Project" --title "My Project"
-posetta init "./My Project" --pack-mode portable
+xpkg init "./My Project"
+xpkg init "./My Project" --title "My Project"
+xpkg init "./My Project" --pack-mode portable
 ```
 
 ### Required behavior
 
 - Creates the workspace root if needed.
 - Creates `PROJECT.json`.
-- Creates `.posetta/`.
+- Creates `.xpkg/`.
 - Creates `Media/` and `Exports/` when bootstrapping a new workspace.
 - Initializes `project_id`, timestamps, and default descriptor fields.
 - Refuses to overwrite a non-empty target unless an explicit future overwrite
@@ -58,17 +58,17 @@ posetta init "./My Project" --pack-mode portable
 - A valid workspace folder at the requested output path.
 - `PROJECT.json` conforming to `schemas/project.schema.json`.
 
-## `posetta import`
+## `xpkg import`
 
 Import foreign or legacy data into a workspace.
 
 ### Synopsis
 
 ```bash
-posetta import dlc csv --csv tracking.csv --video video.mp4 --out "./My Project"
-posetta import dlc h5 --h5 tracking.h5 --video video.mp4 --out "./My Project"
-posetta import sleap --slp labels.pkg.slp --out "./My Project"
-posetta import legacy --file tracking.siesta --out "./My Project"
+xpkg import dlc csv --csv tracking.csv --video video.mp4 --out "./My Project"
+xpkg import dlc h5 --h5 tracking.h5 --video video.mp4 --out "./My Project"
+xpkg import sleap --slp labels.pkg.slp --out "./My Project"
+xpkg import legacy --file tracking.siesta --out "./My Project"
 ```
 
 ### Required behavior
@@ -76,7 +76,7 @@ posetta import legacy --file tracking.siesta --out "./My Project"
 - Imports into a workspace, never directly into a new opaque single-file native
   artifact.
 - Creates the workspace if it does not already exist.
-- Writes authoritative mutable state into `.posetta/`.
+- Writes authoritative mutable state into `.xpkg/`.
 - Populates `Media/` when the import produces managed media.
 - Updates `PROJECT.json` metadata and timestamps.
 - Accepts legacy `.siesta` input through the `legacy` importer.
@@ -84,18 +84,18 @@ posetta import legacy --file tracking.siesta --out "./My Project"
 ### Non-goals
 
 - Import is not an in-place update of packed `.expkg` artifacts.
-- Import is not a version-to-version migration of an existing Posetta workspace.
+- Import is not a version-to-version migration of an existing xpkg workspace.
 
-## `posetta pack`
+## `xpkg pack`
 
 Create a portable `.expkg` artifact from a workspace.
 
 ### Synopsis
 
 ```bash
-posetta pack "./My Project"
-posetta pack "./My Project" --out "./release/My Project.expkg"
-posetta pack "./My Project" --mode snapshot
+xpkg pack "./My Project"
+xpkg pack "./My Project" --out "./release/My Project.expkg"
+xpkg pack "./My Project" --mode snapshot
 ```
 
 ### Required behavior
@@ -116,52 +116,52 @@ posetta pack "./My Project" --mode snapshot
 - `snapshot`: allows external media references and is not guaranteed to fully
   open elsewhere.
 
-## `posetta unpack`
+## `xpkg unpack`
 
 Create a workspace from a `.expkg` artifact.
 
 ### Synopsis
 
 ```bash
-posetta unpack "./My Project.expkg" --out "./My Project"
+xpkg unpack "./My Project.expkg" --out "./My Project"
 ```
 
 ### Required behavior
 
 - Accepts a `.expkg` file as input.
 - Creates a valid workspace folder as output.
-- Reconstructs `PROJECT.json` and `.posetta/`.
+- Reconstructs `PROJECT.json` and `.xpkg/`.
 - Restores `Media/` when it is included in the artifact.
 - Excludes temp files, locks, caches, and machine-local scratch state.
 - Refuses to unpack into a conflicting non-empty directory unless an explicit
   future overwrite flag is added.
 
-## `posetta migrate`
+## `xpkg migrate`
 
-Upgrade an existing Posetta artifact to the latest supported public contract
+Upgrade an existing xpkg artifact to the latest supported public contract
 without changing the project’s logical contents.
 
 ### Synopsis
 
 ```bash
-posetta migrate "./My Project"
-posetta migrate "./My Project.expkg" --out "./My Project"
+xpkg migrate "./My Project"
+xpkg migrate "./My Project.expkg" --out "./My Project"
 ```
 
 ### Required behavior
 
-- Operates on Posetta-owned artifacts only.
+- Operates on xpkg-owned artifacts only.
 - Upgrades workspace descriptor/layout versions when needed.
 - When the input is `.expkg`, unpacks first and then migrates into the output
   workspace.
 - Preserves logical project contents across migration.
-- Leaves foreign-format ingestion to `posetta import`, not `posetta migrate`.
+- Leaves foreign-format ingestion to `xpkg import`, not `xpkg migrate`.
 
 ### Non-goals
 
 - `migrate` is not the primary entrypoint for importing DLC, SLEAP, or other
   third-party formats.
-- `migrate` does not define or freeze the private internal `.posetta/`
+- `migrate` does not define or freeze the private internal `.xpkg/`
   sublayout. It upgrades it as needed behind the public contract.
 
 ## Open Behavior

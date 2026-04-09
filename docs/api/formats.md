@@ -9,7 +9,7 @@ workspace-first public contract.
 </div>
 
 !!! note
-    The public Posetta v1 artifact contract is workspace folder +
+    The public xpkg v1 artifact contract is workspace folder +
     <code>.expkg</code>. Use this module when you need the current
     compatibility APIs for legacy <code>.siesta</code> data, fixtures, tests,
     and migration workflows.
@@ -145,7 +145,7 @@ print(payload["labels"])
 !!! warning
     The durable store is experimental private machinery, not a public artifact
     contract. In the v1 model it belongs under the workspace-owned
-    <code>.posetta/</code> state, even though the current prototype still wraps
+    <code>.xpkg/</code> state, even though the current prototype still wraps
     staged <code>.siesta</code> compatibility archives internally.
 
 Use the store when you want commit-style recovery around staged archive writes.

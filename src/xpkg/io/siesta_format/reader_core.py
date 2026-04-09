@@ -57,7 +57,7 @@ _ISO_TIMESTAMP_RE = re.compile(
 
 @dataclass(slots=True)
 class ReaderCommonState:
-    """Format-level reader result reused by Posetta and Siesta wrappers."""
+    """Format-level reader result reused by xpkg and Siesta wrappers."""
 
     result: dict[str, Any]
     metadata: dict[str, Any]

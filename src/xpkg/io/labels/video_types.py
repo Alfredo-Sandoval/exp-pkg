@@ -1,4 +1,4 @@
-"""Video protocol used by the Posetta labels package."""
+"""Video protocol used by the xpkg labels package."""
 
 from __future__ import annotations
 

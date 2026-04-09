@@ -1,4 +1,4 @@
-"""Stable public API for Posetta integrations and workspace services."""
+"""Stable public API for xpkg integrations and workspace services."""
 
 from __future__ import annotations
 

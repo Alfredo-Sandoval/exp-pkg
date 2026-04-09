@@ -10,7 +10,7 @@ class StoreCorruptionError(SiestaStoreError):
 
 
 class IncompatibleStoreVersionError(SiestaStoreError):
-    """Raised when the store_version is not supported by this Posetta build."""
+    """Raised when the store_version is not supported by this xpkg build."""
 
 
 class LockAcquisitionError(SiestaStoreError):

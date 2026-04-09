@@ -2,7 +2,7 @@
 
 <div class="page-intro">
 <p>
-Posetta should own the canonical media IO layer for pose workflows. Siesta
+xpkg should own the canonical media IO layer for pose workflows. Siesta
 should consume that layer and keep only GUI/runtime orchestration that is truly
 app-specific.
 </p>
@@ -16,10 +16,10 @@ is to stop splitting core media behavior across two repositories.
 
 ## Governing Idea
 
-If Posetta is the IO layer, it must own media IO as a first-class subsystem
+If xpkg is the IO layer, it must own media IO as a first-class subsystem
 alongside labels, manifests, and converters. That means file videos, image
 sequences, frame decode, frame encode, media capability discovery, and
-deterministic backend behavior all belong in Posetta.
+deterministic backend behavior all belong in xpkg.
 
 Siesta should remain responsible for application behavior:
 
@@ -29,15 +29,15 @@ Siesta should remain responsible for application behavior:
 - user settings and app preferences
 - progress reporting wired to interactive workflows
 
-The key rule is simple: optimize backends in Posetta, not semantics in Siesta.
+The key rule is simple: optimize backends in xpkg, not semantics in Siesta.
 
 ## Why This Spec Exists
 
 Today the repositories are split in an unhealthy way:
 
-- Posetta already owns canonical labels IO, `.siesta` archive IO, and external
+- xpkg already owns canonical labels IO, `.siesta` archive IO, and external
   adapter logic.
-- Posetta also has a small media layer in `xpkg.io.video`.
+- xpkg also has a small media layer in `xpkg.io.video`.
 - Siesta still owns a richer and partially duplicated media stack for playback,
   writer selection, backend routing, and threaded export.
 
@@ -51,33 +51,33 @@ That duplication creates three recurring problems:
    the same media will eventually disagree on indexing, colors, exact seek
    rules, error behavior, or writer defaults.
 
-The fix is not more wrappers. The fix is one canonical media stack in Posetta
+The fix is not more wrappers. The fix is one canonical media stack in xpkg
 with explicit app-level consumers in Siesta.
 
 ## Ownership Boundary
 
 | Concern | Owner | Notes |
 | --- | --- | --- |
-| File video open/close | Posetta | Includes path normalization and media validation. |
-| Image sequence handling | Posetta | Directory and single-image media should use the same canonical contract. |
-| Frame indexing, decode, and seek behavior | Posetta | Exact semantics must be defined once. |
-| Batch frame access and frame iteration | Posetta | Converters and apps should share the same read primitives. |
-| Video writing and codec capability probing | Posetta | Includes CPU and hardware-accelerated paths. |
-| Media backend capability discovery | Posetta | No hidden fallback or app-only backend rules. |
-| Headless transcode/export helpers | Posetta | Reusable outside the GUI. |
+| File video open/close | xpkg | Includes path normalization and media validation. |
+| Image sequence handling | xpkg | Directory and single-image media should use the same canonical contract. |
+| Frame indexing, decode, and seek behavior | xpkg | Exact semantics must be defined once. |
+| Batch frame access and frame iteration | xpkg | Converters and apps should share the same read primitives. |
+| Video writing and codec capability probing | xpkg | Includes CPU and hardware-accelerated paths. |
+| Media backend capability discovery | xpkg | No hidden fallback or app-only backend rules. |
+| Headless transcode/export helpers | xpkg | Reusable outside the GUI. |
 | Qt worker threads and interactive progress UI | Siesta | App orchestration, not canonical IO. |
 | Live playback cache and session buffering | Siesta | UI responsiveness policy stays app-side. |
-| User preferences about app behavior | Siesta | Preferences should map onto Posetta capability requests. |
+| User preferences about app behavior | Siesta | Preferences should map onto xpkg capability requests. |
 
 One important split inside the current Siesta code deserves to stay explicit:
 shared decode/container leasing is a media concern, but live latest-frame hub
 state is an application concern. If container sharing remains necessary for
-performance, the headless leasing primitive should move into Posetta. The
+performance, the headless leasing primitive should move into xpkg. The
 session-level live frame buffer should remain in Siesta.
 
 ## Canonical Public Contract
 
-Near-term, Posetta should keep the existing public names to avoid needless API
+Near-term, xpkg should keep the existing public names to avoid needless API
 churn:
 
 - `Video`
@@ -142,7 +142,7 @@ explicit backend request must never silently degrade to something else.
 
 ## Backend Model
 
-Posetta should expose one semantic contract with multiple backend
+xpkg should expose one semantic contract with multiple backend
 implementations.
 
 ### Required backends
@@ -160,7 +160,7 @@ as an implementation choice, not the final architecture boundary.
 
 ### Capability discovery
 
-Posetta should add explicit capability reporting so callers can reason about the
+xpkg should add explicit capability reporting so callers can reason about the
 host instead of guessing:
 
 - which backends are available
@@ -170,7 +170,7 @@ host instead of guessing:
 - whether exact random seek is validated
 - whether shared-container decode is supported
 
-The important design point is that capability discovery belongs to Posetta.
+The important design point is that capability discovery belongs to xpkg.
 Siesta should not maintain its own independent truth about which video backends
 exist or how they behave.
 
@@ -181,7 +181,7 @@ The target stack should be optimized for two hardware families:
 - NVIDIA/CUDA systems on Linux
 - macOS systems using Apple media acceleration
 
-That optimization work belongs in Posetta because the same fast path should
+That optimization work belongs in xpkg because the same fast path should
 benefit:
 
 - DLC/SLEAP conversion
@@ -216,7 +216,7 @@ Performance can vary by host, but semantics may not.
 
 ## Validation And Quality Gates
 
-Posetta should own a backend conformance suite before Siesta deletes its
+xpkg should own a backend conformance suite before Siesta deletes its
 duplicate stack.
 
 ### Required conformance checks
@@ -246,25 +246,25 @@ to accelerate.
 
 ## Migration Plan
 
-### Phase 1: Make Posetta authoritative
+### Phase 1: Make xpkg authoritative
 
 - Keep `Video`, `VideoReader`, `VideoWriter`, and `write_video` as the public
-  surface in Posetta.
+  surface in xpkg.
 - Move or reimplement the generic backend logic currently duplicated in Siesta.
-- Add capability discovery and explicit backend naming in Posetta.
-- Keep Siesta consuming its current stack until Posetta parity is demonstrated.
+- Add capability discovery and explicit backend naming in xpkg.
+- Keep Siesta consuming its current stack until xpkg parity is demonstrated.
 
 ### Phase 2: Port generic performance features
 
 - Move generic image-sequence handling, exact-seek behavior, and writer
-  capability logic into Posetta.
+  capability logic into xpkg.
 - Add accelerated Linux/CUDA and macOS backends behind the same contract.
 - Add conformance tests that compare all supported backends to the reference
   backend.
 
 ### Phase 3: Collapse Siesta duplication
 
-- Switch Siesta imports from local generic media modules to Posetta.
+- Switch Siesta imports from local generic media modules to xpkg.
 - Delete or shrink Siesta modules that only duplicate canonical media logic.
 - Keep only app-specific orchestration in Siesta.
 
@@ -275,7 +275,7 @@ Siesta should move from owning a media engine to consuming one.
 ### Modules that should stop owning canonical media behavior
 
 These modules should be deleted, collapsed, or reduced to temporary adapters
-after Posetta reaches feature parity:
+after xpkg reaches feature parity:
 
 - `Siesta/io/video_model.py`
 - `Siesta/io/video_reader.py`
@@ -295,30 +295,30 @@ These concerns are still Siesta-owned:
 - user preference mapping for playback/export policy
 
 `Siesta/io/framehub.py` should likely be split: reusable container leasing can
-move into Posetta if still needed, while the live hub buffer remains in Siesta.
+move into xpkg if still needed, while the live hub buffer remains in Siesta.
 
 ### Import strategy
 
 Because Siesta is still unreleased, the preferred end state is direct imports
-from Posetta rather than long-term compatibility shims. In other words, code
-that needs canonical media IO should eventually import Posetta directly instead
+from xpkg rather than long-term compatibility shims. In other words, code
+that needs canonical media IO should eventually import xpkg directly instead
 of pretending the implementation is still local to `Siesta.io`.
 
 ### Testing strategy
 
 Siesta should stop testing its own duplicate video semantics and instead test:
 
-- integration with Posetta media contracts
+- integration with xpkg media contracts
 - GUI-specific orchestration around those contracts
 - app-specific performance policy where it differs intentionally
 
 ## Decision Summary
 
-Posetta should become the authoritative media IO stack for pose workflows.
+xpkg should become the authoritative media IO stack for pose workflows.
 Siesta should not keep a second general-purpose video subsystem. The right split
 is:
 
-- Posetta owns canonical media semantics and optimized backends.
+- xpkg owns canonical media semantics and optimized backends.
 - Siesta owns application behavior on top of that media layer.
 
 That gives the project one place to optimize CUDA and macOS paths, one place to

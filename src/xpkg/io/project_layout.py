@@ -14,7 +14,7 @@ from xpkg.io.siesta_format.shared import CANONICAL_BUNDLE_SUFFIX, LEGACY_BUNDLE_
 
 PROJECT_DESCRIPTOR_FILENAME = "PROJECT.json"
 EXPKG_SUFFIX = ".expkg"
-STORE_DIRNAME = ".posetta"
+STORE_DIRNAME = ".xpkg"
 STORE_STATE_DIRNAME = "state"
 CURRENT_SNAPSHOT_FILENAME = "current.json"
 CURRENT_ARCHIVE_FILENAME = f"current{CANONICAL_BUNDLE_SUFFIX}"
@@ -33,13 +33,13 @@ def _now_utc_iso() -> str:
 
 @dataclass(slots=True)
 class ProjectDescriptor:
-    """Public Posetta workspace descriptor."""
+    """Public xpkg workspace descriptor."""
 
     title: str
     project_id: str
     created_at: str
     updated_at: str
-    format: str = "posetta-project"
+    format: str = "xpkg-project"
     project_schema_version: int = 1
     layout_version: int = 1
     store_path: str = STORE_DIRNAME
@@ -99,7 +99,7 @@ class ProjectDescriptor:
         return descriptor
 
     def validate(self) -> None:
-        if self.format != "posetta-project":
+        if self.format != "xpkg-project":
             raise ValueError(f"Unsupported PROJECT.json format: {self.format!r}")
         if int(self.project_schema_version) != 1:
             raise ValueError(

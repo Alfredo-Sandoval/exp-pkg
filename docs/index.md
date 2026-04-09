@@ -7,11 +7,11 @@ hide:
 
 <div class="manual-kicker">BEHAVIOR WORKSPACE</div>
 
-# Posetta
+# xpkg
 
 <p class="manual-deck">
-Posetta is a workspace-first toolkit for behavior-centered experiments, built
-around an editable workspace folder, a private <code>.posetta/</code> store,
+xpkg is a workspace-first toolkit for behavior-centered experiments, built
+around an editable workspace folder, a private <code>.xpkg/</code> store,
 and portable <code>.expkg</code> exports. The current low-level
 <code>.siesta</code> APIs remain as legacy compatibility surfaces during the
 transition.
@@ -28,7 +28,7 @@ transition.
 | --- | --- |
 | Mission | behavior-centered experiment workspaces |
 | Public project contract | workspace folder + `.expkg` |
-| Authoritative mutable state | `.posetta/` inside the workspace |
+| Authoritative mutable state | `.xpkg/` inside the workspace |
 | Legacy compatibility format | `.siesta` import/read APIs |
 | External adapters | DLC, SLEAP |
 | Core objects | `xpkg.model` |
@@ -40,7 +40,7 @@ transition.
 ### Choose by Task
 
 - Use `xpkg.model` when you need `Labels`, `Skeleton`, `Instance`, or `Video`.
-- Use Posetta when you need a coherent experiment workspace with managed
+- Use xpkg when you need a coherent experiment workspace with managed
   artifacts and compatibility import surfaces.
 - Read [Artifact Contract v1](artifact_contract_v1.md) for the public workspace
   and `.expkg` contract.
@@ -100,7 +100,7 @@ transition.
 ```text
 My Project/
   PROJECT.json
-  .posetta/
+  .xpkg/
   Media/
   Exports/
     My Project.expkg
@@ -121,9 +121,9 @@ single archive or converter output.
   workspace and portable artifact semantics.
 - Read [CLI Command Spec v1](cli_command_spec_v1.md) for `init`, `import`,
   `pack`, `unpack`, and `migrate`.
-- Read [Media IO Stack](architecture/media-io.md) for the target ownership split between Posetta and Siesta.
+- Read [Media IO Stack](architecture/media-io.md) for the target ownership split between xpkg and Siesta.
 - Read [Storage Direction](architecture/storage-direction.md) for the current
-  rationale and cutover pressure around `.siesta`, `.posetta/`, and
+  rationale and cutover pressure around `.siesta`, `.xpkg/`, and
   `.expkg`.
 - Read [Experimental Durable Store](architecture/experimental-store.md) for the new
   commit-oriented recovery workflow.

@@ -5,7 +5,7 @@ from xpkg.io.siesta_store.schema import Commit, Journal, Superblock, now_utc_iso
 
 def test_superblock_checksum_roundtrip() -> None:
     superblock = Superblock(
-        format="posetta.siesta-store",
+        format="xpkg.siesta-store",
         store_version=1,
         generation=1,
         current_commit_id="c_000000000001_deadbeef",

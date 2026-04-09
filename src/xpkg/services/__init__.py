@@ -1,4 +1,4 @@
-"""Primary workspace lifecycle service facade for Posetta integrations."""
+"""Primary workspace lifecycle service facade for xpkg integrations."""
 
 from __future__ import annotations
 

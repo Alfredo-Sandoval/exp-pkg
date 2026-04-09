@@ -1,4 +1,4 @@
-# APFS-Lite Durable Store Layer Files for Posetta
+# APFS-Lite Durable Store Layer Files for xpkg
 
 ## Durability contract and failure model
 
@@ -6,7 +6,7 @@ The design goal is that a crash, power loss, or software bug cannot destroy the 
 
 The file durability boundary is explicitly “data is durable when flushed + fsynced,” using `os.fsync` (Unix `fsync()`, Windows `_commit()`). citeturn4view0 Because temporary-file semantics differ across platforms (especially Windows reopen/delete behavior), the implementation must ensure `delete=False` patterns and handle closure before rename/replace. citeturn2search0
 
-Finally, because Posetta uses HDF5 as an underlying container for `.sta`, it is important not to assume “HDF5 will save us” under all I/O models: even SWMR has explicit filesystem semantics requirements (POSIX write semantics) and feature limitations. citeturn1search0turn1search1 The durable store layer therefore treats HDF5 payloads as *blobs* and keeps correctness in the store’s superblock/journal logic.
+Finally, because xpkg uses HDF5 as an underlying container for `.sta`, it is important not to assume “HDF5 will save us” under all I/O models: even SWMR has explicit filesystem semantics requirements (POSIX write semantics) and feature limitations. citeturn1search0turn1search1 The durable store layer therefore treats HDF5 payloads as *blobs* and keeps correctness in the store’s superblock/journal logic.
 
 ## On-disk store layout
 
@@ -39,31 +39,31 @@ The key atomicity trick is that only the superblock flip defines what is “curr
 
 The lock uses hard links (`os.link`) because it is a portable primitive on Unix and Windows. citeturn5view0
 
-## Code files to add to Posetta
+## Code files to add to xpkg
 
-Below is the minimal file set to implement the store as an additive module under `src/posetta/io/siesta_store/`, plus a small public wrapper in `posetta.formats` and a focused test suite.
+Below is the minimal file set to implement the store as an additive module under `src/xpkg/io/siesta_store/`, plus a small public wrapper in `xpkg.formats` and a focused test suite.
 
 ### Package entry points
 
 Create the following files:
 
-- `src/posetta/io/siesta_store/__init__.py`
-- `src/posetta/io/siesta_store/errors.py`
-- `src/posetta/io/siesta_store/hashing.py`
-- `src/posetta/io/siesta_store/platform_io.py`
-- `src/posetta/io/siesta_store/paths.py`
-- `src/posetta/io/siesta_store/schema.py`
-- `src/posetta/io/siesta_store/lock.py`
-- `src/posetta/io/siesta_store/oplog.py`
-- `src/posetta/io/siesta_store/journal.py`
-- `src/posetta/io/siesta_store/object_store.py`
-- `src/posetta/io/siesta_store/store.py`
-- `src/posetta/formats/siesta_store.py`
+- `src/xpkg/io/siesta_store/__init__.py`
+- `src/xpkg/io/siesta_store/errors.py`
+- `src/xpkg/io/siesta_store/hashing.py`
+- `src/xpkg/io/siesta_store/platform_io.py`
+- `src/xpkg/io/siesta_store/paths.py`
+- `src/xpkg/io/siesta_store/schema.py`
+- `src/xpkg/io/siesta_store/lock.py`
+- `src/xpkg/io/siesta_store/oplog.py`
+- `src/xpkg/io/siesta_store/journal.py`
+- `src/xpkg/io/siesta_store/object_store.py`
+- `src/xpkg/io/siesta_store/store.py`
+- `src/xpkg/formats/siesta_store.py`
 - Tests: `tests/test_siesta_store_*.py` (listed later)
 
 The code below is intentionally written to (a) be cross-platform, (b) anchor durability in `os.replace` + `os.fsync`, and (c) keep HDF5 payloads opaque blobs. `os.replace` provides cross-platform overwrite semantics and is atomic on POSIX when successful. citeturn5view1 `os.fsync` provides the durability boundary and maps to `_commit()` on Windows. citeturn4view0
 
-### `src/posetta/io/siesta_store/errors.py`
+### `src/xpkg/io/siesta_store/errors.py`
 
 ```python
 from __future__ import annotations
@@ -78,7 +78,7 @@ class StoreCorruptionError(SiestaStoreError):
 
 
 class IncompatibleStoreVersionError(SiestaStoreError):
-    """Raised when the store_version is not supported by this Posetta build."""
+    """Raised when the store_version is not supported by this xpkg build."""
 
 
 class LockAcquisitionError(SiestaStoreError):
@@ -93,7 +93,7 @@ class ChecksumError(SiestaStoreError):
     """Raised when a checksum cannot be verified."""
 ```
 
-### `src/posetta/io/siesta_store/hashing.py`
+### `src/xpkg/io/siesta_store/hashing.py`
 
 ```python
 from __future__ import annotations
@@ -102,7 +102,7 @@ import hashlib
 from pathlib import Path
 from typing import Any
 
-from posetta.core.json_utils import dump_json
+from xpkg.core.json_utils import dump_json
 
 
 def sha256_bytes(data: bytes) -> str:
@@ -140,7 +140,7 @@ def verify_checksum(payload: dict[str, Any]) -> bool:
     return compute_checksum(stripped) == expected
 ```
 
-### `src/posetta/io/siesta_store/platform_io.py`
+### `src/xpkg/io/siesta_store/platform_io.py`
 
 This is the durability shim. It centralizes the mechanics of “write temp → flush → fsync → atomic replace,” which is the critical pattern behind safe root flips. `os.replace` semantics are documented (including same-filesystem constraint). citeturn5view1 `os.fsync` semantics differ across Unix/Windows and should be treated as the durability boundary. citeturn4view0 Temporary file behavior differs on Windows, motivating explicit `delete=False` and closure before handing paths to other code. citeturn2search0
 
@@ -152,7 +152,7 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
-from posetta.core.json_utils import dump_json
+from xpkg.core.json_utils import dump_json
 
 
 def _fsync_file(path: Path) -> None:
@@ -280,7 +280,7 @@ def atomic_copy_file(
         tmp_path.unlink(missing_ok=True)
 ```
 
-### `src/posetta/io/siesta_store/paths.py`
+### `src/xpkg/io/siesta_store/paths.py`
 
 ```python
 from __future__ import annotations
@@ -343,7 +343,7 @@ class StorePaths:
         return self.objects_dir / a / b / f"{object_id}{ext}"
 ```
 
-### `src/posetta/io/siesta_store/schema.py`
+### `src/xpkg/io/siesta_store/schema.py`
 
 ```python
 from __future__ import annotations
@@ -352,7 +352,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any, Mapping
 
-from posetta.io.siesta_store.hashing import compute_checksum, verify_checksum
+from xpkg.io.siesta_store.hashing import compute_checksum, verify_checksum
 
 
 def now_utc_iso() -> str:
@@ -519,7 +519,7 @@ class Journal:
         return verify_checksum(self.to_dict())
 ```
 
-### `src/posetta/io/siesta_store/lock.py`
+### `src/xpkg/io/siesta_store/lock.py`
 
 Hard-link based advisory lock. This relies on `os.link`, which is available on Unix and Windows. citeturn5view0
 
@@ -534,8 +534,8 @@ import time
 from pathlib import Path
 from typing import Any, Mapping
 
-from posetta.core.json_utils import dump_json, parse_json_dict
-from posetta.io.siesta_store.errors import LockAcquisitionError
+from xpkg.core.json_utils import dump_json, parse_json_dict
+from xpkg.io.siesta_store.errors import LockAcquisitionError
 
 
 class StoreLock:
@@ -626,7 +626,7 @@ class StoreLock:
         self._acquired = False
 ```
 
-### `src/posetta/io/siesta_store/oplog.py`
+### `src/xpkg/io/siesta_store/oplog.py`
 
 The oplog is JSONL append-only. Durability uses flush + `os.fsync`. citeturn4view0
 
@@ -716,7 +716,7 @@ def iter_oplog(path: Path) -> Iterator[dict[str, Any]]:
             yield json.loads(text)
 ```
 
-### `src/posetta/io/siesta_store/journal.py`
+### `src/xpkg/io/siesta_store/journal.py`
 
 ```python
 from __future__ import annotations
@@ -724,8 +724,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from posetta.core.json_utils import load_json_dict
-from posetta.io.siesta_store.platform_io import atomic_write_json
+from xpkg.core.json_utils import load_json_dict
+from xpkg.io.siesta_store.platform_io import atomic_write_json
 
 
 def read_journal(path: Path) -> dict[str, Any] | None:
@@ -745,7 +745,7 @@ def clear_journal(path: Path) -> None:
         path.unlink()
 ```
 
-### `src/posetta/io/siesta_store/object_store.py`
+### `src/xpkg/io/siesta_store/object_store.py`
 
 Objects are immutable content-addressed blobs written via (copy → fsync → replace). Atomic replacement behavior is central. citeturn5view1
 
@@ -757,9 +757,9 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
-from posetta.io.siesta_store.hashing import sha256_file
-from posetta.io.siesta_store.platform_io import atomic_copy_file
-from posetta.io.siesta_store.paths import StorePaths
+from xpkg.io.siesta_store.hashing import sha256_file
+from xpkg.io.siesta_store.platform_io import atomic_copy_file
+from xpkg.io.siesta_store.paths import StorePaths
 
 
 def put_object_file(
@@ -785,7 +785,7 @@ def get_object_file(paths: StorePaths, object_id: str, *, ext: str) -> Path:
     return paths.object_path(object_id, ext=ext)
 ```
 
-### `src/posetta/io/siesta_store/store.py`
+### `src/xpkg/io/siesta_store/store.py`
 
 This is the core: superblock selection, commit creation, journaled commit flip, and recovery. Atomicity relies on `os.replace`. citeturn5view1 Durability relies on `os.fsync`. citeturn4view0
 
@@ -797,24 +797,24 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
 
-from posetta.core.json_utils import load_json_dict
-from posetta.io.siesta_store.errors import (
+from xpkg.core.json_utils import load_json_dict
+from xpkg.io.siesta_store.errors import (
     ChecksumError,
     IncompatibleStoreVersionError,
     JournalStateError,
     StoreCorruptionError,
 )
-from posetta.io.siesta_store.hashing import compute_checksum, verify_checksum
-from posetta.io.siesta_store.journal import clear_journal, read_journal, write_journal
-from posetta.io.siesta_store.lock import StoreLock
-from posetta.io.siesta_store.object_store import get_object_file, put_object_file
-from posetta.io.siesta_store.paths import StorePaths
-from posetta.io.siesta_store.platform_io import atomic_write_json
-from posetta.io.siesta_store.schema import Commit, Journal, Superblock, now_utc_iso
+from xpkg.io.siesta_store.hashing import compute_checksum, verify_checksum
+from xpkg.io.siesta_store.journal import clear_journal, read_journal, write_journal
+from xpkg.io.siesta_store.lock import StoreLock
+from xpkg.io.siesta_store.object_store import get_object_file, put_object_file
+from xpkg.io.siesta_store.paths import StorePaths
+from xpkg.io.siesta_store.platform_io import atomic_write_json
+from xpkg.io.siesta_store.schema import Commit, Journal, Superblock, now_utc_iso
 
 
 _SUPPORTED_STORE_VERSION = 1
-_STORE_FORMAT = "posetta.siesta-store"
+_STORE_FORMAT = "xpkg.siesta-store"
 
 
 @dataclass(slots=True)
@@ -1119,12 +1119,12 @@ class SiestaStore:
             return commit_id
 ```
 
-### `src/posetta/io/siesta_store/__init__.py`
+### `src/xpkg/io/siesta_store/__init__.py`
 
 ```python
 from __future__ import annotations
 
-from posetta.io.siesta_store.errors import (
+from xpkg.io.siesta_store.errors import (
     ChecksumError,
     IncompatibleStoreVersionError,
     JournalStateError,
@@ -1132,7 +1132,7 @@ from posetta.io.siesta_store.errors import (
     SiestaStoreError,
     StoreCorruptionError,
 )
-from posetta.io.siesta_store.store import SiestaStore
+from xpkg.io.siesta_store.store import SiestaStore
 
 __all__ = [
     "ChecksumError",
@@ -1145,7 +1145,7 @@ __all__ = [
 ]
 ```
 
-### `src/posetta/formats/siesta_store.py`
+### `src/xpkg/formats/siesta_store.py`
 
 This mirrors the existing “formats” facade pattern already used for `.sta`.
 
@@ -1154,7 +1154,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from posetta.io.siesta_store import SiestaStore
+from xpkg.io.siesta_store import SiestaStore
 
 
 def create_store_from_sta(store_root: Path, initial_sta: Path) -> SiestaStore:
@@ -1199,12 +1199,12 @@ Minimal examples:
 ```python
 from __future__ import annotations
 
-from posetta.io.siesta_store.schema import Superblock, now_utc_iso
+from xpkg.io.siesta_store.schema import Superblock, now_utc_iso
 
 
 def test_superblock_checksum_roundtrip() -> None:
     sb = Superblock(
-        format="posetta.siesta-store",
+        format="xpkg.siesta-store",
         store_version=1,
         generation=1,
         current_commit_id="c_000000000001_deadbeef",
@@ -1226,7 +1226,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from posetta.io.siesta_store.oplog import OplogWriter, iter_oplog
+from xpkg.io.siesta_store.oplog import OplogWriter, iter_oplog
 
 
 def test_oplog_append_and_read(tmp_path: Path) -> None:
@@ -1252,4 +1252,4 @@ This design works on macOS/Linux/Windows because it relies on primitives impleme
 
 Where this design intentionally *does not overpromise* is networked or sync-backed folders. Any system that violates POSIX write/rename semantics can defeat durability strategies (this is explicitly called out in HDF5 SWMR documentation as well, which requires POSIX write semantics). citeturn1search1turn1search0 The correct engineering stance is to treat those storage backends as “best effort” until validated empirically.
 
-The code above is the minimal store substrate. Once it is in place, the next step is integrating it into Posetta’s `.sta` label save path (so label saves become “produce new `.sta` blob → commit flip” rather than “overwrite a single location”), and wiring the GUI to emit oplog operations for crash recovery.
+The code above is the minimal store substrate. Once it is in place, the next step is integrating it into xpkg’s `.sta` label save path (so label saves become “produce new `.sta` blob → commit flip” rather than “overwrite a single location”), and wiring the GUI to emit oplog operations for crash recovery.

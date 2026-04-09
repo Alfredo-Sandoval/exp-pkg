@@ -2,9 +2,9 @@
 
 <div class="page-intro">
 <p>
-Posetta now has an <strong>experimental</strong> durable store layer for crash-safe,
+xpkg now has an <strong>experimental</strong> durable store layer for crash-safe,
 commit-oriented project state. In the locked v1 artifact contract this belongs
-under the workspace-owned <code>.posetta/</code> directory. The current prototype
+under the workspace-owned <code>.xpkg/</code> directory. The current prototype
 still wraps staged legacy <code>.siesta</code> compatibility archives internally
 while we harden the private storage engine.
 </p>
@@ -16,7 +16,7 @@ If you want the broader rationale for why the runtime still stages
 !!! warning
     This workflow is experimental private machinery. The public v1 artifact
     contract is workspace folder + <code>.expkg</code>. Use the durable store
-    when you want stronger recovery semantics inside <code>.posetta/</code>, not
+    when you want stronger recovery semantics inside <code>.xpkg/</code>, not
     as a public interchange layer.
 
 ## What Changed
@@ -26,7 +26,7 @@ The public contract is a workspace:
 ```text
 My Project/
   PROJECT.json
-  .posetta/
+  .xpkg/
   Media/
   Exports/
     My Project.expkg
@@ -36,7 +36,7 @@ Inside that workspace, the current experimental prototype manages committed
 compatibility archives internally:
 
 ```text
-My Project/.posetta/
+My Project/.xpkg/
   superblock.a.json
   superblock.b.json
   LOCK
@@ -51,7 +51,7 @@ My Project/.posetta/
 ```
 
 That internal layout is intentionally private and versioned. The only public
-guarantee is that `.posetta/` exists and is valid for the declared project
+guarantee is that `.xpkg/` exists and is valid for the declared project
 version.
 
 ## Why You Would Use It
@@ -70,7 +70,7 @@ dies mid-save.
 ## Recommended Experimental Workflow
 
 The current prototype sits on top of the existing `.siesta` compatibility
-writer while targeting the future `.posetta/` private state layer.
+writer while targeting the future `.xpkg/` private state layer.
 
 1. Produce a normal `.siesta` archive with the regular archive API.
 2. Create a store root from that archive.
@@ -99,7 +99,7 @@ seed_archive = workspace_root / "Exports" / "seed.siesta"
 write_siesta(seed_archive, labels)
 
 # 2. Wrap it in the experimental private store root
-store = create_store_from_archive(workspace_root / ".posetta", seed_archive)
+store = create_store_from_archive(workspace_root / ".xpkg", seed_archive)
 
 # 3. Later, stage a fresh compatibility archive with the normal writer
 staged_archive = workspace_root / "Exports" / "session-next.siesta"
@@ -109,7 +109,7 @@ write_siesta(staged_archive, labels)
 store.commit_new_archive(staged_archive, reason="autosave")
 
 # 5. Reopen with recovery semantics and resolve the current committed archive
-store = open_store(workspace_root / ".posetta")
+store = open_store(workspace_root / ".xpkg")
 payload = read_siesta(store.current_archive_path(), lazy=False)
 ```
 
@@ -154,13 +154,13 @@ known clean head over guessing about partially finished writes.
 
 Stable today:
 
-- public workspace contract: `PROJECT.json`, `.posetta/`, `Media/`, `Exports/`
+- public workspace contract: `PROJECT.json`, `.xpkg/`, `Media/`, `Exports/`
 - `.expkg` as the portable project artifact
 - legacy `write_siesta(...)` / `read_siesta(...)` compatibility APIs
 
 Experimental today:
 
-- private `.posetta/` durable-store machinery
+- private `.xpkg/` durable-store machinery
 - commit-oriented autosave flow
 - superblock/journal durability layer
 - direct application integration with staged archive commits

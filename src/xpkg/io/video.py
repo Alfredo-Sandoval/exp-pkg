@@ -1,4 +1,4 @@
-"""Video helpers and writer utilities for Posetta."""
+"""Video helpers and writer utilities for xpkg."""
 
 from __future__ import annotations
 
@@ -57,7 +57,7 @@ def available_video_exts() -> list[str]:
 
 
 def gui_playback_backend_for_path(filename: str) -> str:
-    """Return the canonical Posetta playback backend for a path."""
+    """Return the canonical xpkg playback backend for a path."""
     ext = Path(filename).suffix.lower()
     if ext in SingleImageVideo.EXTS:
         return "images"

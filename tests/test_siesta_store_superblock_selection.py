@@ -15,7 +15,7 @@ def _superblock(
     updated_at: str,
 ) -> Superblock:
     return Superblock(
-        format="posetta.siesta-store",
+        format="xpkg.siesta-store",
         store_version=1,
         generation=generation,
         current_commit_id=current_commit_id,

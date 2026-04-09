@@ -2,7 +2,7 @@
 
 <div class="page-intro">
 <p>
-<code>xpkg.adapters</code> converts DLC and SLEAP tracking into Posetta data
+<code>xpkg.adapters</code> converts DLC and SLEAP tracking into xpkg data
 structures and current compatibility artifacts while the workspace-first v1
 project workflow is being wired in.
 </p>

@@ -1,4 +1,4 @@
-"""Centralized registry of path helpers for Posetta."""
+"""Centralized registry of path helpers for xpkg."""
 
 from __future__ import annotations
 
