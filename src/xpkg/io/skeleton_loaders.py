@@ -258,7 +258,7 @@ def load_skeleton_sta_json(path: str | Path, **kwargs: Any) -> Skeleton:
     return load_skeleton_xpkg_json(path, **kwargs)
 
 
-def load_skeleton_siesta_json(path: str | Path, **kwargs: Any) -> Skeleton:
+def load_skeleton_archive_json(path: str | Path, **kwargs: Any) -> Skeleton:
     """Compatibility alias for `load_skeleton_xpkg_json(...)`."""
     return load_skeleton_xpkg_json(path, **kwargs)
 
@@ -447,7 +447,7 @@ __all__ = [
     "load_skeleton_dlc",
     "load_skeleton_xpkg_json",
     "load_skeleton_sta_json",
-    "load_skeleton_siesta_json",
+    "load_skeleton_archive_json",
     "load_skeleton_sleap",
     "load_skeleton_ultralytics",
 ]

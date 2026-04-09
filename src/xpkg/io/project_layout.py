@@ -10,7 +10,7 @@ from typing import Any, Literal
 from uuid import uuid4
 
 from xpkg.core.path_registry import ensure_dir, resolve_path
-from xpkg.io.siesta_format.shared import CANONICAL_BUNDLE_SUFFIX, LEGACY_BUNDLE_SUFFIXES
+from xpkg.io.archive_format.shared import CANONICAL_BUNDLE_SUFFIX, LEGACY_BUNDLE_SUFFIXES
 
 PROJECT_DESCRIPTOR_FILENAME = "PROJECT.json"
 EXPKG_SUFFIX = ".expkg"

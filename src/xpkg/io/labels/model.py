@@ -22,7 +22,7 @@ from xpkg.core.skeleton import (
     Keypoint,
     Skeleton,
 )
-from xpkg.io.siesta_format.shared import CANONICAL_BUNDLE_SUFFIX
+from xpkg.io.archive_format.shared import CANONICAL_BUNDLE_SUFFIX
 
 from . import export_ops, serialization
 from .cache import LabelsDataCache
@@ -670,7 +670,7 @@ class Labels:
         self._cache.remove_video(video)
 
     @classmethod
-    def from_siesta_payload(
+    def from_archive_payload(
         cls,
         payload: dict[str, Any] | None,
         *,
@@ -689,7 +689,7 @@ class Labels:
         Returns:
             Labels: The hydrated Labels instance.
         """
-        return serialization.labels_from_siesta_payload(
+        return serialization.labels_from_archive_payload(
             cls,
             payload,
             suggestions_payload=suggestions_payload,
@@ -856,7 +856,7 @@ class Labels:
     def to_dataframe(
         self,
         video: VideoProtocol | int | None = None,
-        scorer: str = "siesta",
+        scorer: str = "xpkg",
     ):
         """Convert labels for a video to a DeepLabCut-style MultiIndex DataFrame.
 

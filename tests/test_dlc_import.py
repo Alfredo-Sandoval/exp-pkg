@@ -45,7 +45,7 @@ def _write_dummy_video(path: Path) -> None:
 
 def test_convert_dlc_h5_project_builds_multi_video_bundle(tmp_path: Path) -> None:
     from xpkg.io.converters.dlc_import import convert_dlc_h5_project
-    from xpkg.io.siesta_format import read_siesta
+    from xpkg.io.archive_format import read_archive
     from xpkg.model import Labels
 
     recording_dir = tmp_path / "session-0"
@@ -66,7 +66,7 @@ def test_convert_dlc_h5_project_builds_multi_video_bundle(tmp_path: Path) -> Non
     )
 
     assert result.bundle_path == recording_dir / "session-0.xpkg"
-    payload = read_siesta(result.bundle_path, lazy=False)
+    payload = read_archive(result.bundle_path, lazy=False)
     assert payload["labels"]["videos"]["filenames"] == [
         "alpha_view/session-0-leftCam.avi",
         "beta_view/session-0-underGlass.avi",

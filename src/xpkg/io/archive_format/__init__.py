@@ -6,44 +6,44 @@ from importlib import import_module
 from typing import Any
 
 _EXPORTS: dict[str, tuple[str, str]] = {
-    "LazyDatasetHandle": ("xpkg.io.siesta_format.reader", "LazyDatasetHandle"),
+    "LazyDatasetHandle": ("xpkg.io.archive_format.reader", "LazyDatasetHandle"),
     "MaxInstancesExceededError": (
-        "xpkg.io.siesta_format.predictions_datasets",
+        "xpkg.io.archive_format.predictions_datasets",
         "MaxInstancesExceededError",
     ),
     "PredictionAppendItem": (
-        "xpkg.io.siesta_format.predictions_datasets",
+        "xpkg.io.archive_format.predictions_datasets",
         "PredictionAppendItem",
     ),
     "SEGMENTATION_SCHEMA_VERSION": (
-        "xpkg.io.siesta_format.segmentation_hdf5",
+        "xpkg.io.archive_format.segmentation_hdf5",
         "SEGMENTATION_SCHEMA_VERSION",
     ),
     "SerializerPredictedInstance": (
-        "xpkg.io.siesta_format.predictions_datasets",
+        "xpkg.io.archive_format.predictions_datasets",
         "SerializerPredictedInstance",
     ),
-    "append_predictions_siesta": (
-        "xpkg.io.siesta_format.append_ops",
-        "append_predictions_siesta",
+    "append_predictions_archive": (
+        "xpkg.io.archive_format.append_ops",
+        "append_predictions_archive",
     ),
-    "merge_predictions_siesta": (
-        "xpkg.io.siesta_format.append_ops",
-        "merge_predictions_siesta",
+    "merge_predictions_archive": (
+        "xpkg.io.archive_format.append_ops",
+        "merge_predictions_archive",
     ),
     "read_segmentation_group": (
-        "xpkg.io.siesta_format.segmentation_hdf5",
+        "xpkg.io.archive_format.segmentation_hdf5",
         "read_segmentation_group",
     ),
-    "read_siesta": ("xpkg.io.siesta_format.reader", "read_siesta"),
-    "summarize_project": ("xpkg.io.siesta_format.reader", "summarize_project"),
-    "update_labels_siesta": ("xpkg.io.siesta_format.writer_core", "update_labels_siesta"),
-    "validate_project": ("xpkg.io.siesta_format.reader", "validate_project"),
+    "read_archive": ("xpkg.io.archive_format.reader", "read_archive"),
+    "summarize_project": ("xpkg.io.archive_format.reader", "summarize_project"),
+    "update_labels_archive": ("xpkg.io.archive_format.writer_core", "update_labels_archive"),
+    "validate_project": ("xpkg.io.archive_format.reader", "validate_project"),
     "write_segmentation_group": (
-        "xpkg.io.siesta_format.segmentation_hdf5",
+        "xpkg.io.archive_format.segmentation_hdf5",
         "write_segmentation_group",
     ),
-    "write_siesta": ("xpkg.io.siesta_format.writer_core", "write_siesta"),
+    "write_archive": ("xpkg.io.archive_format.writer_core", "write_archive"),
 }
 
 __all__ = [
@@ -51,13 +51,13 @@ __all__ = [
     "MaxInstancesExceededError",
     "PredictionAppendItem",
     "SerializerPredictedInstance",
-    "append_predictions_siesta",
-    "merge_predictions_siesta",
-    "read_siesta",
+    "append_predictions_archive",
+    "merge_predictions_archive",
+    "read_archive",
     "summarize_project",
-    "update_labels_siesta",
+    "update_labels_archive",
     "validate_project",
-    "write_siesta",
+    "write_archive",
     "SEGMENTATION_SCHEMA_VERSION",
     "read_segmentation_group",
     "write_segmentation_group",

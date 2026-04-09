@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Any
 
 from xpkg.core.json_utils import load_json_dict
-from xpkg.io.siesta_store.platform_io import atomic_write_json
+from xpkg.io.archive_store.platform_io import atomic_write_json
 
 
 def read_journal(path: Path) -> dict[str, Any] | None:

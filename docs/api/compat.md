@@ -4,7 +4,7 @@
 <p>
 <code>xpkg.compat</code> is the edge compatibility layer for archive-first
 flows. It exposes the canonical <code>.xpkg</code> helpers and keeps older
-<code>.sta</code> / <code>.siesta</code> names as aliases during the transition.
+<code>.sta</code> / <code>.sta</code> names as aliases during the transition.
 </p>
 </div>
 
@@ -71,30 +71,30 @@ The following names remain available as compatibility aliases:
 - `update_labels_sta`
 - `append_predictions_sta`
 - `merge_predictions_sta`
-- `read_siesta`
-- `write_siesta`
-- `update_labels_siesta`
-- `append_predictions_siesta`
-- `merge_predictions_siesta`
+- `read_archive`
+- `write_archive`
+- `update_labels_archive`
+- `append_predictions_archive`
+- `merge_predictions_archive`
 
 Use them only when you need compatibility with older call sites or archived
-tooling that still speaks in `.siesta` terms.
+tooling that still speaks in `.sta` terms.
 
 ## Durable Archive Store
 
-### `create_store_from_archive(store_root, initial_archive) -> SiestaStore`
+### `create_store_from_archive(store_root, initial_archive) -> ArchiveStore`
 
 Create a directory-backed durable store from an existing archive payload.
 
-### `create_store_from_xpkg(store_root, initial_xpkg) -> SiestaStore`
+### `create_store_from_xpkg(store_root, initial_xpkg) -> ArchiveStore`
 
 Canonical entrypoint that makes the `.xpkg` naming explicit.
 
-### `create_store_from_sta(store_root, initial_sta) -> SiestaStore`
+### `create_store_from_sta(store_root, initial_sta) -> ArchiveStore`
 
 Legacy alias that keeps older `.sta` naming available at the edge.
 
-### `open_store(store_root) -> SiestaStore`
+### `open_store(store_root) -> ArchiveStore`
 
 Open a durable store and run recovery before returning it.
 

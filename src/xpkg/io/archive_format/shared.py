@@ -1,4 +1,4 @@
-"""Shared helpers and constants for siesta format serializer modules."""
+"""Shared helpers and constants for canonical archive serializer modules."""
 
 from __future__ import annotations
 
@@ -17,10 +17,10 @@ _PROVENANCE_SCHEMA_VERSION = 1
 _PROVENANCE_SENTINEL_OPERATION = "(truncated)"
 _DEFAULT_PROVENANCE_MAX_BYTES = 524_288
 _JOURNAL_SCHEMA_VERSION = 1
-SIESTA_SCHEMA_NAME = "siesta"
-SIESTA_SCHEMA_VERSION = "2.0.0"
+ARCHIVE_SCHEMA_NAME = "xpkg_archive"
+ARCHIVE_SCHEMA_VERSION = "2.0.0"
 CANONICAL_BUNDLE_SUFFIX = ".xpkg"
-LEGACY_BUNDLE_SUFFIXES = (".sta", ".siesta")
+LEGACY_BUNDLE_SUFFIXES = (".sta",)
 SUPPORTED_BUNDLE_SUFFIXES = (CANONICAL_BUNDLE_SUFFIX, *LEGACY_BUNDLE_SUFFIXES)
 LABEL_TRACK_ID_DATASET = "track_id"
 LABEL_VISIBILITY_DATASET = "visibility"

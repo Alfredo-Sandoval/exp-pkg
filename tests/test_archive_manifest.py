@@ -38,8 +38,8 @@ def _find_manifest_entry(
     )
 
 
-def test_write_siesta_manifest_tracks_bundle_only_by_default(tmp_path: Path) -> None:
-    from xpkg.compat import write_siesta
+def test_write_archive_manifest_tracks_bundle_only_by_default(tmp_path: Path) -> None:
+    from xpkg.compat import write_archive
     from xpkg.model import Labels
 
     project_root = tmp_path / "proj"
@@ -47,7 +47,7 @@ def test_write_siesta_manifest_tracks_bundle_only_by_default(tmp_path: Path) -> 
 
     bundle_path = project_root / "proj.xpkg"
     labels = Labels()
-    write_siesta(bundle_path, labels)
+    write_archive(bundle_path, labels)
 
     with h5py.File(str(bundle_path), "r") as handle:
         raw = handle["project_metadata"].attrs["manifest_json"]
@@ -73,13 +73,13 @@ def test_write_siesta_manifest_tracks_bundle_only_by_default(tmp_path: Path) -> 
     assert _has("predictions", expected_bundle, "archive")
 
 
-def test_write_siesta_persists_preferences_payload(tmp_path: Path) -> None:
-    from xpkg.compat import write_siesta
+def test_write_archive_persists_preferences_payload(tmp_path: Path) -> None:
+    from xpkg.compat import write_archive
     from xpkg.model import Labels
 
     bundle_path = tmp_path / "prefs.xpkg"
     labels = Labels(preferences={"theme": "paper", "show_scores": True})
-    write_siesta(bundle_path, labels)
+    write_archive(bundle_path, labels)
 
     with h5py.File(str(bundle_path), "r") as handle:
         raw = handle["project_metadata"].attrs["preferences_json"]
@@ -90,11 +90,11 @@ def test_write_siesta_persists_preferences_payload(tmp_path: Path) -> None:
     assert payload == {"show_scores": True, "theme": "paper"}
 
 
-def test_write_siesta_registers_image_sequence_video_directory(tmp_path: Path) -> None:
+def test_write_archive_registers_image_sequence_video_directory(tmp_path: Path) -> None:
     import cv2
     import numpy as np
 
-    from xpkg.compat import write_siesta
+    from xpkg.compat import write_archive
     from xpkg.model import Labels, Video
 
     project_root = tmp_path / "proj"
@@ -111,7 +111,7 @@ def test_write_siesta_registers_image_sequence_video_directory(tmp_path: Path) -
 
     bundle_path = project_root / "proj.xpkg"
     labels = Labels(videos=[Video.from_image_filenames(frame_paths)])
-    write_siesta(bundle_path, labels)
+    write_archive(bundle_path, labels)
 
     entries = _load_manifest_entries(bundle_path)
     entry = _find_manifest_entry(
@@ -130,11 +130,11 @@ def test_write_siesta_registers_image_sequence_video_directory(tmp_path: Path) -
     }
 
 
-def test_write_siesta_rejects_image_sequence_with_multiple_parent_dirs(tmp_path: Path) -> None:
+def test_write_archive_rejects_image_sequence_with_multiple_parent_dirs(tmp_path: Path) -> None:
     import cv2
     import numpy as np
 
-    from xpkg.compat import write_siesta
+    from xpkg.compat import write_archive
     from xpkg.model import Labels, Video
 
     first_dir = tmp_path / "first"
@@ -155,4 +155,4 @@ def test_write_siesta_rejects_image_sequence_with_multiple_parent_dirs(tmp_path:
     )
 
     with pytest.raises(ValueError, match="share exactly one parent directory"):
-        write_siesta(bundle_path, labels)
+        write_archive(bundle_path, labels)

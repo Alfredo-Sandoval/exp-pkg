@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 
-from xpkg.io.siesta_store.hashing import compute_checksum, verify_checksum
+from xpkg.io.archive_store.hashing import compute_checksum, verify_checksum
 
 
 def now_utc_iso() -> str:

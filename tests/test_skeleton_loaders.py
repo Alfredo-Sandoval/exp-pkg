@@ -19,7 +19,7 @@ from xpkg.model import (
     Skeleton,
     load_skeleton,
     load_skeleton_dlc,
-    load_skeleton_siesta_json,
+    load_skeleton_archive_json,
     load_skeleton_xpkg_json,
 )
 
@@ -139,8 +139,8 @@ def test_load_skeleton_xpkg_json(tmp_path: Path) -> None:
     assert skeleton.links_ids == [(0, 1)]
 
 
-def test_load_skeleton_siesta_json_alias(tmp_path: Path) -> None:
-    skeleton = load_skeleton_siesta_json(_write_json_skeleton(tmp_path / "skeleton.json"))
+def test_load_skeleton_archive_json_alias(tmp_path: Path) -> None:
+    skeleton = load_skeleton_archive_json(_write_json_skeleton(tmp_path / "skeleton.json"))
 
     assert skeleton.name == "test_skeleton"
     assert skeleton.keypoint_names == ["nose", "tail"]

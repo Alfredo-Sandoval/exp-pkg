@@ -21,7 +21,7 @@ from xpkg.core.path_registry import ensure_dir
 from xpkg.core.skeleton import SCHEMA_VERSION as SKELETON_SCHEMA_VERSION
 from xpkg.core.skeleton import Keypoint, Skeleton
 from xpkg.io.labels.video_types import VideoProtocol
-from xpkg.io.siesta_format.shared import (
+from xpkg.io.archive_format.shared import (
     CANONICAL_BUNDLE_SUFFIX,
     LABEL_TRACK_ID_DATASET,
     LABEL_VISIBILITY_DATASET,
@@ -783,7 +783,7 @@ def _attach_segmentation_payload(
     )
 
 
-def labels_from_siesta_payload(
+def labels_from_archive_payload(
     cls: type[Labels],
     payload: dict[str, Any] | None,
     *,
@@ -833,7 +833,7 @@ def labels_from_siesta_payload(
     )
 
     logger.debug(
-        "Labels.from_siesta_payload: %d videos, %d frames, keypoints_shape=%s",
+        "Labels.from_archive_payload: %d videos, %d frames, keypoints_shape=%s",
         len(videos),
         total_frames,
         keypoints_arr.shape,
@@ -903,16 +903,16 @@ def labels_load_file(
     *args: Any,
     video_builder: VideoBuilder | None = None,
     video_finalizer: HydratedVideoFinalizer | None = None,
-    read_siesta_fn: BundleReader | None = None,
+    read_archive_fn: BundleReader | None = None,
     supported_bundle_suffixes: Sequence[str] | None = None,
     allow_json: bool = True,
     **kwargs: Any,
 ) -> Labels:
     """Load labels from disk."""
-    from xpkg.io.siesta_format import read_siesta
+    from xpkg.io.archive_format import read_archive
 
     del args, kwargs
-    bundle_reader = read_siesta if read_siesta_fn is None else read_siesta_fn
+    bundle_reader = read_archive if read_archive_fn is None else read_archive_fn
     bundle_suffixes = _resolve_bundle_suffixes(supported_bundle_suffixes)
     path = Path(filename)
     if path.suffix.lower() == ".expkg":
@@ -936,7 +936,7 @@ def labels_load_file(
             current_head = current_project_commit_id(workspace_root)
             if current_head is None or snapshot_head == current_head:
                 rebase_workspace_payload_videos(snapshot_payload, workspace_root)
-                obj = labels_from_siesta_payload(
+                obj = labels_from_archive_payload(
                     cls,
                     snapshot_payload,
                     suggestions_payload=snapshot_payload.get("suggestions"),
@@ -954,7 +954,7 @@ def labels_load_file(
             return obj
         payload = bundle_reader(archive_path, lazy=False)
         rebase_workspace_payload_videos(payload, workspace_root)
-        obj = labels_from_siesta_payload(
+        obj = labels_from_archive_payload(
             cls,
             _labels_payload_from_archive_payload(payload),
             suggestions_payload=payload.get("suggestions"),
@@ -971,7 +971,7 @@ def labels_load_file(
         if not allow_json:
             raise ValueError(f"No serializer for extension: {ext}")
         payload = read_labels_json_payload(path)
-        obj = labels_from_siesta_payload(
+        obj = labels_from_archive_payload(
             cls,
             payload,
             suggestions_payload=payload.get("suggestions") if isinstance(payload, dict) else None,
@@ -985,7 +985,7 @@ def labels_load_file(
         raise ValueError(f"No serializer for extension: {ext}")
 
     payload = bundle_reader(path, lazy=False)
-    obj = labels_from_siesta_payload(
+    obj = labels_from_archive_payload(
         cls,
         _labels_payload_from_archive_payload(payload),
         suggestions_payload=payload.get("suggestions"),
@@ -1004,15 +1004,15 @@ def labels_save_file(
     *,
     default_suffix: str = "",
     metadata: dict[str, Any] | None = None,
-    write_siesta_fn: BundleWriter | None = None,
+    write_archive_fn: BundleWriter | None = None,
     supported_bundle_suffixes: Sequence[str] | None = None,
     allow_json: bool = True,
     **_: Any,
 ) -> str:
     """Save labels to disk."""
-    from xpkg.io.siesta_format import write_siesta
+    from xpkg.io.archive_format import write_archive
 
-    bundle_writer = write_siesta if write_siesta_fn is None else write_siesta_fn
+    bundle_writer = write_archive if write_archive_fn is None else write_archive_fn
     bundle_suffixes = _resolve_bundle_suffixes(supported_bundle_suffixes)
     path = Path(filename)
     from xpkg.io.project_layout import resolve_workspace_root
@@ -1048,7 +1048,7 @@ def labels_save_file(
 __all__ = [
     "build_video_object",
     "finalize_hydrated_video",
-    "labels_from_siesta_payload",
+    "labels_from_archive_payload",
     "labels_load_file",
     "labels_save_file",
     "load_suggestions",

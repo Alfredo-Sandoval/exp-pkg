@@ -27,7 +27,7 @@ from xpkg.io.project_layout import (
     workspace_store_root,
     write_project_descriptor,
 )
-from xpkg.io.siesta_format import read_siesta
+from xpkg.io.archive_format import read_archive
 
 
 def _iter_workspace_files(workspace_root: Path) -> list[Path]:
@@ -244,7 +244,7 @@ def validate_artifact(path: str | Path) -> None:
         validate_expkg(resolved)
         return
     if resolved.suffix.lower() in (CANONICAL_BUNDLE_SUFFIX, *LEGACY_BUNDLE_SUFFIXES):
-        read_siesta(resolved, lazy=False)
+        read_archive(resolved, lazy=False)
         return
     raise ValueError(f"Unsupported artifact path: {resolved}")
 

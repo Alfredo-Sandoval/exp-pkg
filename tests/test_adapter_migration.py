@@ -175,7 +175,7 @@ def test_dlc_adapter_main_routes_cli_arguments(monkeypatch, tmp_path: Path) -> N
 
 def test_dlc_adapter_stores_project_relative_video_filename(tmp_path: Path) -> None:
     from xpkg.adapters.dlc import convert_dlc_h5
-    from xpkg.io.siesta_format import read_siesta
+    from xpkg.io.archive_format import read_archive
 
     recording_dir = tmp_path / "session-0"
     tracking_dir = recording_dir / "tracking"
@@ -206,7 +206,7 @@ def test_dlc_adapter_stores_project_relative_video_filename(tmp_path: Path) -> N
 
     result = convert_dlc_h5(tracking_path, video_path, recording_dir)
 
-    payload = read_siesta(result.bundle_path, lazy=False)
+    payload = read_archive(result.bundle_path, lazy=False)
     assert payload["labels"]["videos"]["filenames"] == ["alpha_view/session-0-leftCam.avi"]
 
 

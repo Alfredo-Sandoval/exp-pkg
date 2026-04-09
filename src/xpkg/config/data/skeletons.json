@@ -62,7 +62,7 @@
     "description": "26\u2011keypoint mouse with reduced digits (2 per forepaw); simpler than the 31\u2011kp template.",
     "license": "CC-BY-4.0",
     "metadata": {
-      "author": "Siesta",
+      "author": "xpkg",
       "created_utc": "2025-10-16T00:00:00Z"
     },
     "units": {
@@ -450,7 +450,7 @@
     "description": "30-keypoint mouse skeleton with detailed digit tracking for all four paws. Includes forelimb (4 digits each) and hindlimb (5 digits each).",
     "license": "CC-BY-4.0",
     "metadata": {
-      "author": "Siesta",
+      "author": "xpkg",
       "created_utc": "2025-12-16T00:00:00Z"
     },
     "units": {
@@ -1009,7 +1009,7 @@
     "description": "Balanced 18\u2011keypoint mouse skeleton with hips; good for tracking + viz.",
     "license": "CC-BY-4.0",
     "metadata": {
-      "author": "Siesta",
+      "author": "xpkg",
       "created_utc": "2025-10-16T00:00:00Z"
     },
     "units": {
@@ -2106,7 +2106,7 @@
     "description": "Clean 15\u2011keypoint mouse skeleton (links by name, derived symmetry, handy link sets).",
     "license": "CC-BY-4.0",
     "metadata": {
-      "author": "Siesta",
+      "author": "xpkg",
       "created_utc": "2025-10-16T00:00:00Z"
     },
     "units": {

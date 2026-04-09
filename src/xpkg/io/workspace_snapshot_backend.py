@@ -16,10 +16,10 @@ from xpkg.io.project_layout import (
     workspace_media_root,
     workspace_state_root,
 )
-from xpkg.io.siesta_format.prediction_coerce import coerce_predictions_from_labels
+from xpkg.io.archive_format.prediction_coerce import coerce_predictions_from_labels
 
 if TYPE_CHECKING:
-    from xpkg.io.siesta_format.predictions_datasets import PredictionAppendItem
+    from xpkg.io.archive_format.predictions_datasets import PredictionAppendItem
     from xpkg.model import Labels
 
 

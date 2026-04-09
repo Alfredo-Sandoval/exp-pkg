@@ -32,7 +32,7 @@ from xpkg.io.project_layout import (
     workspace_store_root,
     write_project_descriptor,
 )
-from xpkg.io.siesta_format import read_siesta
+from xpkg.io.archive_format import read_archive
 from xpkg.io.workspace_snapshot_backend import (
     WORKSPACE_COMMIT_ID_KEY,
     normalize_predictions_payload,
@@ -112,9 +112,9 @@ class WorkspaceStore:
         return self.open().load_current_commit().commit_id
 
     def open(self):
-        from xpkg.io.siesta_store import SiestaStore
+        from xpkg.io.archive_store import ArchiveStore
 
-        return SiestaStore.open(self.store_root)
+        return ArchiveStore.open(self.store_root)
 
     def _cleanup_legacy_state(self) -> None:
         for legacy_archive in self.legacy_current_archive_paths:
@@ -135,7 +135,7 @@ class WorkspaceStore:
         return None
 
     def ensure_store(self):
-        from xpkg.io.siesta_store import SiestaStore
+        from xpkg.io.archive_store import ArchiveStore
 
         if self.has_durable_store():
             return self.open()
@@ -147,7 +147,7 @@ class WorkspaceStore:
                 f"{self.legacy_current_archive_path}"
             )
 
-        store = SiestaStore.create_from_archive(
+        store = ArchiveStore.create_from_archive(
             store_root=self.store_root,
             initial_archive=legacy_archive,
             reason="workspace-adopt-legacy",
@@ -187,9 +187,9 @@ class WorkspaceStore:
                 store.commit_new_archive(candidate, reason=reason, created_by=created_by)
             return store.current_archive_path()
 
-        from xpkg.io.siesta_store import SiestaStore
+        from xpkg.io.archive_store import ArchiveStore
 
-        store = SiestaStore.create_from_archive(
+        store = ArchiveStore.create_from_archive(
             store_root=self.store_root,
             initial_archive=candidate,
             created_by=created_by,
@@ -292,7 +292,7 @@ def _write_workspace_state(
 
 
 def _prediction_items_from_payload(predictions: dict[str, Any] | None) -> list[Any]:
-    from xpkg.io.siesta_format.predictions_datasets import (
+    from xpkg.io.archive_format.predictions_datasets import (
         PredictionAppendItem,
         SerializerPredictedInstance,
     )
@@ -395,7 +395,7 @@ def _commit_labels_to_workspace(
     predictions: dict[str, Any] | None = None,
     reason: str,
 ) -> Path:
-    from xpkg.io.siesta_format import write_siesta
+    from xpkg.io.archive_format import write_archive
 
     _manage_labels_media(labels, workspace_root)
     normalized_metadata = rewrite_workspace_metadata_paths(
@@ -414,7 +414,7 @@ def _commit_labels_to_workspace(
         dir=str(stage_parent),
     ) as tmp_dir:
         staged_archive = Path(tmp_dir) / f"workspace{CANONICAL_BUNDLE_SUFFIX}"
-        write_siesta(
+        write_archive(
             staged_archive,
             labels,
             metadata=normalized_metadata,
@@ -438,7 +438,7 @@ def rebuild_workspace_snapshot_cache(workspace_root: Path) -> Path:
 
     store = _workspace_store(workspace_root)
     archive_path = store.current_archive_path()
-    bundle_payload = read_siesta(archive_path, lazy=False)
+    bundle_payload = read_archive(archive_path, lazy=False)
     labels = Labels.load_file(archive_path.as_posix())
     return _write_workspace_state(
         workspace_root,
@@ -692,7 +692,7 @@ def migrate_legacy_archive(
 
     labels = Labels.load_file(str(legacy_path))
     _absolutize_label_media(labels, source_root=legacy_path.parent)
-    payload = read_siesta(legacy_path, lazy=False)
+    payload = read_archive(legacy_path, lazy=False)
     _apply_resolved_video_paths_from_payload(labels, payload)
     _manage_labels_media(labels, root)
     metadata = rewrite_workspace_metadata_paths(
@@ -795,7 +795,7 @@ def import_dlc_csv_workspace(
             progress_callback=progress_callback,
         )
         labels = Labels.load_file(staged_archive.as_posix())
-        payload = read_siesta(staged_archive, lazy=False)
+        payload = read_archive(staged_archive, lazy=False)
         snapshot_path = _commit_labels_to_workspace(
             root,
             labels=labels,
@@ -842,7 +842,7 @@ def import_dlc_h5_workspace(
             progress_callback=progress_callback,
         )
         labels = Labels.load_file(staged_archive.as_posix())
-        payload = read_siesta(staged_archive, lazy=False)
+        payload = read_archive(staged_archive, lazy=False)
         snapshot_path = _commit_labels_to_workspace(
             root,
             labels=labels,
@@ -887,7 +887,7 @@ def import_sleap_package_workspace(
             progress_callback=progress_callback,
         )
         labels = Labels.load_file(result.bundle_path.as_posix())
-        payload = read_siesta(result.bundle_path, lazy=False)
+        payload = read_archive(result.bundle_path, lazy=False)
         snapshot_path = _commit_labels_to_workspace(
             root,
             labels=labels,
@@ -952,7 +952,7 @@ def save_workspace_labels(
         state_metadata = _snapshot_metadata_from_state_payload(state_payload)
         predictions = _predictions_payload_from_state_payload(state_payload)
     elif has_archive:
-        bundle_payload = read_siesta(store.current_archive_path(), lazy=False)
+        bundle_payload = read_archive(store.current_archive_path(), lazy=False)
         state_metadata = _snapshot_metadata(bundle_payload)
         predictions = _predictions_payload_from_state_payload(bundle_payload)
 

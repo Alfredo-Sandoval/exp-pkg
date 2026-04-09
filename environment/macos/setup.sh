@@ -5,60 +5,6 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ENV_FILE="${SCRIPT_DIR}/environment.yml"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
-install_js_dependencies_if_present() {
-  local package_json
-  package_json="${REPO_ROOT}/package.json"
-  if [[ ! -f "${package_json}" ]]; then
-    return 0
-  fi
-
-  if [[ -f "${REPO_ROOT}/pnpm-lock.yaml" ]]; then
-    if ! "${MAMBA_BIN}" run -n "${ENV_NAME}" pnpm --version >/dev/null 2>&1; then
-      echo "Missing dependency in environment '${ENV_NAME}': pnpm (required by pnpm-lock.yaml)." >&2
-      exit 1
-    fi
-    (
-      cd "${REPO_ROOT}"
-      "${MAMBA_BIN}" run -n "${ENV_NAME}" pnpm install --frozen-lockfile
-    )
-    return 0
-  fi
-
-  if [[ -f "${REPO_ROOT}/package-lock.json" ]]; then
-    if ! "${MAMBA_BIN}" run -n "${ENV_NAME}" npm --version >/dev/null 2>&1; then
-      echo "Missing dependency in environment '${ENV_NAME}': npm (required by package-lock.json)." >&2
-      exit 1
-    fi
-    (
-      cd "${REPO_ROOT}"
-      "${MAMBA_BIN}" run -n "${ENV_NAME}" npm ci
-    )
-    return 0
-  fi
-
-  if [[ -f "${REPO_ROOT}/yarn.lock" ]]; then
-    if ! "${MAMBA_BIN}" run -n "${ENV_NAME}" yarn --version >/dev/null 2>&1; then
-      echo "Missing dependency in environment '${ENV_NAME}': yarn (required by yarn.lock)." >&2
-      exit 1
-    fi
-    (
-      cd "${REPO_ROOT}"
-      "${MAMBA_BIN}" run -n "${ENV_NAME}" yarn install --frozen-lockfile
-    )
-    return 0
-  fi
-
-  echo "Detected package.json without lockfile. Running npm install for initial lock generation." >&2
-  if ! "${MAMBA_BIN}" run -n "${ENV_NAME}" npm --version >/dev/null 2>&1; then
-    echo "Missing dependency in environment '${ENV_NAME}': npm (required to install package.json dependencies)." >&2
-    exit 1
-  fi
-  (
-    cd "${REPO_ROOT}"
-    "${MAMBA_BIN}" run -n "${ENV_NAME}" npm install
-  )
-}
-
 if [[ ! -f "${ENV_FILE}" ]]; then
   echo "Missing environment spec: ${ENV_FILE}" >&2
   exit 1
@@ -90,6 +36,5 @@ else
   "${MAMBA_BIN}" env create -n "${ENV_NAME}" -f "${ENV_FILE}" -y
 fi
 "${MAMBA_BIN}" run -n "${ENV_NAME}" uv pip install -e "${REPO_ROOT}[dev,docs]"
-install_js_dependencies_if_present
 
 echo "Environment '${ENV_NAME}' is ready."

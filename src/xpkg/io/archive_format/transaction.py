@@ -16,7 +16,7 @@ import h5py
 
 from xpkg.core.json_utils import dump_json, parse_json_dict
 from xpkg.core.logging_utils import get_logger
-from xpkg.io.siesta_format.shared import (
+from xpkg.io.archive_format.shared import (
     _DEFAULT_PROVENANCE_MAX_BYTES,
     _JOURNAL_SCHEMA_VERSION,
     _PROVENANCE_SCHEMA_VERSION,
@@ -30,7 +30,7 @@ from xpkg.io.siesta_format.shared import (
 logger = get_logger(__name__)
 
 
-class SiestaFileLock:
+class ArchiveFileLock:
     """Advisory file lock for .xpkg serializer."""
 
     def __init__(
@@ -54,7 +54,7 @@ class SiestaFileLock:
         if self.stale_after_seconds is not None and self.stale_after_seconds < 0:
             raise ValueError("stale_after_seconds must be >= 0 when provided")
 
-    def __enter__(self) -> SiestaFileLock:
+    def __enter__(self) -> ArchiveFileLock:
         self.acquire()
         return self
 
@@ -72,7 +72,7 @@ class SiestaFileLock:
         while True:
             metadata = self._build_metadata()
             tmp_fd, tmp_name = tempfile.mkstemp(
-                prefix=".siesta_lock_",
+                prefix=".sta_lock_",
                 dir=str(self.lock_path.parent),
             )
             tmp_path = Path(tmp_name)
@@ -531,7 +531,7 @@ class _JournalTransaction(contextlib.AbstractContextManager["_JournalTransaction
 
 
 __all__ = [
-    "SiestaFileLock",
+    "ArchiveFileLock",
     "_JournalTransaction",
     "_append_provenance",
     "_ensure_journal_attr",

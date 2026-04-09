@@ -2,7 +2,7 @@
 
 <div class="page-intro">
 <p>
-If <code>.siesta</code> feels wrong in the current xpkg story, that reaction is
+If <code>.sta</code> feels wrong in the current xpkg story, that reaction is
 reasonable. The public product story is now workspace folder + private
 <code>.xpkg/</code> state + portable <code>.expkg</code> export, while the
 implementation still relies on legacy-named compatibility archive internals for
@@ -24,7 +24,7 @@ has moved forward:
 - `.xpkg/` as the private mutable store boundary
 - `.expkg` as the portable packed artifact
 - `.xpkg` as the canonical compatibility archive suffix, with `.sta` /
-  `.siesta` retained as older aliases
+  `.sta` retained as older aliases
 
 The normal workspace save/load/import/migrate flow now treats the durable store
 head as committed truth and uses `.xpkg/state/current.json` as a rebuildable
@@ -32,7 +32,7 @@ local cache. Direct archive reads still remain in the codebase for older
 workspaces, migration, fixtures, and explicit bundle-facing workflows.
 
 That split explains the current tension. The public contract is workspace-first,
-but the code still treats a `.siesta` archive as the canonical thing it knows
+but the code still treats a `.sta` archive as the canonical thing it knows
 how to stage, validate, and commit safely.
 
 ## Why The Legacy Archive Engine Is Still Here
@@ -42,9 +42,9 @@ how to stage, validate, and commit safely.
 The current round-trip serializer still lives in the legacy-named archive
 layer:
 
-- `xpkg.io.siesta_format.write_siesta`
-- `xpkg.io.siesta_format.update_labels_siesta`
-- `xpkg.io.siesta_format.read_siesta`
+- `xpkg.io.archive_format.write_archive`
+- `xpkg.io.archive_format.update_labels_archive`
+- `xpkg.io.archive_format.read_archive`
 
 Those functions already know how to carry labels, predictions, segmentation,
 metrics, metadata, and manifest information together. The workspace layer does
@@ -71,9 +71,9 @@ commit boundaries, and immutable objects under `.xpkg/`.
 
 But the object it currently commits is still an archive file:
 
-- `SiestaStore.create_from_archive(...)`
-- `SiestaStore.current_archive_path()`
-- `SiestaStore.commit_new_archive(...)`
+- `ArchiveStore.create_from_archive(...)`
+- `ArchiveStore.current_archive_path()`
+- `ArchiveStore.commit_new_archive(...)`
 
 So the store is newer than the archive format, but it still wraps the archive
 format instead of replacing it.
@@ -84,7 +84,7 @@ Existing adapters, tests, fixtures, and migration flows still move through the
 legacy compatibility engine. Keeping it available has practical value while the
 workspace-first surface hardens.
 
-That part is not irrational. The problem is not that `.siesta` exists at all.
+That part is not irrational. The problem is not that `.sta` exists at all.
 The problem is that it still occupies too much conceptual space compared with
 the current product direction.
 
@@ -100,7 +100,7 @@ The discomfort is structural, not cosmetic.
   a lower-level compatibility format for the actual committed payload.
 - The public contract has moved faster than the underlying storage cutover.
 
-So when someone asks, "why do we still have `.siesta`?", the honest answer is:
+So when someone asks, "why do we still have `.sta`?", the honest answer is:
 because it is still the only fully implemented storage backend, even though it
 is no longer the product we want to talk about.
 
@@ -111,9 +111,9 @@ mechanism, not the product identity.
 
 That means:
 
-- keep `.xpkg` compatibility archives, plus older `.sta` / `.siesta` aliases,
+- keep `.xpkg` compatibility archives, plus older `.sta` / `.sta` aliases,
   available for migration, fixtures, import, and low-level compatibility work
-- stop expanding the public product story around `.siesta` naming
+- stop expanding the public product story around `.sta` naming
 - keep legacy archive naming out of the primary artifact contract
 - be explicit that the workspace/store layer is the future-facing boundary
 
@@ -122,14 +122,14 @@ and transitional rather than native and aspirational.
 
 ## Cutover Paths
 
-### Option A: Keep `.siesta` as a private internal payload for now
+### Option A: Keep `.sta` as a private internal payload for now
 
 This is the least disruptive path.
 
 - keep the current save path working
-- reduce user-facing emphasis on `.siesta`
+- reduce user-facing emphasis on `.sta`
 - make the workspace/store layer the primary public contract
-- avoid designing new features directly against `.siesta`
+- avoid designing new features directly against `.sta`
 
 This is the best short-term option if stability matters more than immediate
 storage surgery.
@@ -146,7 +146,7 @@ It is mostly a vocabulary cleanup.
 
 This is the real cutover.
 
-- workspace save stops calling `write_siesta(...)` directly
+- workspace save stops calling `write_archive(...)` directly
 - the store commits normalized workspace state instead of a single archive file
 - labels, segmentation, predictions, and metadata get a backend-neutral storage
   contract
@@ -156,7 +156,7 @@ This is the real cutover.
 This is the most aligned end-state, but it is a real refactor, not a wording
 change.
 
-## What Needs To Happen Before `.siesta` Can Shrink
+## What Needs To Happen Before `.sta` Can Shrink
 
 The current code suggests a practical sequence.
 
@@ -164,25 +164,25 @@ The current code suggests a practical sequence.
    Right now descriptor logic, media management, imports, migration, save
    staging, packing, and validation all live in one module.
 2. Separate store protocol from archive semantics.
-   `SiestaStore` currently has real durability logic, but its roots still point
+   `ArchiveStore` currently has real durability logic, but its roots still point
    at immutable archive files.
 3. Extract a backend-neutral save model.
    The workspace layer needs a storage contract for labels, segmentation,
-   predictions, and metadata that does not require writing a `.siesta` archive
+   predictions, and metadata that does not require writing a `.sta` archive
    first.
 4. Broaden the workspace service beyond labels-only save/load semantics.
    The current service still exposes `load_labels()` and `save_labels(...)` as
    its main mutable operations.
 
-Until those changes happen, `.siesta` will keep showing up because the runtime
+Until those changes happen, `.sta` will keep showing up because the runtime
 still depends on it for the actual durable payload.
 
 ## Bottom Line
 
-`.siesta` is still here because it remains the only complete round-trip archive
+`.sta` is still here because it remains the only complete round-trip archive
 engine in the implementation.
 
 That is useful in the short term, but it also explains why the code still feels
 partly anchored to an older storage model. The right posture is to keep
-`.siesta` as a compatibility substrate while moving product language, public
+`.sta` as a compatibility substrate while moving product language, public
 contracts, and future storage work toward the workspace/store boundary.

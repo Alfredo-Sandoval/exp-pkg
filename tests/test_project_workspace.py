@@ -123,7 +123,7 @@ def test_init_project_writes_workspace_contract(tmp_path: Path) -> None:
 
 
 def test_migrate_legacy_archive_creates_workspace_and_workspace_loads(tmp_path: Path) -> None:
-    from xpkg.compat import write_siesta
+    from xpkg.compat import write_archive
     from xpkg.formats import (
         current_project_archive_path,
         current_project_snapshot_path,
@@ -137,9 +137,9 @@ def test_migrate_legacy_archive_creates_workspace_and_workspace_loads(tmp_path: 
     source_root = tmp_path / "source"
     source_root.mkdir()
     labels = _make_labels(source_root, x=3.0, y=4.0)
-    legacy_path = tmp_path / "tracking.siesta"
+    legacy_path = tmp_path / "tracking.sta"
     workspace = tmp_path / "Migrated Project"
-    write_siesta(legacy_path, labels)
+    write_archive(legacy_path, labels)
 
     migrated_archive = migrate_legacy_archive(legacy_path, workspace)
 
@@ -166,7 +166,7 @@ def test_migrate_legacy_archive_creates_workspace_and_workspace_loads(tmp_path: 
 
 
 def test_migrate_legacy_archive_rewrites_stale_project_metadata_paths(tmp_path: Path) -> None:
-    from xpkg.compat import write_siesta
+    from xpkg.compat import write_archive
     from xpkg.formats import (
         current_project_snapshot_path,
         init_project,
@@ -183,7 +183,7 @@ def test_migrate_legacy_archive_rewrites_stale_project_metadata_paths(tmp_path: 
     labels = _make_media_labels(source_video, x=2.0, y=3.0)
     legacy_output_dir = legacy_root / "models" / "pose" / "run-1"
     legacy_output_dir.mkdir(parents=True)
-    legacy_path = legacy_root / "tracking.siesta"
+    legacy_path = legacy_root / "tracking.sta"
     training_state = {
         "schema_version": 1,
         "latest": {
@@ -211,7 +211,7 @@ def test_migrate_legacy_archive_rewrites_stale_project_metadata_paths(tmp_path: 
         "active_video_path": source_video.as_posix(),
         "active_frame_idx": 2,
     }
-    write_siesta(
+    write_archive(
         legacy_path,
         labels,
         metadata={
@@ -242,13 +242,13 @@ def test_migrate_legacy_archive_rewrites_stale_project_metadata_paths(tmp_path: 
 
 
 def test_pack_snapshot_and_unpack_roundtrip_workspace(tmp_path: Path) -> None:
-    from xpkg.compat import write_siesta
+    from xpkg.compat import write_archive
     from xpkg.formats import pack_project, unpack_project, validate_artifact
     from xpkg.model import Labels
 
     labels = _make_labels(tmp_path, x=5.0, y=6.0)
-    legacy_path = tmp_path / "tracking.siesta"
-    write_siesta(legacy_path, labels)
+    legacy_path = tmp_path / "tracking.sta"
+    write_archive(legacy_path, labels)
 
     workspace = tmp_path / "Roundtrip Project"
     from xpkg.formats import migrate_legacy_archive
@@ -269,7 +269,7 @@ def test_pack_snapshot_and_unpack_roundtrip_workspace(tmp_path: Path) -> None:
 
 
 def test_pack_portable_and_unpack_uses_managed_media_after_source_removal(tmp_path: Path) -> None:
-    from xpkg.compat import write_siesta
+    from xpkg.compat import write_archive
     from xpkg.formats import (
         migrate_legacy_archive,
         pack_project,
@@ -282,8 +282,8 @@ def test_pack_portable_and_unpack_uses_managed_media_after_source_removal(tmp_pa
     source_root = tmp_path / "source"
     source_root.mkdir()
     labels = _make_labels(source_root, x=7.0, y=8.0)
-    legacy_path = tmp_path / "external.siesta"
-    write_siesta(legacy_path, labels)
+    legacy_path = tmp_path / "external.sta"
+    write_archive(legacy_path, labels)
 
     workspace = tmp_path / "Portable Project"
     migrate_legacy_archive(legacy_path, workspace)
@@ -318,7 +318,7 @@ def test_pack_portable_and_unpack_uses_managed_media_after_source_removal(tmp_pa
 
 
 def test_workspace_load_auto_adopts_legacy_state_archive(tmp_path: Path) -> None:
-    from xpkg.compat import write_siesta
+    from xpkg.compat import write_archive
     from xpkg.formats import (
         current_project_archive_path,
         init_project,
@@ -333,9 +333,9 @@ def test_workspace_load_auto_adopts_legacy_state_archive(tmp_path: Path) -> None
 
     workspace = tmp_path / "Legacy Workspace"
     init_project(workspace, title="Legacy Workspace")
-    legacy_state_path = workspace_state_root(workspace) / "current.siesta"
+    legacy_state_path = workspace_state_root(workspace) / "current.sta"
     legacy_state_path.parent.mkdir(parents=True, exist_ok=True)
-    write_siesta(legacy_state_path, labels)
+    write_archive(legacy_state_path, labels)
 
     loaded = Labels.load_file(workspace.as_posix())
     pts = loaded.labeled_frames[0].instances[0].get_points_array(copy=False, full=True)
@@ -379,7 +379,7 @@ def test_labels_save_file_to_workspace_creates_first_committed_state(tmp_path: P
 
 
 def test_labels_save_file_to_workspace_preserves_predictions(tmp_path: Path) -> None:
-    from xpkg.compat import PredictionAppendItem, SerializerPredictedInstance, write_siesta
+    from xpkg.compat import PredictionAppendItem, SerializerPredictedInstance, write_archive
     from xpkg.formats import (
         current_project_snapshot_path,
         migrate_legacy_archive,
@@ -391,7 +391,7 @@ def test_labels_save_file_to_workspace_preserves_predictions(tmp_path: Path) -> 
     source_root.mkdir()
     initial_labels = _make_labels(source_root, x=1.0, y=2.0)
     updated_labels = _make_labels(source_root, x=21.0, y=22.0)
-    legacy_path = tmp_path / "with_predictions.siesta"
+    legacy_path = tmp_path / "with_predictions.sta"
     workspace = tmp_path / "Workspace Save"
 
     predictions = [
@@ -409,7 +409,7 @@ def test_labels_save_file_to_workspace_preserves_predictions(tmp_path: Path) -> 
         )
     ]
 
-    write_siesta(legacy_path, initial_labels, predictions=predictions)
+    write_archive(legacy_path, initial_labels, predictions=predictions)
     migrate_legacy_archive(legacy_path, workspace)
 
     saved_target = Labels.save_file(updated_labels, workspace.as_posix())

@@ -15,8 +15,8 @@ from xpkg.core.path_registry import ensure_dir, resolve_path
 from xpkg.core.skeleton import Keypoint, Skeleton
 from xpkg.io.converters.converter_helpers import ConversionResult, project_bundle_path
 from xpkg.io.labels.model import Labels
-from xpkg.io.siesta_format import write_siesta
-from xpkg.io.siesta_format.shared import CANONICAL_BUNDLE_SUFFIX
+from xpkg.io.archive_format import write_archive
+from xpkg.io.archive_format.shared import CANONICAL_BUNDLE_SUFFIX
 from xpkg.io.video import Video
 
 BundleWriter = Callable[[Path, Labels], None]
@@ -329,7 +329,7 @@ def convert_normalized_image_sequence_annotations(
     payload = _load_payload(annotations_path)
     labels, video_dirs = _labels_from_payload(payload, project_root=project_root)
     archive_path = project_bundle_path(project_root, bundle_extension=bundle_extension)
-    writer = write_siesta if bundle_writer is None else bundle_writer
+    writer = write_archive if bundle_writer is None else bundle_writer
     writer(archive_path, labels)
     if not archive_path.is_file():
         raise FileNotFoundError(f"Expected converted archive at {archive_path}")

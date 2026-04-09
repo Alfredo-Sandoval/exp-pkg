@@ -19,21 +19,21 @@ from xpkg.core.path_registry import ensure_dir, make_path_id
 from xpkg.core.skeleton import Keypoint
 from xpkg.io.labels.model import Labels as LabelsModel
 from xpkg.io.manifest import ProjectManifest, coerce_manifest, resolve_project_path
-from xpkg.io.siesta_format.manifest_policy import (
+from xpkg.io.archive_format.manifest_policy import (
     load_manifest_from_metadata,
     register_archive,
     register_metadata_assets,
     register_videos,
 )
-from xpkg.io.siesta_format.metrics_hdf5 import (
+from xpkg.io.archive_format.metrics_hdf5 import (
     write_table_to_handle as write_metrics_table_to_handle,
 )
-from xpkg.io.siesta_format.prediction_coerce import (
+from xpkg.io.archive_format.prediction_coerce import (
     _coerce_prediction_items,
     _infer_prediction_keypoint_count,
     coerce_predictions_from_labels,
 )
-from xpkg.io.siesta_format.predictions_datasets import (
+from xpkg.io.archive_format.predictions_datasets import (
     PredictionDatasetMap,
     _assert_prediction_dataset_alignment,
     _bootstrap_predictions_group,
@@ -42,17 +42,17 @@ from xpkg.io.siesta_format.predictions_datasets import (
     _normalize_append_batch,
     predicted_instance_types,
 )
-from xpkg.io.siesta_format.segmentation_hdf5 import (
+from xpkg.io.archive_format.segmentation_hdf5 import (
     write_segmentation_group,
 )
-from xpkg.io.siesta_format.shared import (
+from xpkg.io.archive_format.shared import (
     _COERCE_PRIMITIVE_SENTINEL,
     _DEFAULT_PROVENANCE_MAX_BYTES,
     CANONICAL_BUNDLE_SUFFIX,
     LABEL_TRACK_ID_DATASET,
     LABEL_VISIBILITY_DATASET,
-    SIESTA_SCHEMA_NAME,
-    SIESTA_SCHEMA_VERSION,
+    ARCHIVE_SCHEMA_NAME,
+    ARCHIVE_SCHEMA_VERSION,
     _coerce_int,
     _coerce_primitive,
     _default_provenance_entry,
@@ -62,9 +62,9 @@ from xpkg.io.siesta_format.shared import (
     _require_project_metadata_group,
     _serialize_json,
 )
-from xpkg.io.siesta_format.tracks_hdf5 import read_tracks_group, write_tracks_group
-from xpkg.io.siesta_format.transaction import (
-    SiestaFileLock,
+from xpkg.io.archive_format.tracks_hdf5 import read_tracks_group, write_tracks_group
+from xpkg.io.archive_format.transaction import (
+    ArchiveFileLock,
     _append_provenance,
     _ensure_journal_attr,
     _JournalTransaction,
@@ -101,7 +101,7 @@ def _write_segmentation_from_labels(h5file: h5py.File, labels) -> None:
         write_segmentation_group(h5file, masks_by_frame, rois_by_frame)
 
 
-def write_siesta(
+def write_archive(
     path: Path,
     labels,
     predictions=None,
@@ -166,12 +166,12 @@ def write_siesta(
     runs_entries = _normalize_runs_entries(runs_input)
 
     defaults: dict[str, Any] = {
-        "schema_name": SIESTA_SCHEMA_NAME,
-        "schema_version": SIESTA_SCHEMA_VERSION,
-        "version": SIESTA_SCHEMA_VERSION,
+        "schema_name": ARCHIVE_SCHEMA_NAME,
+        "schema_version": ARCHIVE_SCHEMA_VERSION,
+        "version": ARCHIVE_SCHEMA_VERSION,
         "created": now_iso,
         "modified": now_iso,
-        "siesta_version": str(package_version),
+        "archive_version": str(package_version),
         "bundle_suffix": CANONICAL_BUNDLE_SUFFIX,
         "instance_layout": "dense_fixed_width",
         "base_dir": path.name,
@@ -184,12 +184,12 @@ def write_siesta(
         merged_metadata["created"] = now_iso
     if not merged_metadata.get("modified"):
         merged_metadata["modified"] = now_iso
-    if not merged_metadata.get("siesta_version"):
-        merged_metadata["siesta_version"] = str(package_version)
+    if not merged_metadata.get("archive_version"):
+        merged_metadata["archive_version"] = str(package_version)
     if not merged_metadata.get("schema_name"):
-        merged_metadata["schema_name"] = SIESTA_SCHEMA_NAME
+        merged_metadata["schema_name"] = ARCHIVE_SCHEMA_NAME
     if not merged_metadata.get("schema_version"):
-        merged_metadata["schema_version"] = merged_metadata.get("version") or SIESTA_SCHEMA_VERSION
+        merged_metadata["schema_version"] = merged_metadata.get("version") or ARCHIVE_SCHEMA_VERSION
     merged_metadata["version"] = str(
         merged_metadata.get("version") or merged_metadata["schema_version"]
     )
@@ -251,7 +251,7 @@ def write_siesta(
         suggestions_data = list(suggestions_data)
 
     tmp_path: Path | None = None
-    with SiestaFileLock(path):
+    with ArchiveFileLock(path):
         tmp_handle = tempfile.NamedTemporaryFile(
             prefix=f".{path.stem}_", suffix=".tmp", dir=str(parent), delete=False
         )
@@ -354,7 +354,7 @@ def write_siesta(
 
                 creation_entry = _default_provenance_entry(
                     "create",
-                    siesta_version=str(merged_metadata.get("siesta_version")),
+                    archive_version=str(merged_metadata.get("archive_version")),
                     schema_version=str(merged_metadata.get("schema_version")),
                 )
                 _append_provenance(
@@ -371,7 +371,7 @@ def write_siesta(
     return None
 
 
-def update_labels_siesta(
+def update_labels_archive(
     path: Path,
     labels,
     *,
@@ -385,7 +385,7 @@ def update_labels_siesta(
 
     tmp_path: Path | None = None
 
-    with SiestaFileLock(path):
+    with ArchiveFileLock(path):
         parent = path.parent
         ensure_dir(parent)
         tmp_handle = tempfile.NamedTemporaryFile(
@@ -1175,11 +1175,11 @@ __all__ = [
     "append_run_entry",
     "build_video_lookups",
     "coerce_manifest",
-    "update_labels_siesta",
+    "update_labels_archive",
     "write_labels_group",
     "write_predictions_group",
     "write_runs_table",
-    "write_siesta",
+    "write_archive",
     "write_skeleton_group",
     "write_suggestions_datasets",
     "write_videos_group",

@@ -97,7 +97,7 @@ no explicit links yet.
 - `load_skeleton`
 - `load_skeleton_dlc`
 - `load_skeleton_xpkg_json`
-- `load_skeleton_siesta_json`
+- `load_skeleton_archive_json`
 - `load_skeleton_sleap`
 - `load_skeleton_ultralytics`
 

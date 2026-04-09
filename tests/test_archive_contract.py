@@ -60,24 +60,24 @@ def test_labels_save_file_defaults_to_xpkg_suffix(tmp_path: Path) -> None:
 
 def test_labels_load_file_accepts_custom_bundle_reader(tmp_path: Path) -> None:
     from xpkg.io.labels import serialization as label_serialization
-    from xpkg.io.siesta_format import read_siesta, write_siesta
+    from xpkg.io.archive_format import read_archive, write_archive
     from xpkg.model import Labels
 
     labels = _make_labels(tmp_path, x=7.0, y=8.0)
     bundle_path = tmp_path / "labels.xpkg"
-    write_siesta(bundle_path, labels)
+    write_archive(bundle_path, labels)
 
     calls: list[tuple[Path, bool]] = []
 
     def recording_reader(path: Path, *, lazy: bool = False):
         calls.append((path, lazy))
-        return read_siesta(path, lazy=lazy)
+        return read_archive(path, lazy=lazy)
 
     loaded = label_serialization.labels_load_file(
         Labels,
         bundle_path.as_posix(),
-        read_siesta_fn=recording_reader,
-        supported_bundle_suffixes=(".xpkg", ".sta", ".siesta"),
+        read_archive_fn=recording_reader,
+        supported_bundle_suffixes=(".xpkg", ".sta", ".sta"),
         allow_json=False,
     )
 
@@ -87,7 +87,7 @@ def test_labels_load_file_accepts_custom_bundle_reader(tmp_path: Path) -> None:
 
 def test_labels_save_file_accepts_custom_bundle_writer(tmp_path: Path) -> None:
     from xpkg.io.labels import serialization as label_serialization
-    from xpkg.io.siesta_format import read_siesta, write_siesta
+    from xpkg.io.archive_format import read_archive, write_archive
 
     labels = _make_labels(tmp_path, x=2.0, y=5.0)
     raw_path = tmp_path / "custom_bundle"
@@ -95,20 +95,20 @@ def test_labels_save_file_accepts_custom_bundle_writer(tmp_path: Path) -> None:
 
     def recording_writer(path: Path, labels_obj, *, metadata=None, **kwargs):
         calls.append((path, metadata))
-        write_siesta(path, labels_obj, metadata=metadata, **kwargs)
+        write_archive(path, labels_obj, metadata=metadata, **kwargs)
 
     written_path = label_serialization.labels_save_file(
         labels,
         raw_path.as_posix(),
         metadata={"project_name": "demo"},
-        write_siesta_fn=recording_writer,
-        supported_bundle_suffixes=(".xpkg", ".sta", ".siesta"),
+        write_archive_fn=recording_writer,
+        supported_bundle_suffixes=(".xpkg", ".sta", ".sta"),
         allow_json=False,
     )
 
     assert Path(written_path) == raw_path.with_suffix(".xpkg")
     assert calls == [(raw_path.with_suffix(".xpkg"), {"project_name": "demo"})]
-    payload = read_siesta(Path(written_path), lazy=False)
+    payload = read_archive(Path(written_path), lazy=False)
     assert payload["metadata"]["project_name"] == "demo"
 
 
@@ -136,18 +136,18 @@ def test_siesta_labels_roundtrip_uses_explicit_visibility_dataset(tmp_path: Path
     assert bool(pts["complete"][0]) is True
 
 
-def test_update_labels_siesta_preserves_predictions_by_default(tmp_path: Path) -> None:
+def test_update_labels_archive_preserves_predictions_by_default(tmp_path: Path) -> None:
     from xpkg.compat import (
         PredictionAppendItem,
         SerializerPredictedInstance,
-        read_siesta,
-        update_labels_siesta,
-        write_siesta,
+        read_archive,
+        update_labels_archive,
+        write_archive,
     )
 
     initial_labels = _make_labels(tmp_path, x=1.0, y=2.0)
     updated_labels = _make_labels(tmp_path, x=9.0, y=10.0)
-    bundle_path = tmp_path / "project.siesta"
+    bundle_path = tmp_path / "project.sta"
     predictions = [
         PredictionAppendItem(
             video_index=0,
@@ -163,10 +163,10 @@ def test_update_labels_siesta_preserves_predictions_by_default(tmp_path: Path) -
         )
     ]
 
-    write_siesta(bundle_path, initial_labels, predictions=predictions)
-    update_labels_siesta(bundle_path, updated_labels)
+    write_archive(bundle_path, initial_labels, predictions=predictions)
+    update_labels_archive(bundle_path, updated_labels)
 
-    payload = read_siesta(bundle_path, lazy=False)
+    payload = read_archive(bundle_path, lazy=False)
     label_keypoints = np.asarray(payload["labels"]["data"]["keypoints"], dtype=np.float32)
     prediction_scores = np.asarray(
         payload["predictions"]["data"]["keypoint_score"],
@@ -180,17 +180,17 @@ def test_update_labels_siesta_preserves_predictions_by_default(tmp_path: Path) -
     assert int(prediction_track_ids[0, 0]) == 7
 
 
-def test_read_siesta_tolerates_missing_manifest_with_path_fallback(tmp_path: Path) -> None:
-    from xpkg.compat import read_siesta, write_siesta
+def test_read_archive_tolerates_missing_manifest_with_path_fallback(tmp_path: Path) -> None:
+    from xpkg.compat import read_archive, write_archive
 
     labels = _make_labels(tmp_path, x=5.0, y=6.0)
-    bundle_path = tmp_path / "nometa.siesta"
-    write_siesta(bundle_path, labels)
+    bundle_path = tmp_path / "nometa.sta"
+    write_archive(bundle_path, labels)
 
     with h5py.File(bundle_path.as_posix(), "r+") as handle:
         del handle["project_metadata"].attrs["manifest_json"]
 
-    payload = read_siesta(bundle_path, lazy=False)
+    payload = read_archive(bundle_path, lazy=False)
 
     assert payload["metadata"]["manifest"] is None
     videos_info = payload["metadata"]["videos"]

@@ -298,7 +298,7 @@ class TestLabeledFrameIntegration:
 
 class TestHDF5Roundtrip:
     def test_masks_roundtrip(self):
-        from xpkg.io.siesta_format.segmentation_hdf5 import (
+        from xpkg.io.archive_format.segmentation_hdf5 import (
             read_segmentation_group,
             write_segmentation_group,
         )
@@ -378,7 +378,7 @@ class TestHDF5Roundtrip:
         assert roi.x1 == 5 and roi.y2 == 50
 
     def test_empty_roundtrip(self):
-        from xpkg.io.siesta_format.segmentation_hdf5 import (
+        from xpkg.io.archive_format.segmentation_hdf5 import (
             read_segmentation_group,
             write_segmentation_group,
         )
@@ -394,7 +394,7 @@ class TestHDF5Roundtrip:
         assert result["rois"] == []
 
     def test_no_segmentation_group(self):
-        from xpkg.io.siesta_format.segmentation_hdf5 import read_segmentation_group
+        from xpkg.io.archive_format.segmentation_hdf5 import read_segmentation_group
 
         with tempfile.NamedTemporaryFile(suffix=".h5", delete=True) as tmp:
             path = Path(tmp.name)

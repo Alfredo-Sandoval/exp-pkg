@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from xpkg.io.siesta_store.oplog import OplogWriter, iter_oplog
+from xpkg.io.archive_store.oplog import OplogWriter, iter_oplog
 
 
 def test_oplog_append_and_read(tmp_path: Path) -> None:

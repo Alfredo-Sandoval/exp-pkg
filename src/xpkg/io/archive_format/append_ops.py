@@ -14,7 +14,7 @@ from typing import Any
 import h5py
 import numpy as np
 
-from xpkg.io.siesta_format.predictions_datasets import (
+from xpkg.io.archive_format.predictions_datasets import (
     MaxInstancesExceededError,
     PredictionAppendItem,
     PredictionDatasetMap,
@@ -26,7 +26,7 @@ from xpkg.io.siesta_format.predictions_datasets import (
     _normalize_append_batch,
     _resize_prediction_datasets,
 )
-from xpkg.io.siesta_format.rewrite_ops import (
+from xpkg.io.archive_format.rewrite_ops import (
     _create_empty_predictions_group,
     _optional_prediction_datasets,
     _prediction_batch_keypoint_count,
@@ -35,7 +35,7 @@ from xpkg.io.siesta_format.rewrite_ops import (
     _rewrite_predictions_with_updates,
     _rewrite_with_larger_max,
 )
-from xpkg.io.siesta_format.shared import (
+from xpkg.io.archive_format.shared import (
     _DEFAULT_PROVENANCE_MAX_BYTES,
     _default_provenance_entry,
     _normalize_predictions_committed_length,
@@ -44,17 +44,17 @@ from xpkg.io.siesta_format.shared import (
     _require_project_metadata_group,
     _skeleton_keypoint_count,
 )
-from xpkg.io.siesta_format.tracks_hdf5 import read_tracks_group, write_tracks_group
-from xpkg.io.siesta_format.transaction import (
-    SiestaFileLock,
+from xpkg.io.archive_format.tracks_hdf5 import read_tracks_group, write_tracks_group
+from xpkg.io.archive_format.transaction import (
+    ArchiveFileLock,
     _append_provenance,
     _flush_file,
     _JournalTransaction,
 )
-from xpkg.io.siesta_format.writer_core import append_run_entry
+from xpkg.io.archive_format.writer_core import append_run_entry
 
 
-def append_predictions_siesta(
+def append_predictions_archive(
     path: Path,
     batch: Sequence[PredictionAppendItem],
     *,
@@ -88,7 +88,7 @@ def append_predictions_siesta(
 
     batch_max_instances = max(len(item.instances or []) for item in batch_list)
 
-    with SiestaFileLock(path):
+    with ArchiveFileLock(path):
         with h5py.File(str(path), mode="r+") as h5file:
             meta_group = _require_project_metadata_group(h5file)
 
@@ -319,7 +319,7 @@ def append_predictions_siesta(
 
     return len(batch_list)
 
-def merge_predictions_siesta(
+def merge_predictions_archive(
     path: Path,
     batch: Sequence[PredictionAppendItem],
     *,
@@ -351,7 +351,7 @@ def merge_predictions_siesta(
     if run_metadata is not None:
         run_entry = _normalize_run_entry(run_metadata)
 
-    with SiestaFileLock(path):
+    with ArchiveFileLock(path):
         with h5py.File(str(path), "r") as probe_file:
             preds_group, frames_group, data_group = _require_predictions_groups(probe_file)
             keypoints_ds = _require_predictions_keypoints_dataset(data_group)
@@ -414,7 +414,7 @@ def merge_predictions_siesta(
             ]
             if missing_keys:
                 raise ValueError(
-                    "merge_predictions_siesta only supports frames already present in the archive"
+                    "merge_predictions_archive only supports frames already present in the archive"
                 )
 
             required_max = max_inst
@@ -552,6 +552,6 @@ def merge_predictions_siesta(
     return len(batch_list)
 
 __all__ = [
-    "append_predictions_siesta",
-    "merge_predictions_siesta",
+    "append_predictions_archive",
+    "merge_predictions_archive",
 ]

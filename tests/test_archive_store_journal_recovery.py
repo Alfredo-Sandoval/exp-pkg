@@ -2,19 +2,19 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from xpkg.io.siesta_store.journal import read_journal, write_journal
-from xpkg.io.siesta_store.paths import StorePaths
-from xpkg.io.siesta_store.platform_io import atomic_write_json
-from xpkg.io.siesta_store.schema import Journal, Superblock
-from xpkg.io.siesta_store.store import SiestaStore
+from xpkg.io.archive_store.journal import read_journal, write_journal
+from xpkg.io.archive_store.paths import StorePaths
+from xpkg.io.archive_store.platform_io import atomic_write_json
+from xpkg.io.archive_store.schema import Journal, Superblock
+from xpkg.io.archive_store.store import ArchiveStore
 
 
 def test_recover_clears_staging_journal_and_keeps_last_clean_head(tmp_path: Path) -> None:
-    archive = tmp_path / "initial.siesta"
+    archive = tmp_path / "initial.sta"
     archive.write_bytes(b"initial")
 
-    store_root = tmp_path / "project.siesta"
-    store = SiestaStore.create_from_sta(store_root, archive)
+    store_root = tmp_path / "project.sta"
+    store = ArchiveStore.create_from_sta(store_root, archive)
     initial_head = store.recover()
 
     journal = Journal(
@@ -28,18 +28,18 @@ def test_recover_clears_staging_journal_and_keeps_last_clean_head(tmp_path: Path
     ).with_checksum()
     write_journal(StorePaths(store_root).active_journal, journal.to_dict())
 
-    recovered = SiestaStore.open(store_root).recover()
+    recovered = ArchiveStore.open(store_root).recover()
     assert recovered.superblock.current_commit_id == initial_head.superblock.last_clean_commit_id
     assert recovered.superblock.generation == initial_head.superblock.generation + 1
     assert read_journal(StorePaths(store_root).active_journal) is None
 
 
 def test_recover_reverts_committing_state_when_commit_file_is_missing(tmp_path: Path) -> None:
-    archive = tmp_path / "initial.siesta"
+    archive = tmp_path / "initial.sta"
     archive.write_bytes(b"initial")
 
-    store_root = tmp_path / "project.siesta"
-    store = SiestaStore.create_from_sta(store_root, archive)
+    store_root = tmp_path / "project.sta"
+    store = ArchiveStore.create_from_sta(store_root, archive)
     initial_head = store.recover()
     paths = StorePaths(store_root)
     original_commit_id = initial_head.superblock.current_commit_id
@@ -64,7 +64,7 @@ def test_recover_reverts_committing_state_when_commit_file_is_missing(tmp_path: 
     ).with_checksum()
     write_journal(paths.active_journal, journal.to_dict())
 
-    recovered = SiestaStore.open(store_root).recover()
+    recovered = ArchiveStore.open(store_root).recover()
     assert recovered.superblock.current_commit_id == initial_head.superblock.last_clean_commit_id
     assert recovered.superblock.generation == broken_superblock.generation + 1
     assert read_journal(paths.active_journal) is None

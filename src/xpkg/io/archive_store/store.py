@@ -6,23 +6,24 @@ from pathlib import Path
 from typing import Any, Literal
 
 from xpkg.core.json_utils import load_json_dict
-from xpkg.io.siesta_format.shared import CANONICAL_BUNDLE_SUFFIX, SUPPORTED_BUNDLE_SUFFIXES
-from xpkg.io.siesta_store.errors import (
+from xpkg.io.archive_format.shared import CANONICAL_BUNDLE_SUFFIX, SUPPORTED_BUNDLE_SUFFIXES
+from xpkg.io.archive_store.errors import (
     ChecksumError,
     IncompatibleStoreVersionError,
     JournalStateError,
     StoreCorruptionError,
 )
-from xpkg.io.siesta_store.hashing import verify_checksum
-from xpkg.io.siesta_store.journal import clear_journal, read_journal, write_journal
-from xpkg.io.siesta_store.lock import StoreLock
-from xpkg.io.siesta_store.object_store import get_object_file, put_object_file
-from xpkg.io.siesta_store.paths import StorePaths
-from xpkg.io.siesta_store.platform_io import atomic_write_json
-from xpkg.io.siesta_store.schema import Commit, Journal, Superblock, now_utc_iso
+from xpkg.io.archive_store.hashing import verify_checksum
+from xpkg.io.archive_store.journal import clear_journal, read_journal, write_journal
+from xpkg.io.archive_store.lock import StoreLock
+from xpkg.io.archive_store.object_store import get_object_file, put_object_file
+from xpkg.io.archive_store.paths import StorePaths
+from xpkg.io.archive_store.platform_io import atomic_write_json
+from xpkg.io.archive_store.schema import Commit, Journal, Superblock, now_utc_iso
 
 _SUPPORTED_STORE_VERSION = 1
-_STORE_FORMAT = "xpkg.siesta-store"
+_STORE_FORMAT = "xpkg.archive-store"
+_LEGACY_STORE_FORMATS = {"xpkg.siesta-store"}
 
 
 @dataclass(slots=True)
@@ -54,7 +55,7 @@ def _load_superblock(path: Path) -> Superblock | None:
         raise IncompatibleStoreVersionError(
             f"Unsupported store_version={sb.store_version}; expected {_SUPPORTED_STORE_VERSION}"
         )
-    if sb.format != _STORE_FORMAT:
+    if sb.format not in {_STORE_FORMAT, *_LEGACY_STORE_FORMATS}:
         raise StoreCorruptionError(f"Unexpected store format: {sb.format}")
     return sb
 
@@ -110,7 +111,7 @@ def _normalize_object_ext(path: Path) -> str:
     return CANONICAL_BUNDLE_SUFFIX
 
 
-class SiestaStore:
+class ArchiveStore:
     """Mounted durable store backed by dual superblocks and immutable objects."""
 
     def __init__(self, root: Path) -> None:
@@ -124,7 +125,7 @@ class SiestaStore:
         *,
         created_by: dict[str, Any] | None = None,
         reason: str = "init",
-    ) -> SiestaStore:
+    ) -> ArchiveStore:
         return cls.create_from_sta(
             store_root=store_root,
             initial_sta=initial_archive,
@@ -140,7 +141,7 @@ class SiestaStore:
         *,
         created_by: dict[str, Any] | None = None,
         reason: str = "init",
-    ) -> SiestaStore:
+    ) -> ArchiveStore:
         store = cls(store_root)
         paths = store.paths
         paths.root.mkdir(parents=True, exist_ok=True)
@@ -202,7 +203,7 @@ class SiestaStore:
         return store
 
     @classmethod
-    def open(cls, store_root: Path) -> SiestaStore:
+    def open(cls, store_root: Path) -> ArchiveStore:
         store = cls(store_root)
         store.recover()
         return store

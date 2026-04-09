@@ -52,7 +52,7 @@ My Project/
 - xpkg owns authoritative mutable state inside `.xpkg/`.
 - You move/share/export a single `.expkg` file.
 - `.xpkg` is the canonical archive suffix for the compatibility layer.
-- `.sta` and `.siesta` remain legacy aliases during transition.
+- `.sta` and `.sta` remain legacy aliases during transition.
 
 This matters because the workspace is the place where media, segmentation,
 labels, and future experiment-side modalities can live together under one

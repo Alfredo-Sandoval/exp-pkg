@@ -1,25 +1,25 @@
 from __future__ import annotations
 
 
-class SiestaStoreError(Exception):
-    """Base exception for siesta_store."""
+class ArchiveStoreError(Exception):
+    """Base exception for archive_store."""
 
 
-class StoreCorruptionError(SiestaStoreError):
+class StoreCorruptionError(ArchiveStoreError):
     """Raised when required store files are missing or checksum validation fails."""
 
 
-class IncompatibleStoreVersionError(SiestaStoreError):
+class IncompatibleStoreVersionError(ArchiveStoreError):
     """Raised when the store_version is not supported by this xpkg build."""
 
 
-class LockAcquisitionError(SiestaStoreError):
+class LockAcquisitionError(ArchiveStoreError):
     """Raised when the store lock cannot be acquired."""
 
 
-class JournalStateError(SiestaStoreError):
+class JournalStateError(ArchiveStoreError):
     """Raised for invalid journal transitions or inconsistent recovery states."""
 
 
-class ChecksumError(SiestaStoreError):
+class ChecksumError(ArchiveStoreError):
     """Raised when a checksum cannot be verified."""

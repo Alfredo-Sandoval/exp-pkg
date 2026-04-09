@@ -12,7 +12,7 @@ import numpy as np
 from xpkg.core.json_utils import parse_json
 from xpkg.core.path_registry import resolve_path
 from xpkg.io.manifest import AssetType, ProjectManifest, resolve_project_path
-from xpkg.io.siesta_format.shared import _mapping_to_str_key_dict
+from xpkg.io.archive_format.shared import _mapping_to_str_key_dict
 
 
 def load_manifest_from_metadata(metadata_group: h5py.Group) -> ProjectManifest:

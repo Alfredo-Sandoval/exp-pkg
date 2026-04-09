@@ -269,7 +269,7 @@ def resolve_unified_bundle_or_error(
         archives = (
             sorted(candidate.glob("*.xpkg"))
             or sorted(candidate.glob("*.sta"))
-            or sorted(candidate.glob("*.siesta"))
+            or sorted(candidate.glob("*.sta"))
         )
         if not archives:
             return (
@@ -290,7 +290,7 @@ def resolve_unified_bundle_or_error(
             )
         return archives[0].resolve(), None
 
-    if candidate.suffix.lower() not in (".xpkg", ".sta", ".siesta"):
+    if candidate.suffix.lower() not in (".xpkg", ".sta", ".sta"):
         return None, ValueError(f"Expected a native bundle path, got: {candidate}")
 
     if not candidate.exists():
@@ -330,7 +330,7 @@ def find_project_bundles(project_root: str | Path) -> list[Path]:
         A list containing the Path to the project archive if it exists, else empty.
     """
     root = Path(project_root)
-    for suffix in (".xpkg", ".sta", ".siesta"):
+    for suffix in (".xpkg", ".sta", ".sta"):
         archive = root / f"{root.name}{suffix}"
         if archive.exists():
             return [archive]
@@ -408,7 +408,7 @@ def locate_annotation_bundle(project_root: Path, annotation_files: list[str]) ->
         candidate = Path(entry)
         if not candidate.is_absolute():
             candidate = project_root / candidate
-        if candidate.suffix.lower() in (".xpkg", ".sta", ".siesta") and candidate.exists():
+        if candidate.suffix.lower() in (".xpkg", ".sta", ".sta") and candidate.exists():
             return candidate
     return None
 

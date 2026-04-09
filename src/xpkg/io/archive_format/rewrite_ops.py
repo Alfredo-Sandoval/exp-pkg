@@ -17,7 +17,7 @@ from typing import Any
 import h5py
 import numpy as np
 
-from xpkg.io.siesta_format.predictions_datasets import (
+from xpkg.io.archive_format.predictions_datasets import (
     MaxInstancesExceededError,
     PredictionAppendItem,
     PredictionDatasetMap,
@@ -32,7 +32,7 @@ from xpkg.io.siesta_format.predictions_datasets import (
     _instance_keypoint_length,
     _normalize_heatmaps_frame,
 )
-from xpkg.io.siesta_format.shared import (
+from xpkg.io.archive_format.shared import (
     _DEFAULT_PROVENANCE_MAX_BYTES,
     _coerce_int,
     _default_provenance_entry,
@@ -41,13 +41,13 @@ from xpkg.io.siesta_format.shared import (
     _require_project_metadata_group,
     _skeleton_keypoint_count,
 )
-from xpkg.io.siesta_format.tracks_hdf5 import read_tracks_group, write_tracks_group
-from xpkg.io.siesta_format.transaction import (
+from xpkg.io.archive_format.tracks_hdf5 import read_tracks_group, write_tracks_group
+from xpkg.io.archive_format.transaction import (
     _append_provenance,
     _flush_file,
     _JournalTransaction,
 )
-from xpkg.io.siesta_format.writer_core import append_run_entry
+from xpkg.io.archive_format.writer_core import append_run_entry
 
 
 def _prediction_batch_keypoint_count(batch: Sequence[PredictionAppendItem]) -> int:

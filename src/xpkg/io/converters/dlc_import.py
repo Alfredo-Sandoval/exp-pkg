@@ -17,8 +17,8 @@ from xpkg.io.converters.converter_helpers import (
     project_bundle_path,
 )
 from xpkg.io.readers.dlc import read_dlc_csv_table, read_dlc_h5_table
-from xpkg.io.siesta_format import write_siesta
-from xpkg.io.siesta_format.shared import CANONICAL_BUNDLE_SUFFIX
+from xpkg.io.archive_format import write_archive
+from xpkg.io.archive_format.shared import CANONICAL_BUNDLE_SUFFIX
 from xpkg.io.video import Video
 
 if TYPE_CHECKING:
@@ -309,7 +309,7 @@ def _write_tracking_bundle(
     }
 
     _emit(progress_callback, f"IMPORT: Writing {out_path.name}")
-    write_siesta(out_path, labels, metadata=metadata)
+    write_archive(out_path, labels, metadata=metadata)
     _emit(progress_callback, "IMPORT: Done")
 
     return ConversionResult(
@@ -457,7 +457,7 @@ def convert_dlc_h5_project(
             ],
         }
         _emit(progress_callback, f"{_DLC_WRITE_BUNDLE_MARKER} {bundle_path.name}")
-        write_siesta(bundle_path, labels, metadata=metadata)
+        write_archive(bundle_path, labels, metadata=metadata)
     finally:
         for video in videos:
             video.close()

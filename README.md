@@ -17,14 +17,14 @@ This repo is not an analysis platform. It is the IO layer that analysis tools,
 GUIs, and automation can build on when they need a coherent project/workspace
 surface instead of a pile of ad hoc CSV, H5, JSON, and archive files.
 
-The codebase grew out of older SLEAP / `.siesta`-shaped IO work, but the public
+The codebase grew out of older SLEAP / `.sta`-shaped IO work, but the public
 boundary is now generic: `Labels`, `Video`, `Skeleton`, adapter imports,
 workspace lifecycle operations, and portable project artifacts.
 
-`.siesta` now belongs to the edge of the system: migration, legacy aliases,
+`.sta` now belongs to the edge of the system: migration, legacy aliases,
 fixtures, and compatibility workflows. The explicit edge surface for that work
 is `xpkg.compat`, with `.xpkg` as the canonical archive suffix and `.sta` /
-`.siesta` as older compatibility aliases.
+`.sta` as older compatibility aliases.
 
 ## Positioning
 
@@ -76,7 +76,7 @@ Implemented today:
 - import adapters and readers for external formats
 - workspace/store/artifact lifecycle operations
 - media-aware packaging and portable exports
-- legacy compatibility for direct `.xpkg` archives and older `.sta` / `.siesta` aliases
+- legacy compatibility for direct `.xpkg` archives and older `.sta` / `.sta` aliases
 
 Mission direction:
 
@@ -84,7 +84,7 @@ Mission direction:
 - support more external ecosystems through adapters
 - make downstream analysis and GUI repos depend on xpkg instead of inventing
   their own project formats
-- continue shrinking `.siesta` toward an edge-only migration layer
+- continue shrinking `.sta` toward an edge-only migration layer
 
 ## Supported Formats
 
@@ -150,7 +150,7 @@ My Project/
 - Editable project = workspace folder
 - Authoritative mutable state = `.xpkg/`
 - Portable artifact = `.expkg`
-- Edge archive compatibility = `.xpkg`, with `.sta` / `.siesta` retained as legacy aliases
+- Edge archive compatibility = `.xpkg`, with `.sta` / `.sta` retained as legacy aliases
 
 The artifact model is workspace-first so experiment state, managed media, and
 future aligned modalities have a clear home in one project layout.
@@ -161,12 +161,12 @@ command surface in `docs/cli_command_spec_v1.md`.
 ## Current Compatibility Layer
 
 The current implementation still exposes low-level `.xpkg` archive helpers and
-older `.sta` / `.siesta` aliases, but they should be treated as edge compatibility
+older `.sta` / `.sta` aliases, but they should be treated as edge compatibility
 surfaces rather than the center of the product.
 
 Use them for:
 
-- migration from older `.siesta` archives
+- migration from older `.sta` archives
 - fixtures and compatibility tests
 - legacy read/write paths that have not been cut over yet
 

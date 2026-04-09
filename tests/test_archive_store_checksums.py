@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from xpkg.io.siesta_store.schema import Commit, Journal, Superblock, now_utc_iso
+from xpkg.io.archive_store.schema import Commit, Journal, Superblock, now_utc_iso
 
 
 def test_superblock_checksum_roundtrip() -> None:
     superblock = Superblock(
-        format="xpkg.siesta-store",
+        format="xpkg.archive-store",
         store_version=1,
         generation=1,
         current_commit_id="c_000000000001_deadbeef",
@@ -28,7 +28,7 @@ def test_commit_and_journal_checksums_fail_after_tampering() -> None:
         created_at=now_utc_iso(),
         reason="init",
         created_by={},
-        roots={"archive": {"object_id": "obj_deadbeef", "ext": ".siesta"}},
+        roots={"archive": {"object_id": "obj_deadbeef", "ext": ".sta"}},
     ).with_checksum()
     journal = Journal(
         txn_id="txn_deadbeef",

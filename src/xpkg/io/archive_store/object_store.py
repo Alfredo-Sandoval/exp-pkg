@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from xpkg.io.siesta_store.hashing import sha256_file
-from xpkg.io.siesta_store.paths import StorePaths
-from xpkg.io.siesta_store.platform_io import atomic_copy_file
+from xpkg.io.archive_store.hashing import sha256_file
+from xpkg.io.archive_store.paths import StorePaths
+from xpkg.io.archive_store.platform_io import atomic_copy_file
 
 
 def put_object_file(

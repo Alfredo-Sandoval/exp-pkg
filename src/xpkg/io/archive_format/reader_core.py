@@ -25,12 +25,12 @@ from xpkg.io.manifest import (
     resolve_asset_path,
     resolve_project_path,
 )
-from xpkg.io.siesta_format.shared import (
+from xpkg.io.archive_format.shared import (
     _DEFAULT_PROVENANCE_MAX_BYTES,
     _PROVENANCE_SCHEMA_VERSION,
     LABEL_TRACK_ID_DATASET,
     LABEL_VISIBILITY_DATASET,
-    SIESTA_SCHEMA_NAME,
+    ARCHIVE_SCHEMA_NAME,
     _coerce_int,
     _mapping_to_str_key_dict,
     _normalize_predictions_committed_length,
@@ -38,7 +38,7 @@ from xpkg.io.siesta_format.shared import (
 
 __all__ = [
     "LazyDatasetHandle",
-    "LazySiestaHandle",
+    "LazyArchiveHandle",
     "ReaderCommonState",
     "_decode_optional_mapping_attr",
     "_decode_utf8_field",
@@ -46,7 +46,7 @@ __all__ = [
     "_normalize_attr_value",
     "_read_str_dataset",
     "build_common_reader_state",
-    "read_siesta_with_assembler",
+    "read_archive_with_assembler",
 ]
 
 
@@ -75,7 +75,7 @@ class LazyDatasetHandle:
     def materialize(self) -> np.ndarray:
         if not self.dataset.id.valid:
             raise RuntimeError(
-                "Cannot materialize lazy dataset after the owning .siesta handle is closed"
+                "Cannot materialize lazy dataset after the owning .sta handle is closed"
             )
         data = self.dataset[...]
         if self.length is not None:
@@ -96,7 +96,7 @@ class LazyDatasetHandle:
     def shape(self) -> tuple[int, ...]:
         if not self.dataset.id.valid:
             raise RuntimeError(
-                "Cannot read lazy dataset shape after the owning .siesta handle is closed"
+                "Cannot read lazy dataset shape after the owning .sta handle is closed"
             )
         base = tuple(self.dataset.shape)
         if not base or self.length is None:
@@ -104,8 +104,8 @@ class LazyDatasetHandle:
         return (min(self.length, base[0]), *base[1:])
 
 
-class LazySiestaHandle:
-    """Owns an open h5py.File returned by read_siesta(lazy=True)."""
+class LazyArchiveHandle:
+    """Owns an open h5py.File returned by read_archive(lazy=True)."""
 
     def __init__(self, file_handle: h5py.File) -> None:
         self._file_handle = file_handle
@@ -117,14 +117,14 @@ class LazySiestaHandle:
     @property
     def file(self) -> h5py.File:
         if self.closed:
-            raise RuntimeError("LazySiestaHandle is closed")
+            raise RuntimeError("LazyArchiveHandle is closed")
         return self._file_handle
 
     def close(self) -> None:
         if self._file_handle.id.valid:
             self._file_handle.close()
 
-    def __enter__(self) -> LazySiestaHandle:
+    def __enter__(self) -> LazyArchiveHandle:
         return self
 
     def __exit__(self, _exc_type, _exc_val, _exc_tb) -> None:
@@ -1009,7 +1009,7 @@ def build_common_reader_state(
     metadata, provenance = _read_project_metadata(handle, path=path)
     if not metadata.get("schema_version") and metadata.get("version"):
         metadata["schema_version"] = metadata["version"]
-    metadata.setdefault("schema_name", SIESTA_SCHEMA_NAME)
+    metadata.setdefault("schema_name", ARCHIVE_SCHEMA_NAME)
     runtime_config = _decode_runtime_config(metadata)
     if runtime_config is not None:
         metadata["runtime_config"] = runtime_config
@@ -1062,7 +1062,7 @@ def build_common_reader_state(
     )
 
 
-def read_siesta_with_assembler(
+def read_archive_with_assembler(
     path: Path,
     *,
     lazy: bool,
@@ -1080,5 +1080,5 @@ def read_siesta_with_assembler(
         result = assemble_result(handle, path, bundle_root, lazy)
         if lazy:
             stack.pop_all()
-            result["h5_handle"] = LazySiestaHandle(handle)
+            result["h5_handle"] = LazyArchiveHandle(handle)
         return result

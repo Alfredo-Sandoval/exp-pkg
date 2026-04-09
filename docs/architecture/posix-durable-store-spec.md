@@ -303,7 +303,7 @@ Manual verification should cover:
 
 ## Recommended Implementation Order
 
-1. Keep the current `SiestaStore` metadata model and recovery shape.
+1. Keep the current `ArchiveStore` metadata model and recovery shape.
 2. Make the committed head authoritative for workspace saves.
 3. Downgrade `state/current.json` from source of truth to rebuildable cache.
 4. Keep `.xpkg` as the committed immutable payload for now.

@@ -1,7 +1,7 @@
 """IO package entry point.
 
 Import concrete serializers and manifest helpers from their modules (for example,
-`xpkg.io.siesta_format` or `xpkg.io.manifest`). No re-export
+`xpkg.io.archive_format` or `xpkg.io.manifest`). No re-export
 surface is provided at the package root.
 """
 

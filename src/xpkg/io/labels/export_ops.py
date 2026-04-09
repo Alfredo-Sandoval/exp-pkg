@@ -101,7 +101,7 @@ def labels_numpy(
 def labels_to_dataframe(
     labels: Labels,
     video: VideoProtocol | int | None = None,
-    scorer: str = "siesta",
+    scorer: str = "xpkg",
 ):
     """Convert labels for a video to a DeepLabCut-style MultiIndex DataFrame."""
     import pandas as pd

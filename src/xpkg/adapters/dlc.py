@@ -20,7 +20,7 @@ from xpkg.io.converters.progress import (
 from xpkg.io.converters.progress import (
     bridge_progress_callback,
 )
-from xpkg.io.siesta_format.shared import CANONICAL_BUNDLE_SUFFIX
+from xpkg.io.archive_format.shared import CANONICAL_BUNDLE_SUFFIX
 
 convert_dlc_csv = _dlc_import.convert_dlc_csv
 convert_dlc_h5_project = _dlc_import.convert_dlc_h5_project

@@ -23,8 +23,8 @@ from xpkg.io.converters.converter_helpers import (
     encode_videos as _encode_videos,
 )
 from xpkg.io.converters.sleap_helpers import extract_frames, extract_labels_step4
-from xpkg.io.siesta_format import write_siesta
-from xpkg.io.siesta_format.shared import CANONICAL_BUNDLE_SUFFIX
+from xpkg.io.archive_format import write_archive
+from xpkg.io.archive_format.shared import CANONICAL_BUNDLE_SUFFIX
 from xpkg.io.skeleton_loaders import build_sleap_skeleton
 
 if TYPE_CHECKING:
@@ -209,7 +209,7 @@ def convert_sleap_package(
         "source_package": slp_path.as_posix(),
     }
     _emit(progress_callback, _WRITE_BUNDLE_MARKER)
-    write_siesta(bundle_path, labels, metadata=metadata)
+    write_archive(bundle_path, labels, metadata=metadata)
     _emit(progress_callback, _OK_BUNDLE_WRITTEN_MARKER)
 
     _emit(progress_callback, _CLEANUP_TEMP_MARKER)

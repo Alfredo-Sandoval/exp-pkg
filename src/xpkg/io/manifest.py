@@ -3,7 +3,7 @@ Project manifest for tracking assets with stable identifiers.
 
 This module provides a centralized registry for project assets (videos, models,
 skeletons, archives) that replaces scattered file searching with O(1) lookups.
-The manifest persists in the native `.siesta` archive and uses portable path IDs.
+The manifest persists in the native `.sta` archive and uses portable path IDs.
 """
 
 from __future__ import annotations
@@ -476,26 +476,26 @@ def resolve_asset_path(
 def persist_manifest(
     archive_path: Path | str, manifest: ProjectManifest | Mapping[str, Any]
 ) -> None:
-    """Write the provided manifest into the project's `.siesta` archive."""
-    from xpkg.io.siesta_format.transaction import SiestaFileLock
+    """Write the provided manifest into the project's `.sta` archive."""
+    from xpkg.io.archive_format.transaction import ArchiveFileLock
 
     archive = Path(archive_path).resolve()
     if not archive.exists():
-        raise FileNotFoundError(f".siesta archive not found: {archive}")
+        raise FileNotFoundError(f".sta archive not found: {archive}")
     if isinstance(manifest, ProjectManifest):
         manifest_obj = manifest
     elif isinstance(manifest, Mapping):
         manifest_obj = ProjectManifest.from_dict(dict(manifest))
 
-    from xpkg.io.siesta_format.shared import _serialize_json
+    from xpkg.io.archive_format.shared import _serialize_json
 
     manifest_json = _serialize_json(manifest_obj.to_dict())
 
-    with SiestaFileLock(archive):
+    with ArchiveFileLock(archive):
         with h5py.File(str(archive), "r+") as h5file:
             meta_group = h5file.get("project_metadata")
             if meta_group is None:
-                raise ValueError(".siesta archive is missing the project_metadata group")
+                raise ValueError(".sta archive is missing the project_metadata group")
             if not isinstance(meta_group, h5py.Group):
                 raise TypeError("project_metadata must be an h5py Group")
             meta_group.attrs["manifest_json"] = manifest_json

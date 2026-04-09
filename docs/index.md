@@ -14,7 +14,7 @@ xpkg is the canonical IO and artifact layer for experiment data, built around
 an editable workspace folder, a private <code>.xpkg/</code> store, and portable
 <code>.expkg</code> exports. Edge archive compatibility lives in
 <code>xpkg.compat</code>, with <code>.xpkg</code> as the canonical archive suffix
-and <code>.sta</code> / <code>.siesta</code> kept as legacy aliases during the transition.
+and <code>.sta</code> / <code>.sta</code> kept as legacy aliases during the transition.
 The repo and distribution name are <code>exp-pkg</code>; the Python import and CLI name are
 <code>xpkg</code>.
 </p>
@@ -31,7 +31,7 @@ The repo and distribution name are <code>exp-pkg</code>; the Python import and C
 | Mission | experiment-data IO and artifact contracts |
 | Public project contract | workspace folder + `.expkg` |
 | Authoritative mutable state | `.xpkg/` inside the workspace |
-| Edge compatibility layer | `xpkg.compat` for `.xpkg` / legacy `.sta` / `.siesta` |
+| Edge compatibility layer | `xpkg.compat` for `.xpkg` / legacy `.sta` / `.sta` |
 | External adapters | DLC, SLEAP |
 | Core objects | `xpkg.model` |
 | Low-level compatibility IO | `xpkg.compat` |
@@ -49,9 +49,9 @@ The repo and distribution name are <code>exp-pkg</code>; the Python import and C
 - Read [CLI Command Spec v1](cli_command_spec_v1.md) for the locked command
   surface.
 - Read [Storage Direction](architecture/storage-direction.md) when you want the
-  blunt explanation for why `.siesta` still exists in the implementation.
+  blunt explanation for why `.sta` still exists in the implementation.
 - Use `xpkg.compat` when you need low-level `.xpkg` archive IO or legacy
-  `.sta` / `.siesta` compatibility.
+  `.sta` / `.sta` compatibility.
 - Use `xpkg.adapters` when you need to import DLC or SLEAP.
 </div>
 
@@ -108,7 +108,7 @@ My Project/
     My Project.expkg
 ```
 
-`.xpkg` is the canonical edge archive suffix. `.sta` and `.siesta` remain
+`.xpkg` is the canonical edge archive suffix. `.sta` and `.sta` remain
 available as legacy compatibility aliases, but none of them are the portable
 public project artifact.
 
@@ -126,13 +126,13 @@ single archive or converter output.
   `pack`, `unpack`, `validate`, `migrate`, and the legacy `convert` helper.
 - Read [Media IO Stack](architecture/media-io.md) for the target ownership split between xpkg and Siesta.
 - Read [Storage Direction](architecture/storage-direction.md) for the current
-  rationale and cutover pressure around `.siesta`, `.xpkg/`, and
+  rationale and cutover pressure around `.sta`, `.xpkg/`, and
   `.expkg`.
 - Read [Experimental Durable Store](architecture/experimental-store.md) for the new
   commit-oriented recovery workflow.
 - Read [Model](api/model.md) for the pose object graph.
 - Read [Compatibility](api/compat.md) for the edge `.xpkg` / legacy `.sta` /
-  `.siesta` APIs.
+  `.sta` APIs.
 - Read [Adapters](api/adapters.md) for DLC and SLEAP conversion.
 - Use the reference pages when you need exact signatures and docstrings.
 

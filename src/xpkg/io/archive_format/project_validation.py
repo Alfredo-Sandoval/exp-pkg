@@ -72,7 +72,7 @@ class ProjectSummary:
     label_frames: int = 0
     prediction_frames: int = 0
     schema_version: str | None = None
-    siesta_version: str | None = None
+    archive_version: str | None = None
     created: str | None = None
     modified: str | None = None
 
@@ -89,16 +89,16 @@ class ProjectSummary:
             stream.write(f"  shapes: {self.video_shapes}\n")
         stream.write(f" labels frames: {self.label_frames}\n")
         stream.write(f" predictions frames: {self.prediction_frames}\n")
-        if self.schema_version or self.siesta_version:
-            stream.write(f" schema: {self.schema_version}  siesta_version: {self.siesta_version}\n")
+        if self.schema_version or self.archive_version:
+            stream.write(f" schema: {self.schema_version}  archive_version: {self.archive_version}\n")
         if self.created or self.modified:
             stream.write(f" created: {self.created}  modified: {self.modified}\n")
 
 
 def summarize_project(path: Path) -> ProjectSummary:
-    from xpkg.io.siesta_format.reader import read_siesta
+    from xpkg.io.archive_format.reader import read_archive
 
-    project = read_siesta(path, lazy=True)
+    project = read_archive(path, lazy=True)
 
     videos = _labels_videos_group(project)
     labels = project.get("labels") or {}
@@ -127,16 +127,16 @@ def summarize_project(path: Path) -> ProjectSummary:
         label_frames=label_frames,
         prediction_frames=prediction_frames,
         schema_version=metadata.get("schema_version") or metadata.get("version"),
-        siesta_version=metadata.get("siesta_version"),
+        archive_version=metadata.get("archive_version"),
         created=metadata.get("created"),
         modified=metadata.get("modified"),
     )
 
 
 def validate_project(path: Path) -> None:
-    from xpkg.io.siesta_format.reader import read_siesta
+    from xpkg.io.archive_format.reader import read_archive
 
-    _validate_payload(read_siesta(path, lazy=False))
+    _validate_payload(read_archive(path, lazy=False))
 
 
 __all__ = [

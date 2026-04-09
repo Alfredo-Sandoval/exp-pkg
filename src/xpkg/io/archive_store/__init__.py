@@ -1,21 +1,21 @@
 from __future__ import annotations
 
-from xpkg.io.siesta_store.errors import (
+from xpkg.io.archive_store.errors import (
     ChecksumError,
     IncompatibleStoreVersionError,
     JournalStateError,
     LockAcquisitionError,
-    SiestaStoreError,
+    ArchiveStoreError,
     StoreCorruptionError,
 )
-from xpkg.io.siesta_store.store import SiestaStore
+from xpkg.io.archive_store.store import ArchiveStore
 
 __all__ = [
     "ChecksumError",
     "IncompatibleStoreVersionError",
     "JournalStateError",
     "LockAcquisitionError",
-    "SiestaStore",
-    "SiestaStoreError",
+    "ArchiveStore",
+    "ArchiveStoreError",
     "StoreCorruptionError",
 ]

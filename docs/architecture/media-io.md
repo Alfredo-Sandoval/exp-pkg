@@ -35,7 +35,7 @@ The key rule is simple: optimize backends in xpkg, not semantics in Siesta.
 
 Today the repositories are split in an unhealthy way:
 
-- xpkg already owns canonical labels IO, `.siesta` archive IO, and external
+- xpkg already owns canonical labels IO, `.sta` archive IO, and external
   adapter logic.
 - xpkg also has a small media layer in `xpkg.io.video`.
 - Siesta still owns a richer and partially duplicated media stack for playback,
