@@ -202,7 +202,7 @@ def extract_labels_step4(
             if best_vid is not None:
                 group_to_vid[vg] = int(best_vid)
             else:
-                _warn(f"SIESTA_IMPORT WARN: No labeled-frame match for {vg}; skipping group.")
+                _warn(f"XPKG_IMPORT WARN: No labeled-frame match for {vg}; skipping group.")
 
         dfs: list[pd.DataFrame] = []
         pts_fields = set(points_ds.dtype.names or ())

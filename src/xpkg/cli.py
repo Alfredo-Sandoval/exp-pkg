@@ -21,6 +21,7 @@ from xpkg.formats import (
 from xpkg.io.converters.converter_helpers import ConversionResult
 from xpkg.io.converters.dlc_import import convert_dlc_csv, convert_dlc_h5, convert_dlc_project
 from xpkg.io.converters.sleap_import import convert_sleap_package
+from xpkg.io.siesta_format.shared import CANONICAL_BUNDLE_SUFFIX, LEGACY_BUNDLE_SUFFIXES
 from xpkg.version import __version__
 
 CliCommand = Callable[[argparse.Namespace], int]
@@ -52,6 +53,9 @@ def _write_result(result: ConversionResult) -> None:
 
 def _write_path(path: Path) -> None:
     sys.stdout.write(f"{path}\n")
+
+
+_LEGACY_BUNDLE_LABEL = "/".join(LEGACY_BUNDLE_SUFFIXES)
 
 
 def _configure_tracking_parser(
@@ -103,7 +107,11 @@ def _add_dlc_parser(parent: argparse._SubParsersAction[argparse.ArgumentParser])
         help="Convert every supported item in a DLC project directory.",
     )
     project_parser.add_argument("--project", required=True, help="Path to the DLC project root.")
-    project_parser.add_argument("--out", required=True, help="Output directory for .sta files.")
+    project_parser.add_argument(
+        "--out",
+        required=True,
+        help=f"Output directory for {CANONICAL_BUNDLE_SUFFIX} files.",
+    )
     project_parser.add_argument(
         "--threshold",
         type=_likelihood_threshold,
@@ -148,12 +156,18 @@ def _add_import_parser(parent: argparse._SubParsersAction[argparse.ArgumentParse
 
     legacy = import_subparsers.add_parser(
         "legacy",
-        help="Import a legacy .sta archive or older .siesta alias.",
+        help=(
+            f"Import a canonical {CANONICAL_BUNDLE_SUFFIX} archive or "
+            f"legacy {_LEGACY_BUNDLE_LABEL} alias."
+        ),
     )
     legacy.add_argument(
         "--file",
         required=True,
-        help="Path to a legacy .sta archive or older .siesta alias.",
+        help=(
+            f"Path to a canonical {CANONICAL_BUNDLE_SUFFIX} archive or "
+            f"legacy {_LEGACY_BUNDLE_LABEL} alias."
+        ),
     )
     legacy.add_argument("--out", required=True, help="Output workspace directory.")
     legacy.add_argument("--title", help="Optional project title override.")
@@ -254,11 +268,17 @@ def _add_workspace_parsers(parent: argparse._SubParsersAction[argparse.ArgumentP
 
     migrate = parent.add_parser(
         "migrate",
-        help="Migrate a legacy .sta archive or older .siesta alias into a workspace-first project.",
+        help=(
+            f"Migrate a canonical {CANONICAL_BUNDLE_SUFFIX} archive or "
+            f"legacy {_LEGACY_BUNDLE_LABEL} alias into a workspace-first project."
+        ),
     )
     migrate.add_argument(
         "legacy_archive",
-        help="Path to a legacy .sta archive or older .siesta alias.",
+        help=(
+            f"Path to a canonical {CANONICAL_BUNDLE_SUFFIX} archive or "
+            f"legacy {_LEGACY_BUNDLE_LABEL} alias."
+        ),
     )
     migrate.add_argument("--out", required=True, help="Output workspace directory.")
     migrate.add_argument("--title", help="Optional project title override.")
@@ -297,7 +317,10 @@ def _add_workspace_parsers(parent: argparse._SubParsersAction[argparse.ArgumentP
 
     validate = parent.add_parser(
         "validate",
-        help="Validate a workspace, packed .expkg artifact, or legacy .sta/.siesta archive.",
+        help=(
+            f"Validate a workspace, packed .expkg artifact, or native "
+            f"{CANONICAL_BUNDLE_SUFFIX}/{_LEGACY_BUNDLE_LABEL} archive."
+        ),
     )
     validate.add_argument("path", help="Path to validate.")
     validate.set_defaults(func=_cmd_validate)
@@ -316,7 +339,7 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     _add_import_parser(subparsers)
     convert = subparsers.add_parser(
         "convert",
-        help="Convert external pose formats into legacy native .sta bundles.",
+        help=f"Convert external pose formats into native {CANONICAL_BUNDLE_SUFFIX} bundles.",
     )
     convert_subparsers = convert.add_subparsers(dest="format", required=True)
     _add_dlc_parser(convert_subparsers)
@@ -436,7 +459,7 @@ def _cmd_import_legacy(args: argparse.Namespace) -> int:
         title=args.title,
         force=args.force,
     )
-    sys.stdout.write(f"Imported legacy archive {args.file} -> {args.out}\n")
+    sys.stdout.write(f"Imported archive {args.file} -> {args.out}\n")
     _write_path(path)
     return 0
 

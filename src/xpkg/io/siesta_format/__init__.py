@@ -1,4 +1,4 @@
-"""Archive serializer for canonical `.sta` bundles and legacy `.siesta` aliases."""
+"""Archive serializer for canonical `.xpkg` bundles and legacy aliases."""
 
 from __future__ import annotations
 

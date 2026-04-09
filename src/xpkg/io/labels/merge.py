@@ -1,4 +1,4 @@
-"""Helpers for merging `.sta` label archives while normalizing references."""
+"""Helpers for merging `.xpkg` label archives while normalizing references."""
 
 from __future__ import annotations
 

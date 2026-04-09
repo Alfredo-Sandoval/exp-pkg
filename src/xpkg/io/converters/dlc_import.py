@@ -10,6 +10,7 @@ import pandas as pd
 
 from xpkg.core.path_registry import ensure_dir, resolve_path
 from xpkg.core.skeleton import build_keypoint_skeleton
+from xpkg.io.siesta_format.shared import CANONICAL_BUNDLE_SUFFIX
 from xpkg.io.converters.converter_helpers import (
     ConversionResult,
     ProgressCallback,
@@ -420,7 +421,7 @@ def convert_dlc_h5_project(
     *,
     likelihood_threshold: float = 0.0,
     progress_callback: ProgressCallback | None = None,
-    bundle_extension: str = ".sta",
+    bundle_extension: str = CANONICAL_BUNDLE_SUFFIX,
 ) -> ConversionResult:
     """Convert one DLC H5 tracking file plus explicit videos into a project archive."""
 
@@ -476,7 +477,7 @@ def convert_dlc_project(
     likelihood_threshold: float = 0.0,
     progress_callback: ProgressCallback | None = None,
 ) -> list[ConversionResult]:
-    """Convert an entire DLC project directory into native `.sta` bundles."""
+    """Convert an entire DLC project directory into native `.xpkg` bundles."""
 
     project_dir = resolve_path(project_dir)
     out_dir = resolve_path(out_dir)
@@ -519,7 +520,7 @@ def convert_dlc_project(
             _emit(progress_callback, f"IMPORT: Skipping {subdir.name} (no video found)")
             continue
 
-        out_path = out_dir / f"{subdir.name}.sta"
+        out_path = out_dir / f"{subdir.name}{CANONICAL_BUNDLE_SUFFIX}"
         _emit(progress_callback, f"IMPORT: Converting {subdir.name}")
 
         if is_h5:

@@ -1,4 +1,4 @@
-"""Prediction coercion helpers for `.sta` writer paths."""
+"""Prediction coercion helpers for `.xpkg` writer paths."""
 
 from __future__ import annotations
 

@@ -98,7 +98,7 @@ def encode_videos(
             continue
         video = Video.from_image_filenames(frames)
         dst = proj_videos / f"{subdir.name}.mp4"
-        _emit(progress, "SIESTA_IMPORT STEP: build_video")
+        _emit(progress, "XPKG_IMPORT STEP: build_video")
 
         frame_indices = list(range(video_total_frames(video)))
         if len(frame_indices) < min_frames:

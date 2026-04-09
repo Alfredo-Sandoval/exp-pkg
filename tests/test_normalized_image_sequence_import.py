@@ -60,7 +60,7 @@ def test_convert_normalized_image_sequence_annotations_writes_bundle_and_manifes
         project_root,
     )
 
-    bundle_path = project_root / "archive.sta"
+    bundle_path = project_root / "archive.xpkg"
     copied_frame = project_root / "videos" / "demo_sequence" / "000000_frame_0000.png"
     assert result.project_root == project_root
     assert result.bundle_path == bundle_path

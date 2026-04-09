@@ -24,6 +24,7 @@ from xpkg.io.converters.converter_helpers import (
 )
 from xpkg.io.converters.sleap_helpers import extract_frames, extract_labels_step4
 from xpkg.io.siesta_format import write_siesta
+from xpkg.io.siesta_format.shared import CANONICAL_BUNDLE_SUFFIX
 from xpkg.io.skeleton_loaders import build_sleap_skeleton
 
 if TYPE_CHECKING:
@@ -33,17 +34,17 @@ if TYPE_CHECKING:
 
 _NAT_SORT_RE = re.compile(r"(\d+)")
 
-_START_EXTRACTING_FRAMES_MARKER = "SIESTA_IMPORT START: extracting_frames"
-_OK_FRAMES_EXTRACTED_MARKER = "SIESTA_IMPORT OK: frames_extracted"
-_START_BUILD_LABEL_TABLE_MARKER = "SIESTA_IMPORT START: build_label_table"
-_OK_LABEL_TABLE_READY_MARKER = "SIESTA_IMPORT OK: label_table_ready"
-_ASSEMBLE_LABELS_MARKER = "SIESTA_IMPORT STEP: assemble_labels"
-_BUILD_VIDEO_MARKER = "SIESTA_IMPORT STEP: build_video"
-_COPY_FRAMES_MARKER = "SIESTA_IMPORT STEP: copy_frames"
-_WRITE_BUNDLE_MARKER = "SIESTA_IMPORT STEP: write_siesta"
-_OK_BUNDLE_WRITTEN_MARKER = "SIESTA_IMPORT OK: siesta_written"
-_CLEANUP_TEMP_MARKER = "SIESTA_IMPORT STEP: cleanup_temp_folders"
-_DONE_MARKER = "SIESTA_IMPORT DONE"
+_START_EXTRACTING_FRAMES_MARKER = "XPKG_IMPORT START: extracting_frames"
+_OK_FRAMES_EXTRACTED_MARKER = "XPKG_IMPORT OK: frames_extracted"
+_START_BUILD_LABEL_TABLE_MARKER = "XPKG_IMPORT START: build_label_table"
+_OK_LABEL_TABLE_READY_MARKER = "XPKG_IMPORT OK: label_table_ready"
+_ASSEMBLE_LABELS_MARKER = "XPKG_IMPORT STEP: assemble_labels"
+_BUILD_VIDEO_MARKER = "XPKG_IMPORT STEP: build_video"
+_COPY_FRAMES_MARKER = "XPKG_IMPORT STEP: copy_frames"
+_WRITE_BUNDLE_MARKER = "XPKG_IMPORT STEP: write_xpkg"
+_OK_BUNDLE_WRITTEN_MARKER = "XPKG_IMPORT OK: xpkg_written"
+_CLEANUP_TEMP_MARKER = "XPKG_IMPORT STEP: cleanup_temp_folders"
+_DONE_MARKER = "XPKG_IMPORT DONE"
 
 SLEAP_PACKAGE_PROGRESS_MARKERS: tuple[tuple[str, int], ...] = (
     (_START_EXTRACTING_FRAMES_MARKER, 10),
@@ -149,7 +150,7 @@ def convert_sleap_package(
     *,
     fps: int = 30,
     encode_videos: bool | None = None,
-    bundle_extension: str = ".sta",
+    bundle_extension: str = CANONICAL_BUNDLE_SUFFIX,
     progress_callback: ProgressCallback | None = None,
 ) -> ConversionResult:
     """Convert a SLEAP `.pkg.slp` archive into a native project archive."""
@@ -162,7 +163,7 @@ def convert_sleap_package(
         shutil.rmtree(tmp_extract.as_posix())
     ensure_dir(tmp_extract)
 
-    _emit(progress_callback, "SIESTA_IMPORT: extracting frames + labels")
+    _emit(progress_callback, "XPKG_IMPORT: extracting frames + labels")
     _emit(progress_callback, _START_EXTRACTING_FRAMES_MARKER)
     extract_frames(slp_path.as_posix(), tmp_extract.as_posix())
     _emit(progress_callback, _OK_FRAMES_EXTRACTED_MARKER)
@@ -189,7 +190,7 @@ def convert_sleap_package(
     if encode_videos is None or encode_videos:
         videos = _encode_videos(tmp_extract, proj_root, fps=int(fps), progress=progress_callback)
     else:
-        _emit(progress_callback, "SIESTA_IMPORT: skipping mp4 encoding (no-videos)")
+        _emit(progress_callback, "XPKG_IMPORT: skipping mp4 encoding (no-videos)")
         labeled_src = tmp_extract / "labeled-data"
         if labeled_src.exists():
             labeled_dst = proj_root / "videos" / "labeled-data"

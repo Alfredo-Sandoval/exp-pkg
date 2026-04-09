@@ -2,7 +2,7 @@
 # Justification: h5py lacks bundled type stubs in this environment.
 
 """
-Utilities for managing metrics tables stored inside `.sta` archives.
+Utilities for managing metrics tables stored inside `.xpkg` archives.
 
 This module centralizes HDF5 interactions for the `/metrics` group and provides a
 consistent, compressed storage layout for tabular metrics. Consumers interact with
@@ -133,10 +133,10 @@ def _coerce_text(value: Any) -> str:
 
 
 def ensure_group(bundle_path: str | Path) -> None:
-    """Guarantee that a `.sta` archive exposes a `/metrics` group.
+    """Guarantee that a `.xpkg` archive exposes a `/metrics` group.
 
     Args:
-        bundle_path: Path to the .sta archive.
+        bundle_path: Path to the .xpkg archive.
     """
     path = Path(bundle_path)
     with h5py.File(str(path), "a") as handle:
@@ -156,7 +156,7 @@ def has_metrics_group(bundle_path: str | Path) -> bool:
     """Return True when the archive exposes a `/metrics` group.
 
     Args:
-        bundle_path: Path to the .sta archive.
+        bundle_path: Path to the .xpkg archive.
 
     Returns:
         True if the group exists, False otherwise.
@@ -173,7 +173,7 @@ def has_metrics_table(bundle_path: str | Path, name: str) -> bool:
     """Return True when the archive exposes a given metrics table.
 
     Args:
-        bundle_path: Path to the .sta archive.
+        bundle_path: Path to the .xpkg archive.
         name: Name of the table to check.
 
     Returns:
@@ -192,10 +192,10 @@ def has_metrics_table(bundle_path: str | Path, name: str) -> bool:
 
 
 def read_table(bundle_path: str | Path, name: str) -> pd.DataFrame:
-    """Load a metrics table from a `.sta` archive.
+    """Load a metrics table from a `.xpkg` archive.
 
     Args:
-        bundle_path: Path to the .sta archive.
+        bundle_path: Path to the .xpkg archive.
         name: Name of the table to read.
 
     Returns:
@@ -233,7 +233,7 @@ def write_table_to_handle(
     """Persist a metrics DataFrame into an already-open HDF5 file handle.
 
     Args:
-        handle: Open `.sta` HDF5 handle.
+        handle: Open `.xpkg` HDF5 handle.
         name: Name of the table to write under `/metrics`.
         dataframe: The pandas DataFrame to persist.
         mode: Either 'append' or 'replace'.
@@ -274,7 +274,7 @@ def write_table(
     """Persist a metrics DataFrame as `/metrics/<name>`.
 
     Args:
-        bundle_path: Path to the .sta archive.
+        bundle_path: Path to the .xpkg archive.
         name: Name of the table to write.
         dataframe: The pandas DataFrame to persist.
         mode: Either 'append' or 'replace'.
@@ -534,7 +534,7 @@ def iter_tables(bundle_path: str | Path) -> Iterable[str]:
     """Yield table names under `/metrics`.
 
     Args:
-        bundle_path: Path to the .sta archive.
+        bundle_path: Path to the .xpkg archive.
 
     Yields:
         The names of the metrics tables found in the archive.
@@ -553,7 +553,7 @@ def iter_tables(bundle_path: str | Path) -> Iterable[str]:
 
 
 class MetricStore:
-    """Read and write typed metrics tables from `.sta` archives."""
+    """Read and write typed metrics tables from `.xpkg` archives."""
 
     @staticmethod
     def read_prediction_errors(bundle_path: Path) -> pd.DataFrame | None:
@@ -732,7 +732,7 @@ class MetricStore:
 
 
 class LabelStore:
-    """Read and write labeled-frame metadata tables from `.sta` archives."""
+    """Read and write labeled-frame metadata tables from `.xpkg` archives."""
 
     @staticmethod
     def read_labels_metadata(bundle_path: Path) -> pd.DataFrame | None:

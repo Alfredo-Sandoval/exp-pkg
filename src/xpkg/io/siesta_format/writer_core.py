@@ -110,7 +110,7 @@ def write_siesta(
     metrics=None,
     manifest=None,
 ) -> None:
-    """Create or overwrite a canonical `.sta` archive atomically."""
+    """Create or overwrite a canonical `.xpkg` archive atomically."""
     parent = path.parent
     project_root = path.parent
     if not parent.exists():

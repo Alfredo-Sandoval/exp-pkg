@@ -130,8 +130,8 @@ def test_migrate_legacy_archive_creates_workspace_and_workspace_loads(tmp_path: 
         workspace_media_root,
         workspace_state_root,
         workspace_store_root,
-        write_siesta,
     )
+    from xpkg.compat import write_siesta
     from xpkg.model import Labels
 
     source_root = tmp_path / "source"
@@ -147,7 +147,7 @@ def test_migrate_legacy_archive_creates_workspace_and_workspace_loads(tmp_path: 
     assert migrated_archive.exists()
     assert not current_project_archive_path(workspace).exists()
     assert not (workspace_store_root(workspace) / "superblock.a.json").exists()
-    assert not (workspace_state_root(workspace) / "current.sta").exists()
+    assert not (workspace_state_root(workspace) / "current.xpkg").exists()
     assert (workspace_state_root(workspace) / "current.json").is_file()
 
     loaded = Labels.load_file(workspace.as_posix())
@@ -170,8 +170,8 @@ def test_migrate_legacy_archive_rewrites_stale_project_metadata_paths(tmp_path: 
         current_project_snapshot_path,
         init_project,
         migrate_legacy_archive,
-        write_siesta,
     )
+    from xpkg.compat import write_siesta
     from xpkg.io.workspace_snapshot_backend import read_workspace_snapshot_payload
 
     legacy_root = tmp_path / "bootstrap_2026-01-13"
@@ -242,7 +242,8 @@ def test_migrate_legacy_archive_rewrites_stale_project_metadata_paths(tmp_path: 
 
 
 def test_pack_snapshot_and_unpack_roundtrip_workspace(tmp_path: Path) -> None:
-    from xpkg.formats import pack_project, unpack_project, validate_artifact, write_siesta
+    from xpkg.compat import write_siesta
+    from xpkg.formats import pack_project, unpack_project, validate_artifact
     from xpkg.model import Labels
 
     labels = _make_labels(tmp_path, x=5.0, y=6.0)
@@ -274,8 +275,8 @@ def test_pack_portable_and_unpack_uses_managed_media_after_source_removal(tmp_pa
         unpack_project,
         validate_artifact,
         workspace_media_root,
-        write_siesta,
     )
+    from xpkg.compat import write_siesta
     from xpkg.model import Labels
 
     source_root = tmp_path / "source"
@@ -322,8 +323,8 @@ def test_workspace_load_auto_adopts_legacy_state_archive(tmp_path: Path) -> None
         init_project,
         workspace_state_root,
         workspace_store_root,
-        write_siesta,
     )
+    from xpkg.compat import write_siesta
     from xpkg.model import Labels
 
     source_root = tmp_path / "source"
@@ -379,12 +380,10 @@ def test_labels_save_file_to_workspace_creates_first_committed_state(tmp_path: P
 
 def test_labels_save_file_to_workspace_preserves_predictions(tmp_path: Path) -> None:
     from xpkg.formats import (
-        PredictionAppendItem,
-        SerializerPredictedInstance,
         current_project_snapshot_path,
         migrate_legacy_archive,
-        write_siesta,
     )
+    from xpkg.compat import PredictionAppendItem, SerializerPredictedInstance, write_siesta
     from xpkg.io.workspace_snapshot_backend import read_workspace_snapshot_payload
     from xpkg.model import Labels
 
@@ -459,9 +458,8 @@ def test_summarize_project_and_validate_project_read_labels_video_group(tmp_path
         current_project_archive_path,
         current_project_snapshot_path,
         init_project,
-        summarize_project,
-        validate_project,
     )
+    from xpkg.compat import summarize_project, validate_project
     from xpkg.model import Labels
 
     source_video = tmp_path / "source.avi"

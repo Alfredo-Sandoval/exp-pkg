@@ -1,4 +1,4 @@
-"""HDF5 read/write helpers for segmentation masks and ROIs in .sta archives."""
+"""HDF5 read/write helpers for segmentation masks and ROIs in .xpkg archives."""
 
 from __future__ import annotations
 

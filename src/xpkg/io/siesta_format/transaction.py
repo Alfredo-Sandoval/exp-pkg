@@ -1,4 +1,4 @@
-"""Serializer transaction helpers for .sta append/write flows."""
+"""Serializer transaction helpers for .xpkg append/write flows."""
 
 from __future__ import annotations
 
@@ -31,7 +31,7 @@ logger = get_logger(__name__)
 
 
 class SiestaFileLock:
-    """Advisory file lock for .sta serializer."""
+    """Advisory file lock for .xpkg serializer."""
 
     def __init__(
         self,

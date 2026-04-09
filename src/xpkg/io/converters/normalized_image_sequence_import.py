@@ -16,6 +16,7 @@ from xpkg.core.skeleton import Keypoint, Skeleton
 from xpkg.io.converters.converter_helpers import ConversionResult, project_bundle_path
 from xpkg.io.labels.model import Labels
 from xpkg.io.siesta_format import write_siesta
+from xpkg.io.siesta_format.shared import CANONICAL_BUNDLE_SUFFIX
 from xpkg.io.video import Video
 
 BundleWriter = Callable[[Path, Labels], None]
@@ -318,7 +319,7 @@ def convert_normalized_image_sequence_annotations(
     annotations_json: Path | str,
     out_dir: Path | str,
     *,
-    bundle_extension: str = ".sta",
+    bundle_extension: str = CANONICAL_BUNDLE_SUFFIX,
     bundle_writer: BundleWriter | None = None,
 ) -> ConversionResult:
     """Convert a normalized image-sequence JSON payload into a native project archive."""

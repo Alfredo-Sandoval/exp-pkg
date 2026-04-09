@@ -43,7 +43,7 @@ def test_cli_routes_dlc_csv(monkeypatch, capsys) -> None:
             "--video",
             "clip.mp4",
             "--out",
-            "tracking.sta",
+            "tracking.xpkg",
             "--skeleton-name",
             "mouse",
             "--threshold",
@@ -55,14 +55,14 @@ def test_cli_routes_dlc_csv(monkeypatch, capsys) -> None:
     assert captured == {
         "csv_path": "tracking.csv",
         "video_path": "clip.mp4",
-        "out_path": "tracking.sta",
+        "out_path": "tracking.xpkg",
         "skeleton_name": "mouse",
         "likelihood_threshold": 0.25,
     }
 
     stdout = capsys.readouterr().out
     assert "csv-progress" in stdout
-    assert "tracking.sta" in stdout
+    assert "tracking.xpkg" in stdout
 
 
 def test_cli_routes_dlc_project(monkeypatch, capsys) -> None:
@@ -87,13 +87,13 @@ def test_cli_routes_dlc_project(monkeypatch, capsys) -> None:
                 source_dir=Path(project_dir),
                 project_root=Path(out_dir),
                 videos=[Path("video1.mp4")],
-                bundle_path=Path(out_dir) / "video1.sta",
+                bundle_path=Path(out_dir) / "video1.xpkg",
             ),
             ConversionResult(
                 source_dir=Path(project_dir),
                 project_root=Path(out_dir),
                 videos=[Path("video2.mp4")],
-                bundle_path=Path(out_dir) / "video2.sta",
+                bundle_path=Path(out_dir) / "video2.xpkg",
             ),
         ]
 
@@ -122,8 +122,8 @@ def test_cli_routes_dlc_project(monkeypatch, capsys) -> None:
 
     stdout = capsys.readouterr().out
     assert "Converted 2 project item(s)" in stdout
-    assert "exports/video1.sta" in stdout
-    assert "exports/video2.sta" in stdout
+    assert "exports/video1.xpkg" in stdout
+    assert "exports/video2.xpkg" in stdout
 
 
 def test_cli_routes_sleap(monkeypatch, capsys) -> None:
@@ -149,7 +149,7 @@ def test_cli_routes_sleap(monkeypatch, capsys) -> None:
             source_dir=Path(slp),
             project_root=Path(out_dir),
             videos=[],
-            bundle_path=Path(out_dir) / "project.sta",
+            bundle_path=Path(out_dir) / "project.xpkg",
         )
 
     monkeypatch.setattr("xpkg.cli.convert_sleap_package", fake_convert_sleap_package)
@@ -178,7 +178,7 @@ def test_cli_routes_sleap(monkeypatch, capsys) -> None:
 
     stdout = capsys.readouterr().out
     assert "sleap-progress" in stdout
-    assert "sleap-export/project.sta" in stdout
+    assert "sleap-export/project.xpkg" in stdout
 
 
 def test_cli_routes_init_workspace(monkeypatch, capsys) -> None:
@@ -246,7 +246,7 @@ def test_cli_routes_import_legacy(monkeypatch, capsys) -> None:
         captured["title"] = title
         captured["default_pack_mode"] = default_pack_mode
         captured["force"] = force
-        return Path(workspace) / ".xpkg" / "state" / "current.sta"
+        return Path(workspace) / ".xpkg" / "state" / "current.xpkg"
 
     monkeypatch.setattr("xpkg.cli.import_legacy_archive", fake_import_legacy_archive)
 
@@ -255,7 +255,7 @@ def test_cli_routes_import_legacy(monkeypatch, capsys) -> None:
             "import",
             "legacy",
             "--file",
-            "tracking.siesta",
+            "tracking.xpkg",
             "--out",
             "My Project",
             "--title",
@@ -266,15 +266,15 @@ def test_cli_routes_import_legacy(monkeypatch, capsys) -> None:
 
     assert code == 0
     assert captured == {
-        "legacy_archive": "tracking.siesta",
+        "legacy_archive": "tracking.xpkg",
         "workspace": "My Project",
         "title": "Imported",
         "default_pack_mode": "portable",
         "force": True,
     }
     stdout = capsys.readouterr().out
-    assert "Imported legacy archive tracking.siesta -> My Project" in stdout
-    assert ".xpkg/state/current.sta" in stdout
+    assert "Imported archive tracking.xpkg -> My Project" in stdout
+    assert ".xpkg/state/current.xpkg" in stdout
 
 
 def test_cli_routes_import_dlc_csv_workspace(monkeypatch, capsys) -> None:
@@ -301,7 +301,7 @@ def test_cli_routes_import_dlc_csv_workspace(monkeypatch, capsys) -> None:
         captured["default_pack_mode"] = default_pack_mode
         captured["force"] = force
         progress_callback("import-progress")
-        return Path(workspace) / ".xpkg" / "state" / "current.sta"
+        return Path(workspace) / ".xpkg" / "state" / "current.xpkg"
 
     monkeypatch.setattr("xpkg.cli.import_dlc_csv_workspace", fake_import_dlc_csv_workspace)
 
@@ -336,7 +336,7 @@ def test_cli_routes_import_dlc_csv_workspace(monkeypatch, capsys) -> None:
     stdout = capsys.readouterr().out
     assert "import-progress" in stdout
     assert "Imported DLC CSV into My Project" in stdout
-    assert ".xpkg/state/current.sta" in stdout
+    assert ".xpkg/state/current.xpkg" in stdout
 
 
 def test_cli_routes_pack_unpack_and_validate(monkeypatch, capsys) -> None:

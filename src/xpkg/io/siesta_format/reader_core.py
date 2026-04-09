@@ -1,4 +1,4 @@
-"""Shared HDF5 reader core for `.siesta` / `.sta` archives.
+"""Shared HDF5 reader core for `.xpkg` / legacy archive payloads.
 
 This lives outside either product reader because both repos share the same
 on-disk schema, but they finalize product-specific metadata differently.

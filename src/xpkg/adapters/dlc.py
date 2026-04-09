@@ -7,6 +7,7 @@ from collections.abc import Sequence
 from pathlib import Path
 
 import xpkg.io.converters.dlc_import as _dlc_import
+from xpkg.io.siesta_format.shared import CANONICAL_BUNDLE_SUFFIX
 from xpkg.io.converters.converter_helpers import (
     CliRunner,
     ConversionResult,
@@ -48,7 +49,7 @@ def convert_dlc_h5(
             progress_callback,
             _dlc_import.DLC_H5_PROJECT_PROGRESS_MARKERS,
         ),
-        bundle_extension=".sta",
+        bundle_extension=CANONICAL_BUNDLE_SUFFIX,
     )
 
 

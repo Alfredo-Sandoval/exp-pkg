@@ -39,13 +39,13 @@ def _find_manifest_entry(
 
 
 def test_write_siesta_manifest_tracks_bundle_only_by_default(tmp_path: Path) -> None:
-    from xpkg.formats import write_siesta
+    from xpkg.compat import write_siesta
     from xpkg.model import Labels
 
     project_root = tmp_path / "proj"
     project_root.mkdir(parents=True)
 
-    bundle_path = project_root / "proj.siesta"
+    bundle_path = project_root / "proj.xpkg"
     labels = Labels()
     write_siesta(bundle_path, labels)
 
@@ -56,7 +56,7 @@ def test_write_siesta_manifest_tracks_bundle_only_by_default(tmp_path: Path) -> 
         payload = json.loads(str(raw))
 
     entries = payload["entries"]
-    expected_bundle = "proj.siesta"
+    expected_bundle = "proj.xpkg"
 
     def _has(asset_type: str, path: str, role: str) -> bool:
         for entry in entries:
@@ -74,10 +74,10 @@ def test_write_siesta_manifest_tracks_bundle_only_by_default(tmp_path: Path) -> 
 
 
 def test_write_siesta_persists_preferences_payload(tmp_path: Path) -> None:
-    from xpkg.formats import write_siesta
+    from xpkg.compat import write_siesta
     from xpkg.model import Labels
 
-    bundle_path = tmp_path / "prefs.siesta"
+    bundle_path = tmp_path / "prefs.xpkg"
     labels = Labels(preferences={"theme": "paper", "show_scores": True})
     write_siesta(bundle_path, labels)
 
@@ -94,7 +94,7 @@ def test_write_siesta_registers_image_sequence_video_directory(tmp_path: Path) -
     import cv2
     import numpy as np
 
-    from xpkg.formats import write_siesta
+    from xpkg.compat import write_siesta
     from xpkg.model import Labels, Video
 
     project_root = tmp_path / "proj"
@@ -109,7 +109,7 @@ def test_write_siesta_registers_image_sequence_video_directory(tmp_path: Path) -
         assert ok
         frame_paths.append(frame_path.as_posix())
 
-    bundle_path = project_root / "proj.sta"
+    bundle_path = project_root / "proj.xpkg"
     labels = Labels(videos=[Video.from_image_filenames(frame_paths)])
     write_siesta(bundle_path, labels)
 
@@ -134,7 +134,7 @@ def test_write_siesta_rejects_image_sequence_with_multiple_parent_dirs(tmp_path:
     import cv2
     import numpy as np
 
-    from xpkg.formats import write_siesta
+    from xpkg.compat import write_siesta
     from xpkg.model import Labels, Video
 
     first_dir = tmp_path / "first"
@@ -148,7 +148,7 @@ def test_write_siesta_rejects_image_sequence_with_multiple_parent_dirs(tmp_path:
     assert cv2.imwrite(first_path.as_posix(), frame)
     assert cv2.imwrite(second_path.as_posix(), frame)
 
-    bundle_path = tmp_path / "mixed" / "mixed.sta"
+    bundle_path = tmp_path / "mixed" / "mixed.xpkg"
     bundle_path.parent.mkdir()
     labels = Labels(
         videos=[Video.from_image_filenames([first_path.as_posix(), second_path.as_posix()])]
