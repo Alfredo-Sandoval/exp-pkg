@@ -23,7 +23,6 @@ from xpkg.io.archive_store.schema import Commit, Journal, Superblock, now_utc_is
 
 _SUPPORTED_STORE_VERSION = 1
 _STORE_FORMAT = "xpkg.archive-store"
-_LEGACY_STORE_FORMATS = {"xpkg.siesta-store"}
 
 
 @dataclass(slots=True)
@@ -55,7 +54,7 @@ def _load_superblock(path: Path) -> Superblock | None:
         raise IncompatibleStoreVersionError(
             f"Unsupported store_version={sb.store_version}; expected {_SUPPORTED_STORE_VERSION}"
         )
-    if sb.format not in {_STORE_FORMAT, *_LEGACY_STORE_FORMATS}:
+    if sb.format != _STORE_FORMAT:
         raise StoreCorruptionError(f"Unexpected store format: {sb.format}")
     return sb
 
@@ -126,22 +125,6 @@ class ArchiveStore:
         created_by: dict[str, Any] | None = None,
         reason: str = "init",
     ) -> ArchiveStore:
-        return cls.create_from_sta(
-            store_root=store_root,
-            initial_sta=initial_archive,
-            created_by=created_by,
-            reason=reason,
-        )
-
-    @classmethod
-    def create_from_sta(
-        cls,
-        store_root: Path,
-        initial_sta: Path,
-        *,
-        created_by: dict[str, Any] | None = None,
-        reason: str = "init",
-    ) -> ArchiveStore:
         store = cls(store_root)
         paths = store.paths
         paths.root.mkdir(parents=True, exist_ok=True)
@@ -151,7 +134,7 @@ class ArchiveStore:
         paths.workspace_dir.mkdir(parents=True, exist_ok=True)
         paths.snapshots_dir.mkdir(parents=True, exist_ok=True)
 
-        initial_path = Path(initial_sta)
+        initial_path = Path(initial_archive)
         object_ext = _normalize_object_ext(initial_path)
 
         with StoreLock(paths.root):

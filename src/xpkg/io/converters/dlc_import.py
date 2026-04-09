@@ -10,6 +10,8 @@ import pandas as pd
 
 from xpkg.core.path_registry import ensure_dir, resolve_path
 from xpkg.core.skeleton import build_keypoint_skeleton
+from xpkg.io.archive_format import write_archive
+from xpkg.io.archive_format.shared import CANONICAL_BUNDLE_SUFFIX
 from xpkg.io.converters.converter_helpers import (
     ConversionResult,
     ProgressCallback,
@@ -17,8 +19,6 @@ from xpkg.io.converters.converter_helpers import (
     project_bundle_path,
 )
 from xpkg.io.readers.dlc import read_dlc_csv_table, read_dlc_h5_table
-from xpkg.io.archive_format import write_archive
-from xpkg.io.archive_format.shared import CANONICAL_BUNDLE_SUFFIX
 from xpkg.io.video import Video
 
 if TYPE_CHECKING:

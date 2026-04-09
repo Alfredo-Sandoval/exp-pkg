@@ -90,7 +90,9 @@ class ProjectSummary:
         stream.write(f" labels frames: {self.label_frames}\n")
         stream.write(f" predictions frames: {self.prediction_frames}\n")
         if self.schema_version or self.archive_version:
-            stream.write(f" schema: {self.schema_version}  archive_version: {self.archive_version}\n")
+            stream.write(
+                f" schema: {self.schema_version}  archive_version: {self.archive_version}\n"
+            )
         if self.created or self.modified:
             stream.write(f" created: {self.created}  modified: {self.modified}\n")
 
@@ -127,7 +129,7 @@ def summarize_project(path: Path) -> ProjectSummary:
         label_frames=label_frames,
         prediction_frames=prediction_frames,
         schema_version=metadata.get("schema_version") or metadata.get("version"),
-        archive_version=metadata.get("archive_version") or metadata.get("siesta_version"),
+        archive_version=metadata.get("archive_version"),
         created=metadata.get("created"),
         modified=metadata.get("modified"),
     )

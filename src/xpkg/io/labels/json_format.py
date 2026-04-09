@@ -293,19 +293,49 @@ def write_labels_json(
     return str(target)
 
 
-def read_labels_json_payload(path: str | Path) -> dict[str, Any]:
-    raw = load_json_dict(path)
-    fmt = str(raw.get("format", "")).strip()
-    if fmt != XPKG_LABELS_JSON_FORMAT:
-        raise ValueError(
-            f"Unsupported labels JSON format {fmt!r}; expected {XPKG_LABELS_JSON_FORMAT!r}"
-        )
-    payload = raw.get("payload")
-    if not isinstance(payload, dict):
-        raise TypeError("Labels JSON payload must contain an object under 'payload'")
+def _coerce_labels_json_payload(document_or_payload: Any) -> dict[str, Any]:
+    if not isinstance(document_or_payload, dict):
+        raise TypeError("Labels JSON input must be a mapping")
+
+    if "format" in document_or_payload:
+        fmt = str(document_or_payload.get("format", "")).strip()
+        if fmt != XPKG_LABELS_JSON_FORMAT:
+            raise ValueError(
+                f"Unsupported labels JSON format {fmt!r}; expected {XPKG_LABELS_JSON_FORMAT!r}"
+            )
+        payload = document_or_payload.get("payload")
+        if not isinstance(payload, dict):
+            raise TypeError("Labels JSON payload must contain an object under 'payload'")
+    else:
+        payload = document_or_payload
+
     out: dict[str, Any] = {}
     for key, value in payload.items():
         if not isinstance(key, str):
             raise TypeError("Labels JSON payload keys must be strings")
         out[key] = value
     return out
+
+
+def read_labels_json_payload(path: str | Path) -> dict[str, Any]:
+    raw = load_json_dict(path)
+    return _coerce_labels_json_payload(raw)
+
+
+def labels_from_json_payload(document_or_payload: dict[str, Any]) -> Labels:
+    """Hydrate ``Labels`` from a JSON payload or full JSON document."""
+    from xpkg.io.labels.model import Labels
+    from xpkg.io.labels.serialization import labels_from_archive_payload
+
+    payload = _coerce_labels_json_payload(document_or_payload)
+    return labels_from_archive_payload(Labels, payload)
+
+
+__all__ = [
+    "XPKG_LABELS_JSON_FORMAT",
+    "XPKG_LABELS_JSON_VERSION",
+    "labels_from_json_payload",
+    "labels_to_json_payload",
+    "read_labels_json_payload",
+    "write_labels_json",
+]

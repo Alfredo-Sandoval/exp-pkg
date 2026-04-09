@@ -59,18 +59,29 @@ def extract_masked_brightness_trace(
         raise ValueError("video width and height must be positive")
     if mask_array.shape != (video.height, video.width):
         raise ValueError(
-            f"mask shape {mask_array.shape} does not match video frame shape {(video.height, video.width)}"
+            "mask shape "
+            f"{mask_array.shape} does not match video frame shape "
+            f"{(video.height, video.width)}"
         )
 
     mask_bool = mask_array > 0
     if not np.any(mask_bool):
         raise ValueError("mask must contain at least one positive pixel")
 
-    x0, y0, x1, y1 = _coerce_bbox(mask_bool, bbox_xyxy=bbox_xyxy, width=video.width, height=video.height)
+    x0, y0, x1, y1 = _coerce_bbox(
+        mask_bool,
+        bbox_xyxy=bbox_xyxy,
+        width=video.width,
+        height=video.height,
+    )
     mask_crop = mask_bool[y0:y1, x0:x1]
     ring_mask = _ring_mask(mask_crop, ring_px=ring_px)
 
-    frame_indices = _sample_frame_indices(video=video, sample_rate_hz=sample_rate_hz, max_seconds=max_seconds)
+    frame_indices = _sample_frame_indices(
+        video=video,
+        sample_rate_hz=sample_rate_hz,
+        max_seconds=max_seconds,
+    )
     if frame_indices.size == 0:
         return MaskedBrightnessTrace(
             frame_indices=np.empty(0, dtype=np.int32),
@@ -124,7 +135,12 @@ def extract_masked_brightness_trace(
     )
 
 
-def _sample_frame_indices(*, video: VideoLike, sample_rate_hz: float, max_seconds: float) -> np.ndarray:
+def _sample_frame_indices(
+    *,
+    video: VideoLike,
+    sample_rate_hz: float,
+    max_seconds: float,
+) -> np.ndarray:
     if video.frames <= 0:
         return np.empty(0, dtype=np.int32)
     if sample_rate_hz <= 0.0:

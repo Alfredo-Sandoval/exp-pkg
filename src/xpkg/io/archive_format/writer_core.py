@@ -17,8 +17,6 @@ from xpkg.core.json_utils import parse_json
 from xpkg.core.logging_utils import get_logger
 from xpkg.core.path_registry import ensure_dir, make_path_id
 from xpkg.core.skeleton import Keypoint
-from xpkg.io.labels.model import Labels as LabelsModel
-from xpkg.io.manifest import ProjectManifest, coerce_manifest, resolve_project_path
 from xpkg.io.archive_format.manifest_policy import (
     load_manifest_from_metadata,
     register_archive,
@@ -48,11 +46,11 @@ from xpkg.io.archive_format.segmentation_hdf5 import (
 from xpkg.io.archive_format.shared import (
     _COERCE_PRIMITIVE_SENTINEL,
     _DEFAULT_PROVENANCE_MAX_BYTES,
+    ARCHIVE_SCHEMA_NAME,
+    ARCHIVE_SCHEMA_VERSION,
     CANONICAL_BUNDLE_SUFFIX,
     LABEL_TRACK_ID_DATASET,
     LABEL_VISIBILITY_DATASET,
-    ARCHIVE_SCHEMA_NAME,
-    ARCHIVE_SCHEMA_VERSION,
     _coerce_int,
     _coerce_primitive,
     _default_provenance_entry,
@@ -69,6 +67,8 @@ from xpkg.io.archive_format.transaction import (
     _ensure_journal_attr,
     _JournalTransaction,
 )
+from xpkg.io.labels.model import Labels as LabelsModel
+from xpkg.io.manifest import ProjectManifest, coerce_manifest, resolve_project_path
 from xpkg.version import __version__ as package_version
 
 logger = get_logger(__name__)

@@ -10,13 +10,13 @@ import numpy as np
 
 from xpkg.core.json_utils import parse_json_dict, write_json
 from xpkg.core.path_registry import ensure_dir, resolve_path
+from xpkg.io.archive_format.prediction_coerce import coerce_predictions_from_labels
 from xpkg.io.labels.json_format import labels_to_json_payload, read_labels_json_payload
 from xpkg.io.project_layout import (
     CURRENT_SNAPSHOT_FILENAME,
     workspace_media_root,
     workspace_state_root,
 )
-from xpkg.io.archive_format.prediction_coerce import coerce_predictions_from_labels
 
 if TYPE_CHECKING:
     from xpkg.io.archive_format.predictions_datasets import PredictionAppendItem

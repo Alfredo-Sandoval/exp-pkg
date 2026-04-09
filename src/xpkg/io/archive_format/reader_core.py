@@ -19,21 +19,21 @@ import numpy as np
 
 from xpkg.core.json_utils import parse_json
 from xpkg.core.path_registry import make_path_id
+from xpkg.io.archive_format.shared import (
+    _DEFAULT_PROVENANCE_MAX_BYTES,
+    _PROVENANCE_SCHEMA_VERSION,
+    ARCHIVE_SCHEMA_NAME,
+    LABEL_TRACK_ID_DATASET,
+    LABEL_VISIBILITY_DATASET,
+    _coerce_int,
+    _mapping_to_str_key_dict,
+    _normalize_predictions_committed_length,
+)
 from xpkg.io.manifest import (
     AssetType,
     coerce_manifest,
     resolve_asset_path,
     resolve_project_path,
-)
-from xpkg.io.archive_format.shared import (
-    _DEFAULT_PROVENANCE_MAX_BYTES,
-    _PROVENANCE_SCHEMA_VERSION,
-    LABEL_TRACK_ID_DATASET,
-    LABEL_VISIBILITY_DATASET,
-    ARCHIVE_SCHEMA_NAME,
-    _coerce_int,
-    _mapping_to_str_key_dict,
-    _normalize_predictions_committed_length,
 )
 
 __all__ = [
@@ -57,7 +57,7 @@ _ISO_TIMESTAMP_RE = re.compile(
 
 @dataclass(slots=True)
 class ReaderCommonState:
-    """Format-level reader result reused by xpkg and Siesta wrappers."""
+    """Format-level reader result reused by archive readers and product wrappers."""
 
     result: dict[str, Any]
     metadata: dict[str, Any]
@@ -75,7 +75,7 @@ class LazyDatasetHandle:
     def materialize(self) -> np.ndarray:
         if not self.dataset.id.valid:
             raise RuntimeError(
-                "Cannot materialize lazy dataset after the owning .sta handle is closed"
+                "Cannot materialize lazy dataset after the owning archive handle is closed"
             )
         data = self.dataset[...]
         if self.length is not None:
@@ -96,7 +96,7 @@ class LazyDatasetHandle:
     def shape(self) -> tuple[int, ...]:
         if not self.dataset.id.valid:
             raise RuntimeError(
-                "Cannot read lazy dataset shape after the owning .sta handle is closed"
+                "Cannot read lazy dataset shape after the owning archive handle is closed"
             )
         base = tuple(self.dataset.shape)
         if not base or self.length is None:

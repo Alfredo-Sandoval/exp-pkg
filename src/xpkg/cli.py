@@ -18,10 +18,10 @@ from xpkg.formats import (
     unpack_project,
     validate_artifact,
 )
+from xpkg.io.archive_format.shared import CANONICAL_BUNDLE_SUFFIX, LEGACY_BUNDLE_SUFFIXES
 from xpkg.io.converters.converter_helpers import ConversionResult
 from xpkg.io.converters.dlc_import import convert_dlc_csv, convert_dlc_h5, convert_dlc_project
 from xpkg.io.converters.sleap_import import convert_sleap_package
-from xpkg.io.archive_format.shared import CANONICAL_BUNDLE_SUFFIX, LEGACY_BUNDLE_SUFFIXES
 from xpkg.version import __version__
 
 CliCommand = Callable[[argparse.Namespace], int]

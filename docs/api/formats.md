@@ -10,7 +10,7 @@ and <code>.expkg</code>.
 
 !!! note
     Use <code>xpkg.compat</code> when you need edge archive compatibility for
-    <code>.xpkg</code> or legacy <code>.sta</code> / <code>.sta</code> flows. Use
+    <code>.xpkg</code> or legacy <code>.sta</code> flows. Use
     <code>xpkg.formats</code> for the stable project/workspace boundary.
 
 ## Project Contract
@@ -132,6 +132,10 @@ Persist the current `Labels` state into a workspace and refresh the managed
 project state.
 
 ## JSON Label Interchange
+
+These helpers remain file-oriented interchange helpers on
+<code>xpkg.formats</code>. The pure in-memory payload conversions now live in
+<code>xpkg.codecs</code>.
 
 ### `read_labels_json_payload(path)`
 

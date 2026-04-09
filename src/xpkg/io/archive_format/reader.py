@@ -13,8 +13,8 @@ from xpkg.io.archive_format.project_validation import (
     validate_project,
 )
 from xpkg.io.archive_format.reader_core import (
-    LazyDatasetHandle,
     LazyArchiveHandle,
+    LazyDatasetHandle,
     _looks_like_iso_timestamp,
     build_common_reader_state,
     read_archive_with_assembler,

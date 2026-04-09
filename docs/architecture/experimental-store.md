@@ -126,8 +126,6 @@ The experimental format surface currently exposes:
 
 - `create_store_from_archive(store_root, initial_archive)`
 - `create_store_from_xpkg(store_root, initial_xpkg)`
-- `create_store_from_sta(store_root, initial_sta)`
-  This is a compatibility alias. It still accepts `.sta` / `.sta` archives.
 - `open_store(store_root)`
 - `ArchiveStore.current_archive_path()`
 - `ArchiveStore.commit_new_archive(...)`

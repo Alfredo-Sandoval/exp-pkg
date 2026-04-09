@@ -14,7 +14,7 @@ def test_recover_clears_staging_journal_and_keeps_last_clean_head(tmp_path: Path
     archive.write_bytes(b"initial")
 
     store_root = tmp_path / "project.sta"
-    store = ArchiveStore.create_from_sta(store_root, archive)
+    store = ArchiveStore.create_from_archive(store_root, archive)
     initial_head = store.recover()
 
     journal = Journal(
@@ -39,7 +39,7 @@ def test_recover_reverts_committing_state_when_commit_file_is_missing(tmp_path: 
     archive.write_bytes(b"initial")
 
     store_root = tmp_path / "project.sta"
-    store = ArchiveStore.create_from_sta(store_root, archive)
+    store = ArchiveStore.create_from_archive(store_root, archive)
     initial_head = store.recover()
     paths = StorePaths(store_root)
     original_commit_id = initial_head.superblock.current_commit_id

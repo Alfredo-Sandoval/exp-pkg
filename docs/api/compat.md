@@ -4,7 +4,7 @@
 <p>
 <code>xpkg.compat</code> is the edge compatibility layer for archive-first
 flows. It exposes the canonical <code>.xpkg</code> helpers and keeps older
-<code>.sta</code> / <code>.sta</code> names as aliases during the transition.
+<code>.sta</code> files readable at the edge during migration.
 </p>
 </div>
 
@@ -62,23 +62,9 @@ Read one named metrics table from `/metrics/<name>`.
 
 Write or append one metrics table into an archive.
 
-## Legacy Alias Layer
-
-The following names remain available as compatibility aliases:
-
-- `read_sta`
-- `write_sta`
-- `update_labels_sta`
-- `append_predictions_sta`
-- `merge_predictions_sta`
-- `read_archive`
-- `write_archive`
-- `update_labels_archive`
-- `append_predictions_archive`
-- `merge_predictions_archive`
-
-Use them only when you need compatibility with older call sites or archived
-tooling that still speaks in `.sta` terms.
+The canonical helpers above still accept older `.sta` files when you are
+migrating existing archives, but the public API no longer duplicates that
+support through parallel `_sta` function names.
 
 ## Durable Archive Store
 
@@ -89,10 +75,6 @@ Create a directory-backed durable store from an existing archive payload.
 ### `create_store_from_xpkg(store_root, initial_xpkg) -> ArchiveStore`
 
 Canonical entrypoint that makes the `.xpkg` naming explicit.
-
-### `create_store_from_sta(store_root, initial_sta) -> ArchiveStore`
-
-Legacy alias that keeps older `.sta` naming available at the edge.
 
 ### `open_store(store_root) -> ArchiveStore`
 

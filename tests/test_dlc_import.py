@@ -44,8 +44,8 @@ def _write_dummy_video(path: Path) -> None:
 
 
 def test_convert_dlc_h5_project_builds_multi_video_bundle(tmp_path: Path) -> None:
-    from xpkg.io.converters.dlc_import import convert_dlc_h5_project
     from xpkg.io.archive_format import read_archive
+    from xpkg.io.converters.dlc_import import convert_dlc_h5_project
     from xpkg.model import Labels
 
     recording_dir = tmp_path / "session-0"

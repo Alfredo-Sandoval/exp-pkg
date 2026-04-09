@@ -1,6 +1,6 @@
 """JSON loading and writing helpers.
 
-This module is the only place in the Siesta package that should call stdlib
+This module is the only place in the package that should call stdlib
 `json.load/json.loads/json.dump/json.dumps` directly. All other modules must
 use the helpers below.
 """

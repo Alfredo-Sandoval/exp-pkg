@@ -80,7 +80,6 @@ _COMPAT_EXPORTS = frozenset(
         "ArchiveStore",
         "append_predictions_archive",
         "create_store_from_archive",
-        "create_store_from_sta",
         "merge_predictions_archive",
         "open_store",
         "read_metrics_table",

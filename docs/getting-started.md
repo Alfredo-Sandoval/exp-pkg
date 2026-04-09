@@ -52,7 +52,7 @@ My Project/
 - xpkg owns authoritative mutable state inside `.xpkg/`.
 - You move/share/export a single `.expkg` file.
 - `.xpkg` is the canonical archive suffix for the compatibility layer.
-- `.sta` and `.sta` remain legacy aliases during transition.
+- `.sta` remains the legacy archive alias during transition.
 
 This matters because the workspace is the place where media, segmentation,
 labels, and future experiment-side modalities can live together under one
@@ -85,6 +85,20 @@ fixtures, and transition work. `read_xpkg` returns a dict with these keys:
 | `"metadata"` | `dict` | Archive-level metadata |
 | `"videos"` | `list[Video]` | Video references |
 | `"predictions"` | `dict` or `None` | Prediction payloads if present |
+
+## In-memory codec API
+
+```python
+from xpkg.codecs import labels_from_json_payload, labels_to_json_payload
+from xpkg.model import Labels
+
+labels = Labels()
+payload = labels_to_json_payload(labels)
+roundtripped = labels_from_json_payload(payload)
+```
+
+Use `xpkg.codecs` when another repo needs an in-memory handoff boundary rather
+than a workspace path or compatibility archive path.
 
 ## Current adapter import example
 

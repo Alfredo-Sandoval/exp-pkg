@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from xpkg.core.path_registry import ensure_dir, resolve_path
+from xpkg.io.archive_format import read_archive
 from xpkg.io.project_artifact import validate_workspace
 from xpkg.io.project_layout import (
     CANONICAL_BUNDLE_SUFFIX,
@@ -32,7 +33,6 @@ from xpkg.io.project_layout import (
     workspace_store_root,
     write_project_descriptor,
 )
-from xpkg.io.archive_format import read_archive
 from xpkg.io.workspace_snapshot_backend import (
     WORKSPACE_COMMIT_ID_KEY,
     normalize_predictions_payload,

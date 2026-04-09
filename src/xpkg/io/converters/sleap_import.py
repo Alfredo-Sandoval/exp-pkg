@@ -11,6 +11,8 @@ import pandas as pd
 
 from xpkg.core.json_utils import parse_json_dict
 from xpkg.core.path_registry import ensure_dir, resolve_path
+from xpkg.io.archive_format import write_archive
+from xpkg.io.archive_format.shared import CANONICAL_BUNDLE_SUFFIX
 from xpkg.io.converters.converter_helpers import (
     ConversionResult,
     ProgressCallback,
@@ -23,8 +25,6 @@ from xpkg.io.converters.converter_helpers import (
     encode_videos as _encode_videos,
 )
 from xpkg.io.converters.sleap_helpers import extract_frames, extract_labels_step4
-from xpkg.io.archive_format import write_archive
-from xpkg.io.archive_format.shared import CANONICAL_BUNDLE_SUFFIX
 from xpkg.io.skeleton_loaders import build_sleap_skeleton
 
 if TYPE_CHECKING:

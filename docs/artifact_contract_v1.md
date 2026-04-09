@@ -7,9 +7,9 @@ sessions. The public artifact needs to hold more context than a single archive
 blob, so the contract is defined around a workspace, a private store, and a
 portable export.
 
-It supersedes the older public framing that treated `.sta` as the native
-single-file project artifact. `.xpkg` is now the canonical edge archive suffix,
-with `.sta` / `.sta` retained only as legacy aliases during the transition.
+It supersedes the older public framing that treated legacy archive naming as the
+native single-file project artifact. `.xpkg` is now the canonical edge archive
+suffix, with `.sta` retained only as a legacy alias during the transition.
 None of these are the portable user-facing project contract.
 
 ## Artifact Classes
@@ -232,13 +232,13 @@ The default pack mode is `portable`.
 
 ## Legacy Migration Policy
 
-`.xpkg` is the canonical edge archive format, with `.sta` / `.sta`
-preserved as legacy aliases.
+`.xpkg` is the canonical edge archive format, with `.sta`
+preserved as a legacy alias.
 
 Policy:
 
 - xpkg v1 must read/import `.xpkg`.
-- xpkg v1 should continue accepting older `.sta` / `.sta` aliases during migration.
+- xpkg v1 should continue accepting older `.sta` archives during migration.
 - New projects are created as workspace folders.
 - New portable exports are `.expkg`.
 - No dedicated workspace-to-`.xpkg` export command is part of the locked v1 surface.
@@ -285,6 +285,6 @@ And this:
 - editable project = workspace folder
 - authoritative mutable state = `.xpkg/`
 - portable artifact = `.expkg`
-- edge archive compatibility = `.xpkg`, with `.sta` / `.sta` retained as older aliases
+- edge archive compatibility = `.xpkg`, with `.sta` retained as an older alias
 - no required symlink layer
 - no `.h5` public contract

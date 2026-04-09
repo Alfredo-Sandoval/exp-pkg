@@ -1,7 +1,7 @@
 """Unified skeleton loader supporting multiple external formats.
 
-Imports skeletons from DeepLabCut, SLEAP, Ultralytics/YOLO, and Siesta JSON.
-Returns xpkg.core.skeleton.Skeleton instances directly.
+Imports skeletons from DeepLabCut, SLEAP, Ultralytics/YOLO, and xpkg archive
+JSON. Returns xpkg.core.skeleton.Skeleton instances directly.
 """
 
 from __future__ import annotations
@@ -29,7 +29,7 @@ type SkeletonFormat = Literal["dlc", "xpkg_json", "sleap", "sleap_pkg_slp", "ult
 def build_sleap_skeleton(
     metadata: Mapping[str, Any], *, skeleton_name: str = "SLEAP"
 ) -> dict[str, Any]:
-    """Normalize SLEAP metadata into a SIESTA skeleton definition.
+    """Normalize SLEAP metadata into a canonical xpkg skeleton definition.
 
     Args:
         metadata: JSON metadata extracted from a SLEAP `.pkg.slp` file (typically
@@ -215,7 +215,7 @@ def load_skeleton(path: str | Path) -> Skeleton:
     """Auto-detect format and load skeleton into xpkg.core.skeleton.Skeleton.
 
     Supports:
-    - .json: Siesta JSON format
+    - .json: xpkg archive JSON format
     - .pkg.slp: SLEAP package files
     - .yaml/.yml: DLC config, SLEAP, or Ultralytics format (auto-detected)
 
@@ -251,11 +251,6 @@ def load_skeleton_xpkg_json(path: str | Path, **kwargs: Any) -> Skeleton:
         Skeleton: Normalized skeleton instance.
     """
     return Skeleton.load(Path(path), **kwargs)
-
-
-def load_skeleton_sta_json(path: str | Path, **kwargs: Any) -> Skeleton:
-    """Legacy alias for `load_skeleton_xpkg_json(...)`."""
-    return load_skeleton_xpkg_json(path, **kwargs)
 
 
 def load_skeleton_archive_json(path: str | Path, **kwargs: Any) -> Skeleton:
@@ -446,7 +441,6 @@ __all__ = [
     "load_skeleton",
     "load_skeleton_dlc",
     "load_skeleton_xpkg_json",
-    "load_skeleton_sta_json",
     "load_skeleton_archive_json",
     "load_skeleton_sleap",
     "load_skeleton_ultralytics",

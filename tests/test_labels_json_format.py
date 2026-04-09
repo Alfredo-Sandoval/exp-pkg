@@ -13,6 +13,7 @@ def _write_test_frame(path: Path, value: int) -> None:
 
 
 def test_labels_json_roundtrip_with_image_sequence(tmp_path: Path) -> None:
+    from xpkg.codecs import labels_from_json_payload, labels_to_json_payload
     from xpkg.core.annotations import Instance, LabeledFrame, Point
     from xpkg.formats import read_labels_json_payload
     from xpkg.model import Labels, Video, build_keypoint_skeleton
@@ -64,6 +65,10 @@ def test_labels_json_roundtrip_with_image_sequence(tmp_path: Path) -> None:
     payload = read_labels_json_payload(json_path)
     assert payload["videos"]["image_filenames"] == [frame_paths]
     assert payload["frames"]["frame_index"] == [0, 2]
+
+    loaded_from_codec = labels_from_json_payload(labels_to_json_payload(labels))
+    assert [lf.frame_idx for lf in loaded_from_codec.labeled_frames] == [0, 2]
+    assert loaded_from_codec.videos[0].image_filenames == frame_paths
 
     loaded = Labels.load_file(json_path.as_posix())
     assert len(loaded.videos) == 1

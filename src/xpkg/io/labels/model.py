@@ -58,7 +58,7 @@ def _template_points_from_instances(
     *,
     keypoint_count: int,
 ) -> np.ndarray:
-    """Compute mean keypoint positions without depending on Siesta-only helpers."""
+    """Compute mean keypoint positions without depending on legacy app-only helpers."""
     sum_xy = np.zeros((keypoint_count, 2), dtype=float)
     cnt_xy = np.zeros((keypoint_count, 2), dtype=float)
     any_seen = False

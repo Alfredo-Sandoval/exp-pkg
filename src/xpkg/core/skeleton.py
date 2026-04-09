@@ -1,5 +1,5 @@
 """
-SIESTA skeleton loader/normalizer (schema v1.1.0)
+xpkg skeleton loader/normalizer (schema v1.1.0)
 
  - Link field is `links` (pairs of KEYPOINT NAMES; undirected).
  - Accept aliases on load: {edges, segments, bones, skeleton}; normalize to `links`.
@@ -765,7 +765,7 @@ class Skeleton:
         """Build keypoint config dict for training/inference.
 
         Returns essential skeleton information in a format suitable for
-        the Siesta training stack and other frameworks.
+        the older training stack and other frameworks.
 
         Returns:
             A dictionary containing keypoint names, count, links, and skeleton name.
@@ -853,7 +853,7 @@ class Skeleton:
         """Load skeleton from any supported external format.
 
         Auto-detects format by file extension. Supports:
-        - .json: Siesta JSON format
+        - .json: xpkg archive JSON format
         - .pkg.slp: SLEAP package files
         - .yaml/.yml: DLC, SLEAP, or Ultralytics format (auto-detected)
 
@@ -1045,8 +1045,8 @@ def build_keypoint_skeleton(keypoint_names: list[str], *, name: str = "imported"
     return Skeleton(name=name, keypoints=keypoints, links_ids=[])
 
 
-SIESTA_SKELETON_NAME = "mouse_bottom_up_v2"
-_SIESTA_SKELETON = Skeleton.from_dict(get_skeleton_def(SIESTA_SKELETON_NAME))
+DEFAULT_SKELETON_NAME = "mouse_bottom_up_v2"
+_DEFAULT_SKELETON = Skeleton.from_dict(get_skeleton_def(DEFAULT_SKELETON_NAME))
 
-KEYPOINT_NAMES: list[str] = list(_SIESTA_SKELETON.keypoint_names)
-SKELETON_CONNECTIONS: list[tuple[int, int]] = list(_SIESTA_SKELETON.links_ids)
+KEYPOINT_NAMES: list[str] = list(_DEFAULT_SKELETON.keypoint_names)
+SKELETON_CONNECTIONS: list[tuple[int, int]] = list(_DEFAULT_SKELETON.links_ids)

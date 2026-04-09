@@ -10,10 +10,14 @@ from xpkg.io.archive_format import (
     append_predictions_archive,
     merge_predictions_archive,
     read_archive,
-    summarize_project as summarize_archive,
     update_labels_archive,
-    validate_project as validate_archive,
     write_archive,
+)
+from xpkg.io.archive_format import (
+    summarize_project as summarize_archive,
+)
+from xpkg.io.archive_format import (
+    validate_project as validate_archive,
 )
 from xpkg.io.archive_format.metrics_hdf5 import (
     read_table as read_metrics_table,

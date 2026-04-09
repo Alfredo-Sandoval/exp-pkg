@@ -23,8 +23,8 @@ has moved forward:
 - workspace root as the editable project boundary
 - `.xpkg/` as the private mutable store boundary
 - `.expkg` as the portable packed artifact
-- `.xpkg` as the canonical compatibility archive suffix, with `.sta` /
-  `.sta` retained as older aliases
+- `.xpkg` as the canonical compatibility archive suffix, with `.sta`
+  retained as the older alias
 
 The normal workspace save/load/import/migrate flow now treats the durable store
 head as committed truth and uses `.xpkg/state/current.json` as a rebuildable
@@ -111,7 +111,7 @@ mechanism, not the product identity.
 
 That means:
 
-- keep `.xpkg` compatibility archives, plus older `.sta` / `.sta` aliases,
+- keep `.xpkg` compatibility archives, plus the older `.sta` alias,
   available for migration, fixtures, import, and low-level compatibility work
 - stop expanding the public product story around `.sta` naming
 - keep legacy archive naming out of the primary artifact contract

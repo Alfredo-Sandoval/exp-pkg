@@ -14,6 +14,10 @@ def test_xpkg_api_exposes_io_contract() -> None:
         "WorkspaceLayout",
         "WorkspaceService",
         "convert_dlc_csv",
+        "labels_from_json_payload",
+        "labels_numpy",
+        "labels_to_dataframe",
+        "labels_to_json_payload",
         "pack_project",
         "read_pose_node_names",
         "read_pose_track",
@@ -30,6 +34,10 @@ def test_xpkg_api_exposes_io_contract() -> None:
     assert api.ProjectDescriptor.__name__ == "ProjectDescriptor"
     assert api.PoseTrack.__name__ == "PoseTrack"
     assert api.WorkspaceService.__name__ == "WorkspaceService"
+    assert callable(api.labels_from_json_payload)
+    assert callable(api.labels_numpy)
+    assert callable(api.labels_to_dataframe)
+    assert callable(api.labels_to_json_payload)
     assert callable(api.read_pose_node_names)
     assert callable(api.read_pose_track)
     assert callable(api.resolve_pose_node_indices)

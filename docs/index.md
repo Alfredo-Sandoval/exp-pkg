@@ -14,7 +14,7 @@ xpkg is the canonical IO and artifact layer for experiment data, built around
 an editable workspace folder, a private <code>.xpkg/</code> store, and portable
 <code>.expkg</code> exports. Edge archive compatibility lives in
 <code>xpkg.compat</code>, with <code>.xpkg</code> as the canonical archive suffix
-and <code>.sta</code> / <code>.sta</code> kept as legacy aliases during the transition.
+and <code>.sta</code> kept as the legacy alias during the transition.
 The repo and distribution name are <code>exp-pkg</code>; the Python import and CLI name are
 <code>xpkg</code>.
 </p>
@@ -31,9 +31,10 @@ The repo and distribution name are <code>exp-pkg</code>; the Python import and C
 | Mission | experiment-data IO and artifact contracts |
 | Public project contract | workspace folder + `.expkg` |
 | Authoritative mutable state | `.xpkg/` inside the workspace |
-| Edge compatibility layer | `xpkg.compat` for `.xpkg` / legacy `.sta` / `.sta` |
+| Edge compatibility layer | `xpkg.compat` for `.xpkg` / legacy `.sta` |
 | External adapters | DLC, SLEAP |
 | Core objects | `xpkg.model` |
+| In-memory codecs | `xpkg.codecs` |
 | Low-level compatibility IO | `xpkg.compat` |
 | Import and migration tools | `xpkg.adapters` |
 </div>
@@ -42,6 +43,8 @@ The repo and distribution name are <code>exp-pkg</code>; the Python import and C
 ### Choose by Task
 
 - Use `xpkg.model` when you need `Labels`, `Skeleton`, `Instance`, or `Video`.
+- Use `xpkg.codecs` when you need arrays, tables, or JSON payloads without
+  touching workspace or archive internals.
 - Use xpkg when you need a coherent experiment workspace with managed
   artifacts and compatibility import surfaces.
 - Read [Artifact Contract v1](artifact_contract_v1.md) for the public workspace
@@ -51,7 +54,7 @@ The repo and distribution name are <code>exp-pkg</code>; the Python import and C
 - Read [Storage Direction](architecture/storage-direction.md) when you want the
   blunt explanation for why `.sta` still exists in the implementation.
 - Use `xpkg.compat` when you need low-level `.xpkg` archive IO or legacy
-  `.sta` / `.sta` compatibility.
+  `.sta` compatibility.
 - Use `xpkg.adapters` when you need to import DLC or SLEAP.
 </div>
 
@@ -108,8 +111,8 @@ My Project/
     My Project.expkg
 ```
 
-`.xpkg` is the canonical edge archive suffix. `.sta` and `.sta` remain
-available as legacy compatibility aliases, but none of them are the portable
+`.xpkg` is the canonical edge archive suffix. `.sta` remains
+available as the legacy compatibility alias, but neither is the portable
 public project artifact.
 
 The workspace contract exists because experiment state usually extends beyond a
@@ -124,15 +127,17 @@ single archive or converter output.
   workspace and portable artifact semantics.
 - Read [CLI Command Spec v1](cli_command_spec_v1.md) for `init`, `import`,
   `pack`, `unpack`, `validate`, `migrate`, and the legacy `convert` helper.
-- Read [Media IO Stack](architecture/media-io.md) for the target ownership split between xpkg and Siesta.
+- Read [Media IO Stack](architecture/media-io.md) for the target ownership split between xpkg and the GUI app.
 - Read [Storage Direction](architecture/storage-direction.md) for the current
   rationale and cutover pressure around `.sta`, `.xpkg/`, and
   `.expkg`.
 - Read [Experimental Durable Store](architecture/experimental-store.md) for the new
   commit-oriented recovery workflow.
 - Read [Model](api/model.md) for the pose object graph.
-- Read [Compatibility](api/compat.md) for the edge `.xpkg` / legacy `.sta` /
-  `.sta` APIs.
+- Read [Codecs](api/codecs.md) for in-memory JSON / dataframe / numpy
+  conversions.
+- Read [Compatibility](api/compat.md) for the edge `.xpkg` / legacy `.sta`
+  APIs.
 - Read [Adapters](api/adapters.md) for DLC and SLEAP conversion.
 - Use the reference pages when you need exact signatures and docstrings.
 

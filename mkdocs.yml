@@ -89,11 +89,13 @@ nav:
       - Local CI: development/local-ci.md
   - API Guide:
       - Model: api/model.md
+      - Codecs: api/codecs.md
       - Formats: api/formats.md
       - Compatibility: api/compat.md
       - Adapters: api/adapters.md
   - Reference:
       - xpkg.model: reference/model.md
+      - xpkg.codecs: reference/codecs.md
       - xpkg.formats: reference/formats.md
       - xpkg.compat: reference/compat.md
       - xpkg.adapters: reference/adapters.md

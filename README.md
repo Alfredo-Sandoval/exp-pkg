@@ -17,14 +17,14 @@ This repo is not an analysis platform. It is the IO layer that analysis tools,
 GUIs, and automation can build on when they need a coherent project/workspace
 surface instead of a pile of ad hoc CSV, H5, JSON, and archive files.
 
-The codebase grew out of older SLEAP / `.sta`-shaped IO work, but the public
+The codebase grew out of older SLEAP / archive-shaped IO work, but the public
 boundary is now generic: `Labels`, `Video`, `Skeleton`, adapter imports,
 workspace lifecycle operations, and portable project artifacts.
 
-`.sta` now belongs to the edge of the system: migration, legacy aliases,
+Legacy archive naming now belongs at the edge of the system: migration,
 fixtures, and compatibility workflows. The explicit edge surface for that work
-is `xpkg.compat`, with `.xpkg` as the canonical archive suffix and `.sta` /
-`.sta` as older compatibility aliases.
+is `xpkg.compat`, with `.xpkg` as the canonical archive suffix and `.sta` as
+the only retained legacy alias.
 
 ## Positioning
 
@@ -32,6 +32,7 @@ The intended stack is:
 
 - external pose / annotation formats at the edge
 - canonical in-memory objects in the middle
+- in-memory codecs for arrays / tables / JSON payloads
 - editable workspace + private store + portable artifact at the boundary
 
 The current codebase should be read as a generic IO and packaging layer for
@@ -64,6 +65,7 @@ If you are wiring another repo into xpkg, this is the place to start.
 - Defines a stable project contract: workspace folder + `.xpkg/` + `.expkg`
 - Manages workspace lifecycle: create, open, validate, pack, unpack
 - Carries canonical containers such as `Labels`, `Skeleton`, `Instance`, and `Video`
+- Exposes a clean in-memory codec layer through `xpkg.codecs`
 - Handles media-aware packaging and workspace-relative project state
 - Exposes migration and legacy compatibility surfaces where needed
 - Ships DeepLabCut and SLEAP adapters today
@@ -76,7 +78,7 @@ Implemented today:
 - import adapters and readers for external formats
 - workspace/store/artifact lifecycle operations
 - media-aware packaging and portable exports
-- legacy compatibility for direct `.xpkg` archives and older `.sta` / `.sta` aliases
+- legacy compatibility for direct `.xpkg` archives and older `.sta` aliases
 
 Mission direction:
 
@@ -150,7 +152,7 @@ My Project/
 - Editable project = workspace folder
 - Authoritative mutable state = `.xpkg/`
 - Portable artifact = `.expkg`
-- Edge archive compatibility = `.xpkg`, with `.sta` / `.sta` retained as legacy aliases
+- Edge archive compatibility = `.xpkg`, with `.sta` retained as a legacy alias
 
 The artifact model is workspace-first so experiment state, managed media, and
 future aligned modalities have a clear home in one project layout.
@@ -161,7 +163,7 @@ command surface in `docs/cli_command_spec_v1.md`.
 ## Current Compatibility Layer
 
 The current implementation still exposes low-level `.xpkg` archive helpers and
-older `.sta` / `.sta` aliases, but they should be treated as edge compatibility
+the older `.sta` alias, but they should be treated as edge compatibility
 surfaces rather than the center of the product.
 
 Use them for:

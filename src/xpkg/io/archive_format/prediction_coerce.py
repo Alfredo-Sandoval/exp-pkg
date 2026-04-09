@@ -8,13 +8,13 @@ from typing import Any
 import h5py
 import numpy as np
 
-from xpkg.io.labels.model import Labels as LabelsModel
 from xpkg.io.archive_format.predictions_datasets import (
     PredictionAppendItem,
     _instance_keypoint_length,
     predicted_instance_types,
 )
 from xpkg.io.archive_format.shared import _skeleton_keypoint_count
+from xpkg.io.labels.model import Labels as LabelsModel
 
 
 def coerce_predictions_from_labels(labels: LabelsModel) -> list[PredictionAppendItem]:

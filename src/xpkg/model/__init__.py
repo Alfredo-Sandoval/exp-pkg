@@ -25,10 +25,9 @@ from xpkg.core.skeleton import Keypoint, Skeleton, build_keypoint_skeleton
 from xpkg.io.labels.model import Labels, SuggestionFrame
 from xpkg.io.skeleton_loaders import (
     load_skeleton,
-    load_skeleton_dlc,
     load_skeleton_archive_json,
+    load_skeleton_dlc,
     load_skeleton_sleap,
-    load_skeleton_sta_json,
     load_skeleton_ultralytics,
     load_skeleton_xpkg_json,
 )
@@ -59,7 +58,6 @@ __all__ = [
     "load_skeleton",
     "load_skeleton_dlc",
     "load_skeleton_xpkg_json",
-    "load_skeleton_sta_json",
     "load_skeleton_archive_json",
     "load_skeleton_sleap",
     "load_skeleton_ultralytics",

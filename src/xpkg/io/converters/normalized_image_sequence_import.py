@@ -13,10 +13,10 @@ from xpkg.core.annotations import Instance, LabeledFrame, Point
 from xpkg.core.json_utils import load_json_dict
 from xpkg.core.path_registry import ensure_dir, resolve_path
 from xpkg.core.skeleton import Keypoint, Skeleton
-from xpkg.io.converters.converter_helpers import ConversionResult, project_bundle_path
-from xpkg.io.labels.model import Labels
 from xpkg.io.archive_format import write_archive
 from xpkg.io.archive_format.shared import CANONICAL_BUNDLE_SUFFIX
+from xpkg.io.converters.converter_helpers import ConversionResult, project_bundle_path
+from xpkg.io.labels.model import Labels
 from xpkg.io.video import Video
 
 BundleWriter = Callable[[Path, Labels], None]

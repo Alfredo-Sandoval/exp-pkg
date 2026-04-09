@@ -20,13 +20,13 @@ from xpkg.core.logging_utils import get_logger
 from xpkg.core.path_registry import ensure_dir
 from xpkg.core.skeleton import SCHEMA_VERSION as SKELETON_SCHEMA_VERSION
 from xpkg.core.skeleton import Keypoint, Skeleton
-from xpkg.io.labels.video_types import VideoProtocol
 from xpkg.io.archive_format.shared import (
     CANONICAL_BUNDLE_SUFFIX,
     LABEL_TRACK_ID_DATASET,
     LABEL_VISIBILITY_DATASET,
     SUPPORTED_BUNDLE_SUFFIXES,
 )
+from xpkg.io.labels.video_types import VideoProtocol
 from xpkg.io.video import Video, gui_playback_backend_for_path
 
 from .json_format import read_labels_json_payload, write_labels_json

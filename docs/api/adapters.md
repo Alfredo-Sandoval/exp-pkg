@@ -12,7 +12,7 @@ project workflow is being wired in.
     The locked public artifact contract is workspace folder +
     <code>.expkg</code>. The adapter functions documented here currently emit
     edge <code>.xpkg</code> compatibility outputs, with older
-    <code>.sta</code> / <code>.sta</code> inputs still accepted where needed.
+    Legacy <code>.sta</code> inputs are still accepted where needed.
 
 ## Return Type
 

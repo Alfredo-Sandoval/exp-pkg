@@ -59,8 +59,8 @@ def test_labels_save_file_defaults_to_xpkg_suffix(tmp_path: Path) -> None:
 
 
 def test_labels_load_file_accepts_custom_bundle_reader(tmp_path: Path) -> None:
-    from xpkg.io.labels import serialization as label_serialization
     from xpkg.io.archive_format import read_archive, write_archive
+    from xpkg.io.labels import serialization as label_serialization
     from xpkg.model import Labels
 
     labels = _make_labels(tmp_path, x=7.0, y=8.0)
@@ -77,7 +77,7 @@ def test_labels_load_file_accepts_custom_bundle_reader(tmp_path: Path) -> None:
         Labels,
         bundle_path.as_posix(),
         read_archive_fn=recording_reader,
-        supported_bundle_suffixes=(".xpkg", ".sta", ".sta"),
+        supported_bundle_suffixes=(".xpkg", ".sta"),
         allow_json=False,
     )
 
@@ -86,8 +86,8 @@ def test_labels_load_file_accepts_custom_bundle_reader(tmp_path: Path) -> None:
 
 
 def test_labels_save_file_accepts_custom_bundle_writer(tmp_path: Path) -> None:
-    from xpkg.io.labels import serialization as label_serialization
     from xpkg.io.archive_format import read_archive, write_archive
+    from xpkg.io.labels import serialization as label_serialization
 
     labels = _make_labels(tmp_path, x=2.0, y=5.0)
     raw_path = tmp_path / "custom_bundle"
@@ -102,7 +102,7 @@ def test_labels_save_file_accepts_custom_bundle_writer(tmp_path: Path) -> None:
         raw_path.as_posix(),
         metadata={"project_name": "demo"},
         write_archive_fn=recording_writer,
-        supported_bundle_suffixes=(".xpkg", ".sta", ".sta"),
+        supported_bundle_suffixes=(".xpkg", ".sta"),
         allow_json=False,
     )
 
@@ -112,7 +112,7 @@ def test_labels_save_file_accepts_custom_bundle_writer(tmp_path: Path) -> None:
     assert payload["metadata"]["project_name"] == "demo"
 
 
-def test_siesta_labels_roundtrip_uses_explicit_visibility_dataset(tmp_path: Path) -> None:
+def test_archive_labels_roundtrip_uses_explicit_visibility_dataset(tmp_path: Path) -> None:
     from xpkg.model import Labels
 
     labels = _make_labels(tmp_path, x=3.0, y=4.0, visible=False)

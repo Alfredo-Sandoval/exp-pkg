@@ -11,6 +11,7 @@ from pathlib import Path, PurePosixPath
 from typing import Any
 
 from xpkg.core.path_registry import resolve_path
+from xpkg.io.archive_format import read_archive
 from xpkg.io.project_layout import (
     CANONICAL_BUNDLE_SUFFIX,
     EXPKG_SUFFIX,
@@ -27,7 +28,6 @@ from xpkg.io.project_layout import (
     workspace_store_root,
     write_project_descriptor,
 )
-from xpkg.io.archive_format import read_archive
 
 
 def _iter_workspace_files(workspace_root: Path) -> list[Path]:

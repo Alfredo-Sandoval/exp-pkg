@@ -9,41 +9,38 @@ from xpkg.adapters import (
     convert_dlc_project,
     convert_sleap_package,
 )
+from xpkg.codecs import (
+    labels_from_json_payload,
+    labels_numpy,
+    labels_to_dataframe,
+    labels_to_json_payload,
+)
 from xpkg.compat import (
     ArchiveStore,
     LazyDatasetHandle,
     MaxInstancesExceededError,
     PredictionAppendItem,
     SerializerPredictedInstance,
-    ArchiveStore,
     append_predictions_archive,
-    append_predictions_sta,
     append_predictions_xpkg,
     create_archive_store,
     create_store_from_archive,
-    create_store_from_sta,
     create_store_from_xpkg,
     merge_predictions_archive,
-    merge_predictions_sta,
     merge_predictions_xpkg,
     open_archive_store,
     open_store,
-    read_metrics_table,
     read_archive,
-    read_sta,
+    read_metrics_table,
     read_xpkg,
     summarize_project,
-    summarize_sta,
     summarize_xpkg,
     update_labels_archive,
-    update_labels_sta,
     update_labels_xpkg,
     validate_project,
-    validate_sta,
     validate_xpkg,
-    write_metrics_table,
     write_archive,
-    write_sta,
+    write_metrics_table,
     write_xpkg,
 )
 from xpkg.formats import (
@@ -92,10 +89,9 @@ from xpkg.model import (
     build_keypoint_skeleton,
     is_predicted_instance,
     load_skeleton,
-    load_skeleton_dlc,
     load_skeleton_archive_json,
+    load_skeleton_dlc,
     load_skeleton_sleap,
-    load_skeleton_sta_json,
     load_skeleton_ultralytics,
     load_skeleton_xpkg_json,
 )
@@ -105,6 +101,7 @@ from xpkg.services import WorkspaceLayout, WorkspaceService
 def test_public_exports_are_callable() -> None:
     assert xpkg.__version__
     assert xpkg.adapters is not None
+    assert xpkg.codecs is not None
     assert xpkg.compat is not None
     assert xpkg.formats is not None
     assert xpkg.model is not None
@@ -120,11 +117,9 @@ def test_public_exports_are_callable() -> None:
     assert PROJECT_DESCRIPTOR_FILENAME == "PROJECT.json"
     assert ProjectDescriptor is not None
     assert callable(append_predictions_archive)
-    assert callable(append_predictions_sta)
     assert callable(append_predictions_xpkg)
     assert callable(create_archive_store)
     assert callable(create_store_from_archive)
-    assert callable(create_store_from_sta)
     assert callable(create_store_from_xpkg)
     assert callable(current_project_archive_path)
     assert callable(current_project_snapshot_path)
@@ -138,7 +133,6 @@ def test_public_exports_are_callable() -> None:
     assert callable(is_workspace_root)
     assert callable(load_project_descriptor)
     assert callable(merge_predictions_archive)
-    assert callable(merge_predictions_sta)
     assert callable(merge_predictions_xpkg)
     assert callable(migrate_legacy_archive)
     assert callable(open_archive_store)
@@ -148,34 +142,33 @@ def test_public_exports_are_callable() -> None:
     assert callable(read_labels_json_payload)
     assert callable(read_metrics_table)
     assert callable(read_archive)
-    assert callable(read_sta)
     assert callable(read_xpkg)
     assert callable(resolve_workspace_root)
     assert callable(save_workspace_labels)
     assert callable(summarize_project)
-    assert callable(summarize_sta)
     assert callable(summarize_xpkg)
     assert callable(unpack_project)
     assert callable(update_labels_archive)
-    assert callable(update_labels_sta)
     assert callable(update_labels_xpkg)
     assert callable(validate_artifact)
     assert callable(validate_expkg)
     assert callable(validate_project)
-    assert callable(validate_sta)
     assert callable(validate_xpkg)
     assert callable(validate_workspace)
     assert callable(write_labels_json)
     assert callable(write_metrics_table)
     assert callable(write_project_descriptor)
     assert callable(write_archive)
-    assert callable(write_sta)
     assert callable(write_xpkg)
     assert callable(convert_dlc_csv)
     assert callable(convert_dlc_h5)
     assert callable(convert_dlc_h5_project)
     assert callable(convert_dlc_project)
     assert callable(convert_sleap_package)
+    assert callable(labels_from_json_payload)
+    assert callable(labels_numpy)
+    assert callable(labels_to_dataframe)
+    assert callable(labels_to_json_payload)
     assert WorkspaceLayout is not None
     assert WorkspaceService is not None
 
@@ -200,7 +193,6 @@ def test_model_exports_are_available() -> None:
     assert callable(load_skeleton)
     assert callable(load_skeleton_dlc)
     assert callable(load_skeleton_xpkg_json)
-    assert callable(load_skeleton_sta_json)
     assert callable(load_skeleton_archive_json)
     assert callable(load_skeleton_sleap)
     assert callable(load_skeleton_ultralytics)
@@ -209,7 +201,15 @@ def test_model_exports_are_available() -> None:
 def test_formats_core_surface_excludes_compat_symbols() -> None:
     assert "read_archive" not in xpkg.formats.__all__
     assert "write_archive" not in xpkg.formats.__all__
-    assert "create_store_from_sta" not in xpkg.formats.__all__
     assert "read_xpkg" not in xpkg.formats.__all__
     assert "write_xpkg" not in xpkg.formats.__all__
     assert "pack_project" in xpkg.formats.__all__
+
+
+def test_codecs_surface_is_curated() -> None:
+    assert sorted(xpkg.codecs.__all__) == [
+        "labels_from_json_payload",
+        "labels_numpy",
+        "labels_to_dataframe",
+        "labels_to_json_payload",
+    ]
