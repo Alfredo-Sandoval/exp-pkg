@@ -14,6 +14,13 @@ DeepLabCut, SLEAP, MMPose, MediaPipe, OpenPose, and Detectron2.
     for <code>.xpkg</code> files. Use
     <code>xpkg.formats</code> for the stable project/workspace boundary.
 
+## Start Here
+
+- Use <code>xpkg.services.WorkspaceService</code> for the normal create/open/validate/pack/unpack lifecycle.
+- Use the <code>import_*_workspace(...)</code> helpers below when importing foreign data into a project.
+- Use <code>export_project_archive(...)</code> only when you explicitly need direct <code>.xpkg</code> interop from a workspace.
+- Treat <code>current_project_archive_path(...)</code> as a deprecated compatibility alias, not as the default archive export API.
+
 ## Project Contract
 
 ### `ProjectDescriptor`
@@ -112,7 +119,7 @@ when you explicitly need archive interop.
 
 ### `current_project_archive_path(path)`
 
-Legacy compatibility alias for `export_project_archive(...)`. Prefer the
+Deprecated compatibility alias for `export_project_archive(...)`. Prefer the
 explicit export helper in new code.
 
 ## Import Into Workspaces
@@ -165,7 +172,7 @@ into a workspace.
 
 ### `import_legacy_archive(...)`
 
-Import a legacy archive into a workspace.
+Migration-focused helper that imports a legacy archive into a workspace.
 
 ### `migrate_legacy_archive(...)`
 

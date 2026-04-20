@@ -16,6 +16,11 @@ reads, writes, and archive-level migration work.
     migrating archive-first workflows, writing fixtures, or touching edge
     archive flows.
 
+Prefer the canonical <code>.xpkg</code>-named helpers on this module such as
+<code>read_xpkg</code>, <code>write_xpkg</code>, and
+<code>create_store_from_xpkg</code>. Older archive-shaped names remain
+importable only as deprecated aliases for existing callers.
+
 ## Canonical Archive Helpers
 
 ### `write_xpkg(path, labels, predictions=None, suggestions=None, metadata=None, metrics=None, manifest=None)`
@@ -72,3 +77,17 @@ Canonical entrypoint that makes the `.xpkg` naming explicit.
 ### `open_store(store_root) -> ArchiveStore`
 
 Open a durable store and run recovery before returning it.
+
+## Deprecated Legacy Aliases
+
+The following older names intentionally remain importable for backward
+compatibility, but new code should not start from them:
+
+- `read_archive(...)` -> prefer `read_xpkg(...)`
+- `write_archive(...)` -> prefer `write_xpkg(...)`
+- `update_labels_archive(...)` -> prefer `update_labels_xpkg(...)`
+- `append_predictions_archive(...)` -> prefer `append_predictions_xpkg(...)`
+- `merge_predictions_archive(...)` -> prefer `merge_predictions_xpkg(...)`
+- `validate_archive(...)` / `validate_project(...)` -> prefer `validate_xpkg(...)`
+- `summarize_archive(...)` / `summarize_project(...)` -> prefer `summarize_xpkg(...)`
+- `create_archive_store(...)` / `create_store_from_archive(...)` -> prefer `create_store_from_xpkg(...)`

@@ -75,6 +75,15 @@ restored = WorkspaceService.unpack(artifact, "./Restored Project")
 Start here when another repo needs a stable project boundary. This is the
 normal xpkg contract.
 
+Pick the surface by intent:
+
+| Task | Preferred entrypoint |
+| --- | --- |
+| Workspace lifecycle | `xpkg.services.WorkspaceService` |
+| Import external data into a project | `xpkg.formats.import_*_workspace(...)` |
+| Explicit `.xpkg` archive interop | `xpkg.formats.export_project_archive(...)` or `xpkg.compat.*` |
+| Existing archive-shaped callers | keep the compatibility aliases, but do not use them as new integration examples |
+
 ## Workspace import example
 
 ```python
@@ -143,6 +152,10 @@ fixtures, and transition work. `read_xpkg` returns a dict with these keys:
 | `"metadata"` | `dict` | Archive-level metadata |
 | `"videos"` | `list[Video]` | Video references |
 | `"predictions"` | `dict` or `None` | Prediction payloads if present |
+
+Prefer the canonical `.xpkg` names shown above. Older names such as
+`read_archive` and `write_archive` remain importable only as deprecated
+compatibility aliases.
 
 ## Advanced: Edge adapter output example
 

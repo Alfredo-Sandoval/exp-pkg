@@ -53,10 +53,20 @@ restored = WorkspaceService.unpack(artifact, "./Restored Project")
 ```
 
 The older free functions in `xpkg.formats` and `xpkg.api` remain
-available for compatibility and low-level workflows, but new code should prefer
+available as a lower-level surface, but new code should prefer
 `WorkspaceService`.
 
 If you are wiring another repo into xpkg, this is the place to start.
+
+Choose the public surface by job:
+
+| Task | Preferred public entrypoint |
+| --- | --- |
+| Create, open, validate, pack, or unpack a project | `xpkg.services.WorkspaceService` |
+| Import foreign pose data into a project | `xpkg.formats.import_*_workspace(...)` |
+| Materialize a direct `.xpkg` from a workspace on purpose | `xpkg.formats.export_project_archive(...)` |
+| Read or mutate a direct `.xpkg` archive at the edge | `xpkg.compat.*` |
+| Keep an old archive-shaped caller working | existing compatibility aliases such as `current_project_archive_path(...)`, but prefer the explicit names above in new code |
 
 For foreign or legacy inputs, use the matching workspace import helper and then
 open the resulting workspace:
@@ -87,8 +97,8 @@ The shipped workspace import surface currently covers:
 
 Those entrypoints live on `xpkg.formats` / `xpkg.services` and keep new
 integrations on the workspace-first path. `xpkg.adapters` remains the
-compatibility edge for workflows that explicitly need direct `.xpkg` archive
-output.
+compatibility edge for workflows that explicitly need direct archive-oriented
+outputs.
 
 ## What It Does
 
@@ -209,6 +219,10 @@ Use `xpkg.compat` when you need that edge layer. Avoid using it as the primary
 integration boundary for new code. The longer write-up on why this layer still
 exists, and how it relates to the workspace/store architecture, lives in
 `docs/architecture/storage-direction.md`.
+
+Prefer the canonical `.xpkg` names on that surface such as `read_xpkg`,
+`write_xpkg`, and `create_store_from_xpkg`. Older archive-shaped aliases remain
+available only to preserve existing callers.
 
 Example:
 

@@ -31,6 +31,7 @@ The repo and distribution name are <code>exp-pkg</code>; the Python import and C
 | Mission | experiment-data IO and artifact contracts |
 | Public project contract | workspace folder + `.expkg` |
 | Authoritative mutable state | `.xpkg/` inside the workspace |
+| Primary lifecycle API | `xpkg.services.WorkspaceService` |
 | Edge compatibility layer | `xpkg.compat` for direct `.xpkg` archive IO |
 | External import ecosystems | DeepLabCut, SLEAP, MMPose, MediaPipe, OpenPose, Detectron2 |
 | Workspace-first imports | `xpkg.formats.import_*_workspace(...)` |
@@ -43,6 +44,8 @@ The repo and distribution name are <code>exp-pkg</code>; the Python import and C
 <div class="spec-panel" markdown="1">
 ### Choose by Task
 
+- Use `xpkg.services.WorkspaceService` when you need to create, open,
+  validate, pack, or unpack a project.
 - Use `xpkg.model` when you need `Labels`, `Skeleton`, `Instance`, or `Video`.
 - Use `xpkg.codecs` when you need arrays, tables, or JSON payloads without
   touching workspace or archive internals.
@@ -81,7 +84,21 @@ The repo and distribution name are <code>exp-pkg</code>; the Python import and C
 </div>
 
 <div class="spec-panel" markdown="1">
-### Archive and Compatibility IO
+### Workspace-First Project APIs
+
+- `WorkspaceService`
+- `init_project`, `pack_project`, `unpack_project`
+- `validate_workspace`
+- `import_dlc_*_workspace`, `import_sleap_*_workspace`
+- `import_mmpose_topdown_json_workspace`
+- `import_mediapipe_pose_landmarks_json_workspace`
+- `import_openpose_json_workspace`
+- `import_detectron2_coco_workspace`
+- `migrate_legacy_archive`
+</div>
+
+<div class="spec-panel" markdown="1">
+### Edge Compatibility IO
 
 - `read_xpkg`
 - `write_xpkg`
@@ -90,16 +107,6 @@ The repo and distribution name are <code>exp-pkg</code>; the Python import and C
 - metrics table IO
 - validation and summary
 - experimental durable store
-</div>
-
-<div class="spec-panel" markdown="1">
-### Imports and Migration
-
-- `import_dlc_*_workspace`, `import_sleap_*_workspace`
-- `import_mmpose_topdown_json_workspace`
-- `import_mediapipe_pose_landmarks_json_workspace`
-- `import_openpose_json_workspace`
-- `import_detectron2_coco_workspace`
 - compatibility `convert_*` adapter helpers
 - `ConversionResult`
 </div>

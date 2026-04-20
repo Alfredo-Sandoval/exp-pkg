@@ -16,6 +16,30 @@ compatibility <code>.xpkg</code> archive outputs.
     whenever a workspace lifecycle is the real goal. Each compatibility adapter
     here has a workspace-first counterpart on <code>xpkg.formats</code>.
 
+## Preferred Project Path
+
+If you are wiring a downstream repo into xpkg for the first time, start with
+the matching workspace import helper and then reopen the workspace through
+<code>WorkspaceService</code>:
+
+```python
+from xpkg.formats import import_dlc_csv_workspace
+from xpkg.services import WorkspaceService
+
+import_dlc_csv_workspace(
+    "tracking.csv",
+    "video.mp4",
+    "./My Project",
+    skeleton_name="mouse",
+)
+
+workspace = WorkspaceService.open("./My Project")
+artifact = workspace.pack()
+```
+
+The functions below remain public for explicit direct-archive compatibility
+workflows.
+
 ## Return Type
 
 ### `ConversionResult`
