@@ -73,9 +73,28 @@ Import foreign or legacy data into a workspace.
 ```bash
 xpkg import dlc csv --csv tracking.csv --video video.mp4 --out "./My Project"
 xpkg import dlc h5 --h5 tracking.h5 --video video.mp4 --out "./My Project"
+xpkg import dlc project --project dlc_project --out "./My Project"
 xpkg import sleap --slp labels.pkg.slp --out "./My Project"
+xpkg import sleap --h5 analysis.h5 --video video.mp4 --out "./My Project"
+xpkg import mmpose --json results.json --video video.mp4 --out "./My Project"
+xpkg import mediapipe --json pose_landmarks.json --video video.mp4 --out "./My Project"
+xpkg import openpose --json openpose_json --video video.mp4 --out "./My Project"
+xpkg import detectron2 --predictions coco_instances_results.json --dataset-json dataset.json --image-root images --out "./My Project"
 xpkg import legacy --file tracking.xpkg --out "./My Project"
 ```
+
+### Supported families today
+
+- `xpkg import dlc csv`
+- `xpkg import dlc h5`
+- `xpkg import dlc project`
+- `xpkg import sleap --slp`
+- `xpkg import sleap --h5`
+- `xpkg import mmpose`
+- `xpkg import mediapipe`
+- `xpkg import openpose`
+- `xpkg import detectron2`
+- `xpkg import legacy`
 
 ### Required behavior
 
@@ -193,12 +212,29 @@ This command remains available for compatibility pipelines, fixtures, and
 archive-first workflows that have not moved to workspace import yet. It is not
 the recommended project-facing entrypoint for new integrations.
 
+### Synopsis
+
+```bash
+xpkg convert dlc csv --csv tracking.csv --video video.mp4 --out tracking.xpkg
+xpkg convert dlc h5 --h5 tracking.h5 --video video.mp4 --out tracking.xpkg
+xpkg convert dlc project --project dlc_project --out exports
+xpkg convert sleap --slp labels.pkg.slp --out sleap_project --fps 30 --no-videos
+xpkg convert mmpose --json results.json --video video.mp4 --out tracking.xpkg
+xpkg convert mediapipe --json pose_landmarks.json --video video.mp4 --out tracking.xpkg
+xpkg convert openpose --json openpose_json --video video.mp4 --out tracking.xpkg
+xpkg convert detectron2 --predictions coco_instances_results.json --dataset-json dataset.json --image-root images --out tracking.xpkg
+```
+
 ### Supported families today
 
 - `xpkg convert dlc csv`
 - `xpkg convert dlc h5`
 - `xpkg convert dlc project`
 - `xpkg convert sleap`
+- `xpkg convert mmpose`
+- `xpkg convert mediapipe`
+- `xpkg convert openpose`
+- `xpkg convert detectron2`
 
 ## Open Behavior
 
