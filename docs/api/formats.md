@@ -16,8 +16,9 @@ DeepLabCut, SLEAP, MMPose, MediaPipe, OpenPose, and Detectron2.
 
 ## Start Here
 
-- Use <code>xpkg.services.WorkspaceService</code> for the normal create/open/validate/pack/unpack lifecycle.
-- Use the <code>import_*_workspace(...)</code> helpers below when importing foreign data into a project.
+- Use <code>xpkg.services.WorkspaceService</code> for the normal create/open/import/validate/pack/unpack lifecycle.
+- Use <code>WorkspaceService.imports.*</code> for the preferred service-bound import flow.
+- Use the <code>import_*_workspace(...)</code> helpers below when you want the same importers as explicit free functions.
 - Use <code>export_project_archive(...)</code> only when you explicitly need direct <code>.xpkg</code> interop from a workspace.
 - Treat <code>current_project_archive_path(...)</code> as a deprecated compatibility alias, not as the default archive export API.
 
@@ -124,9 +125,12 @@ explicit export helper in new code.
 
 ## Import Into Workspaces
 
-These are the preferred import entrypoints for new integrations. The similarly
-named <code>xpkg.adapters.convert_*</code> helpers remain compatibility-only
-direct <code>.xpkg</code> emitters.
+These free functions are the reusable workspace import implementation. New
+service-based integrations should usually call them through
+<code>WorkspaceService.imports.*</code>; use the explicit functions here when
+you want function-level imports. The similarly named
+<code>xpkg.adapters.convert_*</code> helpers remain compatibility-only direct
+<code>.xpkg</code> emitters.
 
 ### `import_dlc_csv_workspace(...)`
 

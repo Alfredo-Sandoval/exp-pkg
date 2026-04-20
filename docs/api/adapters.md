@@ -19,21 +19,17 @@ compatibility <code>.xpkg</code> archive outputs.
 ## Preferred Project Path
 
 If you are wiring a downstream repo into xpkg for the first time, start with
-the matching workspace import helper and then reopen the workspace through
-<code>WorkspaceService</code>:
+<code>WorkspaceService</code> and keep the import on the same service object:
 
 ```python
-from xpkg.formats import import_dlc_csv_workspace
 from xpkg.services import WorkspaceService
 
-import_dlc_csv_workspace(
+workspace = WorkspaceService.create("./My Project", title="My Project")
+workspace.imports.dlc_csv(
     "tracking.csv",
     "video.mp4",
-    "./My Project",
     skeleton_name="mouse",
 )
-
-workspace = WorkspaceService.open("./My Project")
 artifact = workspace.pack()
 ```
 

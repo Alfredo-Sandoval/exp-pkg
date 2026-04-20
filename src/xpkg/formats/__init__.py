@@ -1,9 +1,10 @@
 """Public workspace-first format entry points.
 
 This module defines the stable workspace/project boundary. New integrations
-should prefer ``WorkspaceService`` for lifecycle work and the
-``import_*_workspace(...)`` helpers for foreign inputs. Direct archive helpers
-remain available only for explicit compatibility interop.
+should prefer ``WorkspaceService`` and ``WorkspaceService.imports`` for the
+normal lifecycle and ingestion flow, with ``import_*_workspace(...)`` kept
+public for explicit function-level callers. Direct archive helpers remain
+available only for explicit compatibility interop.
 """
 
 from __future__ import annotations

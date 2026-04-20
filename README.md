@@ -39,9 +39,9 @@ experiment projects, not as an analysis framework.
 
 ## Recommended Workspace API
 
-`WorkspaceService` is the primary lifecycle entrypoint for workspace-based
-projects. Use it when you want to create, open, validate, pack, or unpack a
-project with a single object-oriented boundary:
+`WorkspaceService` is the primary service boundary for workspace-based
+projects. Use it when you want one object that can create, open, import into,
+validate, pack, or unpack a project:
 
 ```python
 from xpkg.services import WorkspaceService
@@ -62,29 +62,31 @@ Choose the public surface by job:
 
 | Task | Preferred public entrypoint |
 | --- | --- |
-| Create, open, validate, pack, or unpack a project | `xpkg.services.WorkspaceService` |
-| Import foreign pose data into a project | `xpkg.formats.import_*_workspace(...)` |
+| Create, open, import into, validate, pack, or unpack a project | `xpkg.services.WorkspaceService` |
+| Import foreign pose data into a project you already manage through the service | `workspace.imports.*` from `xpkg.services.WorkspaceService` |
+| Import foreign pose data through explicit free functions | `xpkg.formats.import_*_workspace(...)` |
 | Materialize a direct `.xpkg` from a workspace on purpose | `xpkg.formats.export_project_archive(...)` |
 | Read or mutate a direct `.xpkg` archive at the edge | `xpkg.compat.*` |
 | Keep an old archive-shaped caller working | existing compatibility aliases such as `current_project_archive_path(...)`, but prefer the explicit names above in new code |
 
-For foreign or legacy inputs, use the matching workspace import helper and then
-open the resulting workspace:
+For foreign inputs, keep the normal path on one service object:
 
 ```python
-from xpkg.formats import import_dlc_csv_workspace
 from xpkg.services import WorkspaceService
 
-import_dlc_csv_workspace(
+workspace = WorkspaceService.create("./My Project", title="My Project")
+workspace.imports.dlc_csv(
     "tracking.csv",
     "video.mp4",
-    "./My Project",
     skeleton_name="mouse",
 )
-
-workspace = WorkspaceService.open("./My Project")
+layout = workspace.validate()
 artifact = workspace.pack()
+restored = WorkspaceService.unpack(artifact, "./Restored Project")
 ```
+
+The explicit `xpkg.formats.import_*_workspace(...)` helpers remain public when
+you want a function-level API or need to import before reopening a workspace.
 
 The shipped workspace import surface currently covers:
 
@@ -95,7 +97,7 @@ The shipped workspace import surface currently covers:
 - OpenPose BODY_25 `--write_json` directories
 - Detectron2 COCO keypoint results plus dataset/image metadata
 
-Those entrypoints live on `xpkg.formats` / `xpkg.services` and keep new
+Those entrypoints live on `xpkg.services` and `xpkg.formats` and keep new
 integrations on the workspace-first path. `xpkg.adapters` remains the
 compatibility edge for workflows that explicitly need direct archive-oriented
 outputs.

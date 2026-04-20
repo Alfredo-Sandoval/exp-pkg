@@ -1,8 +1,9 @@
 """Workspace-first project helpers for the public artifact contract.
 
 These free functions stay public for integrations that want an explicit
-function-level API. New code should usually pair them with
-``WorkspaceService`` rather than build around archive-first helpers.
+function-level API. New code should usually drive lifecycle and ingestion
+through ``WorkspaceService`` and ``WorkspaceService.imports`` rather than build
+around archive-first helpers.
 """
 
 from __future__ import annotations

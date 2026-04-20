@@ -34,7 +34,7 @@ The repo and distribution name are <code>exp-pkg</code>; the Python import and C
 | Primary lifecycle API | `xpkg.services.WorkspaceService` |
 | Edge compatibility layer | `xpkg.compat` for direct `.xpkg` archive IO |
 | External import ecosystems | DeepLabCut, SLEAP, MMPose, MediaPipe, OpenPose, Detectron2 |
-| Workspace-first imports | `xpkg.formats.import_*_workspace(...)` |
+| Service-bound workspace imports | `workspace.imports.*` from `xpkg.services.WorkspaceService` |
 | Core objects | `xpkg.model` |
 | In-memory codecs | `xpkg.codecs` |
 | Low-level compatibility IO | `xpkg.compat` |
@@ -44,15 +44,17 @@ The repo and distribution name are <code>exp-pkg</code>; the Python import and C
 <div class="spec-panel" markdown="1">
 ### Choose by Task
 
-- Use `xpkg.services.WorkspaceService` when you need to create, open,
-  validate, pack, or unpack a project.
+- Use `xpkg.services.WorkspaceService` when you need to create, open, import
+  into, validate, pack, or unpack a project.
 - Use `xpkg.model` when you need `Labels`, `Skeleton`, `Instance`, or `Video`.
 - Use `xpkg.codecs` when you need arrays, tables, or JSON payloads without
   touching workspace or archive internals.
 - Use xpkg when you need a coherent experiment workspace with managed
   artifacts and compatibility import surfaces.
-- Use `xpkg.formats.import_*_workspace(...)` for workspace-first imports from
+- Use `workspace.imports.*` for the normal workspace-first import flow from
   DeepLabCut, SLEAP, MMPose, MediaPipe, OpenPose, or Detectron2.
+- Use `xpkg.formats.import_*_workspace(...)` when you want the same
+  workspace-first importers as explicit free functions.
 - Read [Artifact Contract v1](artifact_contract_v1.md) for the public workspace
   and `.expkg` contract.
 - Read [CLI Command Spec v1](cli_command_spec_v1.md) for the locked command
@@ -87,6 +89,7 @@ The repo and distribution name are <code>exp-pkg</code>; the Python import and C
 ### Workspace-First Project APIs
 
 - `WorkspaceService`
+- `WorkspaceService.imports`
 - `init_project`, `pack_project`, `unpack_project`
 - `validate_workspace`
 - `import_dlc_*_workspace`, `import_sleap_*_workspace`

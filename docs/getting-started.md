@@ -72,32 +72,31 @@ artifact = workspace.pack()
 restored = WorkspaceService.unpack(artifact, "./Restored Project")
 ```
 
-Start here when another repo needs a stable project boundary. This is the
-normal xpkg contract.
+`WorkspaceService` is the normal project boundary: create or open a workspace,
+import through `workspace.imports`, validate, then pack only when you want a
+portable artifact.
 
 Pick the surface by intent:
 
 | Task | Preferred entrypoint |
 | --- | --- |
-| Workspace lifecycle | `xpkg.services.WorkspaceService` |
-| Import external data into a project | `xpkg.formats.import_*_workspace(...)` |
+| Workspace lifecycle and service-bound imports | `xpkg.services.WorkspaceService` |
+| Function-level workspace imports | `xpkg.formats.import_*_workspace(...)` |
 | Explicit `.xpkg` archive interop | `xpkg.formats.export_project_archive(...)` or `xpkg.compat.*` |
 | Existing archive-shaped callers | keep the compatibility aliases, but do not use them as new integration examples |
 
 ## Workspace import example
 
 ```python
-from xpkg.formats import import_dlc_csv_workspace
 from xpkg.services import WorkspaceService
 
-import_dlc_csv_workspace(
+workspace = WorkspaceService.create("./My Project", title="My Project")
+workspace.imports.dlc_csv(
     "tracking.csv",
     "video.mp4",
-    "./My Project",
     skeleton_name="mouse",
 )
-
-workspace = WorkspaceService.open("./My Project")
+workspace.validate()
 artifact = workspace.pack()
 ```
 
@@ -114,6 +113,8 @@ The same workspace-first pattern is available for:
 - `import_detectron2_coco_workspace(...)`
 
 Use those workspace helpers as the primary integration surface for new code.
+The underlying `xpkg.formats.import_*_workspace(...)` functions remain public
+when you want the explicit function form.
 
 ## In-memory codec API
 
