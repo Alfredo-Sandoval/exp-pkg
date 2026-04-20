@@ -167,6 +167,27 @@ def test_public_exports_are_callable() -> None:
     assert WorkspaceService is not None
 
 
+def test_services_surface_lists_workspace_service_first() -> None:
+    assert xpkg.services.__all__ == ["WorkspaceService", "WorkspaceImports", "WorkspaceLayout"]
+
+
+def test_workspace_imports_surface_covers_supported_workspace_importers() -> None:
+    expected = {
+        "detectron2_coco",
+        "dlc_csv",
+        "dlc_h5",
+        "dlc_project",
+        "legacy_archive",
+        "mediapipe_pose_landmarks_json",
+        "mmpose_topdown_json",
+        "openpose_json",
+        "sleap_h5",
+        "sleap_package",
+    }
+
+    assert expected.issubset(set(dir(WorkspaceImports)))
+
+
 def test_model_exports_are_available() -> None:
     assert Labels is not None
     assert SuggestionFrame is not None

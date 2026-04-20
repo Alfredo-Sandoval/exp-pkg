@@ -4,10 +4,20 @@ from pathlib import Path
 
 from tests.test_dlc_import import _write_dummy_video, _write_sample_dlc_csv
 from xpkg.formats import current_project_snapshot_path, current_project_state_path, validate_expkg
+from xpkg.model import Labels
 from xpkg.services import WorkspaceService
 
 
-def test_workspace_service_create_validate_and_pack_roundtrip(tmp_path: Path) -> None:
+def _assert_sample_mouse_labels(labels: Labels) -> None:
+    assert len(labels.videos) == 1
+    assert len(labels.skeletons) == 1
+    assert len(labels.labeled_frames) == 2
+    assert labels.skeletons[0].keypoint_names == ["nose", "tail"]
+
+
+def test_getting_started_workspace_service_lifecycle_example_roundtrips(
+    tmp_path: Path,
+) -> None:
     workspace = WorkspaceService.create(tmp_path / "My Project", title="My Project")
 
     layout = workspace.validate()
@@ -26,7 +36,7 @@ def test_workspace_service_create_validate_and_pack_roundtrip(tmp_path: Path) ->
     assert unpacked_layout.descriptor.title == "My Project"
 
 
-def test_workspace_service_imports_dlc_csv_and_roundtrips_workspace_artifact(
+def test_readme_recommended_workspace_service_flow_roundtrips_imported_artifact(
     tmp_path: Path,
 ) -> None:
     csv_path = tmp_path / "tracking.csv"
@@ -48,10 +58,7 @@ def test_workspace_service_imports_dlc_csv_and_roundtrips_workspace_artifact(
     assert layout.has_current_state
 
     loaded = workspace.load_labels()
-    assert len(loaded.videos) == 1
-    assert len(loaded.skeletons) == 1
-    assert len(loaded.labeled_frames) == 2
-    assert loaded.skeletons[0].keypoint_names == ["nose", "tail"]
+    _assert_sample_mouse_labels(loaded)
 
     artifact = workspace.pack(out=tmp_path / "Imported Project.expkg")
     validate_expkg(artifact)
@@ -62,7 +69,14 @@ def test_workspace_service_imports_dlc_csv_and_roundtrips_workspace_artifact(
     assert unpacked_layout.has_current_state
 
     restored = unpacked.load_labels()
-    assert len(restored.videos) == 1
-    assert len(restored.skeletons) == 1
-    assert len(restored.labeled_frames) == 2
-    assert restored.skeletons[0].keypoint_names == ["nose", "tail"]
+    _assert_sample_mouse_labels(restored)
+
+
+def test_workspace_service_open_reuses_existing_workspace_from_nested_path(
+    tmp_path: Path,
+) -> None:
+    workspace = WorkspaceService.create(tmp_path / "Nested Project", title="Nested Project")
+
+    reopened = WorkspaceService.open(workspace.workspace_root / "Media")
+
+    assert reopened.workspace_root == workspace.workspace_root

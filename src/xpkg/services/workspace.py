@@ -1,8 +1,10 @@
-"""Primary workspace lifecycle service for xpkg project operations.
+"""Primary workspace-first service surface for xpkg project operations.
 
-``WorkspaceService`` is the preferred entrypoint for new integrations that
-need to create, open, import into, validate, pack, or unpack an xpkg
-workspace.
+``WorkspaceService`` is the stable consumer-facing boundary for downstream
+integrations that need to create, open, import into, validate, pack, or unpack
+an xpkg workspace. ``WorkspaceImports`` mirrors the public
+``xpkg.formats.import_*_workspace(...)`` helpers on a workspace-bound object so
+new code can stay on the same service path end to end.
 """
 
 from __future__ import annotations
@@ -47,7 +49,7 @@ PackMode = Literal["portable", "snapshot"]
 
 @dataclass(frozen=True, slots=True)
 class WorkspaceImports:
-    """Workspace-bound import helpers that reuse the public format entrypoints."""
+    """Workspace-bound mirror of the public ``xpkg.formats`` import helpers."""
 
     workspace_root: Path
 
@@ -283,7 +285,7 @@ class WorkspaceImports:
 
 @dataclass(frozen=True, slots=True)
 class WorkspaceLayout:
-    """Normalized summary of an xpkg workspace and its managed paths."""
+    """Normalized workspace summary returned by ``describe()`` and ``validate()``."""
 
     workspace_root: Path
     descriptor: ProjectDescriptor
@@ -298,7 +300,7 @@ class WorkspaceLayout:
 
 @dataclass(slots=True)
 class WorkspaceService:
-    """Primary public service for workspace-centric project operations."""
+    """Stable public service for workspace-first project lifecycle operations."""
 
     workspace_root: Path
 
@@ -354,7 +356,7 @@ class WorkspaceService:
 
     @property
     def imports(self) -> WorkspaceImports:
-        """Return workspace-bound import helpers backed by the public format API."""
+        """Return service-bound import helpers backed by the public format API."""
         return WorkspaceImports(workspace_root=self.workspace_root)
 
     def describe(self) -> WorkspaceLayout:
@@ -417,4 +419,4 @@ class WorkspaceService:
         )
 
 
-__all__ = ["WorkspaceImports", "WorkspaceLayout", "WorkspaceService"]
+__all__ = ["WorkspaceService", "WorkspaceImports", "WorkspaceLayout"]

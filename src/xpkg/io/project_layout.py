@@ -172,8 +172,10 @@ def resolve_workspace_root(path: str | Path) -> Path | None:
     candidate = _candidate_workspace_root(path)
     if candidate.is_file() and candidate.name == PROJECT_DESCRIPTOR_FILENAME:
         return candidate.parent
-    if candidate.is_dir() and (candidate / PROJECT_DESCRIPTOR_FILENAME).is_file():
-        return candidate
+    if candidate.is_dir():
+        for root in (candidate, *candidate.parents):
+            if (root / PROJECT_DESCRIPTOR_FILENAME).is_file():
+                return root
     return None
 
 

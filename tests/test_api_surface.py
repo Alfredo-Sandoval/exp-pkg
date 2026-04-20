@@ -14,18 +14,25 @@ def test_xpkg_api_exposes_io_contract() -> None:
         "WorkspaceImports",
         "WorkspaceLayout",
         "WorkspaceService",
+        "current_project_archive_path",
+        "current_project_snapshot_path",
+        "current_project_state_path",
         "convert_detectron2_coco",
         "convert_dlc_csv",
         "convert_mediapipe_pose_landmarks_json",
         "convert_mmpose_topdown_json",
         "convert_openpose_json",
         "convert_sleap_h5",
+        "export_project_archive",
         "import_detectron2_coco_workspace",
+        "import_dlc_csv_workspace",
+        "import_dlc_h5_workspace",
         "import_dlc_project_workspace",
         "import_mediapipe_pose_landmarks_json_workspace",
         "import_mmpose_topdown_json_workspace",
         "import_openpose_json_workspace",
         "import_sleap_h5_workspace",
+        "import_sleap_package_workspace",
         "labels_from_json_payload",
         "labels_numpy",
         "labels_to_dataframe",
@@ -59,6 +66,9 @@ def test_xpkg_api_exposes_io_contract() -> None:
 def test_xpkg_api_lists_workspace_first_entrypoints_before_adapters() -> None:
     exports = api.__all__
 
+    assert exports.index("WorkspaceService") < exports.index("WorkspaceImports")
+    assert exports.index("WorkspaceImports") < exports.index("WorkspaceLayout")
+    assert exports.index("WorkspaceService") < exports.index("import_dlc_csv_workspace")
     assert exports.index("WorkspaceService") < exports.index("ConversionResult")
     assert exports.index("WorkspaceImports") < exports.index("ConversionResult")
     assert exports.index("WorkspaceService") < exports.index("convert_dlc_csv")

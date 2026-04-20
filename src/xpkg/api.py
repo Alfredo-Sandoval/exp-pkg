@@ -13,9 +13,9 @@ import importlib
 from typing import Any
 
 _WORKSPACE_EXPORTS: dict[str, tuple[str, str]] = {
-    "WorkspaceLayout": (".services", "WorkspaceLayout"),
-    "WorkspaceImports": (".services", "WorkspaceImports"),
     "WorkspaceService": (".services", "WorkspaceService"),
+    "WorkspaceImports": (".services", "WorkspaceImports"),
+    "WorkspaceLayout": (".services", "WorkspaceLayout"),
     "ProjectDescriptor": (".formats.project", "ProjectDescriptor"),
     "init_project": (".formats.project", "init_project"),
     "load_project_descriptor": (".formats.project", "load_project_descriptor"),
