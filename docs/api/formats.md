@@ -112,6 +112,10 @@ Import a DeepLabCut CSV into a workspace.
 
 Import a DeepLabCut H5 into a workspace.
 
+### `import_sleap_h5_workspace(...)`
+
+Import a SLEAP analysis H5 export into a workspace.
+
 ### `import_sleap_package_workspace(...)`
 
 Import a SLEAP package into a workspace.

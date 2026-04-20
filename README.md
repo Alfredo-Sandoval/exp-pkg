@@ -91,10 +91,11 @@ Mission direction:
 
 | Source | Format | Status |
 |--------|--------|--------|
-| DeepLabCut | CSV | ✅ Supported |
-| DeepLabCut | H5 | ✅ Supported |
-| DeepLabCut | Project | ✅ Supported |
-| SLEAP | `.pkg.slp` | ✅ Supported |
+| DeepLabCut | CSV | Supported |
+| DeepLabCut | H5 | Supported |
+| DeepLabCut | Project | Supported |
+| SLEAP | Analysis H5 | Supported |
+| SLEAP | `.pkg.slp` | Supported |
 | MMPose | — | 🔜 Planned |
 | MediaPipe | — | 🔜 Planned |
 | OpenPose | — | 🔜 Planned |

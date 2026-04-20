@@ -10,6 +10,7 @@ from xpkg.adapters import (
     convert_dlc_h5,
     convert_dlc_h5_project,
     convert_dlc_project,
+    convert_sleap_h5,
     convert_sleap_package,
 )
 from xpkg.codecs import (
@@ -41,6 +42,7 @@ from xpkg.formats import (
     import_dlc_csv_workspace,
     import_dlc_h5_workspace,
     import_legacy_archive,
+    import_sleap_h5_workspace,
     import_sleap_package_workspace,
     init_project,
     is_workspace_root,
@@ -105,6 +107,7 @@ def test_public_exports_are_callable() -> None:
     assert callable(import_dlc_csv_workspace)
     assert callable(import_dlc_h5_workspace)
     assert callable(import_legacy_archive)
+    assert callable(import_sleap_h5_workspace)
     assert callable(import_sleap_package_workspace)
     assert callable(init_project)
     assert callable(is_workspace_root)
@@ -133,6 +136,7 @@ def test_public_exports_are_callable() -> None:
     assert callable(convert_dlc_h5)
     assert callable(convert_dlc_h5_project)
     assert callable(convert_dlc_project)
+    assert callable(convert_sleap_h5)
     assert callable(convert_sleap_package)
     assert callable(labels_from_json_payload)
     assert callable(labels_numpy)

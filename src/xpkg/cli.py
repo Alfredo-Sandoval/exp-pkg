@@ -11,6 +11,7 @@ from xpkg.formats import (
     import_dlc_csv_workspace,
     import_dlc_h5_workspace,
     import_legacy_archive,
+    import_sleap_h5_workspace,
     import_sleap_package_workspace,
     init_project,
     migrate_legacy_archive,
@@ -21,7 +22,7 @@ from xpkg.formats import (
 from xpkg.io.archive_format.shared import CANONICAL_ARCHIVE_SUFFIX
 from xpkg.io.converters.converter_helpers import ConversionResult
 from xpkg.io.converters.dlc_import import convert_dlc_csv, convert_dlc_h5, convert_dlc_project
-from xpkg.io.converters.sleap_import import convert_sleap_package
+from xpkg.io.converters.sleap_import import convert_sleap_h5, convert_sleap_package
 from xpkg.version import __version__
 
 CliCommand = Callable[[argparse.Namespace], int]
@@ -123,9 +124,27 @@ def _add_dlc_parser(parent: argparse._SubParsersAction[argparse.ArgumentParser])
 
 
 def _add_sleap_parser(parent: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
-    sleap = parent.add_parser("sleap", help="Convert a SLEAP .pkg.slp archive.")
-    sleap.add_argument("--slp", required=True, help="Path to the input .pkg.slp archive.")
-    sleap.add_argument("--out", required=True, help="Output project directory.")
+    sleap = parent.add_parser("sleap", help="Convert SLEAP package or analysis H5 data.")
+    source_group = sleap.add_mutually_exclusive_group(required=True)
+    source_group.add_argument("--slp", help="Path to the input .pkg.slp archive.")
+    source_group.add_argument("--h5", help="Path to the SLEAP analysis H5 export.")
+    sleap.add_argument("--video", help="Path to the matching video file when using --h5.")
+    sleap.add_argument(
+        "--out",
+        required=True,
+        help="Output project directory for --slp, or output .xpkg path for --h5.",
+    )
+    sleap.add_argument(
+        "--skeleton-name",
+        default="imported",
+        help="Skeleton name to store when converting --h5 tracking data.",
+    )
+    sleap.add_argument(
+        "--threshold",
+        type=_likelihood_threshold,
+        default=0.0,
+        help="Likelihood threshold for including keypoints when using --h5 (0 to 1).",
+    )
     sleap.add_argument(
         "--fps",
         type=_positive_int,
@@ -218,9 +237,23 @@ def _add_import_parser(parent: argparse._SubParsersAction[argparse.ArgumentParse
     project_parser.add_argument("--out", required=True, help="Output workspace directory.")
     project_parser.set_defaults(func=_cmd_import_dlc_project)
 
-    sleap = import_subparsers.add_parser("sleap", help="Import a SLEAP .pkg.slp archive.")
-    sleap.add_argument("--slp", required=True, help="Path to the input .pkg.slp archive.")
+    sleap = import_subparsers.add_parser("sleap", help="Import SLEAP package or analysis H5 data.")
+    source_group = sleap.add_mutually_exclusive_group(required=True)
+    source_group.add_argument("--slp", help="Path to the input .pkg.slp archive.")
+    source_group.add_argument("--h5", help="Path to the SLEAP analysis H5 export.")
+    sleap.add_argument("--video", help="Path to the matching video file when using --h5.")
     sleap.add_argument("--out", required=True, help="Output workspace directory.")
+    sleap.add_argument(
+        "--skeleton-name",
+        default="imported",
+        help="Skeleton name to store when importing --h5 tracking data.",
+    )
+    sleap.add_argument(
+        "--threshold",
+        type=_likelihood_threshold,
+        default=0.0,
+        help="Likelihood threshold for including keypoints when using --h5 (0 to 1).",
+    )
     sleap.add_argument(
         "--fps",
         type=_positive_int,
@@ -382,6 +415,20 @@ def _cmd_dlc_project(args: argparse.Namespace) -> int:
 
 
 def _cmd_sleap(args: argparse.Namespace) -> int:
+    if args.h5:
+        if not args.video:
+            raise ValueError("--video is required when converting SLEAP --h5 inputs")
+        result = convert_sleap_h5(
+            args.h5,
+            args.video,
+            args.out,
+            skeleton_name=args.skeleton_name,
+            likelihood_threshold=args.threshold,
+            progress_callback=_emit_progress,
+        )
+        _write_result(result)
+        return 0
+
     result = convert_sleap_package(
         args.slp,
         args.out,
@@ -495,6 +542,21 @@ def _cmd_import_dlc_project(args: argparse.Namespace) -> int:
 
 
 def _cmd_import_sleap(args: argparse.Namespace) -> int:
+    if args.h5:
+        if not args.video:
+            raise ValueError("--video is required when importing SLEAP --h5 inputs")
+        path = import_sleap_h5_workspace(
+            args.h5,
+            args.video,
+            args.out,
+            skeleton_name=args.skeleton_name,
+            likelihood_threshold=args.threshold,
+            progress_callback=_emit_progress,
+        )
+        sys.stdout.write(f"Imported SLEAP H5 into {args.out}\n")
+        _write_path(path)
+        return 0
+
     path = import_sleap_package_workspace(
         args.slp,
         args.out,

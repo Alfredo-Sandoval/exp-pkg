@@ -56,12 +56,31 @@ print(result.project_root)
 
 ## SLEAP
 
+### `convert_sleap_h5(h5_path, video_path, out_path, *, skeleton_name="imported", likelihood_threshold=0.0, progress_callback=None) -> ConversionResult`
+
+Convert a SLEAP analysis H5 tracking export and its matching video into a
+direct `.xpkg` archive.
+
 ### `convert_sleap_package(slp, out_dir, *, fps=30, encode_videos=None, progress_callback=None) -> ConversionResult`
 
 Convert a SLEAP `.pkg.slp` archive into a current `.xpkg` archive output.
 
 - `fps` controls MP4 encoding frame rate when videos are emitted.
 - `encode_videos=False` keeps extracted frame sequences instead of MP4 output.
+
+Example:
+
+```python
+from xpkg.adapters import convert_sleap_h5
+
+result = convert_sleap_h5(
+    "analysis.h5",
+    "session.mp4",
+    "analysis.xpkg",
+    skeleton_name="mouse_topdown",
+    likelihood_threshold=0.1,
+)
+```
 
 Example:
 

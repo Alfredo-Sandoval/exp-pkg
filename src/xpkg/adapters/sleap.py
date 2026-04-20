@@ -46,8 +46,47 @@ def convert_sleap_package(
     )
 
 
+def convert_sleap_h5(
+    h5_path: str,
+    video_path: str,
+    out_path: str,
+    *,
+    skeleton_name: str = "imported",
+    likelihood_threshold: float = 0.0,
+    progress_callback: ProgressCallback | None = None,
+) -> ConversionResult:
+    """Convert a SLEAP analysis H5 export plus its video into a native archive."""
+
+    return _sleap_import.convert_sleap_h5(
+        h5_path,
+        video_path,
+        out_path,
+        skeleton_name=skeleton_name,
+        likelihood_threshold=float(likelihood_threshold),
+        archive_extension=CANONICAL_ARCHIVE_SUFFIX,
+        progress_callback=bridge_progress_callback(
+            progress_callback,
+            _sleap_import.SLEAP_H5_PROGRESS_MARKERS,
+        ),
+    )
+
+
 def _configure_cli_parser(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("--slp", required=True, help="Path to .pkg.slp")
+    source_group = parser.add_mutually_exclusive_group(required=True)
+    source_group.add_argument("--slp", help="Path to .pkg.slp")
+    source_group.add_argument("--h5", help="Path to SLEAP analysis H5")
+    parser.add_argument("--video", help="Path to the matching video when using --h5")
+    parser.add_argument(
+        "--skeleton-name",
+        default="imported",
+        help="Skeleton name to use when importing --h5 tracking files",
+    )
+    parser.add_argument(
+        "--likelihood-threshold",
+        type=float,
+        default=0.0,
+        help="Minimum SLEAP confidence required to keep a keypoint for --h5 imports",
+    )
     parser.add_argument("--fps", type=int, default=30, help="FPS for encoded videos")
     add_bool_toggle_arguments(
         parser,
@@ -60,7 +99,20 @@ def _configure_cli_parser(parser: argparse.ArgumentParser) -> None:
     )
 
 
-def _run_cli(args: argparse.Namespace, _parser: argparse.ArgumentParser) -> int:
+def _run_cli(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
+    if args.h5:
+        if not args.video:
+            parser.error("--video is required when using --h5")
+        convert_sleap_h5(
+            args.h5,
+            args.video,
+            args.out,
+            skeleton_name=args.skeleton_name,
+            likelihood_threshold=float(args.likelihood_threshold),
+            progress_callback=None,
+        )
+        return 0
+
     convert_sleap_package(
         args.slp,
         args.out,
@@ -72,12 +124,21 @@ def _run_cli(args: argparse.Namespace, _parser: argparse.ArgumentParser) -> int:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    """CLI entry point for SLEAP package -> native project conversion."""
+    """CLI entry point for SLEAP package or analysis H5 conversion."""
     runner: CliRunner = _run_cli
-    parser = build_cli_parser(description="Convert SLEAP .pkg.slp to an xpkg project")
-    add_output_path_argument(parser, help_text="Output xpkg project root directory")
+    parser = build_cli_parser(description="Convert SLEAP package or analysis H5 data to xpkg")
+    add_output_path_argument(
+        parser,
+        help_text="Output project root directory for --slp, or output .xpkg path for --h5",
+    )
     _configure_cli_parser(parser)
     return parse_and_run_cli(parser, argv, runner)
 
 
-__all__ = ["ConversionResult", "ProgressCallback", "convert_sleap_package", "main"]
+__all__ = [
+    "ConversionResult",
+    "ProgressCallback",
+    "convert_sleap_h5",
+    "convert_sleap_package",
+    "main",
+]

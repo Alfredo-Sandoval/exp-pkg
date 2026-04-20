@@ -7,6 +7,7 @@ import shutil
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+import numpy as np
 import pandas as pd
 
 from xpkg.core.json_utils import parse_json_dict
@@ -24,8 +25,27 @@ from xpkg.io.converters.converter_helpers import (
 from xpkg.io.converters.converter_helpers import (
     encode_videos as _encode_videos,
 )
+from xpkg.io.converters.dlc_import import (
+    _resolve_tracking_path,
+    _resolve_video_path,
+    _validate_video_alignment,
+    _write_tracking_archive,
+)
 from xpkg.io.converters.sleap_helpers import extract_frames, extract_labels_step4
+from xpkg.io.readers.sleap_analysis_h5 import (
+    read_node_names as _read_sleap_node_names,
+)
+from xpkg.io.readers.sleap_analysis_h5 import (
+    read_track as _read_sleap_track,
+)
+from xpkg.io.readers.sleap_analysis_h5 import (
+    read_track_count as _read_sleap_track_count,
+)
+from xpkg.io.readers.sleap_analysis_h5 import (
+    read_track_names as _read_sleap_track_names,
+)
 from xpkg.io.skeleton_loaders import build_sleap_skeleton
+from xpkg.io.video import Video
 
 if TYPE_CHECKING:
     from xpkg.core.skeleton import Keypoint
@@ -58,6 +78,20 @@ SLEAP_PACKAGE_PROGRESS_MARKERS: tuple[tuple[str, int], ...] = (
     (_OK_ARCHIVE_WRITTEN_MARKER, 92),
     (_CLEANUP_TEMP_MARKER, 96),
     (_DONE_MARKER, 100),
+)
+
+_SLEAP_H5_READ_TRACKS_MARKER = "SLEAP_H5_IMPORT STEP: read_h5"
+_SLEAP_H5_VALIDATE_VIDEO_MARKER = "SLEAP_H5_IMPORT STEP: validate_video"
+_SLEAP_H5_BUILD_LABELS_MARKER = "SLEAP_H5_IMPORT STEP: build_labels"
+_SLEAP_H5_WRITE_ARCHIVE_MARKER = "SLEAP_H5_IMPORT STEP: write_archive"
+_SLEAP_H5_DONE_MARKER = "SLEAP_H5_IMPORT DONE"
+
+SLEAP_H5_PROGRESS_MARKERS: tuple[tuple[str, int], ...] = (
+    (_SLEAP_H5_READ_TRACKS_MARKER, 10),
+    (_SLEAP_H5_VALIDATE_VIDEO_MARKER, 35),
+    (_SLEAP_H5_BUILD_LABELS_MARKER, 60),
+    (_SLEAP_H5_WRITE_ARCHIVE_MARKER, 80),
+    (_SLEAP_H5_DONE_MARKER, 100),
 )
 
 
@@ -144,6 +178,171 @@ def _labels_from_step4_table(
     return labels
 
 
+def _sleap_h5_points_for_frame(
+    coords: np.ndarray,
+    scores: np.ndarray,
+    node_names: list[str],
+    *,
+    likelihood_threshold: float,
+) -> dict[str | Keypoint, Any]:
+    from xpkg.core.annotations import Point
+
+    points: dict[str | Keypoint, Any] = {}
+    for node_idx, node_name in enumerate(node_names):
+        x_val = float(coords[node_idx, 0])
+        y_val = float(coords[node_idx, 1])
+        score_val = float(scores[node_idx])
+        if np.isnan(x_val) or np.isnan(y_val) or np.isnan(score_val):
+            continue
+        if score_val < likelihood_threshold:
+            continue
+        points[node_name] = Point(x_val, y_val, visible=True, complete=True)
+    return points
+
+
+def _validate_sleap_tracks_consistency(
+    tracks: list[Any],
+    *,
+    source_path: Path,
+) -> int:
+    if not tracks:
+        raise ValueError(f"SLEAP analysis H5 contains no tracks: {source_path}")
+
+    reference = tracks[0]
+    frame_count = int(reference.coords.shape[0])
+    node_names = tuple(reference.node_names)
+
+    for track in tracks[1:]:
+        if tuple(track.node_names) != node_names:
+            raise ValueError(
+                "SLEAP analysis H5 track node names do not agree across tracks: "
+                f"{source_path}"
+            )
+        if int(track.coords.shape[0]) != frame_count:
+            raise ValueError(
+                "SLEAP analysis H5 track frame counts do not agree across tracks: "
+                f"{source_path}"
+            )
+    return frame_count
+
+
+def _labels_from_sleap_h5_tracks(
+    tracks: list[Any],
+    track_names: list[str],
+    *,
+    skeleton_name: str,
+    video: Any,
+    likelihood_threshold: float,
+) -> _Labels:
+    from xpkg.core.annotations import Instance, LabeledFrame, Track
+    from xpkg.core.skeleton import build_keypoint_skeleton
+    from xpkg.model import Labels
+
+    frame_count = int(tracks[0].coords.shape[0])
+    node_names = list(tracks[0].node_names)
+    skeleton = build_keypoint_skeleton(node_names, name=skeleton_name)
+
+    labels = Labels(skeletons=[skeleton], videos=[video])
+    normalized_track_names = [
+        name.strip() if isinstance(name, str) and name.strip() else f"track-{track_idx}"
+        for track_idx, name in enumerate(track_names)
+    ]
+    if len(normalized_track_names) < len(tracks):
+        normalized_track_names.extend(
+            f"track-{track_idx}" for track_idx in range(len(normalized_track_names), len(tracks))
+        )
+    track_defs = [
+        Track(spawned_on=track_idx, name=normalized_track_names[track_idx])
+        for track_idx in range(len(tracks))
+    ]
+
+    for frame_idx in range(frame_count):
+        instances: list[Instance] = []
+        for track_idx, track in enumerate(tracks):
+            points = _sleap_h5_points_for_frame(
+                track.coords[frame_idx],
+                track.scores[frame_idx],
+                node_names,
+                likelihood_threshold=likelihood_threshold,
+            )
+            if not points:
+                continue
+            instances.append(
+                Instance(
+                    skeleton=skeleton,
+                    track=track_defs[track_idx],
+                    tracking_score=float(track.instance_score[frame_idx]),
+                    init_points=points,
+                )
+            )
+        if not instances:
+            continue
+        labels.append(LabeledFrame(video=video, frame_idx=frame_idx, instances=instances))
+
+    labels.update_cache()
+    return labels
+
+
+def convert_sleap_h5(
+    h5_path: Path | str,
+    video_path: Path | str,
+    out_path: Path | str,
+    *,
+    skeleton_name: str = "imported",
+    likelihood_threshold: float = 0.0,
+    archive_extension: str = CANONICAL_ARCHIVE_SUFFIX,
+    progress_callback: ProgressCallback | None = None,
+) -> ConversionResult:
+    """Convert a SLEAP analysis H5 export plus its video into a native archive."""
+
+    resolved_h5_path = _resolve_tracking_path(h5_path)
+    resolved_video_path = _resolve_video_path(video_path)
+    resolved_out_path = resolve_path(out_path)
+
+    _emit(progress_callback, _SLEAP_H5_READ_TRACKS_MARKER)
+    track_count = _read_sleap_track_count(resolved_h5_path)
+    if track_count <= 0:
+        raise ValueError(f"SLEAP analysis H5 contains no tracks: {resolved_h5_path}")
+    node_names = _read_sleap_node_names(resolved_h5_path)
+    track_names = _read_sleap_track_names(resolved_h5_path)
+    tracks = [
+        _read_sleap_track(resolved_h5_path, track_index=track_idx)
+        for track_idx in range(track_count)
+    ]
+    frame_count = _validate_sleap_tracks_consistency(tracks, source_path=resolved_h5_path)
+    _emit(
+        progress_callback,
+        f"IMPORT: Found {track_count} tracks, {len(node_names)} keypoints, {frame_count} frames",
+    )
+
+    _emit(progress_callback, _SLEAP_H5_VALIDATE_VIDEO_MARKER)
+    video = Video.from_filename(resolved_video_path.as_posix())
+    _validate_video_alignment([video], required_frames=frame_count)
+
+    _emit(progress_callback, _SLEAP_H5_BUILD_LABELS_MARKER)
+    labels = _labels_from_sleap_h5_tracks(
+        tracks,
+        track_names,
+        skeleton_name=skeleton_name,
+        video=video,
+        likelihood_threshold=likelihood_threshold,
+    )
+    labels.validate()
+
+    _emit(progress_callback, _SLEAP_H5_WRITE_ARCHIVE_MARKER)
+    result = _write_tracking_archive(
+        labels,
+        out_path=resolved_out_path,
+        data_path=resolved_h5_path,
+        video_path=resolved_video_path,
+        source_label="sleap_h5_import",
+        source_metadata_key="source_h5",
+        progress_callback=progress_callback,
+    )
+    _emit(progress_callback, _SLEAP_H5_DONE_MARKER)
+    return result
+
+
 def convert_sleap_package(
     slp: Path | str,
     out_dir: Path | str,
@@ -227,4 +426,9 @@ def convert_sleap_package(
     return result
 
 
-__all__ = ["SLEAP_PACKAGE_PROGRESS_MARKERS", "convert_sleap_package"]
+__all__ = [
+    "SLEAP_H5_PROGRESS_MARKERS",
+    "SLEAP_PACKAGE_PROGRESS_MARKERS",
+    "convert_sleap_h5",
+    "convert_sleap_package",
+]

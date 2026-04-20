@@ -28,6 +28,24 @@ def read_node_names(path: Path) -> list[str]:
     return [_decode_node_name(name) for name in names]
 
 
+def read_track_count(path: Path) -> int:
+    """Return the number of tracked instances stored in a SLEAP analysis H5."""
+    with h5py.File(path, "r") as handle:
+        tracks = handle["tracks"]
+        return int(tracks.shape[0])
+
+
+def read_track_names(path: Path) -> list[str]:
+    """Return decoded track names from a SLEAP analysis H5 when available."""
+    with h5py.File(path, "r") as handle:
+        track_names_ds = handle.get("track_names")
+        if isinstance(track_names_ds, h5py.Dataset):
+            names = np.asarray(track_names_ds[...])
+            return [_decode_node_name(name) for name in names]
+        track_count = int(handle["tracks"].shape[0])
+    return [f"track-{track_idx}" for track_idx in range(track_count)]
+
+
 def read_track(path: Path, *, track_index: int) -> PoseTrack:
     """Read one track from a SLEAP analysis H5 export."""
     idx = int(track_index)
@@ -88,6 +106,8 @@ def resolve_node_indices(path: Path, target_names: Sequence[str]) -> list[int]:
 
 __all__ = [
     "PoseTrack",
+    "read_track_count",
+    "read_track_names",
     "read_node_names",
     "read_track",
     "resolve_node_indices",

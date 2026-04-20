@@ -9,6 +9,8 @@ import pytest
 from xpkg.io.readers.sleap_analysis_h5 import (
     read_node_names,
     read_track,
+    read_track_count,
+    read_track_names,
     resolve_node_indices,
 )
 
@@ -58,6 +60,14 @@ def test_read_node_names_decodes_utf8_bytes(tmp_path: Path) -> None:
     names = read_node_names(path)
 
     assert names == ["HIP", "KNEE", "ANKLE", "TOE"]
+
+
+def test_read_track_count_and_names(tmp_path: Path) -> None:
+    path = tmp_path / "analysis.h5"
+    _write_sleap_analysis_h5(path)
+
+    assert read_track_count(path) == 2
+    assert read_track_names(path) == ["track_0", "track_1"]
 
 
 @pytest.mark.parametrize("track_index", [0, 1])

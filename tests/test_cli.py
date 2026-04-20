@@ -181,6 +181,67 @@ def test_cli_routes_sleap(monkeypatch, capsys) -> None:
     assert "sleap-export/project.xpkg" in stdout
 
 
+def test_cli_routes_sleap_h5(monkeypatch, capsys) -> None:
+    from xpkg.adapters import ConversionResult
+    from xpkg.cli import main
+
+    captured: dict[str, object] = {}
+
+    def fake_convert_sleap_h5(
+        h5_path: str,
+        video_path: str,
+        out_path: str,
+        *,
+        skeleton_name: str,
+        likelihood_threshold: float,
+        progress_callback,
+    ) -> ConversionResult:
+        captured["h5_path"] = h5_path
+        captured["video_path"] = video_path
+        captured["out_path"] = out_path
+        captured["skeleton_name"] = skeleton_name
+        captured["likelihood_threshold"] = likelihood_threshold
+        progress_callback("sleap-h5-progress")
+        return ConversionResult(
+            source_dir=Path(h5_path),
+            project_root=Path(out_path).parent,
+            videos=[Path(video_path)],
+            archive_path=Path(out_path),
+        )
+
+    monkeypatch.setattr("xpkg.cli.convert_sleap_h5", fake_convert_sleap_h5)
+
+    code = main(
+        [
+            "convert",
+            "sleap",
+            "--h5",
+            "analysis.h5",
+            "--video",
+            "clip.mp4",
+            "--out",
+            "analysis.xpkg",
+            "--skeleton-name",
+            "mouse",
+            "--threshold",
+            "0.25",
+        ]
+    )
+
+    assert code == 0
+    assert captured == {
+        "h5_path": "analysis.h5",
+        "video_path": "clip.mp4",
+        "out_path": "analysis.xpkg",
+        "skeleton_name": "mouse",
+        "likelihood_threshold": 0.25,
+    }
+
+    stdout = capsys.readouterr().out
+    assert "sleap-h5-progress" in stdout
+    assert "analysis.xpkg" in stdout
+
+
 def test_cli_routes_init_workspace(monkeypatch, capsys) -> None:
     from xpkg.cli import main
 
@@ -336,6 +397,67 @@ def test_cli_routes_import_dlc_csv_workspace(monkeypatch, capsys) -> None:
     stdout = capsys.readouterr().out
     assert "import-progress" in stdout
     assert "Imported DLC CSV into My Project" in stdout
+    assert ".xpkg/state/current.json" in stdout
+
+
+def test_cli_routes_import_sleap_h5_workspace(monkeypatch, capsys) -> None:
+    from xpkg.cli import main
+
+    captured: dict[str, object] = {}
+
+    def fake_import_sleap_h5_workspace(
+        h5_path: str,
+        video_path: str,
+        workspace: str,
+        *,
+        skeleton_name: str,
+        likelihood_threshold: float,
+        default_pack_mode: str = "portable",
+        force: bool = False,
+        progress_callback,
+    ) -> Path:
+        captured["h5_path"] = h5_path
+        captured["video_path"] = video_path
+        captured["workspace"] = workspace
+        captured["skeleton_name"] = skeleton_name
+        captured["likelihood_threshold"] = likelihood_threshold
+        captured["default_pack_mode"] = default_pack_mode
+        captured["force"] = force
+        progress_callback("sleap-h5-import-progress")
+        return Path(workspace) / ".xpkg" / "state" / "current.json"
+
+    monkeypatch.setattr("xpkg.cli.import_sleap_h5_workspace", fake_import_sleap_h5_workspace)
+
+    code = main(
+        [
+            "import",
+            "sleap",
+            "--h5",
+            "analysis.h5",
+            "--video",
+            "clip.mp4",
+            "--out",
+            "My Project",
+            "--skeleton-name",
+            "mouse",
+            "--threshold",
+            "0.25",
+        ]
+    )
+
+    assert code == 0
+    assert captured == {
+        "h5_path": "analysis.h5",
+        "video_path": "clip.mp4",
+        "workspace": "My Project",
+        "skeleton_name": "mouse",
+        "likelihood_threshold": 0.25,
+        "default_pack_mode": "portable",
+        "force": False,
+    }
+    stdout = capsys.readouterr().out
+    assert "sleap-h5-import-progress" in stdout
+    assert "Imported SLEAP H5 into My Project" in stdout
     assert ".xpkg/state/current.json" in stdout
 
 

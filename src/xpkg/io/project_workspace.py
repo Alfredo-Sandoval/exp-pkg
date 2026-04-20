@@ -899,6 +899,53 @@ def import_sleap_package_workspace(
     return snapshot_path
 
 
+def import_sleap_h5_workspace(
+    h5_path: str | Path,
+    video_path: str | Path,
+    workspace: str | Path,
+    *,
+    skeleton_name: str = "imported",
+    likelihood_threshold: float = 0.0,
+    default_pack_mode: PackMode = "portable",
+    force: bool = False,
+    progress_callback: Any | None = None,
+) -> Path:
+    from xpkg.io.converters.sleap_import import convert_sleap_h5
+
+    root = _ensure_workspace_for_import(
+        workspace,
+        default_pack_mode=default_pack_mode,
+        force=force,
+    )
+    from xpkg.model import Labels
+
+    stage_parent = _stage_archive_parent(root)
+    with tempfile.TemporaryDirectory(
+        prefix=".workspace_import_",
+        dir=str(stage_parent),
+    ) as tmp_dir:
+        staged_archive = Path(tmp_dir) / f"sleap_h5{CANONICAL_ARCHIVE_SUFFIX}"
+        convert_sleap_h5(
+            h5_path,
+            video_path,
+            staged_archive,
+            skeleton_name=skeleton_name,
+            likelihood_threshold=likelihood_threshold,
+            progress_callback=progress_callback,
+        )
+        labels = Labels.load_file(staged_archive.as_posix())
+        payload = read_archive(staged_archive, lazy=False)
+        snapshot_path = _commit_labels_to_workspace(
+            root,
+            labels=labels,
+            metadata=_snapshot_metadata(payload),
+            predictions=_predictions_payload_from_state_payload(payload),
+            reason="workspace.import.sleap_h5",
+        )
+    _touch_descriptor(root)
+    return snapshot_path
+
+
 def save_workspace_labels(
     workspace: str | Path,
     labels: Labels,
@@ -982,6 +1029,7 @@ __all__ = [
     "EXPORTS_DIRNAME",
     "import_dlc_csv_workspace",
     "import_dlc_h5_workspace",
+    "import_sleap_h5_workspace",
     "import_sleap_package_workspace",
     "MEDIA_DIRNAME",
     "PROJECT_DESCRIPTOR_FILENAME",

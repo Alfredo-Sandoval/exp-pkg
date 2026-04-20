@@ -8,7 +8,7 @@ from xpkg.adapters.dlc import (
     convert_dlc_h5_project,
     convert_dlc_project,
 )
-from xpkg.adapters.sleap import convert_sleap_package
+from xpkg.adapters.sleap import convert_sleap_h5, convert_sleap_package
 from xpkg.io.converters.converter_helpers import ConversionResult
 
 __all__ = [
@@ -17,5 +17,6 @@ __all__ = [
     "convert_dlc_h5",
     "convert_dlc_h5_project",
     "convert_dlc_project",
+    "convert_sleap_h5",
     "convert_sleap_package",
 ]

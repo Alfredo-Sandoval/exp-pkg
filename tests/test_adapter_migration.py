@@ -269,6 +269,69 @@ def test_sleap_adapter_bridges_progress_and_uses_xpkg_extension(monkeypatch) -> 
     assert result.archive_path == Path("project") / "project.xpkg"
 
 
+def test_sleap_h5_adapter_bridges_progress_and_uses_xpkg_extension(monkeypatch) -> None:
+    from xpkg.adapters.sleap import convert_sleap_h5
+
+    captured: dict[str, object] = {}
+    progress_events: list[tuple[int, str]] = []
+
+    def fake_convert_sleap_h5(
+        h5_path: str,
+        video_path: str,
+        out_path: str,
+        *,
+        skeleton_name: str,
+        likelihood_threshold: float,
+        archive_extension: str,
+        progress_callback,
+    ) -> ConversionResult:
+        captured["h5_path"] = h5_path
+        captured["video_path"] = video_path
+        captured["out_path"] = out_path
+        captured["skeleton_name"] = skeleton_name
+        captured["likelihood_threshold"] = likelihood_threshold
+        captured["archive_extension"] = archive_extension
+        assert progress_callback is not None
+        progress_callback("SLEAP_H5_IMPORT STEP: read_h5")
+        progress_callback("SLEAP_H5_IMPORT STEP: build_labels")
+        progress_callback("SLEAP_H5_IMPORT DONE")
+        return ConversionResult(
+            source_dir=Path(h5_path),
+            project_root=Path(out_path).parent,
+            videos=[Path(video_path)],
+            archive_path=Path(out_path),
+        )
+
+    monkeypatch.setattr(
+        "xpkg.io.converters.sleap_import.convert_sleap_h5",
+        fake_convert_sleap_h5,
+    )
+
+    result = convert_sleap_h5(
+        "analysis.h5",
+        "clip.mp4",
+        "project.xpkg",
+        skeleton_name="mouse",
+        likelihood_threshold=0.25,
+        progress_callback=lambda progress, message: progress_events.append((progress, message)),
+    )
+
+    assert captured == {
+        "h5_path": "analysis.h5",
+        "video_path": "clip.mp4",
+        "out_path": "project.xpkg",
+        "skeleton_name": "mouse",
+        "likelihood_threshold": 0.25,
+        "archive_extension": ".xpkg",
+    }
+    assert progress_events == [
+        (10, "SLEAP_H5_IMPORT STEP: read_h5"),
+        (60, "SLEAP_H5_IMPORT STEP: build_labels"),
+        (100, "SLEAP_H5_IMPORT DONE"),
+    ]
+    assert result.archive_path == Path("project.xpkg")
+
+
 def test_sleap_adapter_main_routes_cli_arguments(monkeypatch, tmp_path: Path) -> None:
     from xpkg.adapters.sleap import main
 
@@ -313,4 +376,57 @@ def test_sleap_adapter_main_routes_cli_arguments(monkeypatch, tmp_path: Path) ->
     assert captured["out_dir"] == str(tmp_path / "project")
     assert captured["fps"] == 24
     assert captured["encode_videos"] is False
+    assert captured["progress_callback"] is None
+
+
+def test_sleap_h5_adapter_main_routes_cli_arguments(monkeypatch, tmp_path: Path) -> None:
+    from xpkg.adapters.sleap import main
+
+    captured: dict[str, object] = {}
+
+    def fake_convert_sleap_h5(
+        h5_path: str,
+        video_path: str,
+        out_path: str,
+        *,
+        skeleton_name: str,
+        likelihood_threshold: float,
+        progress_callback,
+    ) -> ConversionResult:
+        captured["h5_path"] = h5_path
+        captured["video_path"] = video_path
+        captured["out_path"] = out_path
+        captured["skeleton_name"] = skeleton_name
+        captured["likelihood_threshold"] = likelihood_threshold
+        captured["progress_callback"] = progress_callback
+        return ConversionResult(
+            source_dir=Path(h5_path),
+            project_root=Path(out_path).parent,
+            videos=[Path(video_path)],
+            archive_path=Path(out_path),
+        )
+
+    monkeypatch.setattr("xpkg.adapters.sleap.convert_sleap_h5", fake_convert_sleap_h5)
+
+    rc = main(
+        [
+            "--h5",
+            str(tmp_path / "input.analysis.h5"),
+            "--video",
+            str(tmp_path / "clip.mp4"),
+            "--out",
+            str(tmp_path / "project.xpkg"),
+            "--skeleton-name",
+            "mouse",
+            "--likelihood-threshold",
+            "0.2",
+        ]
+    )
+
+    assert rc == 0
+    assert captured["h5_path"] == str(tmp_path / "input.analysis.h5")
+    assert captured["video_path"] == str(tmp_path / "clip.mp4")
+    assert captured["out_path"] == str(tmp_path / "project.xpkg")
+    assert captured["skeleton_name"] == "mouse"
+    assert captured["likelihood_threshold"] == 0.2
     assert captured["progress_callback"] is None
