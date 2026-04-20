@@ -5,11 +5,12 @@ from __future__ import annotations
 from collections.abc import Sequence
 from pathlib import Path
 
-from . import dlc, mmpose, sleap_analysis_h5
+from . import dlc, mediapipe_pose_landmarks, mmpose, sleap_analysis_h5
 from ._common import PoseTrack
 
 _SLEAP_FILE_TYPES = {"h5", "hdf5"}
 _DLC_FILE_TYPES = {"csv", "h5", "hdf5"}
+_MEDIAPIPE_FILE_TYPES = {"json"}
 _MMPOSE_FILE_TYPES = {"json"}
 
 
@@ -45,6 +46,13 @@ def _resolve_reader(software: str, file_type: str) -> tuple[str, str]:
             )
         return normalized_software, normalized_file_type
 
+    if normalized_software == "MEDIAPIPE":
+        if normalized_file_type not in _MEDIAPIPE_FILE_TYPES:
+            raise ValueError(
+                f"Unsupported MEDIAPIPE file_type {file_type!r}. Expected one of ['json']."
+            )
+        return normalized_software, normalized_file_type
+
     if normalized_software == "MMPOSE":
         if normalized_file_type not in _MMPOSE_FILE_TYPES:
             raise ValueError(
@@ -54,7 +62,7 @@ def _resolve_reader(software: str, file_type: str) -> tuple[str, str]:
 
     raise ValueError(
         "Unsupported software "
-        f"{software!r}. Expected one of ['DLC', 'MMPose', 'SLEAP']."
+        f"{software!r}. Expected one of ['DLC', 'MEDIAPIPE', 'MMPose', 'SLEAP']."
     )
 
 
@@ -72,6 +80,8 @@ def read_pose_track(
 
     if normalized_software == "SLEAP":
         return sleap_analysis_h5.read_track(resolved_path, track_index=track_index)
+    if normalized_software == "MEDIAPIPE":
+        return mediapipe_pose_landmarks.read_track(resolved_path, track_index=track_index)
     if normalized_software == "MMPOSE":
         return mmpose.read_track(resolved_path, track_index=track_index)
     return dlc.read_track(
@@ -94,6 +104,8 @@ def read_pose_node_names(
 
     if normalized_software == "SLEAP":
         return sleap_analysis_h5.read_node_names(resolved_path)
+    if normalized_software == "MEDIAPIPE":
+        return mediapipe_pose_landmarks.read_node_names(resolved_path)
     if normalized_software == "MMPOSE":
         return mmpose.read_node_names(resolved_path)
     return dlc.read_node_names(resolved_path, file_type=normalized_file_type)
@@ -113,6 +125,8 @@ def resolve_pose_node_indices(
 
     if normalized_software == "SLEAP":
         return sleap_analysis_h5.resolve_node_indices(resolved_path, target_names)
+    if normalized_software == "MEDIAPIPE":
+        return mediapipe_pose_landmarks.resolve_node_indices(resolved_path, target_names)
     if normalized_software == "MMPOSE":
         return mmpose.resolve_node_indices(resolved_path, list(target_names))
     return dlc.resolve_node_indices(
