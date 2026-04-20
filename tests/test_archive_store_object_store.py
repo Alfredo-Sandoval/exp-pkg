@@ -50,7 +50,10 @@ def test_store_roundtrip_preserves_snapshot_root_suffix(tmp_path: Path) -> None:
         tmp_path / "project.xpkg",
         {"snapshot": initial_snapshot},
     )
+    current_entry = store.current_root_entry("snapshot")
     current = store.current_root_path("snapshot")
+    assert current_entry.ext == ".json"
+    assert current_entry.object_id.startswith("obj_")
     assert current.suffix == ".json"
     assert current.read_text(encoding="utf-8") == '{"version": 1}'
 

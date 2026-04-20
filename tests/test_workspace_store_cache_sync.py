@@ -8,8 +8,8 @@ import numpy as np
 
 from xpkg.core.annotations import Instance, LabeledFrame, Point
 from xpkg.formats import (
-    current_project_archive_path,
     current_project_snapshot_path,
+    export_project_archive,
     init_project,
     save_workspace_labels,
 )
@@ -67,7 +67,7 @@ def test_save_workspace_labels_creates_durable_head_and_snapshot_commit_id(tmp_p
     assert snapshot_commit_id(snapshot_payload) == commit_id
 
 
-def test_current_project_archive_path_materializes_archive_on_demand(tmp_path: Path) -> None:
+def test_export_project_archive_materializes_archive_on_demand(tmp_path: Path) -> None:
     workspace = tmp_path / "Project"
     init_project(workspace, title="Project")
 
@@ -77,7 +77,7 @@ def test_current_project_archive_path_materializes_archive_on_demand(tmp_path: P
     materialized_archive = workspace / ".xpkg" / "state" / "current.xpkg"
     assert not materialized_archive.exists()
 
-    archive_path = current_project_archive_path(workspace)
+    archive_path = export_project_archive(workspace)
     assert archive_path == materialized_archive
     assert archive_path.exists()
 
@@ -85,6 +85,26 @@ def test_current_project_archive_path_materializes_archive_on_demand(tmp_path: P
     pts = loaded.labeled_frames[0].instances[0].get_points_array(copy=False, full=True)
     assert float(pts["x"][0]) == 5.0
     assert float(pts["y"][0]) == 6.0
+
+
+def test_export_project_archive_supports_explicit_output_path(tmp_path: Path) -> None:
+    workspace = tmp_path / "Project"
+    init_project(workspace, title="Project")
+
+    labels = _make_labels(tmp_path, x=7.0, y=8.0)
+    save_workspace_labels(workspace, labels)
+
+    explicit_archive = tmp_path / "exported.xpkg"
+    archive_path = export_project_archive(workspace, out=explicit_archive)
+
+    assert archive_path == explicit_archive
+    assert archive_path.exists()
+    assert not (workspace / ".xpkg" / "state" / "current.xpkg").exists()
+
+    loaded = Labels.load_file(archive_path.as_posix())
+    pts = loaded.labeled_frames[0].instances[0].get_points_array(copy=False, full=True)
+    assert float(pts["x"][0]) == 7.0
+    assert float(pts["y"][0]) == 8.0
 
 
 def test_workspace_load_ignores_snapshot_when_commit_id_mismatches_head(tmp_path: Path) -> None:

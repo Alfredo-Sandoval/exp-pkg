@@ -28,7 +28,10 @@ Today xpkg has four storage ideas in play:
 The important shift is that normal workspace save/import/migrate flows no
 longer commit archive blobs first. They commit a workspace-native snapshot into
 the durable store, then materialize `.xpkg/state/current.json` as the local
-cache for fast reopening.
+cache for fast reopening. Older workspaces that still only carry
+`.xpkg/state/current.xpkg` are no longer auto-adopted by workspace-first load
+or save helpers; they must be cut over explicitly with
+`migrate_legacy_archive(...)`.
 
 ## Durable Store Contract
 
@@ -44,6 +47,8 @@ The missing cutover was runtime behavior. The store now uses that generic
 
 - workspace-native commits store `roots["snapshot"]`
 - legacy/archive-backed heads may still store `roots["archive"]`
+- commit roots now hydrate through typed `RootEntry` values instead of raw
+  root dictionaries
 - the embedded `xpkg_commit_id` in `.xpkg/state/current.json` must match the
   durable head before the snapshot cache is trusted
 
@@ -57,9 +62,9 @@ The archive engine is still valuable, but its role is narrower now.
 Archive handling remains appropriate for:
 
 - explicit `.xpkg` archive workflows
+- explicit archive export through `export_project_archive(...)`
 - migration/import of older archives
 - fixtures and compatibility coverage
-- explicit archive materialization when an archive-facing helper is called
 
 Archive handling is no longer the normal committed workspace write path.
 
@@ -82,12 +87,11 @@ The cutover is materially forward, but not finished.
 
 Remaining seams include:
 
-1. The workspace loader still needs archive fallback for older workspaces and
-   legacy store heads.
-2. Explicit archive-facing helpers still require lazy archive materialization
-   from the committed workspace snapshot when no archive root exists.
-3. Some architectural docs and tests still assume “store head equals archive
-   blob” and must be retired as the new baseline hardens.
+1. `current_project_archive_path(...)` still exists as a compatibility-shaped
+   convenience over the clearer `export_project_archive(...)` surface.
+2. Some architectural docs and tests may still assume “store head equals
+   archive blob” and should keep getting retired as touched surfaces move
+   fully workspace-first.
 
 ## Recommended Position
 

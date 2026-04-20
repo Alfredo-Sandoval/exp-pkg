@@ -20,7 +20,7 @@ from xpkg.io.archive_store.lock import StoreLock
 from xpkg.io.archive_store.object_store import get_object_file, put_object_file
 from xpkg.io.archive_store.paths import StorePaths
 from xpkg.io.archive_store.platform_io import atomic_write_json
-from xpkg.io.archive_store.schema import Commit, Journal, Superblock, now_utc_iso
+from xpkg.io.archive_store.schema import Commit, Journal, RootEntry, Superblock, now_utc_iso
 
 _SUPPORTED_STORE_VERSION = 1
 _STORE_FORMAT = "xpkg.archive-store"
@@ -100,8 +100,8 @@ def _inactive_slot(active: Literal["a", "b"]) -> Literal["a", "b"]:
     return "b" if active == "a" else "a"
 
 
-def _commit_root_entry(object_id: str, *, ext: str) -> dict[str, str]:
-    return {"object_id": object_id, "ext": ext}
+def _commit_root_entry(object_id: str, *, ext: str) -> RootEntry:
+    return RootEntry(object_id=object_id, ext=ext)
 
 
 def _normalize_root_name(root_name: str) -> str:
@@ -123,11 +123,11 @@ def _object_ext_for_root(root_name: str, path: Path) -> str:
 def _commit_root_entries(
     paths: StorePaths,
     root_paths: Mapping[str, Path],
-) -> dict[str, dict[str, str]]:
+) -> dict[str, RootEntry]:
     if not root_paths:
         raise ValueError("root_paths must contain at least one entry")
 
-    entries: dict[str, dict[str, str]] = {}
+    entries: dict[str, RootEntry] = {}
     for raw_root_name, raw_path in root_paths.items():
         root_name = _normalize_root_name(raw_root_name)
         candidate_path = Path(raw_path)
@@ -333,22 +333,25 @@ class ArchiveStore:
 
     def has_current_root(self, root_name: str) -> bool:
         commit = self.load_current_commit()
-        return _normalize_root_name(root_name) in commit.roots
+        return commit.has_root(_normalize_root_name(root_name))
 
     def current_archive_path(self) -> Path:
         """Return the current immutable archive payload path."""
         return self.current_root_path("archive")
 
-    def current_root_path(self, root_name: str) -> Path:
-        """Return the current immutable payload path for a named commit root."""
+    def current_root_entry(self, root_name: str) -> RootEntry:
+        """Return the typed current commit entry for a named root."""
         commit = self.load_current_commit()
         normalized_root_name = _normalize_root_name(root_name)
-        root = commit.roots.get(normalized_root_name)
-        if not isinstance(root, dict):
-            raise StoreCorruptionError(f"Commit missing roots.{normalized_root_name}")
-        object_id = str(root.get("object_id", ""))
-        ext = str(root.get("ext", _object_ext_for_root(normalized_root_name, Path("payload"))))
-        path = get_object_file(self.paths, object_id, ext=ext)
+        try:
+            return commit.root_entry(normalized_root_name)
+        except KeyError as exc:
+            raise StoreCorruptionError(f"Commit missing roots.{normalized_root_name}") from exc
+
+    def current_root_path(self, root_name: str) -> Path:
+        """Return the current immutable payload path for a named commit root."""
+        root_entry = self.current_root_entry(root_name)
+        path = get_object_file(self.paths, root_entry.object_id, ext=root_entry.ext)
         if not path.exists():
             raise StoreCorruptionError(f"Commit root object missing: {path}")
         return path
@@ -396,11 +399,7 @@ class ArchiveStore:
             write_journal(paths.active_journal, journal.to_dict())
 
             root_entries = _commit_root_entries(paths, root_paths)
-            object_ids = [
-                str(root_entry.get("object_id", ""))
-                for root_entry in root_entries.values()
-                if isinstance(root_entry, dict)
-            ]
+            object_ids = [root_entry.object_id for root_entry in root_entries.values()]
             journal.new_object_id = object_ids[0] if object_ids else None
             journal.updated_at = now_utc_iso()
             journal.state = "validating"

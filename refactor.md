@@ -22,7 +22,9 @@ The storage model is now meaningfully cut over:
 - workspace load prefers the snapshot cache only when its embedded
   `xpkg_commit_id` matches the durable head
 - stale or missing snapshot caches rebuild from the committed durable head
-- legacy archive-backed workspaces still open through explicit archive fallback
+- pre-cutover workspaces with only `.xpkg/state/current.xpkg` now require
+  explicit `migrate_legacy_archive(...)` cutover before workspace-first
+  load/save helpers are used
 
 Archive support still exists, but it is no longer the normal committed
 workspace write path.
@@ -75,7 +77,8 @@ Progress:
 - normal workspace save/import/migrate commit `roots["snapshot"]`
 - `.xpkg/state/current.json` is rebuilt from committed workspace-native state
 - stale snapshot protection still keys off the durable commit id
-- archive-backed heads remain readable for older workspaces
+- archive-backed durable heads remain readable where they still exist, but
+  pre-cutover workspaces no longer auto-adopt legacy archive state
 
 ### Phase 4: Demote archive handling to explicit compatibility
 
@@ -83,12 +86,20 @@ Goal:
 
 - keep direct `.xpkg` archive handling available only where it is still needed
 
+Progress:
+
+- durable-store commit roots now hydrate through typed `RootEntry` values
+  instead of raw root dictionaries
+- explicit archive materialization now routes through
+  `export_project_archive(...)`
+
 Current allowed uses:
 
-- explicit archive import/export workflows
+- explicit archive import workflows
+- explicit archive export via `export_project_archive(...)`
 - migration from older archive-backed state
 - compatibility fixtures and tests
-- lazy archive materialization for archive-facing helpers
+- compatibility helpers that still expose archive paths
 
 Current disallowed direction:
 
@@ -97,12 +108,8 @@ Current disallowed direction:
 
 ## Remaining Seams
 
-- decide how long the workspace loader should keep automatic archive fallback
-  for older workspaces
-- consider adding typed root-entry helpers in the durable-store schema instead
-  of raw root dictionaries
-- consider whether explicit archive materialization should stay a helper-level
-  behavior or move behind a more explicit export API
+- decide if/when `current_project_archive_path(...)` should be retired in
+  favor of `export_project_archive(...)`
 - keep shrinking archive-first assumptions in tests and docs
 
 ## Known Hotspots

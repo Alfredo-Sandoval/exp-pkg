@@ -319,36 +319,51 @@ def test_pack_portable_and_unpack_uses_managed_media_after_source_removal(tmp_pa
             assert resolved.exists()
 
 
-def test_workspace_load_auto_adopts_current_state_archive(tmp_path: Path) -> None:
+def test_legacy_workspace_current_state_archive_requires_explicit_cutover(tmp_path: Path) -> None:
     from xpkg.compat import write_xpkg
     from xpkg.formats import (
         current_project_archive_path,
+        current_project_state_path,
         init_project,
         workspace_state_root,
         workspace_store_root,
     )
+    from xpkg.io.project_workspace import LegacyWorkspaceMigrationRequiredError
     from xpkg.model import Labels
 
     source_root = tmp_path / "source"
     source_root.mkdir()
-    labels = _make_labels(source_root, x=9.0, y=10.0)
+    legacy_labels = _make_labels(source_root, x=9.0, y=10.0)
+    updated_labels = _make_labels(source_root, x=11.0, y=12.0)
 
     workspace = tmp_path / "Legacy Workspace"
     init_project(workspace, title="Legacy Workspace")
     current_state_archive = workspace_state_root(workspace) / "current.xpkg"
     current_state_archive.parent.mkdir(parents=True, exist_ok=True)
-    write_xpkg(current_state_archive, labels)
+    write_xpkg(current_state_archive, legacy_labels)
 
-    loaded = Labels.load_file(workspace.as_posix())
-    pts = loaded.labeled_frames[0].instances[0].get_points_array(copy=False, full=True)
-    assert float(pts["x"][0]) == 9.0
-    assert float(pts["y"][0]) == 10.0
+    with pytest.raises(
+        LegacyWorkspaceMigrationRequiredError,
+        match="migrate_legacy_archive",
+    ):
+        Labels.load_file(workspace.as_posix())
 
-    current_archive = current_project_archive_path(workspace)
-    assert current_archive.exists()
-    assert current_archive != current_state_archive
-    assert (workspace_store_root(workspace) / "superblock.a.json").is_file()
-    assert not current_state_archive.exists()
+    with pytest.raises(
+        LegacyWorkspaceMigrationRequiredError,
+        match="migrate_legacy_archive",
+    ):
+        Labels.save_file(updated_labels, workspace.as_posix())
+
+    with pytest.raises(
+        LegacyWorkspaceMigrationRequiredError,
+        match="migrate_legacy_archive",
+    ):
+        current_project_archive_path(workspace)
+
+    assert current_project_state_path(workspace) == workspace_state_root(workspace) / "current.json"
+    assert not current_project_state_path(workspace).exists()
+    assert current_state_archive.exists()
+    assert not (workspace_store_root(workspace) / "superblock.a.json").exists()
 
 
 def test_labels_save_file_to_workspace_creates_first_committed_state(tmp_path: Path) -> None:
@@ -508,8 +523,8 @@ def test_workspace_load_ignores_stale_snapshot_when_commit_id_mismatches(tmp_pat
 def test_summarize_project_and_validate_project_read_labels_video_group(tmp_path: Path) -> None:
     from xpkg.compat import summarize_xpkg, validate_xpkg
     from xpkg.formats import (
-        current_project_archive_path,
         current_project_snapshot_path,
+        export_project_archive,
         init_project,
     )
     from xpkg.model import Labels
@@ -521,7 +536,7 @@ def test_summarize_project_and_validate_project_read_labels_video_group(tmp_path
     init_project(workspace, title="Summary Project")
 
     saved_target = Labels.save_file(labels, workspace.as_posix())
-    archive = current_project_archive_path(workspace)
+    archive = export_project_archive(workspace)
     labels.save_file(labels, archive.as_posix())
     summary = summarize_xpkg(archive)
 

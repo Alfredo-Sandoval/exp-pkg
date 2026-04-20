@@ -14,6 +14,29 @@ def now_utc_iso() -> str:
 
 
 @dataclass(slots=True)
+class RootEntry:
+    object_id: str
+    ext: str
+
+    def to_dict(self) -> dict[str, str]:
+        return {
+            "object_id": str(self.object_id),
+            "ext": str(self.ext),
+        }
+
+    @classmethod
+    def from_dict(cls, payload: Mapping[str, Any], *, root_name: str | None = None) -> RootEntry:
+        location = f"roots.{root_name}" if root_name else "root entry"
+        object_id = str(payload.get("object_id", "")).strip()
+        if not object_id:
+            raise ValueError(f"{location} is missing object_id")
+        ext = str(payload.get("ext", "")).strip()
+        if not ext:
+            raise ValueError(f"{location} is missing ext")
+        return cls(object_id=object_id, ext=ext)
+
+
+@dataclass(slots=True)
 class Superblock:
     format: str
     store_version: int
@@ -75,7 +98,7 @@ class Commit:
     created_at: str
     reason: str
     created_by: dict[str, Any]
-    roots: dict[str, Any]
+    roots: dict[str, RootEntry]
     checksum: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
@@ -86,7 +109,10 @@ class Commit:
             "created_at": str(self.created_at),
             "reason": str(self.reason),
             "created_by": dict(self.created_by),
-            "roots": dict(self.roots),
+            "roots": {
+                str(root_name): root_entry.to_dict()
+                for root_name, root_entry in self.roots.items()
+            },
         }
         if self.checksum:
             payload["checksum"] = self.checksum
@@ -94,6 +120,14 @@ class Commit:
 
     @classmethod
     def from_dict(cls, payload: Mapping[str, Any]) -> Commit:
+        raw_roots = payload.get("roots", {}) or {}
+        if not isinstance(raw_roots, Mapping):
+            raise TypeError("commit.roots must be a mapping")
+        roots: dict[str, RootEntry] = {}
+        for root_name, root_entry in raw_roots.items():
+            if not isinstance(root_entry, Mapping):
+                raise TypeError(f"commit.roots.{root_name} must be a mapping")
+            roots[str(root_name)] = RootEntry.from_dict(root_entry, root_name=str(root_name))
         return cls(
             commit_id=str(payload.get("commit_id", "")),
             generation=int(payload.get("generation", 0)),
@@ -101,9 +135,18 @@ class Commit:
             created_at=str(payload.get("created_at", "")),
             reason=str(payload.get("reason", "")),
             created_by=dict(payload.get("created_by", {}) or {}),
-            roots=dict(payload.get("roots", {}) or {}),
+            roots=roots,
             checksum=str(payload.get("checksum")) if payload.get("checksum") else None,
         )
+
+    def has_root(self, root_name: str) -> bool:
+        return root_name in self.roots
+
+    def root_entry(self, root_name: str) -> RootEntry:
+        try:
+            return self.roots[root_name]
+        except KeyError as exc:
+            raise KeyError(f"Commit missing roots.{root_name}") from exc
 
     def with_checksum(self) -> Commit:
         payload = self.to_dict()

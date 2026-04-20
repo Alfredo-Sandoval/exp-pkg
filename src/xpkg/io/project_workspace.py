@@ -49,8 +49,20 @@ if TYPE_CHECKING:
     from xpkg.model import Labels
 
 
+class LegacyWorkspaceMigrationRequiredError(FileNotFoundError):
+    """Raised when a pre-cutover workspace must be migrated explicitly."""
+
+
 def current_project_archive_path(path: str | Path) -> Path:
-    return _workspace_store(path).current_archive_path()
+    return export_project_archive(path)
+
+
+def export_project_archive(
+    path: str | Path,
+    *,
+    out: str | Path | None = None,
+) -> Path:
+    return _workspace_store(path).export_archive(out=out)
 
 
 def current_project_snapshot_path(path: str | Path) -> Path:
@@ -62,10 +74,13 @@ def current_project_commit_id(path: str | Path) -> str | None:
 
 
 def current_project_state_path(path: str | Path) -> Path:
+    store = _workspace_store(path)
     snapshot_path = current_project_snapshot_path(path)
-    if snapshot_path.exists() or _workspace_store(path).has_current_snapshot():
+    if snapshot_path.exists() or store.has_current_snapshot():
         return snapshot_path
-    return current_project_archive_path(path)
+    if store.has_current_archive():
+        return store.current_archive_root_path()
+    return snapshot_path
 
 
 @dataclass(slots=True)
@@ -105,9 +120,9 @@ class WorkspaceStore:
         return self._find_legacy_archive_path() is not None
 
     def has_current_archive(self) -> bool:
-        if self.has_durable_store():
-            return self.open().has_current_root("archive")
-        return self.has_legacy_archive()
+        if not self.has_durable_store():
+            return False
+        return self.open().has_current_root("archive")
 
     def has_current_snapshot(self) -> bool:
         if not self.has_durable_store():
@@ -142,40 +157,46 @@ class WorkspaceStore:
                 return candidate
         return None
 
-    def ensure_store(self):
-        from xpkg.io.archive_store import ArchiveStore
-
-        if self.has_durable_store():
-            return self.open()
-
-        legacy_archive = self._find_legacy_archive_path()
-        if legacy_archive is None:
-            raise FileNotFoundError(
-                f"Workspace has no committed archive in {self.store_root}: "
-                f"{self.legacy_current_archive_path}"
-            )
-
-        store = ArchiveStore.create_from_archive(
-            store_root=self.store_root,
-            initial_archive=legacy_archive,
-            reason="workspace-adopt-legacy",
+    def _legacy_migration_required_error(self) -> LegacyWorkspaceMigrationRequiredError:
+        legacy_archive = self._find_legacy_archive_path() or self.legacy_current_archive_path
+        return LegacyWorkspaceMigrationRequiredError(
+            "Workspace still uses legacy archive-backed state at "
+            f"{legacy_archive}. Run migrate_legacy_archive(...) before using "
+            "workspace load/save/archive helpers."
         )
-        self._cleanup_legacy_state()
-        return store
 
     def current_archive_path(self) -> Path:
+        return self.export_archive()
+
+    def current_archive_root_path(self) -> Path:
         if self.has_durable_store():
             store = self.open()
             if store.has_current_root("archive"):
                 return store.current_archive_path()
+        if self.has_legacy_archive():
+            raise self._legacy_migration_required_error()
+        raise FileNotFoundError(f"Workspace has no committed archive root: {self.store_root}")
+
+    def export_archive(self, *, out: str | Path | None = None) -> Path:
+        target_archive_path = (
+            self.legacy_current_archive_path if out is None else _archive_export_path(out)
+        )
+        if self.has_durable_store():
+            store = self.open()
+            if store.has_current_root("archive"):
+                current_archive = store.current_archive_path()
+                if out is None:
+                    return current_archive
+                return _copy_archive_export(current_archive, target_archive_path)
             if store.has_current_root("snapshot"):
-                return _materialize_workspace_archive_from_store(
+                return _export_workspace_archive_from_snapshot(
                     self.workspace_root,
                     store.current_root_path("snapshot"),
+                    archive_path=target_archive_path,
                 )
         if self.has_legacy_archive():
-            return self.ensure_store().current_archive_path()
-        return self.legacy_current_archive_path
+            raise self._legacy_migration_required_error()
+        raise FileNotFoundError(f"Workspace has no committed state to export: {self.store_root}")
 
     def current_snapshot_path(self) -> Path:
         if not self.has_durable_store():
@@ -200,12 +221,7 @@ class WorkspaceStore:
             return store.current_archive_path()
 
         if self.has_legacy_archive():
-            legacy_archive = self._find_legacy_archive_path()
-            assert legacy_archive is not None
-            store = self.ensure_store()
-            if candidate != legacy_archive:
-                store.commit_new_archive(candidate, reason=reason, created_by=created_by)
-            return store.current_archive_path()
+            raise self._legacy_migration_required_error()
 
         from xpkg.io.archive_store import ArchiveStore
 
@@ -235,10 +251,7 @@ class WorkspaceStore:
             return store.current_root_path("snapshot")
 
         if self.has_legacy_archive():
-            store = self.ensure_store()
-            store.commit_new_roots({"snapshot": candidate}, reason=reason, created_by=created_by)
-            self._cleanup_legacy_state()
-            return store.current_root_path("snapshot")
+            raise self._legacy_migration_required_error()
 
         from xpkg.io.archive_store import ArchiveStore
 
@@ -295,6 +308,21 @@ def _stage_archive_parent(workspace_root: Path) -> Path:
     return ensure_dir(_workspace_store(workspace_root).staging_root)
 
 
+def _archive_export_path(path: str | Path) -> Path:
+    target = resolve_path(path)
+    if target.suffix.lower() != CANONICAL_ARCHIVE_SUFFIX:
+        raise ValueError(f"Archive exports must use {CANONICAL_ARCHIVE_SUFFIX}: {target}")
+    return target
+
+
+def _copy_archive_export(source_archive: Path, target_archive: Path) -> Path:
+    if source_archive.resolve() == target_archive.resolve():
+        return source_archive
+    ensure_dir(target_archive.parent)
+    shutil.copy2(source_archive, target_archive)
+    return target_archive
+
+
 def _snapshot_metadata(archive_payload: dict[str, Any]) -> dict[str, Any] | None:
     metadata = archive_payload.get("metadata")
     if not isinstance(metadata, dict):
@@ -337,8 +365,7 @@ def _current_workspace_state_payload(
             return read_archive(mounted.current_archive_path(), lazy=False), "archive"
 
     if store.has_legacy_archive():
-        mounted = store.ensure_store()
-        return read_archive(mounted.current_archive_path(), lazy=False), "archive"
+        raise store._legacy_migration_required_error()
 
     return None
 
@@ -623,7 +650,7 @@ def rebuild_workspace_snapshot_cache(workspace_root: Path) -> Path:
 
     from xpkg.model import Labels
 
-    archive_path = _workspace_store(workspace_root).current_archive_path()
+    archive_path = _workspace_store(workspace_root).current_archive_root_path()
     labels = Labels.load_file(archive_path.as_posix())
     metadata, predictions = _workspace_state_components(
         state_payload,
@@ -723,11 +750,7 @@ def _manage_labels_media(labels: Labels, workspace_root: Path) -> None:
 
     for video in labels.videos:
         raw_image_filenames = getattr(video, "image_filenames", None) or []
-        image_filenames = [
-            Path(str(path))
-            for path in raw_image_filenames
-            if str(path).strip()
-        ]
+        image_filenames = [Path(str(path)) for path in raw_image_filenames if str(path).strip()]
         if image_filenames:
             sequence_root, copied_frames = _copy_sequence_into_media(
                 image_filenames,
@@ -809,9 +832,11 @@ def rebase_workspace_payload_videos(payload: dict[str, Any], workspace_root: Pat
             _rebase_videos_info(metadata_videos)
 
 
-def _materialize_workspace_archive_from_store(
+def _export_workspace_archive_from_snapshot(
     workspace_root: Path,
     committed_snapshot_path: Path,
+    *,
+    archive_path: Path,
 ) -> Path:
     from xpkg.io.archive_format import write_archive
     from xpkg.io.labels.json_format import labels_from_json_payload
@@ -821,17 +846,17 @@ def _materialize_workspace_archive_from_store(
     rebase_workspace_payload_videos(hydrated_payload, workspace_root)
     labels = labels_from_json_payload(hydrated_payload)
 
-    archive_path = _workspace_store(workspace_root).legacy_current_archive_path
-    ensure_dir(archive_path.parent)
+    target_archive = _archive_export_path(archive_path)
+    ensure_dir(target_archive.parent)
     write_archive(
-        archive_path,
+        target_archive,
         labels,
         metadata=_snapshot_metadata_from_state_payload(snapshot_payload),
         predictions=_prediction_items_from_payload(
             _predictions_payload_from_state_payload(snapshot_payload)
         ),
     )
-    return archive_path
+    return target_archive
 
 
 def _absolutize_label_media(labels: Labels, *, source_root: Path) -> None:
@@ -1033,6 +1058,100 @@ def _build_sleap_h5_import_archive(
         h5_path,
         video_path,
         staged_archive,
+        skeleton_name=skeleton_name,
+        likelihood_threshold=likelihood_threshold,
+        progress_callback=progress_callback,
+    )
+    return staged_archive
+
+
+def _build_openpose_json_import_archive(
+    tmp_dir: Path,
+    *,
+    json_dir: str | Path,
+    video_path: str | Path,
+    skeleton_name: str,
+    likelihood_threshold: float,
+    progress_callback: Any | None,
+    convert_openpose_json: Callable[..., Any],
+) -> Path:
+    staged_archive = tmp_dir / f"openpose_json{CANONICAL_ARCHIVE_SUFFIX}"
+    convert_openpose_json(
+        json_dir,
+        video_path,
+        staged_archive,
+        skeleton_name=skeleton_name,
+        likelihood_threshold=likelihood_threshold,
+        progress_callback=progress_callback,
+    )
+    return staged_archive
+
+
+def _build_mediapipe_pose_landmarks_json_import_archive(
+    tmp_dir: Path,
+    *,
+    json_path: str | Path,
+    video_path: str | Path,
+    skeleton_name: str,
+    likelihood_threshold: float,
+    progress_callback: Any | None,
+    convert_mediapipe_pose_landmarks_json: Callable[..., Any],
+) -> Path:
+    staged_archive = tmp_dir / f"mediapipe_pose_landmarks{CANONICAL_ARCHIVE_SUFFIX}"
+    convert_mediapipe_pose_landmarks_json(
+        json_path,
+        video_path,
+        staged_archive,
+        skeleton_name=skeleton_name,
+        likelihood_threshold=likelihood_threshold,
+        progress_callback=progress_callback,
+    )
+    return staged_archive
+
+
+def _build_mmpose_topdown_json_import_archive(
+    tmp_dir: Path,
+    *,
+    json_path: str | Path,
+    video_path: str | Path,
+    skeleton_name: str,
+    instance_index: int,
+    likelihood_threshold: float,
+    progress_callback: Any | None,
+    convert_mmpose_topdown_json: Callable[..., Any],
+) -> Path:
+    staged_archive = tmp_dir / f"mmpose_topdown_json{CANONICAL_ARCHIVE_SUFFIX}"
+    convert_mmpose_topdown_json(
+        json_path,
+        video_path,
+        staged_archive,
+        skeleton_name=skeleton_name,
+        instance_index=int(instance_index),
+        likelihood_threshold=likelihood_threshold,
+        progress_callback=progress_callback,
+    )
+    return staged_archive
+
+
+def _build_detectron2_coco_import_archive(
+    tmp_dir: Path,
+    *,
+    predictions_path: str | Path,
+    dataset_json_path: str | Path,
+    image_root: str | Path,
+    category_id: int | None,
+    skeleton_name: str | None,
+    likelihood_threshold: float,
+    progress_callback: Any | None,
+    convert_detectron2_coco: Callable[..., Any],
+) -> Path:
+    staged_archive = tmp_dir / f"detectron2_coco{CANONICAL_ARCHIVE_SUFFIX}"
+    convert_detectron2_coco(
+        predictions_path,
+        dataset_json_path,
+        image_root,
+        staged_archive,
+        category_id=category_id,
         skeleton_name=skeleton_name,
         likelihood_threshold=likelihood_threshold,
         progress_callback=progress_callback,
@@ -1255,6 +1374,132 @@ def import_sleap_h5_workspace(
     )
 
 
+def import_mmpose_topdown_json_workspace(
+    json_path: str | Path,
+    video_path: str | Path,
+    workspace: str | Path,
+    *,
+    skeleton_name: str = "imported",
+    instance_index: int = 0,
+    likelihood_threshold: float = 0.0,
+    default_pack_mode: PackMode = "portable",
+    force: bool = False,
+    progress_callback: Any | None = None,
+) -> Path:
+    from xpkg.io.converters.mmpose_import import convert_mmpose_topdown_json
+
+    return _import_workspace_from_staged_archive(
+        workspace,
+        default_pack_mode=default_pack_mode,
+        force=force,
+        reason="workspace.import.mmpose_topdown_json",
+        build_staged_archive=lambda tmp_dir: _build_mmpose_topdown_json_import_archive(
+            tmp_dir,
+            json_path=json_path,
+            video_path=video_path,
+            skeleton_name=skeleton_name,
+            instance_index=int(instance_index),
+            likelihood_threshold=likelihood_threshold,
+            progress_callback=progress_callback,
+            convert_mmpose_topdown_json=convert_mmpose_topdown_json,
+        ),
+    )
+
+
+def import_openpose_json_workspace(
+    json_dir: str | Path,
+    video_path: str | Path,
+    workspace: str | Path,
+    *,
+    skeleton_name: str = "imported",
+    likelihood_threshold: float = 0.0,
+    default_pack_mode: PackMode = "portable",
+    force: bool = False,
+    progress_callback: Any | None = None,
+) -> Path:
+    from xpkg.io.converters.openpose_import import convert_openpose_json
+
+    return _import_workspace_from_staged_archive(
+        workspace,
+        default_pack_mode=default_pack_mode,
+        force=force,
+        reason="workspace.import.openpose_json",
+        build_staged_archive=lambda tmp_dir: _build_openpose_json_import_archive(
+            tmp_dir,
+            json_dir=json_dir,
+            video_path=video_path,
+            skeleton_name=skeleton_name,
+            likelihood_threshold=likelihood_threshold,
+            progress_callback=progress_callback,
+            convert_openpose_json=convert_openpose_json,
+        ),
+    )
+
+
+def import_mediapipe_pose_landmarks_json_workspace(
+    json_path: str | Path,
+    video_path: str | Path,
+    workspace: str | Path,
+    *,
+    skeleton_name: str = "mediapipe_pose",
+    likelihood_threshold: float = 0.0,
+    default_pack_mode: PackMode = "portable",
+    force: bool = False,
+    progress_callback: Any | None = None,
+) -> Path:
+    from xpkg.io.converters.mediapipe_import import convert_mediapipe_pose_landmarks_json
+
+    return _import_workspace_from_staged_archive(
+        workspace,
+        default_pack_mode=default_pack_mode,
+        force=force,
+        reason="workspace.import.mediapipe_pose_landmarks_json",
+        build_staged_archive=lambda tmp_dir: _build_mediapipe_pose_landmarks_json_import_archive(
+            tmp_dir,
+            json_path=json_path,
+            video_path=video_path,
+            skeleton_name=skeleton_name,
+            likelihood_threshold=likelihood_threshold,
+            progress_callback=progress_callback,
+            convert_mediapipe_pose_landmarks_json=convert_mediapipe_pose_landmarks_json,
+        ),
+    )
+
+
+def import_detectron2_coco_workspace(
+    predictions_path: str | Path,
+    dataset_json_path: str | Path,
+    image_root: str | Path,
+    workspace: str | Path,
+    *,
+    category_id: int | None = None,
+    skeleton_name: str | None = None,
+    likelihood_threshold: float = 0.0,
+    default_pack_mode: PackMode = "portable",
+    force: bool = False,
+    progress_callback: Any | None = None,
+) -> Path:
+    from xpkg.io.converters.detectron2_import import convert_detectron2_coco
+
+    return _import_workspace_from_staged_archive(
+        workspace,
+        default_pack_mode=default_pack_mode,
+        force=force,
+        reason="workspace.import.detectron2_coco",
+        build_staged_archive=lambda tmp_dir: _build_detectron2_coco_import_archive(
+            tmp_dir,
+            predictions_path=predictions_path,
+            dataset_json_path=dataset_json_path,
+            image_root=image_root,
+            category_id=category_id,
+            skeleton_name=skeleton_name,
+            likelihood_threshold=likelihood_threshold,
+            progress_callback=progress_callback,
+            convert_detectron2_coco=convert_detectron2_coco,
+        ),
+    )
+
+
 def save_workspace_labels(
     workspace: str | Path,
     labels: Labels,
@@ -1338,9 +1583,14 @@ __all__ = [
     "CURRENT_ARCHIVE_FILENAME",
     "CURRENT_SNAPSHOT_FILENAME",
     "EXPORTS_DIRNAME",
+    "export_project_archive",
     "import_dlc_csv_workspace",
     "import_dlc_h5_workspace",
     "import_dlc_project_workspace",
+    "import_detectron2_coco_workspace",
+    "import_mediapipe_pose_landmarks_json_workspace",
+    "import_mmpose_topdown_json_workspace",
+    "import_openpose_json_workspace",
     "import_sleap_h5_workspace",
     "import_sleap_package_workspace",
     "MEDIA_DIRNAME",

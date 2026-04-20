@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from xpkg.io.archive_store.schema import Commit, Journal, Superblock, now_utc_iso
+from xpkg.io.archive_store.schema import Commit, Journal, RootEntry, Superblock, now_utc_iso
 
 
 def test_superblock_checksum_roundtrip() -> None:
@@ -28,7 +28,7 @@ def test_commit_and_journal_checksums_fail_after_tampering() -> None:
         created_at=now_utc_iso(),
         reason="init",
         created_by={},
-        roots={"snapshot": {"object_id": "obj_deadbeef", "ext": ".json"}},
+        roots={"snapshot": RootEntry(object_id="obj_deadbeef", ext=".json")},
     ).with_checksum()
     journal = Journal(
         txn_id="txn_deadbeef",

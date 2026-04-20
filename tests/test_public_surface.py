@@ -39,6 +39,7 @@ from xpkg.formats import (
     current_project_snapshot_path,
     current_project_state_path,
     default_expkg_path,
+    export_project_archive,
     import_dlc_csv_workspace,
     import_dlc_h5_workspace,
     import_dlc_project_workspace,
@@ -105,6 +106,7 @@ def test_public_exports_are_callable() -> None:
     assert callable(current_project_snapshot_path)
     assert callable(current_project_state_path)
     assert callable(default_expkg_path)
+    assert callable(export_project_archive)
     assert callable(import_dlc_csv_workspace)
     assert callable(import_dlc_h5_workspace)
     assert callable(import_dlc_project_workspace)
@@ -178,6 +180,7 @@ def test_formats_core_surface_excludes_compat_symbols() -> None:
     assert "write_archive" not in xpkg.formats.__all__
     assert "read_xpkg" not in xpkg.formats.__all__
     assert "write_xpkg" not in xpkg.formats.__all__
+    assert "export_project_archive" in xpkg.formats.__all__
     assert "pack_project" in xpkg.formats.__all__
     assert "import_dlc_project_workspace" in xpkg.formats.__all__
     assert "read_archive" not in dir(xpkg.formats)
