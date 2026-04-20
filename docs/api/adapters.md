@@ -3,9 +3,8 @@
 <div class="page-intro">
 <p>
 <code>xpkg.adapters</code> converts DeepLabCut, SLEAP, MMPose, MediaPipe,
-OpenPose, and Detectron2 pose exports into xpkg data structures and current
-<code>.xpkg</code> archive outputs while the workspace-first v1 project
-workflow is being wired in.
+OpenPose, and Detectron2 pose exports into xpkg data structures and
+compatibility <code>.xpkg</code> archive outputs.
 </p>
 </div>
 
@@ -14,7 +13,8 @@ workflow is being wired in.
     <code>.expkg</code>. The adapter functions documented here currently emit
     edge <code>.xpkg</code> archive outputs. Project-facing code should prefer
     the matching <code>xpkg.formats.import_*_workspace(...)</code> helpers
-    whenever a workspace lifecycle is the real goal.
+    whenever a workspace lifecycle is the real goal. Each compatibility adapter
+    here has a workspace-first counterpart on <code>xpkg.formats</code>.
 
 ## Return Type
 

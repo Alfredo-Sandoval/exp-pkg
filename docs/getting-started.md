@@ -95,6 +95,17 @@ artifact = workspace.pack()
 Project-facing imports should usually land in a workspace first, then move to
 portable `.expkg` export only when you explicitly pack.
 
+The same workspace-first pattern is available for:
+
+- `import_dlc_h5_workspace(...)` and `import_dlc_project_workspace(...)`
+- `import_sleap_h5_workspace(...)` and `import_sleap_package_workspace(...)`
+- `import_mmpose_topdown_json_workspace(...)`
+- `import_mediapipe_pose_landmarks_json_workspace(...)`
+- `import_openpose_json_workspace(...)`
+- `import_detectron2_coco_workspace(...)`
+
+Use those workspace helpers as the primary integration surface for new code.
+
 ## In-memory codec API
 
 ```python
@@ -151,3 +162,7 @@ print(result.project_root)
 
 This is still a compatibility-oriented import example. New project-facing code
 should prefer the workspace import helpers over direct archive conversion.
+
+Equivalent compatibility adapter helpers also exist for SLEAP, MMPose,
+MediaPipe, OpenPose, and Detectron2, but they all remain edge surfaces for
+explicit direct-archive workflows rather than the primary product contract.

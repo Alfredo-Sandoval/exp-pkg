@@ -76,6 +76,20 @@ workspace = WorkspaceService.open("./My Project")
 artifact = workspace.pack()
 ```
 
+The shipped workspace import surface currently covers:
+
+- DeepLabCut CSV, H5, and project imports
+- SLEAP analysis H5 and `.pkg.slp`
+- MMPose top-down demo JSON (`--save-predictions`)
+- MediaPipe pose-landmarks JSON
+- OpenPose BODY_25 `--write_json` directories
+- Detectron2 COCO keypoint results plus dataset/image metadata
+
+Those entrypoints live on `xpkg.formats` / `xpkg.services` and keep new
+integrations on the workspace-first path. `xpkg.adapters` remains the
+compatibility edge for workflows that explicitly need direct `.xpkg` archive
+output.
+
 ## What It Does
 
 - Imports external pose / annotation formats into canonical xpkg objects
@@ -85,7 +99,8 @@ artifact = workspace.pack()
 - Exposes a clean in-memory codec layer through `xpkg.codecs`
 - Handles media-aware packaging and workspace-relative project state
 - Exposes migration and legacy compatibility surfaces where needed
-- Ships DeepLabCut, SLEAP, MMPose, MediaPipe, OpenPose, and Detectron2 adapters today
+- Ships workspace import helpers and compatibility adapters for DeepLabCut,
+  SLEAP, MMPose, MediaPipe, OpenPose, and Detectron2 today
 
 ## Current Scope vs Direction
 
@@ -212,6 +227,10 @@ labels = payload["labels"]
 That example is intentionally compatibility-oriented. New integrations should
 prefer workspace import + pack/unpack flows over direct legacy archive handling.
 
+Equivalent compatibility adapters also ship for SLEAP, MMPose, MediaPipe,
+OpenPose, and Detectron2 when you explicitly need direct `.xpkg` output at the
+edge of the system.
+
 Load skeleton definitions from a config file:
 
 ```python
@@ -236,9 +255,17 @@ xpkg migrate "./legacy.xpkg" --out "./My Project"
 
 The shipped command surface is documented in `docs/cli_command_spec_v1.md`.
 
+The same workspace-first `xpkg import` surface also ships source-specific
+commands for SLEAP, MMPose JSON, MediaPipe JSON, OpenPose JSON, and Detectron2
+COCO imports.
+
 A legacy compatibility `convert` helper also remains available during the
 transition for pipelines that still need direct `.xpkg` outputs at the edge of
 the system.
+
+The compatibility `xpkg convert` surface likewise covers the newer MMPose,
+MediaPipe, OpenPose, and Detectron2 direct-archive paths in addition to the
+older DLC and SLEAP flows.
 
 **Legacy convert DeepLabCut CSV:**
 ```bash

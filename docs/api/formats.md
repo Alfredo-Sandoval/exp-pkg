@@ -4,7 +4,8 @@
 <p>
 <code>xpkg.formats</code> is the core project/workspace format surface. It
 defines the public artifact contract around workspaces, <code>.xpkg/</code>,
-and <code>.expkg</code>.
+and <code>.expkg</code>, including the primary workspace-first import APIs for
+DeepLabCut, SLEAP, MMPose, MediaPipe, OpenPose, and Detectron2.
 </p>
 </div>
 
@@ -115,6 +116,10 @@ Legacy compatibility alias for `export_project_archive(...)`. Prefer the
 explicit export helper in new code.
 
 ## Import Into Workspaces
+
+These are the preferred import entrypoints for new integrations. The similarly
+named <code>xpkg.adapters.convert_*</code> helpers remain compatibility-only
+direct <code>.xpkg</code> emitters.
 
 ### `import_dlc_csv_workspace(...)`
 

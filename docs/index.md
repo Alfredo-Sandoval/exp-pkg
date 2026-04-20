@@ -32,11 +32,12 @@ The repo and distribution name are <code>exp-pkg</code>; the Python import and C
 | Public project contract | workspace folder + `.expkg` |
 | Authoritative mutable state | `.xpkg/` inside the workspace |
 | Edge compatibility layer | `xpkg.compat` for direct `.xpkg` archive IO |
-| External adapters | DLC, SLEAP |
+| External import ecosystems | DeepLabCut, SLEAP, MMPose, MediaPipe, OpenPose, Detectron2 |
+| Workspace-first imports | `xpkg.formats.import_*_workspace(...)` |
 | Core objects | `xpkg.model` |
 | In-memory codecs | `xpkg.codecs` |
 | Low-level compatibility IO | `xpkg.compat` |
-| Import and migration tools | `xpkg.adapters` |
+| Compatibility adapters | `xpkg.adapters` |
 </div>
 
 <div class="spec-panel" markdown="1">
@@ -47,6 +48,8 @@ The repo and distribution name are <code>exp-pkg</code>; the Python import and C
   touching workspace or archive internals.
 - Use xpkg when you need a coherent experiment workspace with managed
   artifacts and compatibility import surfaces.
+- Use `xpkg.formats.import_*_workspace(...)` for workspace-first imports from
+  DeepLabCut, SLEAP, MMPose, MediaPipe, OpenPose, or Detectron2.
 - Read [Artifact Contract v1](artifact_contract_v1.md) for the public workspace
   and `.expkg` contract.
 - Read [CLI Command Spec v1](cli_command_spec_v1.md) for the locked command
@@ -55,7 +58,8 @@ The repo and distribution name are <code>exp-pkg</code>; the Python import and C
   architectural explanation for how direct archive IO relates to the
   workspace/store model.
 - Use `xpkg.compat` when you need low-level `.xpkg` archive IO.
-- Use `xpkg.adapters` when you need to import DLC or SLEAP.
+- Use `xpkg.adapters` only when you explicitly need a direct compatibility
+  `.xpkg` archive from one of the supported import ecosystems.
 </div>
 
 </div>
@@ -91,11 +95,12 @@ The repo and distribution name are <code>exp-pkg</code>; the Python import and C
 <div class="spec-panel" markdown="1">
 ### Imports and Migration
 
-- `convert_dlc_csv`
-- `convert_dlc_h5`
-- `convert_dlc_project`
-- `import_dlc_project_workspace`
-- `convert_sleap_package`
+- `import_dlc_*_workspace`, `import_sleap_*_workspace`
+- `import_mmpose_topdown_json_workspace`
+- `import_mediapipe_pose_landmarks_json_workspace`
+- `import_openpose_json_workspace`
+- `import_detectron2_coco_workspace`
+- compatibility `convert_*` adapter helpers
 - `ConversionResult`
 </div>
 
@@ -136,8 +141,10 @@ single archive or converter output.
 - Read [Model](api/model.md) for the pose object graph.
 - Read [Codecs](api/codecs.md) for in-memory JSON / dataframe / numpy
   conversions.
+- Read [Formats](api/formats.md) for workspace-first lifecycle and import APIs.
 - Read [Compatibility](api/compat.md) for the edge `.xpkg` archive APIs.
-- Read [Adapters](api/adapters.md) for DLC and SLEAP conversion.
+- Read [Adapters](api/adapters.md) for compatibility adapters across the
+  shipped importer surface.
 - Use the reference pages when you need exact signatures and docstrings.
 
 </div>
