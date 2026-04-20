@@ -11,11 +11,11 @@ mid-refactor.
 - Durable committed source of truth = store head under `.xpkg/`
 - Normal workspace head payload = workspace-native snapshot root
 - Portable packed artifact = `.expkg`
-- Direct `.xpkg` archive handling = compatibility/import/export surface
+- Legacy `.xpkg` archive handling = explicit migration seam plus internal compatibility tooling
 
 ## Current Reality
 
-The storage model is now meaningfully cut over:
+The storage model is now materially cut over:
 
 - workspace save/import/migrate commit a snapshot root into the durable store
 - `.xpkg/state/current.json` is written from committed workspace-native state
@@ -25,9 +25,11 @@ The storage model is now meaningfully cut over:
 - pre-cutover workspaces with only `.xpkg/state/current.xpkg` now require
   explicit `migrate_legacy_archive(...)` cutover before workspace-first
   load/save helpers are used
+- public archive-first facades (`xpkg.adapters`, `xpkg convert`,
+  `current_project_archive_path(...)`, `import_legacy_archive(...)`) have been removed
 
 Archive support still exists, but it is no longer the normal committed
-workspace write path.
+workspace write path or a first-class downstream API.
 
 ## Ordered Phases
 
@@ -90,27 +92,28 @@ Progress:
 
 - durable-store commit roots now hydrate through typed `RootEntry` values
   instead of raw root dictionaries
-- explicit archive materialization now routes through
-  `export_project_archive(...)`
+- the public API/docs/CLI now route project-facing work through
+  `WorkspaceService`, `workspace.imports.*`, and `migrate_legacy_archive(...)`
+- direct archive conversion/export convenience surfaces were removed from the
+  main public facades
 
 Current allowed uses:
 
-- explicit archive import workflows
-- explicit archive export via `export_project_archive(...)`
-- migration from older archive-backed state
+- explicit legacy archive migration
+- internal archive materialization where a compatibility workflow truly needs it
 - compatibility fixtures and tests
-- compatibility helpers that still expose archive paths
 
 Current disallowed direction:
 
 - no new normal workspace save/load flows should depend on archive-first
   commits
+- no new public examples should market direct `.xpkg` conversion as the native
+  workflow
 
 ## Remaining Seams
 
-- decide if/when `current_project_archive_path(...)` should be retired in
-  favor of `export_project_archive(...)`
-- keep shrinking archive-first assumptions in tests and docs
+- keep the retained legacy migration seam narrow and explicit
+- keep shrinking archive-first assumptions in internal tests/docs when safe
 
 ## Known Hotspots
 

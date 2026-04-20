@@ -75,10 +75,11 @@ dies mid-save.
 
 ## Recommended Experimental Workflow
 
-The current prototype sits on top of the existing compatibility archive writer
+The current prototype sits on top of the low-level `.xpkg` archive helpers
 while targeting the `.xpkg/` private state layer.
 
-1. Produce a normal `.xpkg` compatibility archive with the regular archive API.
+1. Produce a normal `.xpkg` compatibility archive with the low-level archive
+   helpers.
 2. Create a store root from that archive.
 3. For each new save boundary, write a fresh staged archive.
 4. Commit that staged archive into the store.
@@ -120,9 +121,12 @@ store = open_store(workspace_root / ".xpkg")
 payload = read_xpkg(store.current_archive_path(), lazy=False)
 ```
 
-## Public Entry Points
+## Low-Level Entry Points
 
-The experimental format surface currently exposes:
+These helpers still exist because the durable store needs a concrete staged
+archive format underneath `.xpkg/`, but they are intentionally outside the
+workspace-first public contract and do not appear in `xpkg.api`,
+`xpkg.formats`, or the CLI:
 
 - `create_store_from_xpkg(store_root, initial_xpkg)`
 - `open_store(store_root)`
@@ -151,14 +155,16 @@ Stable today:
 
 - public workspace contract: `PROJECT.json`, `.xpkg/`, `Media/`, `Exports/`
 - `.expkg` as the portable project artifact
-- `xpkg.compat` as the edge compatibility surface for direct `.xpkg` archives
+- the single explicit legacy bridge: `xpkg migrate` /
+  `migrate_legacy_archive(...)`
 
 Experimental today:
 
 - private `.xpkg/` durable-store machinery
 - commit-oriented autosave flow
 - superblock/journal durability layer
-- direct application integration with staged archive commits
+- low-level `.xpkg` archive helpers in `xpkg.compat` for migration and private
+  store machinery
 
 If you are building the public project contract, think in terms of workspace +
 `.expkg`. If you are prototyping crash-safe editing or autosave behavior,

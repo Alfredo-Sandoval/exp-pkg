@@ -3,9 +3,10 @@
 <div class="page-intro">
 <p>
 <code>xpkg.formats</code> is the core project/workspace format surface. It
-defines the public artifact contract around workspaces, <code>.xpkg/</code>,
-and <code>.expkg</code>, including the primary workspace-first import APIs for
-DeepLabCut, SLEAP, MMPose, MediaPipe, OpenPose, and Detectron2.
+defines the public artifact contract around workspaces, private
+<code>.xpkg/</code> state, portable <code>.expkg</code> artifacts, and the
+workspace-first import APIs for DeepLabCut, SLEAP, MMPose, MediaPipe,
+OpenPose, and Detectron2.
 If you are starting a new downstream integration, read
 <a href="../services/"><code>xpkg.services</code></a> first and use this module
 when you want the explicit function-level form.
@@ -13,17 +14,17 @@ when you want the explicit function-level form.
 </div>
 
 !!! note
-    Use <code>xpkg.compat</code> when you need low-level direct archive access
-    for <code>.xpkg</code> files. Use
-    <code>xpkg.formats</code> for the stable project/workspace boundary.
+    <code>xpkg.formats</code> intentionally exposes the workspace contract, not
+    direct archive convenience wrappers. The only retained legacy seam here is
+    <code>migrate_legacy_archive(...)</code> for cutting older
+    <code>.xpkg</code> archives over to the workspace path.
 
 ## Start Here
 
 - Use <code>xpkg.services.WorkspaceService</code> for the normal create/open/import/validate/pack/unpack lifecycle.
 - Use <code>WorkspaceService.imports.*</code> for the preferred service-bound import flow.
 - Use the <code>import_*_workspace(...)</code> helpers below when you want the same importers as explicit free functions.
-- Use <code>export_project_archive(...)</code> only when you explicitly need direct <code>.xpkg</code> interop from a workspace.
-- Treat <code>current_project_archive_path(...)</code> as a deprecated compatibility alias, not as the default archive export API.
+- Use <code>migrate_legacy_archive(...)</code> only when you are cutting over an older direct archive into a workspace.
 
 ## Project Contract
 
@@ -114,26 +115,12 @@ Validate a packed `.expkg` artifact.
 
 Validate either a workspace or a packed artifact, dispatching by path type.
 
-## Explicit Archive Compatibility Export
-
-### `export_project_archive(path, *, out=None)`
-
-Materialize a direct `.xpkg` archive from the current committed workspace head
-when you explicitly need archive interop.
-
-### `current_project_archive_path(path)`
-
-Deprecated compatibility alias for `export_project_archive(...)`. Prefer the
-explicit export helper in new code.
-
 ## Import Into Workspaces
 
 These free functions are the reusable workspace import implementation. New
 service-based integrations should usually call them through
 <code>WorkspaceService.imports.*</code>; use the explicit functions here when
-you want function-level imports. The similarly named
-<code>xpkg.adapters.convert_*</code> helpers remain compatibility-only direct
-<code>.xpkg</code> emitters.
+you want function-level imports.
 
 ### `import_dlc_csv_workspace(...)`
 
@@ -177,13 +164,16 @@ Import Detectron2 COCO keypoint predictions
 (`coco_instances_results.json`) plus the paired dataset JSON and `image_root`
 into a workspace.
 
-### `import_legacy_archive(...)`
-
-Migration-focused helper that imports a legacy archive into a workspace.
+## Legacy Migration
 
 ### `migrate_legacy_archive(...)`
 
-Migrate a legacy archive into the workspace-first xpkg contract.
+Cut a canonical legacy `.xpkg` archive over into the workspace-first xpkg
+contract.
+
+This is intentionally the one retained legacy bridge on
+<code>xpkg.formats</code>. Direct archive conversion/export convenience wrappers
+were removed from this public facade during the workspace-first cutover.
 
 ## Save Current Workspace State
 

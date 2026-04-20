@@ -16,8 +16,9 @@ import into, validate, pack, or unpack a workspace-first project.
   importers without dropping out of that service object.
 - Use <code>xpkg.formats.import_*_workspace(...)</code> when you explicitly
   want the same importers as free functions.
-- Use <code>xpkg.compat</code> and <code>xpkg.adapters</code> only for
-  low-level direct-archive workflows and migration edges.
+- Use <code>xpkg.formats.migrate_legacy_archive(...)</code> or
+  <code>xpkg migrate</code> only when you are cutting an older
+  <code>.xpkg</code> archive over to the workspace contract.
 
 ## Recommended Flow
 
@@ -77,7 +78,6 @@ Each service-bound importer mirrors a public
 | `workspace.imports.mediapipe_pose_landmarks_json(...)` | `xpkg.formats.import_mediapipe_pose_landmarks_json_workspace(...)` |
 | `workspace.imports.openpose_json(...)` | `xpkg.formats.import_openpose_json_workspace(...)` |
 | `workspace.imports.detectron2_coco(...)` | `xpkg.formats.import_detectron2_coco_workspace(...)` |
-| `workspace.imports.legacy_archive(...)` | `xpkg.formats.import_legacy_archive(...)` |
 
 The service-bound methods are the preferred path for new project-facing code.
 The free functions remain public for explicit function-level integrations.
@@ -86,7 +86,5 @@ The free functions remain public for explicit function-level integrations.
 
 - Use [Formats](formats.md) when you want the same workspace-first behavior as
   explicit free functions.
-- Use [Compatibility](compat.md) when you need low-level direct
-  <code>.xpkg</code> archive access on purpose.
-- Use [Adapters](adapters.md) when you explicitly need compatibility
-  conversion outputs rather than a managed workspace lifecycle.
+- Use `xpkg.formats.migrate_legacy_archive(...)` or `xpkg migrate` when you
+  need the one retained legacy `.xpkg` cutover seam.

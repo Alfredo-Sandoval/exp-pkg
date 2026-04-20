@@ -51,7 +51,7 @@ My Project/
 - You edit a normal workspace folder.
 - xpkg owns authoritative mutable state inside `.xpkg/`.
 - You move/share/export a single `.expkg` file.
-- `.xpkg` is the canonical archive suffix for low-level direct archive IO.
+- Older `.xpkg` archives are migration inputs, not the ongoing project contract.
 
 This matters because the workspace is the place where media, segmentation,
 labels, and future experiment-side modalities can live together under one
@@ -88,8 +88,7 @@ Pick the surface by intent:
 | --- | --- |
 | Workspace lifecycle and service-bound imports | `xpkg.services.WorkspaceService` |
 | Function-level workspace imports | `xpkg.formats.import_*_workspace(...)` |
-| Explicit `.xpkg` archive interop | `xpkg.formats.export_project_archive(...)` or `xpkg.compat.*` |
-| Existing archive-shaped callers | keep the compatibility aliases, but do not use them as new integration examples |
+| Legacy `.xpkg` cutover | `xpkg migrate` or `xpkg.formats.migrate_legacy_archive(...)` |
 
 ## Lifecycle-only example
 
@@ -119,6 +118,24 @@ Use those workspace helpers as the primary integration surface for new code.
 The underlying `xpkg.formats.import_*_workspace(...)` functions remain public
 when you want the explicit function form.
 
+## Legacy migration example
+
+When you need to cut over an older `.xpkg` archive, use the explicit migration
+helper instead of treating archive IO as a normal downstream contract.
+
+```bash
+xpkg migrate "./legacy.xpkg" --out "./My Project"
+```
+
+```python
+from xpkg.formats import migrate_legacy_archive
+
+snapshot_path = migrate_legacy_archive("./legacy.xpkg", "./My Project")
+```
+
+That migration writes workspace-native state into the private store and refreshes
+the rebuildable `.xpkg/state/current.json` cache for normal workspace use.
+
 ## In-memory codec API
 
 ```python
@@ -131,55 +148,4 @@ roundtripped = labels_from_json_payload(payload)
 ```
 
 Use `xpkg.codecs` when another repo needs an in-memory handoff boundary rather
-than a workspace path or direct archive path.
-
-## Advanced: Edge compatibility API
-
-```python
-from xpkg.compat import read_xpkg, write_xpkg
-from xpkg.model import Labels
-
-labels = Labels()
-write_xpkg("empty.xpkg", labels)
-
-payload = read_xpkg("empty.xpkg", lazy=False)
-loaded = payload["labels"]
-assert isinstance(loaded, Labels)
-```
-
-These compatibility helpers remain useful for low-level import/read paths,
-fixtures, and transition work. `read_xpkg` returns a dict with these keys:
-
-| Key | Type | Contents |
-| --- | --- | --- |
-| `"labels"` | `Labels` | The main annotation container |
-| `"metadata"` | `dict` | Archive-level metadata |
-| `"videos"` | `list[Video]` | Video references |
-| `"predictions"` | `dict` or `None` | Prediction payloads if present |
-
-Prefer the canonical `.xpkg` names shown above. Older names such as
-`read_archive` and `write_archive` remain importable only as deprecated
-compatibility aliases.
-
-## Advanced: Edge adapter output example
-
-```python
-from xpkg.adapters import convert_dlc_csv
-
-result = convert_dlc_csv(
-    "tracking.csv",
-    "video.mp4",
-    "tracking.xpkg",
-    skeleton_name="mouse",
-    likelihood_threshold=0.25,
-)
-
-print(result.project_root)
-```
-
-This is still a compatibility-oriented import example. New project-facing code
-should prefer the workspace import helpers over direct archive conversion.
-
-Equivalent compatibility adapter helpers also exist for SLEAP, MMPose,
-MediaPipe, OpenPose, and Detectron2, but they all remain edge surfaces for
-explicit direct-archive workflows rather than the primary product contract.
+than a workspace path.

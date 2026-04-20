@@ -17,13 +17,12 @@ This repo is not an analysis platform. It is the IO layer that analysis tools,
 GUIs, and automation can build on when they need a coherent project/workspace
 surface instead of a pile of ad hoc CSV, H5, JSON, and archive files.
 
-The codebase grew out of older SLEAP / archive-shaped IO work, but the public
-boundary is now generic: `Labels`, `Video`, `Skeleton`, adapter imports,
-workspace lifecycle operations, and portable project artifacts.
+The public product contract is now intentionally narrow:
 
-Low-level archive access now belongs at the edge of the system: migration,
-fixtures, and compatibility workflows. The explicit edge surface for that work
-is `xpkg.compat`, with `.xpkg` as the canonical direct-archive suffix.
+- editable project = workspace folder
+- authoritative mutable state = private `.xpkg/`
+- portable artifact = `.expkg`
+- legacy `.xpkg` archives = migration input, not a first-class downstream target
 
 ## Positioning
 
@@ -57,12 +56,6 @@ artifact = workspace.pack()
 restored = WorkspaceService.unpack(artifact, "./Restored Project")
 ```
 
-The older free functions in `xpkg.formats` and `xpkg.api` remain
-available as a lower-level surface, but new code should prefer
-`WorkspaceService`. The dedicated docs live in
-[`docs/api/services.md`](docs/api/services.md) and
-[`docs/reference/services.md`](docs/reference/services.md).
-
 If you are wiring another repo into xpkg, this is the place to start.
 
 Choose the public surface by job:
@@ -72,36 +65,7 @@ Choose the public surface by job:
 | Create, open, import into, validate, pack, or unpack a project | `xpkg.services.WorkspaceService` |
 | Import foreign pose data into a project you already manage through the service | `workspace.imports.*` from `xpkg.services.WorkspaceService` |
 | Import foreign pose data through explicit free functions | `xpkg.formats.import_*_workspace(...)` |
-| Materialize a direct `.xpkg` from a workspace on purpose | `xpkg.formats.export_project_archive(...)` |
-| Read or mutate a direct `.xpkg` archive at the edge | `xpkg.compat.*` |
-| Keep an old archive-shaped caller working | existing compatibility aliases such as `current_project_archive_path(...)`, but prefer the explicit names above in new code |
-
-For foreign inputs, keep the normal path on one service object:
-
-```python
-from xpkg.services import WorkspaceService
-
-workspace = WorkspaceService.create("./My Project", title="My Project")
-workspace.imports.dlc_csv(
-    "tracking.csv",
-    "video.mp4",
-    skeleton_name="mouse",
-)
-layout = workspace.validate()
-artifact = workspace.pack()
-restored = WorkspaceService.unpack(artifact, "./Restored Project")
-```
-
-If you already have a managed workspace and just need the lifecycle calls,
-the same service object still handles that contract:
-
-```python
-from xpkg.services import WorkspaceService
-
-workspace = WorkspaceService.open("./My Project")
-layout = workspace.validate()
-artifact = workspace.pack()
-```
+| Cut over a legacy `.xpkg` archive into the workspace contract | `xpkg migrate` or `xpkg.formats.migrate_legacy_archive(...)` |
 
 The explicit `xpkg.formats.import_*_workspace(...)` helpers remain public when
 you want a function-level API or need to import before reopening a workspace.
@@ -115,37 +79,30 @@ The shipped workspace import surface currently covers:
 - OpenPose BODY_25 `--write_json` directories
 - Detectron2 COCO keypoint results plus dataset/image metadata
 
-Those entrypoints live on `xpkg.services` and `xpkg.formats` and keep new
-integrations on the workspace-first path. `xpkg.adapters` remains the
-compatibility edge for workflows that explicitly need direct archive-oriented
-outputs.
-
 ## What It Does
 
 - Imports external pose / annotation formats into canonical xpkg objects
-- Defines a stable project contract: workspace folder + `.xpkg/` + `.expkg`
+- Defines a stable project contract: workspace folder + private `.xpkg/` + `.expkg`
 - Manages workspace lifecycle: create, open, validate, pack, unpack
 - Carries canonical containers such as `Labels`, `Skeleton`, `Instance`, and `Video`
 - Exposes a clean in-memory codec layer through `xpkg.codecs`
 - Handles media-aware packaging and workspace-relative project state
-- Exposes migration and legacy compatibility surfaces where needed
-- Ships workspace import helpers and compatibility adapters for DeepLabCut,
-  SLEAP, MMPose, MediaPipe, OpenPose, and Detectron2 today
+- Ships one explicit legacy migration path for older `.xpkg` archives
 
 ## Current Scope vs Direction
 
 Implemented today:
 
 - canonical annotation and media data objects
-- import adapters and readers for external formats
+- readers and workspace importers for external formats
 - workspace/store/artifact lifecycle operations
 - media-aware packaging and portable exports
-- low-level `.xpkg` archive IO for edge workflows
+- a narrow legacy archive migration seam
 
 Mission direction:
 
 - keep xpkg narrow as the stable IO and artifact boundary
-- support more external ecosystems through adapters
+- support more external ecosystems through workspace importers
 - make downstream analysis and GUI repos depend on xpkg instead of inventing
   their own project formats
 - keep direct archive handling narrow and clearly secondary to workspace flows
@@ -201,7 +158,7 @@ make docs-serve    # live preview at localhost:8123
 
 ## Public Artifact Contract
 
-exp-pkg v1 defines exactly three artifact classes:
+exp-pkg v1 defines exactly three product-facing artifact classes:
 
 ```text
 My Project/
@@ -215,7 +172,6 @@ My Project/
 - Editable project = workspace folder
 - Authoritative mutable state = `.xpkg/`
 - Portable artifact = `.expkg`
-- Direct archive compatibility = `.xpkg`
 
 The artifact model is workspace-first so experiment state, managed media, and
 future aligned modalities have a clear home in one project layout.
@@ -223,56 +179,26 @@ future aligned modalities have a clear home in one project layout.
 The locked spec lives in `docs/artifact_contract_v1.md`, with the matching
 command surface in `docs/cli_command_spec_v1.md`.
 
-## Current Compatibility Layer
+## Legacy Migration
 
-The current implementation still exposes low-level `.xpkg` archive helpers,
-but they should be treated as edge compatibility surfaces rather than the
-center of the product.
+Older `.xpkg` archives are still supported as migration inputs, but they are no
+longer the public project contract.
 
-Use them for:
+Use one of these explicit cutover paths:
 
-- direct archive inspection and transformation
-- fixtures and compatibility tests
-- migration-oriented workflows that have not been cut over yet
-
-Use `xpkg.compat` when you need that edge layer. Avoid using it as the primary
-integration boundary for new code. The longer write-up on why this layer still
-exists, and how it relates to the workspace/store architecture, lives in
-`docs/architecture/storage-direction.md`.
-
-Prefer the canonical `.xpkg` names on that surface such as `read_xpkg`,
-`write_xpkg`, and `create_store_from_xpkg`. Older archive-shaped aliases remain
-available only to preserve existing callers.
-
-Example:
-
-```python
-from xpkg.compat import read_xpkg
-from xpkg.adapters import convert_dlc_csv
-
-# Legacy edge conversion example
-convert_dlc_csv("tracking.csv", "video.mp4", "tracking.xpkg")
-
-# Read the compatibility archive back when you need direct archive access
-payload = read_xpkg("tracking.xpkg", lazy=False)
-labels = payload["labels"]
+```bash
+xpkg migrate "./legacy.xpkg" --out "./My Project"
 ```
 
-That example is intentionally compatibility-oriented. New integrations should
-prefer workspace import + pack/unpack flows over direct legacy archive handling.
-
-Equivalent compatibility adapters also ship for SLEAP, MMPose, MediaPipe,
-OpenPose, and Detectron2 when you explicitly need direct `.xpkg` output at the
-edge of the system.
-
-Load skeleton definitions from a config file:
-
 ```python
-from xpkg.model import load_skeleton
+from xpkg.formats import migrate_legacy_archive
 
-skeleton = load_skeleton("config.yaml")
-print(skeleton.keypoint_names)
+snapshot_path = migrate_legacy_archive("./legacy.xpkg", "./My Project")
 ```
+
+That migration writes workspace-native state into `.xpkg/`, refreshes the
+rebuildable `.xpkg/state/current.json` cache, and leaves new work on the normal
+workspace-first path.
 
 ## CLI
 
@@ -287,43 +213,13 @@ xpkg validate "./My Project"
 xpkg migrate "./legacy.xpkg" --out "./My Project"
 ```
 
-The shipped command surface is documented in `docs/cli_command_spec_v1.md`.
-
-The same workspace-first `xpkg import` surface also ships source-specific
-commands for SLEAP, MMPose JSON, MediaPipe JSON, OpenPose JSON, and Detectron2
-COCO imports.
-
-A legacy compatibility `convert` helper also remains available during the
-transition for pipelines that still need direct `.xpkg` outputs at the edge of
-the system.
-
-The compatibility `xpkg convert` surface likewise covers the newer MMPose,
-MediaPipe, OpenPose, and Detectron2 direct-archive paths in addition to the
-older DLC and SLEAP flows.
-
-**Legacy convert DeepLabCut CSV:**
-```bash
-xpkg convert dlc csv --csv tracking.csv --video video.mp4 --out tracking.xpkg
-```
-
-**Legacy convert DeepLabCut H5:**
-```bash
-xpkg convert dlc h5 --h5 tracking.h5 --video video.mp4 --out tracking.xpkg
-```
-
-**Legacy convert an entire DeepLabCut project:**
-```bash
-xpkg convert dlc project --project dlc_project --out exports
-```
-
-**Legacy convert SLEAP labels:**
-```bash
-xpkg convert sleap --slp labels.pkg.slp --out sleap_project --fps 30 --no-videos
-```
+The same `xpkg import` command also ships source-specific workspace imports for
+SLEAP, MMPose JSON, MediaPipe JSON, OpenPose JSON, and Detectron2 COCO input.
 
 ## Contributing
 
-Contributions are welcome! If you'd like to add an adapter for a new pose-estimation framework or improve existing functionality:
+Contributions are welcome! If you'd like to add an importer for a new
+pose-estimation framework or improve existing functionality:
 
 1. Open an issue describing the change you'd like to make.
 2. Fork the repo and create a feature branch.

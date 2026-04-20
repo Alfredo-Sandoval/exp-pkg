@@ -4,9 +4,9 @@
 <p>
 xpkg is now workspace-first in both product language and the normal durable
 write path. The editable contract is workspace folder + private
-<code>.xpkg/</code> state + portable <code>.expkg</code> export. Direct
-<code>.xpkg</code> archive handling remains, but it is now a compatibility
-surface rather than the primary committed source of truth.
+<code>.xpkg/</code> state + portable <code>.expkg</code> export. Legacy
+<code>.xpkg</code> archive handling survives only as a narrow migration/input
+seam and internal compatibility tool, not as the main public API.
 </p>
 </div>
 
@@ -23,7 +23,7 @@ Today xpkg has four storage ideas in play:
 - workspace root as the editable project boundary
 - `.xpkg/` as the private durable store boundary
 - `.expkg` as the portable packed artifact
-- `.xpkg` as the direct archive compatibility format
+- legacy `.xpkg` as a cutover input and internal compatibility format
 
 The important shift is that normal workspace save/import/migrate flows no
 longer commit archive blobs first. They commit a workspace-native snapshot into
@@ -60,18 +60,30 @@ Workspace load/pack/validate flows now also reject a tampered
 matches the head. If the cache diverges from the committed snapshot payload,
 xpkg rebuilds it from the durable store before continuing.
 
+## Public Cutover Status
+
+The public cleanup now matches that storage model:
+
+- `WorkspaceService` and `workspace.imports.*` are the primary downstream path
+- `xpkg.formats` keeps workspace lifecycle/import helpers plus
+  `migrate_legacy_archive(...)`
+- package-level `xpkg.adapters` and the CLI `xpkg convert` surface were removed
+- compatibility alias maps such as `current_project_archive_path(...)` and
+  `import_legacy_archive(...)` were removed from the public facades
+
 ## Remaining Archive Uses
 
 The archive engine is still valuable, but its role is narrower now.
 
 Archive handling remains appropriate for:
 
-- explicit `.xpkg` archive workflows
-- explicit archive export through `export_project_archive(...)`
 - migration/import of older archives
-- fixtures and compatibility coverage
+- internal explicit archive materialization when a legacy edge workflow truly
+  requires it
+- fixtures and compatibility coverage inside this repo
 
-Archive handling is no longer the normal committed workspace write path.
+Archive handling is no longer the normal committed workspace write path or a
+first-class public downstream surface.
 
 ## Why The Archive Layer Still Exists
 
@@ -82,30 +94,18 @@ interop work:
 - `xpkg.io.archive_format.update_labels_archive`
 - `xpkg.io.archive_format.read_archive`
 
-Those functions still matter for compatibility because they already know how to
-carry labels, predictions, segmentation, metrics, metadata, and manifests in a
+Those functions still matter internally because they already know how to carry
+labels, predictions, segmentation, metrics, metadata, and manifests in a
 portable archive-shaped payload.
-
-## What Still Remains
-
-The cutover is materially forward, but not finished.
-
-Remaining seams include:
-
-1. `current_project_archive_path(...)` still exists as a compatibility-shaped
-   convenience over the clearer `export_project_archive(...)` surface.
-2. Direct archive-backed durable heads are still supported for explicit
-   compatibility workflows, so archive-aware code remains at those edges even
-   though normal workspace flows now commit native snapshot roots.
 
 ## Recommended Position
 
-xpkg should keep treating direct `.xpkg` archive handling as a compatibility
-mechanism, not the product identity.
+xpkg should keep treating direct `.xpkg` archive handling as a migration and
+internal compatibility mechanism, not the product identity.
 
 That means:
 
-- keep archive support for migration, fixtures, and explicit archive APIs
+- keep archive support for migration, fixtures, and explicit internal archive work
 - avoid routing new workspace features through archive mutation
 - keep the public storage story centered on workspace + `.xpkg/` + `.expkg`
 - keep shrinking archive-first assumptions at the boundaries rather than adding
@@ -114,5 +114,5 @@ That means:
 ## Bottom Line
 
 The durable store head is now workspace-native for normal workspace flows.
-Direct `.xpkg` archives still matter, but they now belong to compatibility and
-interop seams instead of the primary committed storage contract.
+Legacy `.xpkg` archives still matter, but they now belong to migration and
+internal compatibility seams instead of the primary committed storage contract.

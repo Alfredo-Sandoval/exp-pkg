@@ -3,13 +3,12 @@
 This document defines the shipped CLI contract for the xpkg v1 project and
 artifact workflow.
 
-The current CLI is workspace-first for project creation, packing, unpacking,
-and validation, while still exposing transition helpers for direct `.xpkg`
-archives.
+The current CLI is workspace-first for project creation, importing, packing,
+unpacking, validation, and legacy cutover.
 
 ## Command Surface
 
-The primary workspace-first command surface is:
+The workspace-first command surface is:
 
 ```text
 xpkg init
@@ -18,12 +17,6 @@ xpkg pack
 xpkg unpack
 xpkg validate
 xpkg migrate
-```
-
-The CLI also ships one legacy compatibility helper during the transition:
-
-```text
-xpkg convert
 ```
 
 ## Shared Rules
@@ -66,7 +59,7 @@ xpkg init "./My Project" --pack-mode portable
 
 ## `xpkg import`
 
-Import foreign or legacy data into a workspace.
+Import supported external data into a workspace.
 
 ### Synopsis
 
@@ -80,7 +73,6 @@ xpkg import mmpose --json results.json --video video.mp4 --out "./My Project"
 xpkg import mediapipe --json pose_landmarks.json --video video.mp4 --out "./My Project"
 xpkg import openpose --json openpose_json --video video.mp4 --out "./My Project"
 xpkg import detectron2 --predictions coco_instances_results.json --dataset-json dataset.json --image-root images --out "./My Project"
-xpkg import legacy --file tracking.xpkg --out "./My Project"
 ```
 
 ### Supported families today
@@ -94,7 +86,6 @@ xpkg import legacy --file tracking.xpkg --out "./My Project"
 - `xpkg import mediapipe`
 - `xpkg import openpose`
 - `xpkg import detectron2`
-- `xpkg import legacy`
 
 ### Required behavior
 
@@ -104,12 +95,11 @@ xpkg import legacy --file tracking.xpkg --out "./My Project"
 - Writes authoritative mutable state into `.xpkg/`.
 - Populates `Media/` when the import produces managed media.
 - Updates `PROJECT.json` metadata and timestamps.
-- Accepts canonical `.xpkg` input through the `legacy` importer.
 
 ### Non-goals
 
 - Import is not an in-place update of packed `.expkg` artifacts.
-- Import is not a version-to-version migration of an existing xpkg workspace.
+- Import is not the legacy `.xpkg` cutover command; use `xpkg migrate` for that.
 
 ## `xpkg pack`
 
@@ -163,26 +153,25 @@ xpkg unpack "./My Project.expkg" --out "./My Project"
 
 ## `xpkg validate`
 
-Validate a workspace, packed `.expkg` artifact, or direct `.xpkg` archive.
+Validate a workspace or packed `.expkg` artifact.
 
 ### Synopsis
 
 ```bash
 xpkg validate "./My Project"
 xpkg validate "./My Project.expkg"
-xpkg validate "./tracking.xpkg"
 ```
 
 ### Required behavior
 
-- Accepts a workspace folder, `.expkg` file, or direct `.xpkg` archive.
+- Accepts a workspace folder or `.expkg` file.
 - Fails loudly when the supplied path does not satisfy the corresponding
   contract.
 - Leaves the validated artifact unchanged.
 
 ## `xpkg migrate`
 
-Migrate a `.xpkg` archive into a workspace-first xpkg project.
+Migrate a legacy `.xpkg` archive into a workspace-first xpkg project.
 
 ### Synopsis
 
@@ -204,38 +193,6 @@ xpkg migrate "./tracking.xpkg" --out "./My Project"
 - `migrate` does not define or freeze the private internal `.xpkg/`
   sublayout.
 
-## `xpkg convert`
-
-Convert external tracking formats directly into edge `.xpkg` archives.
-
-This command remains available for compatibility pipelines, fixtures, and
-archive-first workflows that have not moved to workspace import yet. It is not
-the recommended project-facing entrypoint for new integrations.
-
-### Synopsis
-
-```bash
-xpkg convert dlc csv --csv tracking.csv --video video.mp4 --out tracking.xpkg
-xpkg convert dlc h5 --h5 tracking.h5 --video video.mp4 --out tracking.xpkg
-xpkg convert dlc project --project dlc_project --out exports
-xpkg convert sleap --slp labels.pkg.slp --out sleap_project --fps 30 --no-videos
-xpkg convert mmpose --json results.json --video video.mp4 --out tracking.xpkg
-xpkg convert mediapipe --json pose_landmarks.json --video video.mp4 --out tracking.xpkg
-xpkg convert openpose --json openpose_json --video video.mp4 --out tracking.xpkg
-xpkg convert detectron2 --predictions coco_instances_results.json --dataset-json dataset.json --image-root images --out tracking.xpkg
-```
-
-### Supported families today
-
-- `xpkg convert dlc csv`
-- `xpkg convert dlc h5`
-- `xpkg convert dlc project`
-- `xpkg convert sleap`
-- `xpkg convert mmpose`
-- `xpkg convert mediapipe`
-- `xpkg convert openpose`
-- `xpkg convert detectron2`
-
 ## Open Behavior
 
 GUI and shell tooling should treat the workspace folder as the primary open
@@ -249,8 +206,6 @@ target.
 ## Transition Guidance
 
 - New project creation follows the workspace + `.expkg` contract.
-- `.xpkg` is the canonical edge archive suffix during transition work.
-- `xpkg convert` remains available as an edge compatibility helper, not as the
-  primary project workflow.
-- No new public examples should frame direct `.xpkg` archive handling as the
-  native or preferred project workflow.
+- Legacy `.xpkg` enters only through `xpkg migrate`.
+- No public command should frame direct `.xpkg` conversion as the native or
+  preferred project workflow.
