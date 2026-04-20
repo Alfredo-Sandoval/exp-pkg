@@ -19,7 +19,8 @@ compatibility <code>.xpkg</code> archive outputs.
 ## Preferred Project Path
 
 If you are wiring a downstream repo into xpkg for the first time, start with
-<code>WorkspaceService</code> and keep the import on the same service object:
+<a href="../services/"><code>WorkspaceService</code></a> and keep the import on
+the same service object:
 
 ```python
 from xpkg.services import WorkspaceService

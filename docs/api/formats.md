@@ -6,6 +6,9 @@
 defines the public artifact contract around workspaces, <code>.xpkg/</code>,
 and <code>.expkg</code>, including the primary workspace-first import APIs for
 DeepLabCut, SLEAP, MMPose, MediaPipe, OpenPose, and Detectron2.
+If you are starting a new downstream integration, read
+<a href="../services/"><code>xpkg.services</code></a> first and use this module
+when you want the explicit function-level form.
 </p>
 </div>
 

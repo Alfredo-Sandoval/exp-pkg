@@ -59,6 +59,8 @@ The repo and distribution name are <code>exp-pkg</code>; the Python import and C
   and `.expkg` contract.
 - Read [CLI Command Spec v1](cli_command_spec_v1.md) for the locked command
   surface.
+- Read [Services](api/services.md) for the normal downstream
+  create/open/import/validate/pack/unpack flow.
 - Read [Storage Direction](architecture/storage-direction.md) when you want the
   architectural explanation for how direct archive IO relates to the
   workspace/store model.
@@ -151,6 +153,8 @@ single archive or converter output.
 - Read [Model](api/model.md) for the pose object graph.
 - Read [Codecs](api/codecs.md) for in-memory JSON / dataframe / numpy
   conversions.
+- Read [Services](api/services.md) for the primary consumer-facing workspace
+  API.
 - Read [Formats](api/formats.md) for workspace-first lifecycle and import APIs.
 - Read [Compatibility](api/compat.md) for the edge `.xpkg` archive APIs.
 - Read [Adapters](api/adapters.md) for compatibility adapters across the

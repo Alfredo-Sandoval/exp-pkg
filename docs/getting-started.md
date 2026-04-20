@@ -61,31 +61,7 @@ Read [Artifact Contract v1](artifact_contract_v1.md) for the full public
 contract and [CLI Command Spec v1](cli_command_spec_v1.md) for the locked
 workspace command surface.
 
-## Workspace-first API
-
-```python
-from xpkg.services import WorkspaceService
-
-workspace = WorkspaceService.create("./My Project", title="My Project")
-workspace.validate()
-artifact = workspace.pack()
-restored = WorkspaceService.unpack(artifact, "./Restored Project")
-```
-
-`WorkspaceService` is the normal project boundary: create or open a workspace,
-import through `workspace.imports`, validate, then pack only when you want a
-portable artifact.
-
-Pick the surface by intent:
-
-| Task | Preferred entrypoint |
-| --- | --- |
-| Workspace lifecycle and service-bound imports | `xpkg.services.WorkspaceService` |
-| Function-level workspace imports | `xpkg.formats.import_*_workspace(...)` |
-| Explicit `.xpkg` archive interop | `xpkg.formats.export_project_archive(...)` or `xpkg.compat.*` |
-| Existing archive-shaped callers | keep the compatibility aliases, but do not use them as new integration examples |
-
-## Workspace import example
+## Recommended workspace-first API
 
 ```python
 from xpkg.services import WorkspaceService
@@ -98,10 +74,37 @@ workspace.imports.dlc_csv(
 )
 workspace.validate()
 artifact = workspace.pack()
+restored = WorkspaceService.unpack(artifact, "./Restored Project")
 ```
 
-Project-facing imports should usually land in a workspace first, then move to
-portable `.expkg` export only when you explicitly pack.
+`WorkspaceService` is the normal project boundary: create or open a workspace,
+import through `workspace.imports`, validate, then pack only when you want a
+portable artifact. The dedicated guide for that surface lives in
+[Services](api/services.md).
+
+Pick the surface by intent:
+
+| Task | Preferred entrypoint |
+| --- | --- |
+| Workspace lifecycle and service-bound imports | `xpkg.services.WorkspaceService` |
+| Function-level workspace imports | `xpkg.formats.import_*_workspace(...)` |
+| Explicit `.xpkg` archive interop | `xpkg.formats.export_project_archive(...)` or `xpkg.compat.*` |
+| Existing archive-shaped callers | keep the compatibility aliases, but do not use them as new integration examples |
+
+## Lifecycle-only example
+
+```python
+from xpkg.services import WorkspaceService
+
+workspace = WorkspaceService.open("./My Project")
+layout = workspace.validate()
+artifact = workspace.pack()
+```
+
+Once a workspace already exists, the same service object keeps validation,
+packing, and reopen flows on the same public contract.
+
+## Additional workspace import coverage
 
 The same workspace-first pattern is available for:
 

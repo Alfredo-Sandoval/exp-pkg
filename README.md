@@ -47,6 +47,11 @@ validate, pack, or unpack a project:
 from xpkg.services import WorkspaceService
 
 workspace = WorkspaceService.create("./My Project", title="My Project")
+workspace.imports.dlc_csv(
+    "tracking.csv",
+    "video.mp4",
+    skeleton_name="mouse",
+)
 layout = workspace.validate()
 artifact = workspace.pack()
 restored = WorkspaceService.unpack(artifact, "./Restored Project")
@@ -54,7 +59,9 @@ restored = WorkspaceService.unpack(artifact, "./Restored Project")
 
 The older free functions in `xpkg.formats` and `xpkg.api` remain
 available as a lower-level surface, but new code should prefer
-`WorkspaceService`.
+`WorkspaceService`. The dedicated docs live in
+[`docs/api/services.md`](docs/api/services.md) and
+[`docs/reference/services.md`](docs/reference/services.md).
 
 If you are wiring another repo into xpkg, this is the place to start.
 
@@ -83,6 +90,17 @@ workspace.imports.dlc_csv(
 layout = workspace.validate()
 artifact = workspace.pack()
 restored = WorkspaceService.unpack(artifact, "./Restored Project")
+```
+
+If you already have a managed workspace and just need the lifecycle calls,
+the same service object still handles that contract:
+
+```python
+from xpkg.services import WorkspaceService
+
+workspace = WorkspaceService.open("./My Project")
+layout = workspace.validate()
+artifact = workspace.pack()
 ```
 
 The explicit `xpkg.formats.import_*_workspace(...)` helpers remain public when
