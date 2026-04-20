@@ -10,6 +10,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Protocol
 
+import numpy as np
+
 from xpkg.core.logging_utils import get_logger
 from xpkg.core.path_registry import ensure_dir
 from xpkg.core.video_contract import video_total_frames
@@ -56,6 +58,46 @@ def _emit(callback: ProgressCallback | None, message: str) -> None:
         return
     sys.stdout.write(message + "\n")
     sys.stdout.flush()
+
+
+def points_from_coords_scores(
+    node_names: Sequence[object],
+    coords: np.ndarray,
+    scores: np.ndarray,
+    *,
+    likelihood_threshold: float,
+) -> dict[object, Any]:
+    """Build visible point objects from parallel keypoint coordinate and score arrays."""
+
+    from xpkg.core.annotations import Point
+
+    coords_array = np.asarray(coords, dtype=np.float64)
+    scores_array = np.asarray(scores, dtype=np.float64)
+    node_count = len(node_names)
+
+    if coords_array.shape != (node_count, 2):
+        raise ValueError(
+            "coords must have shape "
+            f"({node_count}, 2), got {coords_array.shape}."
+        )
+    if scores_array.shape != (node_count,):
+        raise ValueError(
+            "scores must have shape "
+            f"({node_count},), got {scores_array.shape}."
+        )
+
+    points: dict[object, Any] = {}
+    for node_idx, node_name in enumerate(node_names):
+        score = float(scores_array[node_idx])
+        if not np.isfinite(score) or score < likelihood_threshold:
+            continue
+
+        x_val = float(coords_array[node_idx, 0])
+        y_val = float(coords_array[node_idx, 1])
+        if np.isnan(x_val) or np.isnan(y_val):
+            continue
+        points[node_name] = Point(x_val, y_val, visible=True, complete=True)
+    return points
 
 
 def _sorted_frame_list(img_dir: Path) -> list[str]:
@@ -303,6 +345,7 @@ __all__ = [
     "build_cli_parser",
     "encode_videos",
     "parse_and_run_cli",
+    "points_from_coords_scores",
     "project_archive_path",
     "rebase_image_sequences",
     "remap_labels_to_videos",

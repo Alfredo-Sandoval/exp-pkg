@@ -35,8 +35,11 @@ if TYPE_CHECKING:
         ) -> list[LabeledFrame]: ...
 
     class LabelsLike(Protocol):
-        query: _LabelsQueryLike
-        labeled_frames: list[LabeledFrame]
+        @property
+        def query(self) -> _LabelsQueryLike: ...
+
+        @property
+        def labeled_frames(self) -> list[LabeledFrame]: ...
 else:
     from typing import Any as Video
 

@@ -31,6 +31,10 @@ from xpkg.io.converters.dlc_import import (
     _validate_video_alignment,
     _write_tracking_archive,
 )
+from xpkg.io.converters.pose_track_import import (
+    labels_from_pose_tracks,
+    validate_pose_tracks_consistency,
+)
 from xpkg.io.converters.sleap_helpers import extract_frames, extract_labels_step4
 from xpkg.io.readers.sleap_analysis_h5 import (
     read_node_names as _read_sleap_node_names,
@@ -205,24 +209,10 @@ def _validate_sleap_tracks_consistency(
     *,
     source_path: Path,
 ) -> int:
-    if not tracks:
-        raise ValueError(f"SLEAP analysis H5 contains no tracks: {source_path}")
-
-    reference = tracks[0]
-    frame_count = int(reference.coords.shape[0])
-    node_names = tuple(reference.node_names)
-
-    for track in tracks[1:]:
-        if tuple(track.node_names) != node_names:
-            raise ValueError(
-                "SLEAP analysis H5 track node names do not agree across tracks: "
-                f"{source_path}"
-            )
-        if int(track.coords.shape[0]) != frame_count:
-            raise ValueError(
-                "SLEAP analysis H5 track frame counts do not agree across tracks: "
-                f"{source_path}"
-            )
+    frame_count, _node_names = validate_pose_tracks_consistency(
+        tracks,
+        source_label=f"SLEAP analysis H5 {source_path}",
+    )
     return frame_count
 
 
@@ -234,53 +224,13 @@ def _labels_from_sleap_h5_tracks(
     video: Any,
     likelihood_threshold: float,
 ) -> _Labels:
-    from xpkg.core.annotations import Instance, LabeledFrame, Track
-    from xpkg.core.skeleton import build_keypoint_skeleton
-    from xpkg.model import Labels
-
-    frame_count = int(tracks[0].coords.shape[0])
-    node_names = list(tracks[0].node_names)
-    skeleton = build_keypoint_skeleton(node_names, name=skeleton_name)
-
-    labels = Labels(skeletons=[skeleton], videos=[video])
-    normalized_track_names = [
-        name.strip() if isinstance(name, str) and name.strip() else f"track-{track_idx}"
-        for track_idx, name in enumerate(track_names)
-    ]
-    if len(normalized_track_names) < len(tracks):
-        normalized_track_names.extend(
-            f"track-{track_idx}" for track_idx in range(len(normalized_track_names), len(tracks))
-        )
-    track_defs = [
-        Track(spawned_on=track_idx, name=normalized_track_names[track_idx])
-        for track_idx in range(len(tracks))
-    ]
-
-    for frame_idx in range(frame_count):
-        instances: list[Instance] = []
-        for track_idx, track in enumerate(tracks):
-            points = _sleap_h5_points_for_frame(
-                track.coords[frame_idx],
-                track.scores[frame_idx],
-                node_names,
-                likelihood_threshold=likelihood_threshold,
-            )
-            if not points:
-                continue
-            instances.append(
-                Instance(
-                    skeleton=skeleton,
-                    track=track_defs[track_idx],
-                    tracking_score=float(track.instance_score[frame_idx]),
-                    init_points=points,
-                )
-            )
-        if not instances:
-            continue
-        labels.append(LabeledFrame(video=video, frame_idx=frame_idx, instances=instances))
-
-    labels.update_cache()
-    return labels
+    return labels_from_pose_tracks(
+        tracks,
+        track_names=track_names,
+        skeleton_name=skeleton_name,
+        video=video,
+        likelihood_threshold=likelihood_threshold,
+    )
 
 
 def convert_sleap_h5(

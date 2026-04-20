@@ -128,6 +128,7 @@ class Labels:
     preferences: dict[str, Any] = field(default_factory=dict)
     session: dict[str, Any] = field(default_factory=dict)
     _path: Path | None = field(default=None, init=False, repr=False)
+    query: LabelsQuery = field(init=False, repr=False)
 
     def __post_init__(self):
         self._update_from_labels()
