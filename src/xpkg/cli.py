@@ -8,10 +8,14 @@ from collections.abc import Callable, Sequence
 from pathlib import Path
 
 from xpkg.formats import (
+    import_detectron2_coco_workspace,
     import_dlc_csv_workspace,
     import_dlc_h5_workspace,
     import_dlc_project_workspace,
     import_legacy_archive,
+    import_mediapipe_pose_landmarks_json_workspace,
+    import_mmpose_topdown_json_workspace,
+    import_openpose_json_workspace,
     import_sleap_h5_workspace,
     import_sleap_package_workspace,
     init_project,
@@ -22,7 +26,11 @@ from xpkg.formats import (
 )
 from xpkg.io.archive_format.shared import CANONICAL_ARCHIVE_SUFFIX
 from xpkg.io.converters.converter_helpers import ConversionResult
+from xpkg.io.converters.detectron2_import import convert_detectron2_coco
 from xpkg.io.converters.dlc_import import convert_dlc_csv, convert_dlc_h5, convert_dlc_project
+from xpkg.io.converters.mediapipe_import import convert_mediapipe_pose_landmarks_json
+from xpkg.io.converters.mmpose_import import convert_mmpose_topdown_json
+from xpkg.io.converters.openpose_import import convert_openpose_json
 from xpkg.io.converters.sleap_import import convert_sleap_h5, convert_sleap_package
 from xpkg.version import __version__
 
@@ -36,12 +44,17 @@ def _positive_int(value: str) -> int:
     return parsed
 
 
+def _nonnegative_int(value: str) -> int:
+    parsed = int(value)
+    if parsed < 0:
+        raise argparse.ArgumentTypeError(f"expected a non-negative integer, got {parsed}")
+    return parsed
+
+
 def _likelihood_threshold(value: str) -> float:
     parsed = float(value)
     if parsed < 0.0 or parsed > 1.0:
-        raise argparse.ArgumentTypeError(
-            f"expected a likelihood threshold in [0, 1], got {parsed}"
-        )
+        raise argparse.ArgumentTypeError(f"expected a likelihood threshold in [0, 1], got {parsed}")
     return parsed
 
 
@@ -168,6 +181,125 @@ def _add_sleap_parser(parent: argparse._SubParsersAction[argparse.ArgumentParser
     sleap.set_defaults(func=_cmd_sleap, encode_videos=True)
 
 
+def _add_mmpose_parser(parent: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
+    mmpose = parent.add_parser(
+        "mmpose",
+        help="Convert MMPose top-down demo JSON predictions.",
+    )
+    mmpose.add_argument(
+        "--json",
+        required=True,
+        help="Path to an MMPose --save-predictions JSON export.",
+    )
+    mmpose.add_argument("--video", required=True, help="Path to the matching video file.")
+    mmpose.add_argument("--out", required=True, help="Output edge compatibility archive path.")
+    mmpose.add_argument(
+        "--skeleton-name",
+        default="imported",
+        help="Skeleton name to store in the converted compatibility archive.",
+    )
+    mmpose.add_argument(
+        "--instance-index",
+        type=_nonnegative_int,
+        default=0,
+        help="Per-frame instance slot to import from the MMPose predictions.",
+    )
+    mmpose.add_argument(
+        "--threshold",
+        type=_likelihood_threshold,
+        default=0.0,
+        help="Likelihood threshold for including keypoints (0 to 1).",
+    )
+    mmpose.set_defaults(func=_cmd_mmpose)
+
+
+def _add_mediapipe_parser(parent: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
+    mediapipe = parent.add_parser(
+        "mediapipe",
+        help="Convert MediaPipe pose-landmarks JSON exports.",
+    )
+    mediapipe.add_argument("--json", required=True, help="Path to MediaPipe pose-landmarks JSON.")
+    mediapipe.add_argument("--video", required=True, help="Path to the matching video file.")
+    mediapipe.add_argument("--out", required=True, help="Output edge compatibility archive path.")
+    mediapipe.add_argument(
+        "--skeleton-name",
+        default="mediapipe_pose",
+        help="Skeleton name to store in the converted compatibility archive.",
+    )
+    mediapipe.add_argument(
+        "--threshold",
+        type=_likelihood_threshold,
+        default=0.0,
+        help="Likelihood threshold for including keypoints (0 to 1).",
+    )
+    mediapipe.set_defaults(func=_cmd_mediapipe)
+
+
+def _add_openpose_parser(parent: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
+    openpose = parent.add_parser(
+        "openpose",
+        help="Convert OpenPose BODY_25 JSON directories.",
+    )
+    openpose.add_argument(
+        "--json",
+        required=True,
+        help="Path to an OpenPose --write_json directory.",
+    )
+    openpose.add_argument("--video", required=True, help="Path to the matching video file.")
+    openpose.add_argument("--out", required=True, help="Output edge compatibility archive path.")
+    openpose.add_argument(
+        "--skeleton-name",
+        default="imported",
+        help="Skeleton name to store in the converted compatibility archive.",
+    )
+    openpose.add_argument(
+        "--threshold",
+        type=_likelihood_threshold,
+        default=0.0,
+        help="Likelihood threshold for including keypoints (0 to 1).",
+    )
+    openpose.set_defaults(func=_cmd_openpose)
+
+
+def _add_detectron2_parser(parent: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
+    detectron2 = parent.add_parser(
+        "detectron2",
+        help="Convert Detectron2 COCO keypoint prediction exports.",
+    )
+    detectron2.add_argument(
+        "--predictions",
+        required=True,
+        help="Path to Detectron2 COCOEvaluator coco_instances_results.json.",
+    )
+    detectron2.add_argument(
+        "--dataset-json",
+        required=True,
+        help="Path to the registered COCO dataset JSON.",
+    )
+    detectron2.add_argument(
+        "--image-root",
+        required=True,
+        help="Image root paired with the COCO dataset JSON.",
+    )
+    detectron2.add_argument("--out", required=True, help="Output edge compatibility archive path.")
+    detectron2.add_argument(
+        "--category-id",
+        type=int,
+        help="COCO keypoint category id to import when multiple keypoint categories exist.",
+    )
+    detectron2.add_argument(
+        "--skeleton-name",
+        help="Optional skeleton name override for the imported keypoints.",
+    )
+    detectron2.add_argument(
+        "--threshold",
+        type=_likelihood_threshold,
+        default=0.0,
+        help="Likelihood threshold for including keypoints (0 to 1).",
+    )
+    detectron2.set_defaults(func=_cmd_detectron2)
+
+
 def _add_import_parser(parent: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     imported = parent.add_parser(
         "import",
@@ -282,6 +414,117 @@ def _add_import_parser(parent: argparse._SubParsersAction[argparse.ArgumentParse
     )
     sleap.set_defaults(func=_cmd_import_sleap, encode_videos=True)
 
+    mmpose = import_subparsers.add_parser(
+        "mmpose",
+        help="Import MMPose top-down demo JSON predictions into a workspace.",
+    )
+    mmpose.add_argument(
+        "--json",
+        required=True,
+        help="Path to an MMPose --save-predictions JSON export.",
+    )
+    mmpose.add_argument("--video", required=True, help="Path to the matching video file.")
+    mmpose.add_argument("--out", required=True, help="Output workspace directory.")
+    mmpose.add_argument(
+        "--skeleton-name",
+        default="imported",
+        help="Skeleton name to store in the imported workspace.",
+    )
+    mmpose.add_argument(
+        "--instance-index",
+        type=_nonnegative_int,
+        default=0,
+        help="Per-frame instance slot to import from the MMPose predictions.",
+    )
+    mmpose.add_argument(
+        "--threshold",
+        type=_likelihood_threshold,
+        default=0.0,
+        help="Likelihood threshold for including keypoints (0 to 1).",
+    )
+    mmpose.set_defaults(func=_cmd_import_mmpose)
+
+    mediapipe = import_subparsers.add_parser(
+        "mediapipe",
+        help="Import MediaPipe pose-landmarks JSON into a workspace.",
+    )
+    mediapipe.add_argument("--json", required=True, help="Path to MediaPipe pose-landmarks JSON.")
+    mediapipe.add_argument("--video", required=True, help="Path to the matching video file.")
+    mediapipe.add_argument("--out", required=True, help="Output workspace directory.")
+    mediapipe.add_argument(
+        "--skeleton-name",
+        default="mediapipe_pose",
+        help="Skeleton name to store in the imported workspace.",
+    )
+    mediapipe.add_argument(
+        "--threshold",
+        type=_likelihood_threshold,
+        default=0.0,
+        help="Likelihood threshold for including keypoints (0 to 1).",
+    )
+    mediapipe.set_defaults(func=_cmd_import_mediapipe)
+
+    openpose = import_subparsers.add_parser(
+        "openpose",
+        help="Import OpenPose BODY_25 JSON directories into a workspace.",
+    )
+    openpose.add_argument(
+        "--json",
+        required=True,
+        help="Path to an OpenPose --write_json directory.",
+    )
+    openpose.add_argument("--video", required=True, help="Path to the matching video file.")
+    openpose.add_argument("--out", required=True, help="Output workspace directory.")
+    openpose.add_argument(
+        "--skeleton-name",
+        default="imported",
+        help="Skeleton name to store in the imported workspace.",
+    )
+    openpose.add_argument(
+        "--threshold",
+        type=_likelihood_threshold,
+        default=0.0,
+        help="Likelihood threshold for including keypoints (0 to 1).",
+    )
+    openpose.set_defaults(func=_cmd_import_openpose)
+
+    detectron2 = import_subparsers.add_parser(
+        "detectron2",
+        help="Import Detectron2 COCO keypoint predictions into a workspace.",
+    )
+    detectron2.add_argument(
+        "--predictions",
+        required=True,
+        help="Path to Detectron2 COCOEvaluator coco_instances_results.json.",
+    )
+    detectron2.add_argument(
+        "--dataset-json",
+        required=True,
+        help="Path to the registered COCO dataset JSON.",
+    )
+    detectron2.add_argument(
+        "--image-root",
+        required=True,
+        help="Image root paired with the COCO dataset JSON.",
+    )
+    detectron2.add_argument("--out", required=True, help="Output workspace directory.")
+    detectron2.add_argument(
+        "--category-id",
+        type=int,
+        help="COCO keypoint category id to import when multiple keypoint categories exist.",
+    )
+    detectron2.add_argument(
+        "--skeleton-name",
+        help="Optional skeleton name override for the imported keypoints.",
+    )
+    detectron2.add_argument(
+        "--threshold",
+        type=_likelihood_threshold,
+        default=0.0,
+        help="Likelihood threshold for including keypoints (0 to 1).",
+    )
+    detectron2.set_defaults(func=_cmd_import_detectron2)
+
 
 def _add_workspace_parsers(parent: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     init = parent.add_parser("init", help="Create a new empty exp-pkg workspace.")
@@ -378,6 +621,10 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     )
     convert_subparsers = convert.add_subparsers(dest="format", required=True)
     _add_dlc_parser(convert_subparsers)
+    _add_detectron2_parser(convert_subparsers)
+    _add_mediapipe_parser(convert_subparsers)
+    _add_mmpose_parser(convert_subparsers)
+    _add_openpose_parser(convert_subparsers)
     _add_sleap_parser(convert_subparsers)
     return parser
 
@@ -441,6 +688,61 @@ def _cmd_sleap(args: argparse.Namespace) -> int:
         args.out,
         fps=args.fps,
         encode_videos=args.encode_videos,
+        progress_callback=_emit_progress,
+    )
+    _write_result(result)
+    return 0
+
+
+def _cmd_mmpose(args: argparse.Namespace) -> int:
+    result = convert_mmpose_topdown_json(
+        args.json,
+        args.video,
+        args.out,
+        skeleton_name=args.skeleton_name,
+        instance_index=args.instance_index,
+        likelihood_threshold=args.threshold,
+        progress_callback=_emit_progress,
+    )
+    _write_result(result)
+    return 0
+
+
+def _cmd_mediapipe(args: argparse.Namespace) -> int:
+    result = convert_mediapipe_pose_landmarks_json(
+        args.json,
+        args.video,
+        args.out,
+        skeleton_name=args.skeleton_name,
+        likelihood_threshold=args.threshold,
+        progress_callback=_emit_progress,
+    )
+    _write_result(result)
+    return 0
+
+
+def _cmd_openpose(args: argparse.Namespace) -> int:
+    result = convert_openpose_json(
+        args.json,
+        args.video,
+        args.out,
+        skeleton_name=args.skeleton_name,
+        likelihood_threshold=args.threshold,
+        progress_callback=_emit_progress,
+    )
+    _write_result(result)
+    return 0
+
+
+def _cmd_detectron2(args: argparse.Namespace) -> int:
+    result = convert_detectron2_coco(
+        args.predictions,
+        args.dataset_json,
+        args.image_root,
+        args.out,
+        category_id=args.category_id,
+        skeleton_name=args.skeleton_name,
+        likelihood_threshold=args.threshold,
         progress_callback=_emit_progress,
     )
     _write_result(result)
@@ -577,6 +879,65 @@ def _cmd_import_sleap(args: argparse.Namespace) -> int:
         progress_callback=_emit_progress,
     )
     sys.stdout.write(f"Imported SLEAP package into {args.out}\n")
+    _write_path(path)
+    return 0
+
+
+def _cmd_import_mmpose(args: argparse.Namespace) -> int:
+    path = import_mmpose_topdown_json_workspace(
+        args.json,
+        args.video,
+        args.out,
+        skeleton_name=args.skeleton_name,
+        instance_index=args.instance_index,
+        likelihood_threshold=args.threshold,
+        progress_callback=_emit_progress,
+    )
+    sys.stdout.write(f"Imported MMPose JSON into {args.out}\n")
+    _write_path(path)
+    return 0
+
+
+def _cmd_import_mediapipe(args: argparse.Namespace) -> int:
+    path = import_mediapipe_pose_landmarks_json_workspace(
+        args.json,
+        args.video,
+        args.out,
+        skeleton_name=args.skeleton_name,
+        likelihood_threshold=args.threshold,
+        progress_callback=_emit_progress,
+    )
+    sys.stdout.write(f"Imported MediaPipe JSON into {args.out}\n")
+    _write_path(path)
+    return 0
+
+
+def _cmd_import_openpose(args: argparse.Namespace) -> int:
+    path = import_openpose_json_workspace(
+        args.json,
+        args.video,
+        args.out,
+        skeleton_name=args.skeleton_name,
+        likelihood_threshold=args.threshold,
+        progress_callback=_emit_progress,
+    )
+    sys.stdout.write(f"Imported OpenPose JSON into {args.out}\n")
+    _write_path(path)
+    return 0
+
+
+def _cmd_import_detectron2(args: argparse.Namespace) -> int:
+    path = import_detectron2_coco_workspace(
+        args.predictions,
+        args.dataset_json,
+        args.image_root,
+        args.out,
+        category_id=args.category_id,
+        skeleton_name=args.skeleton_name,
+        likelihood_threshold=args.threshold,
+        progress_callback=_emit_progress,
+    )
+    sys.stdout.write(f"Imported Detectron2 COCO into {args.out}\n")
     _write_path(path)
     return 0
 

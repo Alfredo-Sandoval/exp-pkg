@@ -6,10 +6,14 @@ import warnings
 import xpkg
 from xpkg.adapters import (
     ConversionResult,
+    convert_detectron2_coco,
     convert_dlc_csv,
     convert_dlc_h5,
     convert_dlc_h5_project,
     convert_dlc_project,
+    convert_mediapipe_pose_landmarks_json,
+    convert_mmpose_topdown_json,
+    convert_openpose_json,
     convert_sleap_h5,
     convert_sleap_package,
 )
@@ -40,10 +44,14 @@ from xpkg.formats import (
     current_project_state_path,
     default_expkg_path,
     export_project_archive,
+    import_detectron2_coco_workspace,
     import_dlc_csv_workspace,
     import_dlc_h5_workspace,
     import_dlc_project_workspace,
     import_legacy_archive,
+    import_mediapipe_pose_landmarks_json_workspace,
+    import_mmpose_topdown_json_workspace,
+    import_openpose_json_workspace,
     import_sleap_h5_workspace,
     import_sleap_package_workspace,
     init_project,
@@ -107,10 +115,14 @@ def test_public_exports_are_callable() -> None:
     assert callable(current_project_state_path)
     assert callable(default_expkg_path)
     assert callable(export_project_archive)
+    assert callable(import_detectron2_coco_workspace)
     assert callable(import_dlc_csv_workspace)
     assert callable(import_dlc_h5_workspace)
     assert callable(import_dlc_project_workspace)
     assert callable(import_legacy_archive)
+    assert callable(import_mediapipe_pose_landmarks_json_workspace)
+    assert callable(import_mmpose_topdown_json_workspace)
+    assert callable(import_openpose_json_workspace)
     assert callable(import_sleap_h5_workspace)
     assert callable(import_sleap_package_workspace)
     assert callable(init_project)
@@ -136,10 +148,14 @@ def test_public_exports_are_callable() -> None:
     assert callable(write_metrics_table)
     assert callable(write_project_descriptor)
     assert callable(write_xpkg)
+    assert callable(convert_detectron2_coco)
     assert callable(convert_dlc_csv)
     assert callable(convert_dlc_h5)
     assert callable(convert_dlc_h5_project)
     assert callable(convert_dlc_project)
+    assert callable(convert_mediapipe_pose_landmarks_json)
+    assert callable(convert_mmpose_topdown_json)
+    assert callable(convert_openpose_json)
     assert callable(convert_sleap_h5)
     assert callable(convert_sleap_package)
     assert callable(labels_from_json_payload)

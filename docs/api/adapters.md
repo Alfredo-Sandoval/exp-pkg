@@ -2,9 +2,10 @@
 
 <div class="page-intro">
 <p>
-<code>xpkg.adapters</code> converts DLC and SLEAP tracking into xpkg data
-structures and current <code>.xpkg</code> archive outputs while the
-workspace-first v1 project workflow is being wired in.
+<code>xpkg.adapters</code> converts DeepLabCut, SLEAP, MMPose, MediaPipe,
+OpenPose, and Detectron2 pose exports into xpkg data structures and current
+<code>.xpkg</code> archive outputs while the workspace-first v1 project
+workflow is being wired in.
 </p>
 </div>
 
@@ -95,17 +96,55 @@ result = convert_sleap_package(
 )
 ```
 
+## MMPose
+
+### `convert_mmpose_topdown_json(json_path, video_path, out_path, *, skeleton_name="imported", instance_index=0, likelihood_threshold=0.0, progress_callback=None) -> ConversionResult`
+
+Convert an official MMPose top-down demo JSON export written by
+`topdown_demo_with_mmdet.py --save-predictions` plus its matching video into a
+direct `.xpkg` archive.
+
+- `instance_index` selects one per-frame prediction slot from the saved result.
+
+## MediaPipe
+
+### `convert_mediapipe_pose_landmarks_json(json_path, video_path, out_path, *, skeleton_name="mediapipe_pose", likelihood_threshold=0.0, progress_callback=None) -> ConversionResult`
+
+Convert the supported serialized MediaPipe pose-landmarks JSON contract plus
+its matching video into a direct `.xpkg` archive.
+
+- The minimal supported contract is a single-pose JSON export derived from the
+  official Pose Landmarker result fields.
+
+## OpenPose
+
+### `convert_openpose_json(json_dir, video_path, out_path, *, skeleton_name="imported", likelihood_threshold=0.0, progress_callback=None) -> ConversionResult`
+
+Convert an OpenPose `--write_json` BODY_25 directory plus its matching video
+into a direct `.xpkg` archive.
+
+## Detectron2
+
+### `convert_detectron2_coco(predictions_path, dataset_json_path, image_root, out_path, *, category_id=None, skeleton_name=None, likelihood_threshold=0.0, progress_callback=None) -> ConversionResult`
+
+Convert Detectron2 COCO keypoint predictions written by `COCOEvaluator`
+(`coco_instances_results.json`) plus the paired COCO dataset JSON and
+`image_root` into a direct `.xpkg` archive.
+
+- `category_id` is required when the dataset JSON defines more than one
+  keypoint category.
+
 ## Progress Reporting
 
-Every adapter accepts an optional `progress_callback: Callable[[str], None]`.
-The callback receives short status strings during conversion (e.g.
-`"Converting frame 10/500"`).
+Every adapter accepts an optional
+`progress_callback: Callable[[int, str], None]`. The callback receives a
+best-effort percentage plus the underlying converter status string.
 
 ```python
 from xpkg.adapters import convert_dlc_csv
 
-def on_progress(msg: str) -> None:
-    print(msg)
+def on_progress(percent: int, msg: str) -> None:
+    print(percent, msg)
 
 result = convert_dlc_csv(
     "tracking.csv", "video.mp4", "out.xpkg",

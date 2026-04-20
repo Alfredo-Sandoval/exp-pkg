@@ -125,6 +125,27 @@ Import a SLEAP analysis H5 export into a workspace.
 
 Import a SLEAP package into a workspace.
 
+### `import_mmpose_topdown_json_workspace(...)`
+
+Import an official MMPose top-down demo JSON export plus its matching video
+into a workspace.
+
+### `import_mediapipe_pose_landmarks_json_workspace(...)`
+
+Import the supported MediaPipe pose-landmarks JSON contract plus its matching
+video into a workspace.
+
+### `import_openpose_json_workspace(...)`
+
+Import an OpenPose `--write_json` BODY_25 directory plus its matching video
+into a workspace.
+
+### `import_detectron2_coco_workspace(...)`
+
+Import Detectron2 COCO keypoint predictions
+(`coco_instances_results.json`) plus the paired dataset JSON and `image_root`
+into a workspace.
+
 ### `import_legacy_archive(...)`
 
 Import a legacy archive into a workspace.

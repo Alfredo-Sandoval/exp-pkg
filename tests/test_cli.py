@@ -242,6 +242,264 @@ def test_cli_routes_sleap_h5(monkeypatch, capsys) -> None:
     assert "analysis.xpkg" in stdout
 
 
+def test_cli_routes_mmpose(monkeypatch, capsys) -> None:
+    from xpkg.adapters import ConversionResult
+    from xpkg.cli import main
+
+    captured: dict[str, object] = {}
+
+    def fake_convert_mmpose_topdown_json(
+        json_path: str,
+        video_path: str,
+        out_path: str,
+        *,
+        skeleton_name: str,
+        instance_index: int,
+        likelihood_threshold: float,
+        progress_callback,
+    ) -> ConversionResult:
+        captured["json_path"] = json_path
+        captured["video_path"] = video_path
+        captured["out_path"] = out_path
+        captured["skeleton_name"] = skeleton_name
+        captured["instance_index"] = instance_index
+        captured["likelihood_threshold"] = likelihood_threshold
+        progress_callback("mmpose-progress")
+        return ConversionResult(
+            source_dir=Path(json_path),
+            project_root=Path(out_path).parent,
+            videos=[Path(video_path)],
+            archive_path=Path(out_path),
+        )
+
+    monkeypatch.setattr("xpkg.cli.convert_mmpose_topdown_json", fake_convert_mmpose_topdown_json)
+
+    code = main(
+        [
+            "convert",
+            "mmpose",
+            "--json",
+            "results.json",
+            "--video",
+            "clip.mp4",
+            "--out",
+            "mmpose.xpkg",
+            "--skeleton-name",
+            "mouse",
+            "--instance-index",
+            "1",
+            "--threshold",
+            "0.4",
+        ]
+    )
+
+    assert code == 0
+    assert captured == {
+        "json_path": "results.json",
+        "video_path": "clip.mp4",
+        "out_path": "mmpose.xpkg",
+        "skeleton_name": "mouse",
+        "instance_index": 1,
+        "likelihood_threshold": 0.4,
+    }
+
+    stdout = capsys.readouterr().out
+    assert "mmpose-progress" in stdout
+    assert "mmpose.xpkg" in stdout
+
+
+def test_cli_routes_mediapipe(monkeypatch, capsys) -> None:
+    from xpkg.adapters import ConversionResult
+    from xpkg.cli import main
+
+    captured: dict[str, object] = {}
+
+    def fake_convert_mediapipe_pose_landmarks_json(
+        json_path: str,
+        video_path: str,
+        out_path: str,
+        *,
+        skeleton_name: str,
+        likelihood_threshold: float,
+        progress_callback,
+    ) -> ConversionResult:
+        captured["json_path"] = json_path
+        captured["video_path"] = video_path
+        captured["out_path"] = out_path
+        captured["skeleton_name"] = skeleton_name
+        captured["likelihood_threshold"] = likelihood_threshold
+        progress_callback("mediapipe-progress")
+        return ConversionResult(
+            source_dir=Path(json_path),
+            project_root=Path(out_path).parent,
+            videos=[Path(video_path)],
+            archive_path=Path(out_path),
+        )
+
+    monkeypatch.setattr(
+        "xpkg.cli.convert_mediapipe_pose_landmarks_json",
+        fake_convert_mediapipe_pose_landmarks_json,
+    )
+
+    code = main(
+        [
+            "convert",
+            "mediapipe",
+            "--json",
+            "pose_landmarks.json",
+            "--video",
+            "clip.mp4",
+            "--out",
+            "mediapipe.xpkg",
+            "--threshold",
+            "0.3",
+        ]
+    )
+
+    assert code == 0
+    assert captured == {
+        "json_path": "pose_landmarks.json",
+        "video_path": "clip.mp4",
+        "out_path": "mediapipe.xpkg",
+        "skeleton_name": "mediapipe_pose",
+        "likelihood_threshold": 0.3,
+    }
+
+    stdout = capsys.readouterr().out
+    assert "mediapipe-progress" in stdout
+    assert "mediapipe.xpkg" in stdout
+
+
+def test_cli_routes_openpose(monkeypatch, capsys) -> None:
+    from xpkg.adapters import ConversionResult
+    from xpkg.cli import main
+
+    captured: dict[str, object] = {}
+
+    def fake_convert_openpose_json(
+        json_dir: str,
+        video_path: str,
+        out_path: str,
+        *,
+        skeleton_name: str,
+        likelihood_threshold: float,
+        progress_callback,
+    ) -> ConversionResult:
+        captured["json_dir"] = json_dir
+        captured["video_path"] = video_path
+        captured["out_path"] = out_path
+        captured["skeleton_name"] = skeleton_name
+        captured["likelihood_threshold"] = likelihood_threshold
+        progress_callback("openpose-progress")
+        return ConversionResult(
+            source_dir=Path(json_dir),
+            project_root=Path(out_path).parent,
+            videos=[Path(video_path)],
+            archive_path=Path(out_path),
+        )
+
+    monkeypatch.setattr("xpkg.cli.convert_openpose_json", fake_convert_openpose_json)
+
+    code = main(
+        [
+            "convert",
+            "openpose",
+            "--json",
+            "openpose_json",
+            "--video",
+            "clip.mp4",
+            "--out",
+            "openpose.xpkg",
+            "--threshold",
+            "0.2",
+        ]
+    )
+
+    assert code == 0
+    assert captured == {
+        "json_dir": "openpose_json",
+        "video_path": "clip.mp4",
+        "out_path": "openpose.xpkg",
+        "skeleton_name": "imported",
+        "likelihood_threshold": 0.2,
+    }
+
+    stdout = capsys.readouterr().out
+    assert "openpose-progress" in stdout
+    assert "openpose.xpkg" in stdout
+
+
+def test_cli_routes_detectron2(monkeypatch, capsys) -> None:
+    from xpkg.adapters import ConversionResult
+    from xpkg.cli import main
+
+    captured: dict[str, object] = {}
+
+    def fake_convert_detectron2_coco(
+        predictions_path: str,
+        dataset_json_path: str,
+        image_root: str,
+        out_path: str,
+        *,
+        category_id: int | None,
+        skeleton_name: str | None,
+        likelihood_threshold: float,
+        progress_callback,
+    ) -> ConversionResult:
+        captured["predictions_path"] = predictions_path
+        captured["dataset_json_path"] = dataset_json_path
+        captured["image_root"] = image_root
+        captured["out_path"] = out_path
+        captured["category_id"] = category_id
+        captured["skeleton_name"] = skeleton_name
+        captured["likelihood_threshold"] = likelihood_threshold
+        progress_callback("detectron2-progress")
+        return ConversionResult(
+            source_dir=Path(predictions_path),
+            project_root=Path(out_path).parent,
+            videos=[Path(image_root)],
+            archive_path=Path(out_path),
+        )
+
+    monkeypatch.setattr("xpkg.cli.convert_detectron2_coco", fake_convert_detectron2_coco)
+
+    code = main(
+        [
+            "convert",
+            "detectron2",
+            "--predictions",
+            "coco_instances_results.json",
+            "--dataset-json",
+            "dataset.json",
+            "--image-root",
+            "images",
+            "--out",
+            "detectron2.xpkg",
+            "--category-id",
+            "7",
+            "--skeleton-name",
+            "mouse",
+            "--threshold",
+            "0.6",
+        ]
+    )
+
+    assert code == 0
+    assert captured == {
+        "predictions_path": "coco_instances_results.json",
+        "dataset_json_path": "dataset.json",
+        "image_root": "images",
+        "out_path": "detectron2.xpkg",
+        "category_id": 7,
+        "skeleton_name": "mouse",
+        "likelihood_threshold": 0.6,
+    }
+
+    stdout = capsys.readouterr().out
+    assert "detectron2-progress" in stdout
+    assert "detectron2.xpkg" in stdout
+
+
 def test_cli_routes_init_workspace(monkeypatch, capsys) -> None:
     from xpkg.cli import main
 
@@ -516,6 +774,271 @@ def test_cli_routes_import_sleap_h5_workspace(monkeypatch, capsys) -> None:
     stdout = capsys.readouterr().out
     assert "sleap-h5-import-progress" in stdout
     assert "Imported SLEAP H5 into My Project" in stdout
+    assert ".xpkg/state/current.json" in stdout
+
+
+def test_cli_routes_import_mmpose_workspace(monkeypatch, capsys) -> None:
+    from xpkg.cli import main
+
+    captured: dict[str, object] = {}
+
+    def fake_import_mmpose_topdown_json_workspace(
+        json_path: str,
+        video_path: str,
+        workspace: str,
+        *,
+        skeleton_name: str,
+        instance_index: int,
+        likelihood_threshold: float,
+        default_pack_mode: str = "portable",
+        force: bool = False,
+        progress_callback,
+    ) -> Path:
+        captured["json_path"] = json_path
+        captured["video_path"] = video_path
+        captured["workspace"] = workspace
+        captured["skeleton_name"] = skeleton_name
+        captured["instance_index"] = instance_index
+        captured["likelihood_threshold"] = likelihood_threshold
+        captured["default_pack_mode"] = default_pack_mode
+        captured["force"] = force
+        progress_callback("mmpose-import-progress")
+        return Path(workspace) / ".xpkg" / "state" / "current.json"
+
+    monkeypatch.setattr(
+        "xpkg.cli.import_mmpose_topdown_json_workspace",
+        fake_import_mmpose_topdown_json_workspace,
+    )
+
+    code = main(
+        [
+            "import",
+            "mmpose",
+            "--json",
+            "results.json",
+            "--video",
+            "clip.mp4",
+            "--out",
+            "My Project",
+            "--instance-index",
+            "1",
+            "--threshold",
+            "0.4",
+        ]
+    )
+
+    assert code == 0
+    assert captured == {
+        "json_path": "results.json",
+        "video_path": "clip.mp4",
+        "workspace": "My Project",
+        "skeleton_name": "imported",
+        "instance_index": 1,
+        "likelihood_threshold": 0.4,
+        "default_pack_mode": "portable",
+        "force": False,
+    }
+    stdout = capsys.readouterr().out
+    assert "mmpose-import-progress" in stdout
+    assert "Imported MMPose JSON into My Project" in stdout
+    assert ".xpkg/state/current.json" in stdout
+
+
+def test_cli_routes_import_mediapipe_workspace(monkeypatch, capsys) -> None:
+    from xpkg.cli import main
+
+    captured: dict[str, object] = {}
+
+    def fake_import_mediapipe_pose_landmarks_json_workspace(
+        json_path: str,
+        video_path: str,
+        workspace: str,
+        *,
+        skeleton_name: str,
+        likelihood_threshold: float,
+        default_pack_mode: str = "portable",
+        force: bool = False,
+        progress_callback,
+    ) -> Path:
+        captured["json_path"] = json_path
+        captured["video_path"] = video_path
+        captured["workspace"] = workspace
+        captured["skeleton_name"] = skeleton_name
+        captured["likelihood_threshold"] = likelihood_threshold
+        captured["default_pack_mode"] = default_pack_mode
+        captured["force"] = force
+        progress_callback("mediapipe-import-progress")
+        return Path(workspace) / ".xpkg" / "state" / "current.json"
+
+    monkeypatch.setattr(
+        "xpkg.cli.import_mediapipe_pose_landmarks_json_workspace",
+        fake_import_mediapipe_pose_landmarks_json_workspace,
+    )
+
+    code = main(
+        [
+            "import",
+            "mediapipe",
+            "--json",
+            "pose_landmarks.json",
+            "--video",
+            "clip.mp4",
+            "--out",
+            "My Project",
+            "--threshold",
+            "0.3",
+        ]
+    )
+
+    assert code == 0
+    assert captured == {
+        "json_path": "pose_landmarks.json",
+        "video_path": "clip.mp4",
+        "workspace": "My Project",
+        "skeleton_name": "mediapipe_pose",
+        "likelihood_threshold": 0.3,
+        "default_pack_mode": "portable",
+        "force": False,
+    }
+    stdout = capsys.readouterr().out
+    assert "mediapipe-import-progress" in stdout
+    assert "Imported MediaPipe JSON into My Project" in stdout
+    assert ".xpkg/state/current.json" in stdout
+
+
+def test_cli_routes_import_openpose_workspace(monkeypatch, capsys) -> None:
+    from xpkg.cli import main
+
+    captured: dict[str, object] = {}
+
+    def fake_import_openpose_json_workspace(
+        json_dir: str,
+        video_path: str,
+        workspace: str,
+        *,
+        skeleton_name: str,
+        likelihood_threshold: float,
+        default_pack_mode: str = "portable",
+        force: bool = False,
+        progress_callback,
+    ) -> Path:
+        captured["json_dir"] = json_dir
+        captured["video_path"] = video_path
+        captured["workspace"] = workspace
+        captured["skeleton_name"] = skeleton_name
+        captured["likelihood_threshold"] = likelihood_threshold
+        captured["default_pack_mode"] = default_pack_mode
+        captured["force"] = force
+        progress_callback("openpose-import-progress")
+        return Path(workspace) / ".xpkg" / "state" / "current.json"
+
+    monkeypatch.setattr(
+        "xpkg.cli.import_openpose_json_workspace",
+        fake_import_openpose_json_workspace,
+    )
+
+    code = main(
+        [
+            "import",
+            "openpose",
+            "--json",
+            "openpose_json",
+            "--video",
+            "clip.mp4",
+            "--out",
+            "My Project",
+            "--threshold",
+            "0.2",
+        ]
+    )
+
+    assert code == 0
+    assert captured == {
+        "json_dir": "openpose_json",
+        "video_path": "clip.mp4",
+        "workspace": "My Project",
+        "skeleton_name": "imported",
+        "likelihood_threshold": 0.2,
+        "default_pack_mode": "portable",
+        "force": False,
+    }
+    stdout = capsys.readouterr().out
+    assert "openpose-import-progress" in stdout
+    assert "Imported OpenPose JSON into My Project" in stdout
+    assert ".xpkg/state/current.json" in stdout
+
+
+def test_cli_routes_import_detectron2_workspace(monkeypatch, capsys) -> None:
+    from xpkg.cli import main
+
+    captured: dict[str, object] = {}
+
+    def fake_import_detectron2_coco_workspace(
+        predictions_path: str,
+        dataset_json_path: str,
+        image_root: str,
+        workspace: str,
+        *,
+        category_id: int | None,
+        skeleton_name: str | None,
+        likelihood_threshold: float,
+        default_pack_mode: str = "portable",
+        force: bool = False,
+        progress_callback,
+    ) -> Path:
+        captured["predictions_path"] = predictions_path
+        captured["dataset_json_path"] = dataset_json_path
+        captured["image_root"] = image_root
+        captured["workspace"] = workspace
+        captured["category_id"] = category_id
+        captured["skeleton_name"] = skeleton_name
+        captured["likelihood_threshold"] = likelihood_threshold
+        captured["default_pack_mode"] = default_pack_mode
+        captured["force"] = force
+        progress_callback("detectron2-import-progress")
+        return Path(workspace) / ".xpkg" / "state" / "current.json"
+
+    monkeypatch.setattr(
+        "xpkg.cli.import_detectron2_coco_workspace",
+        fake_import_detectron2_coco_workspace,
+    )
+
+    code = main(
+        [
+            "import",
+            "detectron2",
+            "--predictions",
+            "coco_instances_results.json",
+            "--dataset-json",
+            "dataset.json",
+            "--image-root",
+            "images",
+            "--out",
+            "My Project",
+            "--category-id",
+            "7",
+            "--skeleton-name",
+            "mouse",
+            "--threshold",
+            "0.6",
+        ]
+    )
+
+    assert code == 0
+    assert captured == {
+        "predictions_path": "coco_instances_results.json",
+        "dataset_json_path": "dataset.json",
+        "image_root": "images",
+        "workspace": "My Project",
+        "category_id": 7,
+        "skeleton_name": "mouse",
+        "likelihood_threshold": 0.6,
+        "default_pack_mode": "portable",
+        "force": False,
+    }
+    stdout = capsys.readouterr().out
+    assert "detectron2-import-progress" in stdout
+    assert "Imported Detectron2 COCO into My Project" in stdout
     assert ".xpkg/state/current.json" in stdout
 
 

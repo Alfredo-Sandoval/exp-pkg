@@ -67,7 +67,7 @@ If you are wiring another repo into xpkg, this is the place to start.
 - Exposes a clean in-memory codec layer through `xpkg.codecs`
 - Handles media-aware packaging and workspace-relative project state
 - Exposes migration and legacy compatibility surfaces where needed
-- Ships DeepLabCut and SLEAP adapters today
+- Ships DeepLabCut, SLEAP, MMPose, MediaPipe, OpenPose, and Detectron2 adapters today
 
 ## Current Scope vs Direction
 
@@ -96,10 +96,10 @@ Mission direction:
 | DeepLabCut | Project | Supported |
 | SLEAP | Analysis H5 | Supported |
 | SLEAP | `.pkg.slp` | Supported |
-| MMPose | — | 🔜 Planned |
-| MediaPipe | — | 🔜 Planned |
-| OpenPose | — | 🔜 Planned |
-| Detectron2 | — | 🔜 Planned |
+| MMPose | Top-down demo JSON (`--save-predictions`) | Supported |
+| MediaPipe | Pose landmarks JSON | Supported |
+| OpenPose | BODY_25 `--write_json` directory | Supported |
+| Detectron2 | COCO keypoint results JSON + dataset bundle | Supported |
 
 ## Install
 

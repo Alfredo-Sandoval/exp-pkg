@@ -430,3 +430,493 @@ def test_sleap_h5_adapter_main_routes_cli_arguments(monkeypatch, tmp_path: Path)
     assert captured["skeleton_name"] == "mouse"
     assert captured["likelihood_threshold"] == 0.2
     assert captured["progress_callback"] is None
+
+
+def test_mmpose_adapter_bridges_progress_and_uses_xpkg_extension(monkeypatch) -> None:
+    from xpkg.adapters.mmpose import convert_mmpose_topdown_json
+
+    captured: dict[str, object] = {}
+    progress_events: list[tuple[int, str]] = []
+
+    def fake_convert_mmpose_topdown_json(
+        json_path: str,
+        video_path: str,
+        out_path: str,
+        *,
+        skeleton_name: str,
+        instance_index: int,
+        likelihood_threshold: float,
+        archive_extension: str,
+        progress_callback,
+    ) -> ConversionResult:
+        captured["json_path"] = json_path
+        captured["video_path"] = video_path
+        captured["out_path"] = out_path
+        captured["skeleton_name"] = skeleton_name
+        captured["instance_index"] = instance_index
+        captured["likelihood_threshold"] = likelihood_threshold
+        captured["archive_extension"] = archive_extension
+        assert progress_callback is not None
+        progress_callback("MMPOSE_JSON_IMPORT STEP: read_json")
+        progress_callback("MMPOSE_JSON_IMPORT STEP: build_labels")
+        progress_callback("MMPOSE_JSON_IMPORT DONE")
+        return ConversionResult(
+            source_dir=Path(json_path),
+            project_root=Path(out_path).parent,
+            videos=[Path(video_path)],
+            archive_path=Path(out_path),
+        )
+
+    monkeypatch.setattr(
+        "xpkg.io.converters.mmpose_import.convert_mmpose_topdown_json",
+        fake_convert_mmpose_topdown_json,
+    )
+
+    result = convert_mmpose_topdown_json(
+        "results.json",
+        "clip.mp4",
+        "mmpose.xpkg",
+        skeleton_name="mouse",
+        instance_index=1,
+        likelihood_threshold=0.4,
+        progress_callback=lambda progress, message: progress_events.append((progress, message)),
+    )
+
+    assert captured == {
+        "json_path": "results.json",
+        "video_path": "clip.mp4",
+        "out_path": "mmpose.xpkg",
+        "skeleton_name": "mouse",
+        "instance_index": 1,
+        "likelihood_threshold": 0.4,
+        "archive_extension": ".xpkg",
+    }
+    assert progress_events == [
+        (10, "MMPOSE_JSON_IMPORT STEP: read_json"),
+        (60, "MMPOSE_JSON_IMPORT STEP: build_labels"),
+        (100, "MMPOSE_JSON_IMPORT DONE"),
+    ]
+    assert result.archive_path == Path("mmpose.xpkg")
+
+
+def test_mmpose_adapter_main_routes_cli_arguments(monkeypatch, tmp_path: Path) -> None:
+    from xpkg.adapters.mmpose import main
+
+    captured: dict[str, object] = {}
+
+    def fake_convert_mmpose_topdown_json(
+        json_path: str,
+        video_path: str,
+        out_path: str,
+        *,
+        skeleton_name: str,
+        instance_index: int,
+        likelihood_threshold: float,
+        progress_callback,
+    ) -> ConversionResult:
+        captured["json_path"] = json_path
+        captured["video_path"] = video_path
+        captured["out_path"] = out_path
+        captured["skeleton_name"] = skeleton_name
+        captured["instance_index"] = instance_index
+        captured["likelihood_threshold"] = likelihood_threshold
+        captured["progress_callback"] = progress_callback
+        return ConversionResult(
+            source_dir=Path(json_path),
+            project_root=Path(out_path).parent,
+            videos=[Path(video_path)],
+            archive_path=Path(out_path),
+        )
+
+    monkeypatch.setattr(
+        "xpkg.adapters.mmpose.convert_mmpose_topdown_json",
+        fake_convert_mmpose_topdown_json,
+    )
+
+    rc = main(
+        [
+            "--json",
+            str(tmp_path / "results.json"),
+            "--video",
+            str(tmp_path / "clip.mp4"),
+            "--out",
+            str(tmp_path / "mmpose.xpkg"),
+            "--instance-index",
+            "1",
+            "--skeleton-name",
+            "mouse",
+            "--likelihood-threshold",
+            "0.4",
+        ]
+    )
+
+    assert rc == 0
+    assert captured["json_path"] == str(tmp_path / "results.json")
+    assert captured["video_path"] == str(tmp_path / "clip.mp4")
+    assert captured["out_path"] == str(tmp_path / "mmpose.xpkg")
+    assert captured["skeleton_name"] == "mouse"
+    assert captured["instance_index"] == 1
+    assert captured["likelihood_threshold"] == 0.4
+    assert captured["progress_callback"] is None
+
+
+def test_mediapipe_adapter_bridges_progress_and_uses_xpkg_extension(monkeypatch) -> None:
+    from xpkg.adapters.mediapipe import convert_mediapipe_pose_landmarks_json
+
+    captured: dict[str, object] = {}
+    progress_events: list[tuple[int, str]] = []
+
+    def fake_convert_mediapipe_pose_landmarks_json(
+        json_path: str,
+        video_path: str,
+        out_path: str,
+        *,
+        skeleton_name: str,
+        likelihood_threshold: float,
+        archive_extension: str,
+        progress_callback,
+    ) -> ConversionResult:
+        captured["json_path"] = json_path
+        captured["video_path"] = video_path
+        captured["out_path"] = out_path
+        captured["skeleton_name"] = skeleton_name
+        captured["likelihood_threshold"] = likelihood_threshold
+        captured["archive_extension"] = archive_extension
+        assert progress_callback is not None
+        progress_callback("MEDIAPIPE_IMPORT STEP: read_json")
+        progress_callback("MEDIAPIPE_IMPORT STEP: build_labels")
+        progress_callback("MEDIAPIPE_IMPORT DONE")
+        return ConversionResult(
+            source_dir=Path(json_path),
+            project_root=Path(out_path).parent,
+            videos=[Path(video_path)],
+            archive_path=Path(out_path),
+        )
+
+    monkeypatch.setattr(
+        "xpkg.io.converters.mediapipe_import.convert_mediapipe_pose_landmarks_json",
+        fake_convert_mediapipe_pose_landmarks_json,
+    )
+
+    result = convert_mediapipe_pose_landmarks_json(
+        "pose_landmarks.json",
+        "clip.mp4",
+        "mediapipe.xpkg",
+        likelihood_threshold=0.3,
+        progress_callback=lambda progress, message: progress_events.append((progress, message)),
+    )
+
+    assert captured == {
+        "json_path": "pose_landmarks.json",
+        "video_path": "clip.mp4",
+        "out_path": "mediapipe.xpkg",
+        "skeleton_name": "mediapipe_pose",
+        "likelihood_threshold": 0.3,
+        "archive_extension": ".xpkg",
+    }
+    assert progress_events == [
+        (10, "MEDIAPIPE_IMPORT STEP: read_json"),
+        (60, "MEDIAPIPE_IMPORT STEP: build_labels"),
+        (100, "MEDIAPIPE_IMPORT DONE"),
+    ]
+    assert result.archive_path == Path("mediapipe.xpkg")
+
+
+def test_mediapipe_adapter_main_routes_cli_arguments(monkeypatch, tmp_path: Path) -> None:
+    from xpkg.adapters.mediapipe import main
+
+    captured: dict[str, object] = {}
+
+    def fake_convert_mediapipe_pose_landmarks_json(
+        json_path: str,
+        video_path: str,
+        out_path: str,
+        *,
+        skeleton_name: str,
+        likelihood_threshold: float,
+        progress_callback,
+    ) -> ConversionResult:
+        captured["json_path"] = json_path
+        captured["video_path"] = video_path
+        captured["out_path"] = out_path
+        captured["skeleton_name"] = skeleton_name
+        captured["likelihood_threshold"] = likelihood_threshold
+        captured["progress_callback"] = progress_callback
+        return ConversionResult(
+            source_dir=Path(json_path),
+            project_root=Path(out_path).parent,
+            videos=[Path(video_path)],
+            archive_path=Path(out_path),
+        )
+
+    monkeypatch.setattr(
+        "xpkg.adapters.mediapipe.convert_mediapipe_pose_landmarks_json",
+        fake_convert_mediapipe_pose_landmarks_json,
+    )
+
+    rc = main(
+        [
+            "--json",
+            str(tmp_path / "pose_landmarks.json"),
+            "--video",
+            str(tmp_path / "clip.mp4"),
+            "--out",
+            str(tmp_path / "mediapipe.xpkg"),
+            "--likelihood-threshold",
+            "0.3",
+        ]
+    )
+
+    assert rc == 0
+    assert captured["json_path"] == str(tmp_path / "pose_landmarks.json")
+    assert captured["video_path"] == str(tmp_path / "clip.mp4")
+    assert captured["out_path"] == str(tmp_path / "mediapipe.xpkg")
+    assert captured["skeleton_name"] == "mediapipe_pose"
+    assert captured["likelihood_threshold"] == 0.3
+    assert captured["progress_callback"] is None
+
+
+def test_openpose_adapter_bridges_progress_and_uses_xpkg_extension(monkeypatch) -> None:
+    from xpkg.adapters.openpose import convert_openpose_json
+
+    captured: dict[str, object] = {}
+    progress_events: list[tuple[int, str]] = []
+
+    def fake_convert_openpose_json(
+        json_dir: str,
+        video_path: str,
+        out_path: str,
+        *,
+        skeleton_name: str,
+        likelihood_threshold: float,
+        progress_callback,
+    ) -> ConversionResult:
+        captured["json_dir"] = json_dir
+        captured["video_path"] = video_path
+        captured["out_path"] = out_path
+        captured["skeleton_name"] = skeleton_name
+        captured["likelihood_threshold"] = likelihood_threshold
+        assert progress_callback is not None
+        progress_callback("OPENPOSE_IMPORT STEP: read_json")
+        progress_callback("OPENPOSE_IMPORT STEP: build_labels")
+        progress_callback("OPENPOSE_IMPORT DONE")
+        return ConversionResult(
+            source_dir=Path(json_dir),
+            project_root=Path(out_path).parent,
+            videos=[Path(video_path)],
+            archive_path=Path(out_path),
+        )
+
+    monkeypatch.setattr(
+        "xpkg.io.converters.openpose_import.convert_openpose_json",
+        fake_convert_openpose_json,
+    )
+
+    result = convert_openpose_json(
+        "openpose_json",
+        "clip.mp4",
+        "openpose.xpkg",
+        likelihood_threshold=0.2,
+        progress_callback=lambda progress, message: progress_events.append((progress, message)),
+    )
+
+    assert captured == {
+        "json_dir": "openpose_json",
+        "video_path": "clip.mp4",
+        "out_path": "openpose.xpkg",
+        "skeleton_name": "imported",
+        "likelihood_threshold": 0.2,
+    }
+    assert progress_events == [
+        (10, "OPENPOSE_IMPORT STEP: read_json"),
+        (60, "OPENPOSE_IMPORT STEP: build_labels"),
+        (100, "OPENPOSE_IMPORT DONE"),
+    ]
+    assert result.archive_path == Path("openpose.xpkg")
+
+
+def test_openpose_adapter_main_routes_cli_arguments(monkeypatch, tmp_path: Path) -> None:
+    from xpkg.adapters.openpose import main
+
+    captured: dict[str, object] = {}
+
+    def fake_convert_openpose_json(
+        json_dir: str,
+        video_path: str,
+        out_path: str,
+        *,
+        skeleton_name: str,
+        likelihood_threshold: float,
+        progress_callback,
+    ) -> ConversionResult:
+        captured["json_dir"] = json_dir
+        captured["video_path"] = video_path
+        captured["out_path"] = out_path
+        captured["skeleton_name"] = skeleton_name
+        captured["likelihood_threshold"] = likelihood_threshold
+        captured["progress_callback"] = progress_callback
+        return ConversionResult(
+            source_dir=Path(json_dir),
+            project_root=Path(out_path).parent,
+            videos=[Path(video_path)],
+            archive_path=Path(out_path),
+        )
+
+    monkeypatch.setattr("xpkg.adapters.openpose.convert_openpose_json", fake_convert_openpose_json)
+
+    rc = main(
+        [
+            "--json",
+            str(tmp_path / "openpose_json"),
+            "--video",
+            str(tmp_path / "clip.mp4"),
+            "--out",
+            str(tmp_path / "openpose.xpkg"),
+            "--likelihood-threshold",
+            "0.2",
+        ]
+    )
+
+    assert rc == 0
+    assert captured["json_dir"] == str(tmp_path / "openpose_json")
+    assert captured["video_path"] == str(tmp_path / "clip.mp4")
+    assert captured["out_path"] == str(tmp_path / "openpose.xpkg")
+    assert captured["skeleton_name"] == "imported"
+    assert captured["likelihood_threshold"] == 0.2
+    assert captured["progress_callback"] is None
+
+
+def test_detectron2_adapter_bridges_progress(monkeypatch) -> None:
+    from xpkg.adapters.detectron2 import convert_detectron2_coco
+
+    captured: dict[str, object] = {}
+    progress_events: list[tuple[int, str]] = []
+
+    def fake_convert_detectron2_coco(
+        predictions_path: str,
+        dataset_json_path: str,
+        image_root: str,
+        out_path: str,
+        *,
+        category_id: int | None,
+        skeleton_name: str | None,
+        likelihood_threshold: float,
+        progress_callback,
+    ) -> ConversionResult:
+        captured["predictions_path"] = predictions_path
+        captured["dataset_json_path"] = dataset_json_path
+        captured["image_root"] = image_root
+        captured["out_path"] = out_path
+        captured["category_id"] = category_id
+        captured["skeleton_name"] = skeleton_name
+        captured["likelihood_threshold"] = likelihood_threshold
+        assert progress_callback is not None
+        progress_callback("DETECTRON2_IMPORT STEP: read_json")
+        progress_callback("IMPORT: still reading")
+        progress_callback("DETECTRON2_IMPORT STEP: build_labels")
+        progress_callback("DETECTRON2_IMPORT DONE")
+        return ConversionResult(
+            source_dir=Path("input"),
+            project_root=Path("out"),
+            videos=[Path(image_root)],
+            archive_path=Path(out_path),
+        )
+
+    monkeypatch.setattr(
+        "xpkg.io.converters.detectron2_import.convert_detectron2_coco",
+        fake_convert_detectron2_coco,
+    )
+
+    result = convert_detectron2_coco(
+        "coco_instances_results.json",
+        "dataset.json",
+        "images",
+        "detectron2.xpkg",
+        category_id=7,
+        skeleton_name="mouse",
+        likelihood_threshold=0.5,
+        progress_callback=lambda progress, message: progress_events.append((progress, message)),
+    )
+
+    assert captured == {
+        "predictions_path": "coco_instances_results.json",
+        "dataset_json_path": "dataset.json",
+        "image_root": "images",
+        "out_path": "detectron2.xpkg",
+        "category_id": 7,
+        "skeleton_name": "mouse",
+        "likelihood_threshold": 0.5,
+    }
+    assert progress_events == [
+        (10, "DETECTRON2_IMPORT STEP: read_json"),
+        (10, "IMPORT: still reading"),
+        (60, "DETECTRON2_IMPORT STEP: build_labels"),
+        (100, "DETECTRON2_IMPORT DONE"),
+    ]
+    assert result.archive_path == Path("detectron2.xpkg")
+
+
+def test_detectron2_adapter_main_routes_cli_arguments(monkeypatch, tmp_path: Path) -> None:
+    from xpkg.adapters.detectron2 import main
+
+    captured: dict[str, object] = {}
+
+    def fake_convert_detectron2_coco(
+        predictions_path: str,
+        dataset_json_path: str,
+        image_root: str,
+        out_path: str,
+        *,
+        category_id: int | None,
+        skeleton_name: str | None,
+        likelihood_threshold: float,
+        progress_callback,
+    ) -> ConversionResult:
+        captured["predictions_path"] = predictions_path
+        captured["dataset_json_path"] = dataset_json_path
+        captured["image_root"] = image_root
+        captured["out_path"] = out_path
+        captured["category_id"] = category_id
+        captured["skeleton_name"] = skeleton_name
+        captured["likelihood_threshold"] = likelihood_threshold
+        captured["progress_callback"] = progress_callback
+        return ConversionResult(
+            source_dir=Path(predictions_path),
+            project_root=Path(out_path).parent,
+            videos=[Path(image_root)],
+            archive_path=Path(out_path),
+        )
+
+    monkeypatch.setattr(
+        "xpkg.adapters.detectron2.convert_detectron2_coco",
+        fake_convert_detectron2_coco,
+    )
+
+    rc = main(
+        [
+            "--predictions",
+            str(tmp_path / "coco_instances_results.json"),
+            "--dataset-json",
+            str(tmp_path / "dataset.json"),
+            "--image-root",
+            str(tmp_path / "images"),
+            "--out",
+            str(tmp_path / "detectron2.xpkg"),
+            "--category-id",
+            "3",
+            "--skeleton-name",
+            "mouse",
+            "--likelihood-threshold",
+            "0.4",
+        ]
+    )
+
+    assert rc == 0
+    assert captured["predictions_path"] == str(tmp_path / "coco_instances_results.json")
+    assert captured["dataset_json_path"] == str(tmp_path / "dataset.json")
+    assert captured["image_root"] == str(tmp_path / "images")
+    assert captured["out_path"] == str(tmp_path / "detectron2.xpkg")
+    assert captured["category_id"] == 3
+    assert captured["skeleton_name"] == "mouse"
+    assert captured["likelihood_threshold"] == 0.4
+    assert captured["progress_callback"] is None
