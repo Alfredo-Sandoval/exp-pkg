@@ -9,12 +9,11 @@ import numpy as np
 from xpkg.core.annotations import Instance, LabeledFrame, Point
 from xpkg.formats import (
     current_project_snapshot_path,
-    export_project_archive,
     init_project,
     save_workspace_labels,
 )
 from xpkg.io.archive_store import ArchiveStore
-from xpkg.io.project_workspace import current_project_commit_id
+from xpkg.io.project_workspace import current_project_commit_id, export_project_archive
 from xpkg.io.workspace_snapshot_backend import snapshot_commit_id
 from xpkg.model import Labels, Video, build_keypoint_skeleton
 

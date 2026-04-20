@@ -21,7 +21,6 @@ from xpkg.formats.project import (
     import_dlc_csv_workspace,
     import_dlc_h5_workspace,
     import_dlc_project_workspace,
-    import_legacy_archive,
     import_mediapipe_pose_landmarks_json_workspace,
     import_mmpose_topdown_json_workspace,
     import_openpose_json_workspace,
@@ -264,24 +263,6 @@ class WorkspaceImports:
             force=force,
             progress_callback=progress_callback,
         )
-
-    def legacy_archive(
-        self,
-        legacy_archive: str | Path,
-        *,
-        title: str | None = None,
-        default_pack_mode: PackMode = "portable",
-        force: bool = False,
-    ) -> Path:
-        """Import a legacy `.xpkg` archive into this workspace for migration."""
-        return self._import(
-            import_legacy_archive,
-            legacy_archive,
-            title=title,
-            default_pack_mode=default_pack_mode,
-            force=force,
-        )
-
 
 @dataclass(frozen=True, slots=True)
 class WorkspaceLayout:

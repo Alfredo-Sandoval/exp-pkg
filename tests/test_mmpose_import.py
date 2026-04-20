@@ -9,8 +9,8 @@ from tests.test_sleap_h5_import import _write_dummy_video
 
 
 def test_convert_mmpose_topdown_json_builds_archive_with_links(tmp_path: Path) -> None:
-    from xpkg.adapters.mmpose import convert_mmpose_topdown_json
     from xpkg.io.archive_format import read_archive
+    from xpkg.io.converters.mmpose_import import convert_mmpose_topdown_json
     from xpkg.model import Labels
 
     json_path = _write_mmpose_topdown_json(tmp_path / "results_session.json")
@@ -44,7 +44,7 @@ def test_convert_mmpose_topdown_json_builds_archive_with_links(tmp_path: Path) -
 
 
 def test_convert_mmpose_topdown_json_supports_instance_slots(tmp_path: Path) -> None:
-    from xpkg.adapters.mmpose import convert_mmpose_topdown_json
+    from xpkg.io.converters.mmpose_import import convert_mmpose_topdown_json
     from xpkg.model import Labels
 
     json_path = _write_mmpose_topdown_json(tmp_path / "results_session.json")

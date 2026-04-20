@@ -12,7 +12,6 @@ from xpkg.formats import (
     import_dlc_csv_workspace,
     import_dlc_h5_workspace,
     import_dlc_project_workspace,
-    import_legacy_archive,
     import_mediapipe_pose_landmarks_json_workspace,
     import_mmpose_topdown_json_workspace,
     import_openpose_json_workspace,
@@ -25,13 +24,6 @@ from xpkg.formats import (
     validate_artifact,
 )
 from xpkg.io.archive_format.shared import CANONICAL_ARCHIVE_SUFFIX
-from xpkg.io.converters.converter_helpers import ConversionResult
-from xpkg.io.converters.detectron2_import import convert_detectron2_coco
-from xpkg.io.converters.dlc_import import convert_dlc_csv, convert_dlc_h5, convert_dlc_project
-from xpkg.io.converters.mediapipe_import import convert_mediapipe_pose_landmarks_json
-from xpkg.io.converters.mmpose_import import convert_mmpose_topdown_json
-from xpkg.io.converters.openpose_import import convert_openpose_json
-from xpkg.io.converters.sleap_import import convert_sleap_h5, convert_sleap_package
 from xpkg.version import __version__
 
 CliCommand = Callable[[argparse.Namespace], int]
@@ -62,32 +54,26 @@ def _emit_progress(message: str) -> None:
     sys.stdout.write(message + "\n")
 
 
-def _write_result(result: ConversionResult) -> None:
-    sys.stdout.write(f"Wrote {result.archive_path}\n")
-
-
 def _write_path(path: Path) -> None:
     sys.stdout.write(f"{path}\n")
 
 
-def _configure_tracking_parser(
+def _add_workspace_tracking_parser(
     parser: argparse.ArgumentParser,
     *,
     data_flag: str,
     data_help: str,
+    skeleton_default: str,
+    skeleton_help: str,
     command: CliCommand,
 ) -> None:
     parser.add_argument(data_flag, required=True, help=data_help)
     parser.add_argument("--video", required=True, help="Path to the matching video file.")
-    parser.add_argument(
-        "--out",
-        required=True,
-        help="Output edge compatibility archive path.",
-    )
+    parser.add_argument("--out", required=True, help="Output workspace directory.")
     parser.add_argument(
         "--skeleton-name",
-        default="imported",
-        help="Skeleton name to store in the converted compatibility archive.",
+        default=skeleton_default,
+        help=skeleton_help,
     )
     parser.add_argument(
         "--threshold",
@@ -98,269 +84,35 @@ def _configure_tracking_parser(
     parser.set_defaults(func=command)
 
 
-def _add_dlc_parser(parent: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
-    dlc = parent.add_parser("dlc", help="Convert DeepLabCut tracking outputs.")
-    dlc_subparsers = dlc.add_subparsers(dest="dlc_source", required=True)
-
-    csv_parser = dlc_subparsers.add_parser("csv", help="Convert a DLC CSV tracking file.")
-    _configure_tracking_parser(
-        csv_parser,
-        data_flag="--csv",
-        data_help="Path to a DLC CSV tracking file.",
-        command=_cmd_dlc_csv,
-    )
-
-    h5_parser = dlc_subparsers.add_parser("h5", help="Convert a DLC H5 tracking file.")
-    _configure_tracking_parser(
-        h5_parser,
-        data_flag="--h5",
-        data_help="Path to a DLC H5 tracking file.",
-        command=_cmd_dlc_h5,
-    )
-
-    project_parser = dlc_subparsers.add_parser(
-        "project",
-        help="Convert every supported item in a DLC project directory.",
-    )
-    project_parser.add_argument("--project", required=True, help="Path to the DLC project root.")
-    project_parser.add_argument(
-        "--out",
-        required=True,
-        help=f"Output directory for edge compatibility {CANONICAL_ARCHIVE_SUFFIX} files.",
-    )
-    project_parser.add_argument(
-        "--threshold",
-        type=_likelihood_threshold,
-        default=0.0,
-        help="Likelihood threshold for including keypoints (0 to 1).",
-    )
-    project_parser.set_defaults(func=_cmd_dlc_project)
-
-
-def _add_sleap_parser(parent: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
-    sleap = parent.add_parser("sleap", help="Convert SLEAP package or analysis H5 data.")
-    source_group = sleap.add_mutually_exclusive_group(required=True)
-    source_group.add_argument("--slp", help="Path to the input .pkg.slp archive.")
-    source_group.add_argument("--h5", help="Path to the SLEAP analysis H5 export.")
-    sleap.add_argument("--video", help="Path to the matching video file when using --h5.")
-    sleap.add_argument(
-        "--out",
-        required=True,
-        help="Output project directory for --slp, or output .xpkg path for --h5.",
-    )
-    sleap.add_argument(
-        "--skeleton-name",
-        default="imported",
-        help="Skeleton name to store when converting --h5 tracking data.",
-    )
-    sleap.add_argument(
-        "--threshold",
-        type=_likelihood_threshold,
-        default=0.0,
-        help="Likelihood threshold for including keypoints when using --h5 (0 to 1).",
-    )
-    sleap.add_argument(
-        "--fps",
-        type=_positive_int,
-        default=30,
-        help="Frame rate to use when encoding videos.",
-    )
-    encode_group = sleap.add_mutually_exclusive_group()
-    encode_group.add_argument(
-        "--videos",
-        dest="encode_videos",
-        action="store_true",
-        help="Encode MP4 videos into the output project.",
-    )
-    encode_group.add_argument(
-        "--no-videos",
-        dest="encode_videos",
-        action="store_false",
-        help="Keep extracted frame sequences instead of encoding MP4 videos.",
-    )
-    sleap.set_defaults(func=_cmd_sleap, encode_videos=True)
-
-
-def _add_mmpose_parser(parent: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
-    mmpose = parent.add_parser(
-        "mmpose",
-        help="Convert MMPose top-down demo JSON predictions.",
-    )
-    mmpose.add_argument(
-        "--json",
-        required=True,
-        help="Path to an MMPose --save-predictions JSON export.",
-    )
-    mmpose.add_argument("--video", required=True, help="Path to the matching video file.")
-    mmpose.add_argument("--out", required=True, help="Output edge compatibility archive path.")
-    mmpose.add_argument(
-        "--skeleton-name",
-        default="imported",
-        help="Skeleton name to store in the converted compatibility archive.",
-    )
-    mmpose.add_argument(
-        "--instance-index",
-        type=_nonnegative_int,
-        default=0,
-        help="Per-frame instance slot to import from the MMPose predictions.",
-    )
-    mmpose.add_argument(
-        "--threshold",
-        type=_likelihood_threshold,
-        default=0.0,
-        help="Likelihood threshold for including keypoints (0 to 1).",
-    )
-    mmpose.set_defaults(func=_cmd_mmpose)
-
-
-def _add_mediapipe_parser(parent: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
-    mediapipe = parent.add_parser(
-        "mediapipe",
-        help="Convert MediaPipe pose-landmarks JSON exports.",
-    )
-    mediapipe.add_argument("--json", required=True, help="Path to MediaPipe pose-landmarks JSON.")
-    mediapipe.add_argument("--video", required=True, help="Path to the matching video file.")
-    mediapipe.add_argument("--out", required=True, help="Output edge compatibility archive path.")
-    mediapipe.add_argument(
-        "--skeleton-name",
-        default="mediapipe_pose",
-        help="Skeleton name to store in the converted compatibility archive.",
-    )
-    mediapipe.add_argument(
-        "--threshold",
-        type=_likelihood_threshold,
-        default=0.0,
-        help="Likelihood threshold for including keypoints (0 to 1).",
-    )
-    mediapipe.set_defaults(func=_cmd_mediapipe)
-
-
-def _add_openpose_parser(parent: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
-    openpose = parent.add_parser(
-        "openpose",
-        help="Convert OpenPose BODY_25 JSON directories.",
-    )
-    openpose.add_argument(
-        "--json",
-        required=True,
-        help="Path to an OpenPose --write_json directory.",
-    )
-    openpose.add_argument("--video", required=True, help="Path to the matching video file.")
-    openpose.add_argument("--out", required=True, help="Output edge compatibility archive path.")
-    openpose.add_argument(
-        "--skeleton-name",
-        default="imported",
-        help="Skeleton name to store in the converted compatibility archive.",
-    )
-    openpose.add_argument(
-        "--threshold",
-        type=_likelihood_threshold,
-        default=0.0,
-        help="Likelihood threshold for including keypoints (0 to 1).",
-    )
-    openpose.set_defaults(func=_cmd_openpose)
-
-
-def _add_detectron2_parser(parent: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
-    detectron2 = parent.add_parser(
-        "detectron2",
-        help="Convert Detectron2 COCO keypoint prediction exports.",
-    )
-    detectron2.add_argument(
-        "--predictions",
-        required=True,
-        help="Path to Detectron2 COCOEvaluator coco_instances_results.json.",
-    )
-    detectron2.add_argument(
-        "--dataset-json",
-        required=True,
-        help="Path to the registered COCO dataset JSON.",
-    )
-    detectron2.add_argument(
-        "--image-root",
-        required=True,
-        help="Image root paired with the COCO dataset JSON.",
-    )
-    detectron2.add_argument("--out", required=True, help="Output edge compatibility archive path.")
-    detectron2.add_argument(
-        "--category-id",
-        type=int,
-        help="COCO keypoint category id to import when multiple keypoint categories exist.",
-    )
-    detectron2.add_argument(
-        "--skeleton-name",
-        help="Optional skeleton name override for the imported keypoints.",
-    )
-    detectron2.add_argument(
-        "--threshold",
-        type=_likelihood_threshold,
-        default=0.0,
-        help="Likelihood threshold for including keypoints (0 to 1).",
-    )
-    detectron2.set_defaults(func=_cmd_detectron2)
-
-
 def _add_import_parser(parent: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     imported = parent.add_parser(
         "import",
-        help="Import legacy or external data into a workspace-first exp-pkg project.",
+        help="Import external tracking data into a workspace-first exp-pkg project.",
     )
     import_subparsers = imported.add_subparsers(dest="import_source", required=True)
-
-    legacy = import_subparsers.add_parser(
-        "legacy",
-        help=f"Import a canonical {CANONICAL_ARCHIVE_SUFFIX} archive.",
-    )
-    legacy.add_argument(
-        "--file",
-        required=True,
-        help=f"Path to a canonical {CANONICAL_ARCHIVE_SUFFIX} archive.",
-    )
-    legacy.add_argument("--out", required=True, help="Output workspace directory.")
-    legacy.add_argument("--title", help="Optional project title override.")
-    legacy.add_argument(
-        "--force",
-        action="store_true",
-        help="Allow initializing into an existing empty output directory.",
-    )
-    legacy.set_defaults(func=_cmd_import_legacy)
 
     dlc = import_subparsers.add_parser("dlc", help="Import DeepLabCut tracking into a workspace.")
     dlc_subparsers = dlc.add_subparsers(dest="dlc_source", required=True)
 
     csv_parser = dlc_subparsers.add_parser("csv", help="Import a DLC CSV tracking file.")
-    csv_parser.add_argument("--csv", required=True, help="Path to a DLC CSV tracking file.")
-    csv_parser.add_argument("--video", required=True, help="Path to the matching video file.")
-    csv_parser.add_argument("--out", required=True, help="Output workspace directory.")
-    csv_parser.add_argument(
-        "--skeleton-name",
-        default="imported",
-        help="Skeleton name to store in the imported workspace.",
+    _add_workspace_tracking_parser(
+        csv_parser,
+        data_flag="--csv",
+        data_help="Path to a DLC CSV tracking file.",
+        skeleton_default="imported",
+        skeleton_help="Skeleton name to store in the imported workspace.",
+        command=_cmd_import_dlc_csv,
     )
-    csv_parser.add_argument(
-        "--threshold",
-        type=_likelihood_threshold,
-        default=0.0,
-        help="Likelihood threshold for including keypoints (0 to 1).",
-    )
-    csv_parser.set_defaults(func=_cmd_import_dlc_csv)
 
     h5_parser = dlc_subparsers.add_parser("h5", help="Import a DLC H5 tracking file.")
-    h5_parser.add_argument("--h5", required=True, help="Path to a DLC H5 tracking file.")
-    h5_parser.add_argument("--video", required=True, help="Path to the matching video file.")
-    h5_parser.add_argument("--out", required=True, help="Output workspace directory.")
-    h5_parser.add_argument(
-        "--skeleton-name",
-        default="imported",
-        help="Skeleton name to store in the imported workspace.",
+    _add_workspace_tracking_parser(
+        h5_parser,
+        data_flag="--h5",
+        data_help="Path to a DLC H5 tracking file.",
+        skeleton_default="imported",
+        skeleton_help="Skeleton name to store in the imported workspace.",
+        command=_cmd_import_dlc_h5,
     )
-    h5_parser.add_argument(
-        "--threshold",
-        type=_likelihood_threshold,
-        default=0.0,
-        help="Likelihood threshold for including keypoints (0 to 1).",
-    )
-    h5_parser.set_defaults(func=_cmd_import_dlc_h5)
 
     project_parser = dlc_subparsers.add_parser(
         "project",
@@ -418,17 +170,13 @@ def _add_import_parser(parent: argparse._SubParsersAction[argparse.ArgumentParse
         "mmpose",
         help="Import MMPose top-down demo JSON predictions into a workspace.",
     )
-    mmpose.add_argument(
-        "--json",
-        required=True,
-        help="Path to an MMPose --save-predictions JSON export.",
-    )
-    mmpose.add_argument("--video", required=True, help="Path to the matching video file.")
-    mmpose.add_argument("--out", required=True, help="Output workspace directory.")
-    mmpose.add_argument(
-        "--skeleton-name",
-        default="imported",
-        help="Skeleton name to store in the imported workspace.",
+    _add_workspace_tracking_parser(
+        mmpose,
+        data_flag="--json",
+        data_help="Path to an MMPose --save-predictions JSON export.",
+        skeleton_default="imported",
+        skeleton_help="Skeleton name to store in the imported workspace.",
+        command=_cmd_import_mmpose,
     )
     mmpose.add_argument(
         "--instance-index",
@@ -436,57 +184,32 @@ def _add_import_parser(parent: argparse._SubParsersAction[argparse.ArgumentParse
         default=0,
         help="Per-frame instance slot to import from the MMPose predictions.",
     )
-    mmpose.add_argument(
-        "--threshold",
-        type=_likelihood_threshold,
-        default=0.0,
-        help="Likelihood threshold for including keypoints (0 to 1).",
-    )
-    mmpose.set_defaults(func=_cmd_import_mmpose)
 
     mediapipe = import_subparsers.add_parser(
         "mediapipe",
         help="Import MediaPipe pose-landmarks JSON into a workspace.",
     )
-    mediapipe.add_argument("--json", required=True, help="Path to MediaPipe pose-landmarks JSON.")
-    mediapipe.add_argument("--video", required=True, help="Path to the matching video file.")
-    mediapipe.add_argument("--out", required=True, help="Output workspace directory.")
-    mediapipe.add_argument(
-        "--skeleton-name",
-        default="mediapipe_pose",
-        help="Skeleton name to store in the imported workspace.",
+    _add_workspace_tracking_parser(
+        mediapipe,
+        data_flag="--json",
+        data_help="Path to MediaPipe pose-landmarks JSON.",
+        skeleton_default="mediapipe_pose",
+        skeleton_help="Skeleton name to store in the imported workspace.",
+        command=_cmd_import_mediapipe,
     )
-    mediapipe.add_argument(
-        "--threshold",
-        type=_likelihood_threshold,
-        default=0.0,
-        help="Likelihood threshold for including keypoints (0 to 1).",
-    )
-    mediapipe.set_defaults(func=_cmd_import_mediapipe)
 
     openpose = import_subparsers.add_parser(
         "openpose",
         help="Import OpenPose BODY_25 JSON directories into a workspace.",
     )
-    openpose.add_argument(
-        "--json",
-        required=True,
-        help="Path to an OpenPose --write_json directory.",
+    _add_workspace_tracking_parser(
+        openpose,
+        data_flag="--json",
+        data_help="Path to an OpenPose --write_json directory.",
+        skeleton_default="imported",
+        skeleton_help="Skeleton name to store in the imported workspace.",
+        command=_cmd_import_openpose,
     )
-    openpose.add_argument("--video", required=True, help="Path to the matching video file.")
-    openpose.add_argument("--out", required=True, help="Output workspace directory.")
-    openpose.add_argument(
-        "--skeleton-name",
-        default="imported",
-        help="Skeleton name to store in the imported workspace.",
-    )
-    openpose.add_argument(
-        "--threshold",
-        type=_likelihood_threshold,
-        default=0.0,
-        help="Likelihood threshold for including keypoints (0 to 1).",
-    )
-    openpose.set_defaults(func=_cmd_import_openpose)
 
     detectron2 = import_subparsers.add_parser(
         "detectron2",
@@ -592,10 +315,7 @@ def _add_workspace_parsers(parent: argparse._SubParsersAction[argparse.ArgumentP
 
     validate = parent.add_parser(
         "validate",
-        help=(
-            f"Validate a workspace, packed .expkg artifact, or native "
-            f"{CANONICAL_ARCHIVE_SUFFIX} archive."
-        ),
+        help="Validate a workspace or packed .expkg artifact.",
     )
     validate.add_argument("path", help="Path to validate.")
     validate.set_defaults(func=_cmd_validate)
@@ -612,141 +332,7 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(dest="command", required=True)
     _add_workspace_parsers(subparsers)
     _add_import_parser(subparsers)
-    convert = subparsers.add_parser(
-        "convert",
-        help=(
-            f"Convert external pose formats into edge compatibility "
-            f"{CANONICAL_ARCHIVE_SUFFIX} archives."
-        ),
-    )
-    convert_subparsers = convert.add_subparsers(dest="format", required=True)
-    _add_dlc_parser(convert_subparsers)
-    _add_detectron2_parser(convert_subparsers)
-    _add_mediapipe_parser(convert_subparsers)
-    _add_mmpose_parser(convert_subparsers)
-    _add_openpose_parser(convert_subparsers)
-    _add_sleap_parser(convert_subparsers)
     return parser
-
-
-def _cmd_dlc_csv(args: argparse.Namespace) -> int:
-    result = convert_dlc_csv(
-        args.csv,
-        args.video,
-        args.out,
-        skeleton_name=args.skeleton_name,
-        likelihood_threshold=args.threshold,
-        progress_callback=_emit_progress,
-    )
-    _write_result(result)
-    return 0
-
-
-def _cmd_dlc_h5(args: argparse.Namespace) -> int:
-    result = convert_dlc_h5(
-        args.h5,
-        args.video,
-        args.out,
-        skeleton_name=args.skeleton_name,
-        likelihood_threshold=args.threshold,
-        progress_callback=_emit_progress,
-    )
-    _write_result(result)
-    return 0
-
-
-def _cmd_dlc_project(args: argparse.Namespace) -> int:
-    results = convert_dlc_project(
-        args.project,
-        args.out,
-        likelihood_threshold=args.threshold,
-        progress_callback=_emit_progress,
-    )
-    sys.stdout.write(f"Converted {len(results)} project item(s)\n")
-    for result in results:
-        _write_result(result)
-    return 0
-
-
-def _cmd_sleap(args: argparse.Namespace) -> int:
-    if args.h5:
-        if not args.video:
-            raise ValueError("--video is required when converting SLEAP --h5 inputs")
-        result = convert_sleap_h5(
-            args.h5,
-            args.video,
-            args.out,
-            skeleton_name=args.skeleton_name,
-            likelihood_threshold=args.threshold,
-            progress_callback=_emit_progress,
-        )
-        _write_result(result)
-        return 0
-
-    result = convert_sleap_package(
-        args.slp,
-        args.out,
-        fps=args.fps,
-        encode_videos=args.encode_videos,
-        progress_callback=_emit_progress,
-    )
-    _write_result(result)
-    return 0
-
-
-def _cmd_mmpose(args: argparse.Namespace) -> int:
-    result = convert_mmpose_topdown_json(
-        args.json,
-        args.video,
-        args.out,
-        skeleton_name=args.skeleton_name,
-        instance_index=args.instance_index,
-        likelihood_threshold=args.threshold,
-        progress_callback=_emit_progress,
-    )
-    _write_result(result)
-    return 0
-
-
-def _cmd_mediapipe(args: argparse.Namespace) -> int:
-    result = convert_mediapipe_pose_landmarks_json(
-        args.json,
-        args.video,
-        args.out,
-        skeleton_name=args.skeleton_name,
-        likelihood_threshold=args.threshold,
-        progress_callback=_emit_progress,
-    )
-    _write_result(result)
-    return 0
-
-
-def _cmd_openpose(args: argparse.Namespace) -> int:
-    result = convert_openpose_json(
-        args.json,
-        args.video,
-        args.out,
-        skeleton_name=args.skeleton_name,
-        likelihood_threshold=args.threshold,
-        progress_callback=_emit_progress,
-    )
-    _write_result(result)
-    return 0
-
-
-def _cmd_detectron2(args: argparse.Namespace) -> int:
-    result = convert_detectron2_coco(
-        args.predictions,
-        args.dataset_json,
-        args.image_root,
-        args.out,
-        category_id=args.category_id,
-        skeleton_name=args.skeleton_name,
-        likelihood_threshold=args.threshold,
-        progress_callback=_emit_progress,
-    )
-    _write_result(result)
-    return 0
 
 
 def _cmd_init(args: argparse.Namespace) -> int:
@@ -800,18 +386,6 @@ def _cmd_unpack(args: argparse.Namespace) -> int:
 def _cmd_validate(args: argparse.Namespace) -> int:
     validate_artifact(args.path)
     sys.stdout.write(f"Valid {args.path}\n")
-    return 0
-
-
-def _cmd_import_legacy(args: argparse.Namespace) -> int:
-    path = import_legacy_archive(
-        args.file,
-        args.out,
-        title=args.title,
-        force=args.force,
-    )
-    sys.stdout.write(f"Imported archive {args.file} -> {args.out}\n")
-    _write_path(path)
     return 0
 
 

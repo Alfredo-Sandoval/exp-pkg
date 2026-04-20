@@ -1,54 +1,27 @@
 from __future__ import annotations
 
 import importlib
-import warnings
+
+import pytest
 
 import xpkg
-from xpkg.adapters import (
-    ConversionResult,
-    convert_detectron2_coco,
-    convert_dlc_csv,
-    convert_dlc_h5,
-    convert_dlc_h5_project,
-    convert_dlc_project,
-    convert_mediapipe_pose_landmarks_json,
-    convert_mmpose_topdown_json,
-    convert_openpose_json,
-    convert_sleap_h5,
-    convert_sleap_package,
-)
 from xpkg.codecs import (
     labels_from_json_payload,
     labels_numpy,
     labels_to_dataframe,
     labels_to_json_payload,
 )
-from xpkg.compat import (
-    append_predictions_xpkg,
-    create_store_from_xpkg,
-    merge_predictions_xpkg,
-    read_metrics_table,
-    read_xpkg,
-    summarize_xpkg,
-    update_labels_xpkg,
-    validate_xpkg,
-    write_metrics_table,
-    write_xpkg,
-)
 from xpkg.formats import (
     EXPKG_SUFFIX,
     PROJECT_DESCRIPTOR_FILENAME,
     ProjectDescriptor,
-    current_project_archive_path,
     current_project_snapshot_path,
     current_project_state_path,
     default_expkg_path,
-    export_project_archive,
     import_detectron2_coco_workspace,
     import_dlc_csv_workspace,
     import_dlc_h5_workspace,
     import_dlc_project_workspace,
-    import_legacy_archive,
     import_mediapipe_pose_landmarks_json_workspace,
     import_mmpose_topdown_json_workspace,
     import_openpose_json_workspace,
@@ -96,30 +69,36 @@ from xpkg.model import (
 from xpkg.services import WorkspaceImports, WorkspaceLayout, WorkspaceService
 
 
+def test_root_namespace_is_curated_to_workspace_first_modules() -> None:
+    reloaded = importlib.reload(xpkg)
+    reloaded.__dict__.pop("compat", None)
+    reloaded.__dict__.pop("adapters", None)
+
+    assert reloaded.__version__
+    assert reloaded.__all__ == ["__version__", "api", "codecs", "formats", "model", "services"]
+    assert reloaded.codecs is not None
+    assert reloaded.formats is not None
+    assert reloaded.model is not None
+    assert reloaded.services is not None
+
+    with pytest.raises(AttributeError):
+        reloaded.__getattribute__("compat")
+
+    with pytest.raises(AttributeError):
+        reloaded.__getattribute__("adapters")
+
+
 def test_public_exports_are_callable() -> None:
-    assert xpkg.__version__
-    assert xpkg.adapters is not None
-    assert xpkg.codecs is not None
-    assert xpkg.compat is not None
-    assert xpkg.formats is not None
-    assert xpkg.model is not None
-    assert xpkg.services is not None
-    assert ConversionResult is not None
     assert EXPKG_SUFFIX == ".expkg"
     assert PROJECT_DESCRIPTOR_FILENAME == "PROJECT.json"
     assert ProjectDescriptor is not None
-    assert callable(append_predictions_xpkg)
-    assert callable(create_store_from_xpkg)
-    assert callable(current_project_archive_path)
     assert callable(current_project_snapshot_path)
     assert callable(current_project_state_path)
     assert callable(default_expkg_path)
-    assert callable(export_project_archive)
     assert callable(import_detectron2_coco_workspace)
     assert callable(import_dlc_csv_workspace)
     assert callable(import_dlc_h5_workspace)
     assert callable(import_dlc_project_workspace)
-    assert callable(import_legacy_archive)
     assert callable(import_mediapipe_pose_landmarks_json_workspace)
     assert callable(import_mmpose_topdown_json_workspace)
     assert callable(import_openpose_json_workspace)
@@ -128,36 +107,18 @@ def test_public_exports_are_callable() -> None:
     assert callable(init_project)
     assert callable(is_workspace_root)
     assert callable(load_project_descriptor)
-    assert callable(merge_predictions_xpkg)
     assert callable(migrate_legacy_archive)
     assert callable(pack_project)
     assert callable(project_descriptor_path)
     assert callable(read_labels_json_payload)
-    assert callable(read_metrics_table)
-    assert callable(read_xpkg)
     assert callable(resolve_workspace_root)
     assert callable(save_workspace_labels)
-    assert callable(summarize_xpkg)
     assert callable(unpack_project)
-    assert callable(update_labels_xpkg)
     assert callable(validate_artifact)
     assert callable(validate_expkg)
-    assert callable(validate_xpkg)
     assert callable(validate_workspace)
     assert callable(write_labels_json)
-    assert callable(write_metrics_table)
     assert callable(write_project_descriptor)
-    assert callable(write_xpkg)
-    assert callable(convert_detectron2_coco)
-    assert callable(convert_dlc_csv)
-    assert callable(convert_dlc_h5)
-    assert callable(convert_dlc_h5_project)
-    assert callable(convert_dlc_project)
-    assert callable(convert_mediapipe_pose_landmarks_json)
-    assert callable(convert_mmpose_topdown_json)
-    assert callable(convert_openpose_json)
-    assert callable(convert_sleap_h5)
-    assert callable(convert_sleap_package)
     assert callable(labels_from_json_payload)
     assert callable(labels_numpy)
     assert callable(labels_to_dataframe)
@@ -177,7 +138,6 @@ def test_workspace_imports_surface_covers_supported_workspace_importers() -> Non
         "dlc_csv",
         "dlc_h5",
         "dlc_project",
-        "legacy_archive",
         "mediapipe_pose_landmarks_json",
         "mmpose_topdown_json",
         "openpose_json",
@@ -186,6 +146,7 @@ def test_workspace_imports_surface_covers_supported_workspace_importers() -> Non
     }
 
     assert expected.issubset(set(dir(WorkspaceImports)))
+    assert "legacy_archive" not in dir(WorkspaceImports)
 
 
 def test_model_exports_are_available() -> None:
@@ -213,63 +174,47 @@ def test_model_exports_are_available() -> None:
     assert "load_skeleton_archive_json" not in xpkg.model.__all__
 
 
-def test_formats_core_surface_excludes_compat_symbols() -> None:
+def test_formats_surface_is_workspace_first_only() -> None:
     assert "read_archive" not in xpkg.formats.__all__
     assert "write_archive" not in xpkg.formats.__all__
     assert "read_xpkg" not in xpkg.formats.__all__
     assert "write_xpkg" not in xpkg.formats.__all__
-    assert "export_project_archive" in xpkg.formats.__all__
+    assert "export_project_archive" not in xpkg.formats.__all__
+    assert "current_project_archive_path" not in xpkg.formats.__all__
+    assert "import_legacy_archive" not in xpkg.formats.__all__
     assert "pack_project" in xpkg.formats.__all__
     assert "import_dlc_project_workspace" in xpkg.formats.__all__
-    assert "read_archive" not in dir(xpkg.formats)
-    assert "write_archive" not in dir(xpkg.formats)
-    assert "ArchiveStore" not in dir(xpkg.formats)
+    assert "migrate_legacy_archive" in xpkg.formats.__all__
+
+    with pytest.raises(AttributeError):
+        xpkg.formats.__getattribute__("read_archive")
+
+    with pytest.raises(AttributeError):
+        xpkg.formats.__getattribute__("create_store_from_archive")
 
 
-def test_formats_surface_lists_workspace_first_exports_before_compat_aliases() -> None:
-    exports = xpkg.formats.__all__
+def test_direct_compat_module_keeps_only_canonical_xpkg_names() -> None:
+    compat = importlib.import_module("xpkg.compat")
 
-    assert exports.index("import_dlc_csv_workspace") < exports.index("export_project_archive")
-    assert exports.index("export_project_archive") < exports.index("current_project_archive_path")
-
-
-def test_formats_compat_warning_points_to_canonical_xpkg_name() -> None:
-    formats = importlib.reload(xpkg.formats)
-
-    with warnings.catch_warnings(record=True) as caught:
-        warnings.simplefilter("always")
-        assert callable(formats.read_archive)
-        assert callable(formats.create_store_from_archive)
-
-    messages = [str(item.message) for item in caught]
-    assert any("xpkg.compat.read_xpkg" in message for message in messages)
-    assert any("xpkg.compat.create_store_from_xpkg" in message for message in messages)
-
-
-def test_compat_surface_prefers_canonical_xpkg_names() -> None:
-    assert callable(read_xpkg)
-    assert callable(write_xpkg)
-    assert callable(update_labels_xpkg)
-    assert callable(append_predictions_xpkg)
-    assert callable(merge_predictions_xpkg)
-    assert callable(summarize_xpkg)
-    assert callable(validate_xpkg)
-    assert callable(create_store_from_xpkg)
-    assert callable(read_metrics_table)
-    assert callable(write_metrics_table)
-
-
-def test_compat_surface_hides_legacy_archive_aliases() -> None:
-    compat = importlib.reload(xpkg.compat)
+    assert callable(compat.read_xpkg)
+    assert callable(compat.write_xpkg)
+    assert callable(compat.update_labels_xpkg)
+    assert callable(compat.append_predictions_xpkg)
+    assert callable(compat.merge_predictions_xpkg)
+    assert callable(compat.summarize_xpkg)
+    assert callable(compat.validate_xpkg)
+    assert callable(compat.create_store_from_xpkg)
+    assert callable(compat.read_metrics_table)
+    assert callable(compat.write_metrics_table)
     assert "read_archive" not in compat.__all__
     assert "write_archive" not in compat.__all__
     assert "create_archive_store" not in compat.__all__
 
-    with warnings.catch_warnings(record=True) as caught:
-        warnings.simplefilter("always")
-        assert callable(compat.read_archive)
-        assert callable(compat.write_archive)
-        assert any("legacy alias" in str(item.message) for item in caught)
+    with pytest.raises(AttributeError):
+        compat.__getattribute__("read_archive")
+
+    with pytest.raises(AttributeError):
+        compat.__getattribute__("write_archive")
 
 
 def test_codecs_surface_is_curated() -> None:

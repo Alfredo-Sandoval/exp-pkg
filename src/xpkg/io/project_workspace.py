@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import shutil
 import tempfile
-import warnings
 from collections.abc import Callable
 from copy import deepcopy
 from dataclasses import dataclass
@@ -52,18 +51,6 @@ if TYPE_CHECKING:
 
 class LegacyWorkspaceMigrationRequiredError(FileNotFoundError):
     """Raised when a pre-cutover workspace must be migrated explicitly."""
-
-
-def current_project_archive_path(path: str | Path) -> Path:
-    """Compatibility alias for explicit `.xpkg` archive export."""
-
-    warnings.warn(
-        "current_project_archive_path(...) is compatibility-only; "
-        "use export_project_archive(...) for explicit archive export.",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    return export_project_archive(path)
 
 
 def export_project_archive(
@@ -976,24 +963,6 @@ def migrate_legacy_archive(
     return snapshot_path
 
 
-def import_legacy_archive(
-    legacy_archive: str | Path,
-    workspace: str | Path,
-    *,
-    title: str | None = None,
-    default_pack_mode: PackMode = "portable",
-    force: bool = False,
-) -> Path:
-    """Compatibility-oriented alias for ``migrate_legacy_archive(...)``."""
-    return migrate_legacy_archive(
-        legacy_archive,
-        workspace,
-        title=title,
-        default_pack_mode=default_pack_mode,
-        force=force,
-    )
-
-
 def _ensure_workspace_for_import(
     workspace: str | Path,
     *,
@@ -1628,12 +1597,11 @@ __all__ = [
     "ProjectDescriptor",
     "STORE_DIRNAME",
     "STORE_STATE_DIRNAME",
-    "current_project_archive_path",
     "current_project_snapshot_path",
     "current_project_state_path",
-    "import_legacy_archive",
     "init_project",
     "load_project_descriptor",
+    "migrate_legacy_archive",
     "resolve_workspace_root",
     "rebase_workspace_payload_videos",
     "save_workspace_labels",

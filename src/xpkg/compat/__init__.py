@@ -1,14 +1,11 @@
-"""Compatibility surface for canonical `.xpkg` archives and edge helpers.
+"""Explicit `.xpkg` edge helpers that survive the workspace-first cutover.
 
 New integrations should start with ``xpkg.services`` and ``xpkg.formats``.
-This module remains public for direct archive IO, fixtures, migration, and
-interop seams that still need explicit `.xpkg` handling.
+This module remains available for direct archive IO, fixtures, migration, and
+other deliberate edge workflows that still need explicit `.xpkg` handling.
 """
 
 from __future__ import annotations
-
-import warnings
-from typing import Any
 
 from xpkg.io.archive_io import (
     LazyDatasetHandle,
@@ -41,13 +38,10 @@ from xpkg.io.archive_io import (
 )
 from xpkg.io.archive_store import (
     ArchiveStore,
-    create_xpkg_store,
+    open_archive_store,
 )
 from xpkg.io.archive_store import (
-    create_archive_store as _create_archive_store,
-)
-from xpkg.io.archive_store import (
-    open_archive_store as _open_archive_store,
+    create_xpkg_store as _create_xpkg_store,
 )
 
 read_xpkg = _read_archive
@@ -58,23 +52,8 @@ merge_predictions_xpkg = _merge_predictions_archive
 summarize_xpkg = _summarize_archive
 validate_xpkg = _validate_archive
 
-create_store_from_xpkg = create_xpkg_store
-open_store = _open_archive_store
-
-_LEGACY_EXPORTS: dict[str, tuple[str, Any]] = {
-    "append_predictions_archive": ("append_predictions_xpkg", _append_predictions_archive),
-    "create_archive_store": ("create_store_from_xpkg", _create_archive_store),
-    "create_store_from_archive": ("create_store_from_xpkg", _create_archive_store),
-    "merge_predictions_archive": ("merge_predictions_xpkg", _merge_predictions_archive),
-    "open_archive_store": ("open_store", _open_archive_store),
-    "read_archive": ("read_xpkg", _read_archive),
-    "summarize_archive": ("summarize_xpkg", _summarize_archive),
-    "summarize_project": ("summarize_xpkg", _summarize_archive),
-    "update_labels_archive": ("update_labels_xpkg", _update_labels_archive),
-    "validate_archive": ("validate_xpkg", _validate_archive),
-    "validate_project": ("validate_xpkg", _validate_archive),
-    "write_archive": ("write_xpkg", _write_archive),
-}
+create_store_from_xpkg = _create_xpkg_store
+open_store = open_archive_store
 
 __all__ = [
     "ArchiveStore",
@@ -84,7 +63,6 @@ __all__ = [
     "SerializerPredictedInstance",
     "append_predictions_xpkg",
     "create_store_from_xpkg",
-    "create_xpkg_store",
     "merge_predictions_xpkg",
     "open_store",
     "read_metrics_table",
@@ -95,20 +73,3 @@ __all__ = [
     "write_metrics_table",
     "write_xpkg",
 ]
-
-
-def __getattr__(name: str) -> Any:
-    legacy_export = _LEGACY_EXPORTS.get(name)
-    if legacy_export is None:
-        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
-    canonical_name, value = legacy_export
-    warnings.warn(
-        f"xpkg.compat.{name} is a legacy alias; use xpkg.compat.{canonical_name}",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    return value
-
-
-def __dir__() -> list[str]:
-    return sorted(set(globals()) | set(__all__))

@@ -13,8 +13,8 @@ from tests.test_sleap_h5_import import _write_dummy_video
 
 
 def test_convert_mediapipe_pose_landmarks_json_builds_archive(tmp_path: Path) -> None:
-    from xpkg.adapters.mediapipe import convert_mediapipe_pose_landmarks_json
     from xpkg.io.archive_format import read_archive
+    from xpkg.io.converters.mediapipe_import import convert_mediapipe_pose_landmarks_json
     from xpkg.model import Labels
 
     json_path = tmp_path / "pose_landmarks.json"

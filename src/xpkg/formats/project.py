@@ -31,15 +31,12 @@ from xpkg.io.project_layout import (
     write_project_descriptor,
 )
 from xpkg.io.project_workspace import (
-    current_project_archive_path,
     current_project_snapshot_path,
     current_project_state_path,
-    export_project_archive,
     import_detectron2_coco_workspace,
     import_dlc_csv_workspace,
     import_dlc_h5_workspace,
     import_dlc_project_workspace,
-    import_legacy_archive,
     import_mediapipe_pose_landmarks_json_workspace,
     import_mmpose_topdown_json_workspace,
     import_openpose_json_workspace,
@@ -83,7 +80,4 @@ __all__ = [
     "import_openpose_json_workspace",
     "import_detectron2_coco_workspace",
     "migrate_legacy_archive",
-    "import_legacy_archive",
-    "export_project_archive",
-    "current_project_archive_path",
 ]

@@ -332,13 +332,15 @@ def test_pack_portable_and_unpack_uses_managed_media_after_source_removal(tmp_pa
 def test_legacy_workspace_current_state_archive_requires_explicit_cutover(tmp_path: Path) -> None:
     from xpkg.compat import write_xpkg
     from xpkg.formats import (
-        current_project_archive_path,
         current_project_state_path,
         init_project,
         workspace_state_root,
         workspace_store_root,
     )
-    from xpkg.io.project_workspace import LegacyWorkspaceMigrationRequiredError
+    from xpkg.io.project_workspace import (
+        LegacyWorkspaceMigrationRequiredError,
+        export_project_archive,
+    )
     from xpkg.model import Labels
 
     source_root = tmp_path / "source"
@@ -364,12 +366,11 @@ def test_legacy_workspace_current_state_archive_requires_explicit_cutover(tmp_pa
     ):
         Labels.save_file(updated_labels, workspace.as_posix())
 
-    with pytest.deprecated_call(match="compatibility-only"):
-        with pytest.raises(
-            LegacyWorkspaceMigrationRequiredError,
-            match="migrate_legacy_archive",
-        ):
-            current_project_archive_path(workspace)
+    with pytest.raises(
+        LegacyWorkspaceMigrationRequiredError,
+        match="migrate_legacy_archive",
+    ):
+        export_project_archive(workspace)
 
     assert current_project_state_path(workspace) == workspace_state_root(workspace) / "current.json"
     assert not current_project_state_path(workspace).exists()
@@ -539,11 +540,8 @@ def test_workspace_load_ignores_stale_snapshot_when_commit_id_mismatches(tmp_pat
 
 def test_summarize_project_and_validate_project_read_labels_video_group(tmp_path: Path) -> None:
     from xpkg.compat import summarize_xpkg, validate_xpkg
-    from xpkg.formats import (
-        current_project_snapshot_path,
-        export_project_archive,
-        init_project,
-    )
+    from xpkg.formats import current_project_snapshot_path, init_project
+    from xpkg.io.project_workspace import export_project_archive
     from xpkg.model import Labels
 
     source_video = tmp_path / "source.avi"

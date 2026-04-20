@@ -1,10 +1,10 @@
-"""Stable public API for xpkg integrations.
+"""Stable public API for workspace-first xpkg integrations.
 
 New integrations should start with ``WorkspaceService`` and
 ``WorkspaceService.imports``. The explicit ``import_*_workspace(...)`` helpers
-remain public for function-level callers. Compatibility adapters remain public,
-but they are grouped later in this facade so the workspace-first path is easier
-to discover.
+remain public for function-level callers, and ``migrate_legacy_archive(...)``
+is the one retained bridge for cutting older ``.xpkg`` archives over to the
+workspace contract.
 """
 
 from __future__ import annotations
@@ -30,7 +30,6 @@ _WORKSPACE_EXPORTS: dict[str, tuple[str, str]] = {
     "import_dlc_csv_workspace": (".formats.project", "import_dlc_csv_workspace"),
     "import_dlc_h5_workspace": (".formats.project", "import_dlc_h5_workspace"),
     "import_dlc_project_workspace": (".formats.project", "import_dlc_project_workspace"),
-    "import_legacy_archive": (".formats.project", "import_legacy_archive"),
     "import_mediapipe_pose_landmarks_json_workspace": (
         ".formats.project",
         "import_mediapipe_pose_landmarks_json_workspace",
@@ -42,8 +41,7 @@ _WORKSPACE_EXPORTS: dict[str, tuple[str, str]] = {
     "import_openpose_json_workspace": (".formats.project", "import_openpose_json_workspace"),
     "import_sleap_h5_workspace": (".formats.project", "import_sleap_h5_workspace"),
     "import_sleap_package_workspace": (".formats.project", "import_sleap_package_workspace"),
-    "export_project_archive": (".formats.project", "export_project_archive"),
-    "current_project_archive_path": (".formats.project", "current_project_archive_path"),
+    "migrate_legacy_archive": (".formats.project", "migrate_legacy_archive"),
 }
 
 _MODEL_EXPORTS: dict[str, tuple[str, str]] = {
@@ -69,27 +67,10 @@ _CODEC_AND_READER_EXPORTS: dict[str, tuple[str, str]] = {
     "resolve_pose_node_indices": (".io.readers", "resolve_pose_node_indices"),
 }
 
-_ADAPTER_EXPORTS: dict[str, tuple[str, str]] = {
-    "ConversionResult": (".adapters", "ConversionResult"),
-    "convert_dlc_csv": (".adapters", "convert_dlc_csv"),
-    "convert_dlc_h5": (".adapters", "convert_dlc_h5"),
-    "convert_dlc_project": (".adapters", "convert_dlc_project"),
-    "convert_detectron2_coco": (".adapters", "convert_detectron2_coco"),
-    "convert_mediapipe_pose_landmarks_json": (
-        ".adapters",
-        "convert_mediapipe_pose_landmarks_json",
-    ),
-    "convert_mmpose_topdown_json": (".adapters", "convert_mmpose_topdown_json"),
-    "convert_openpose_json": (".adapters", "convert_openpose_json"),
-    "convert_sleap_h5": (".adapters", "convert_sleap_h5"),
-    "convert_sleap_package": (".adapters", "convert_sleap_package"),
-}
-
 _LAZY_EXPORTS: dict[str, tuple[str, str]] = {
     **_WORKSPACE_EXPORTS,
     **_MODEL_EXPORTS,
     **_CODEC_AND_READER_EXPORTS,
-    **_ADAPTER_EXPORTS,
 }
 
 __all__ = list(_LAZY_EXPORTS)

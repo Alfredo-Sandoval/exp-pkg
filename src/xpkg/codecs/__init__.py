@@ -4,7 +4,8 @@ This surface is intentionally separate from:
 
 - ``xpkg.model`` for the canonical object graph
 - ``xpkg.formats`` for workspace and project artifacts
-- ``xpkg.compat`` for edge archive compatibility and legacy aliases
+- ``xpkg.compat`` for the low-level ``.xpkg`` edge seam kept for migration and
+  private storage internals
 
 Use ``xpkg.codecs`` when another repo needs to transform xpkg objects into
 JSON-friendly payloads, numpy arrays, or tabular structures without coupling
