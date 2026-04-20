@@ -1,11 +1,13 @@
 """Primary workspace lifecycle service for xpkg project operations.
 
 ``WorkspaceService`` is the preferred entrypoint for new integrations that
-need to create, open, validate, pack, or unpack an xpkg workspace.
+need to create, open, import into, validate, pack, or unpack an xpkg
+workspace.
 """
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
@@ -13,6 +15,16 @@ from typing import TYPE_CHECKING, Any, Literal
 from xpkg.formats.project import (
     ProjectDescriptor,
     current_project_state_path,
+    import_detectron2_coco_workspace,
+    import_dlc_csv_workspace,
+    import_dlc_h5_workspace,
+    import_dlc_project_workspace,
+    import_legacy_archive,
+    import_mediapipe_pose_landmarks_json_workspace,
+    import_mmpose_topdown_json_workspace,
+    import_openpose_json_workspace,
+    import_sleap_h5_workspace,
+    import_sleap_package_workspace,
     init_project,
     load_project_descriptor,
     pack_project,
@@ -31,6 +43,242 @@ if TYPE_CHECKING:
     from xpkg.model import Labels
 
 PackMode = Literal["portable", "snapshot"]
+
+
+@dataclass(frozen=True, slots=True)
+class WorkspaceImports:
+    """Workspace-bound import helpers that reuse the public format entrypoints."""
+
+    workspace_root: Path
+
+    def _import(self, importer: Callable[..., Path], /, *args: Any, **kwargs: Any) -> Path:
+        return importer(*args, workspace=self.workspace_root, **kwargs)
+
+    def dlc_csv(
+        self,
+        csv_path: str | Path,
+        video_path: str | Path,
+        *,
+        skeleton_name: str = "imported",
+        likelihood_threshold: float = 0.0,
+        default_pack_mode: PackMode = "portable",
+        force: bool = False,
+        progress_callback: Any | None = None,
+    ) -> Path:
+        """Import a DeepLabCut CSV plus video into this workspace."""
+        return self._import(
+            import_dlc_csv_workspace,
+            csv_path,
+            video_path,
+            skeleton_name=skeleton_name,
+            likelihood_threshold=likelihood_threshold,
+            default_pack_mode=default_pack_mode,
+            force=force,
+            progress_callback=progress_callback,
+        )
+
+    def dlc_h5(
+        self,
+        h5_path: str | Path,
+        video_path: str | Path,
+        *,
+        skeleton_name: str = "imported",
+        likelihood_threshold: float = 0.0,
+        default_pack_mode: PackMode = "portable",
+        force: bool = False,
+        progress_callback: Any | None = None,
+    ) -> Path:
+        """Import a DeepLabCut H5 export plus video into this workspace."""
+        return self._import(
+            import_dlc_h5_workspace,
+            h5_path,
+            video_path,
+            skeleton_name=skeleton_name,
+            likelihood_threshold=likelihood_threshold,
+            default_pack_mode=default_pack_mode,
+            force=force,
+            progress_callback=progress_callback,
+        )
+
+    def dlc_project(
+        self,
+        project_dir: str | Path,
+        *,
+        skeleton_name: str | None = None,
+        likelihood_threshold: float = 0.0,
+        default_pack_mode: PackMode = "portable",
+        force: bool = False,
+        progress_callback: Any | None = None,
+    ) -> Path:
+        """Import a supported DeepLabCut project into this workspace."""
+        return self._import(
+            import_dlc_project_workspace,
+            project_dir,
+            skeleton_name=skeleton_name,
+            likelihood_threshold=likelihood_threshold,
+            default_pack_mode=default_pack_mode,
+            force=force,
+            progress_callback=progress_callback,
+        )
+
+    def sleap_h5(
+        self,
+        h5_path: str | Path,
+        video_path: str | Path,
+        *,
+        skeleton_name: str = "imported",
+        likelihood_threshold: float = 0.0,
+        default_pack_mode: PackMode = "portable",
+        force: bool = False,
+        progress_callback: Any | None = None,
+    ) -> Path:
+        """Import a SLEAP analysis H5 export plus video into this workspace."""
+        return self._import(
+            import_sleap_h5_workspace,
+            h5_path,
+            video_path,
+            skeleton_name=skeleton_name,
+            likelihood_threshold=likelihood_threshold,
+            default_pack_mode=default_pack_mode,
+            force=force,
+            progress_callback=progress_callback,
+        )
+
+    def sleap_package(
+        self,
+        slp: str | Path,
+        *,
+        fps: int = 30,
+        encode_videos: bool | None = None,
+        default_pack_mode: PackMode = "portable",
+        force: bool = False,
+        progress_callback: Any | None = None,
+    ) -> Path:
+        """Import a SLEAP package into this workspace."""
+        return self._import(
+            import_sleap_package_workspace,
+            slp,
+            fps=int(fps),
+            encode_videos=encode_videos,
+            default_pack_mode=default_pack_mode,
+            force=force,
+            progress_callback=progress_callback,
+        )
+
+    def mmpose_topdown_json(
+        self,
+        json_path: str | Path,
+        video_path: str | Path,
+        *,
+        skeleton_name: str = "imported",
+        instance_index: int = 0,
+        likelihood_threshold: float = 0.0,
+        default_pack_mode: PackMode = "portable",
+        force: bool = False,
+        progress_callback: Any | None = None,
+    ) -> Path:
+        """Import an MMPose top-down JSON export plus video into this workspace."""
+        return self._import(
+            import_mmpose_topdown_json_workspace,
+            json_path,
+            video_path,
+            skeleton_name=skeleton_name,
+            instance_index=int(instance_index),
+            likelihood_threshold=likelihood_threshold,
+            default_pack_mode=default_pack_mode,
+            force=force,
+            progress_callback=progress_callback,
+        )
+
+    def mediapipe_pose_landmarks_json(
+        self,
+        json_path: str | Path,
+        video_path: str | Path,
+        *,
+        skeleton_name: str = "mediapipe_pose",
+        likelihood_threshold: float = 0.0,
+        default_pack_mode: PackMode = "portable",
+        force: bool = False,
+        progress_callback: Any | None = None,
+    ) -> Path:
+        """Import MediaPipe pose-landmarks JSON plus video into this workspace."""
+        return self._import(
+            import_mediapipe_pose_landmarks_json_workspace,
+            json_path,
+            video_path,
+            skeleton_name=skeleton_name,
+            likelihood_threshold=likelihood_threshold,
+            default_pack_mode=default_pack_mode,
+            force=force,
+            progress_callback=progress_callback,
+        )
+
+    def openpose_json(
+        self,
+        json_dir: str | Path,
+        video_path: str | Path,
+        *,
+        skeleton_name: str = "imported",
+        likelihood_threshold: float = 0.0,
+        default_pack_mode: PackMode = "portable",
+        force: bool = False,
+        progress_callback: Any | None = None,
+    ) -> Path:
+        """Import an OpenPose JSON directory plus video into this workspace."""
+        return self._import(
+            import_openpose_json_workspace,
+            json_dir,
+            video_path,
+            skeleton_name=skeleton_name,
+            likelihood_threshold=likelihood_threshold,
+            default_pack_mode=default_pack_mode,
+            force=force,
+            progress_callback=progress_callback,
+        )
+
+    def detectron2_coco(
+        self,
+        predictions_path: str | Path,
+        dataset_json_path: str | Path,
+        image_root: str | Path,
+        *,
+        category_id: int | None = None,
+        skeleton_name: str | None = None,
+        likelihood_threshold: float = 0.0,
+        default_pack_mode: PackMode = "portable",
+        force: bool = False,
+        progress_callback: Any | None = None,
+    ) -> Path:
+        """Import Detectron2 COCO keypoint results into this workspace."""
+        return self._import(
+            import_detectron2_coco_workspace,
+            predictions_path,
+            dataset_json_path,
+            image_root,
+            category_id=category_id,
+            skeleton_name=skeleton_name,
+            likelihood_threshold=likelihood_threshold,
+            default_pack_mode=default_pack_mode,
+            force=force,
+            progress_callback=progress_callback,
+        )
+
+    def legacy_archive(
+        self,
+        legacy_archive: str | Path,
+        *,
+        title: str | None = None,
+        default_pack_mode: PackMode = "portable",
+        force: bool = False,
+    ) -> Path:
+        """Import a legacy `.xpkg` archive into this workspace for migration."""
+        return self._import(
+            import_legacy_archive,
+            legacy_archive,
+            title=title,
+            default_pack_mode=default_pack_mode,
+            force=force,
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -104,6 +352,11 @@ class WorkspaceService:
         """Load the current workspace descriptor."""
         return load_project_descriptor(self.workspace_root)
 
+    @property
+    def imports(self) -> WorkspaceImports:
+        """Return workspace-bound import helpers backed by the public format API."""
+        return WorkspaceImports(workspace_root=self.workspace_root)
+
     def describe(self) -> WorkspaceLayout:
         """Return the normalized managed paths for this workspace."""
         descriptor = self.descriptor()
@@ -164,4 +417,4 @@ class WorkspaceService:
         )
 
 
-__all__ = ["WorkspaceLayout", "WorkspaceService"]
+__all__ = ["WorkspaceImports", "WorkspaceLayout", "WorkspaceService"]

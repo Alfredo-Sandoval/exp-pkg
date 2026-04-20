@@ -1,9 +1,10 @@
 """Stable public API for xpkg integrations.
 
-New integrations should start with ``WorkspaceService`` and the
-``import_*_workspace(...)`` helpers. Compatibility adapters remain public, but
-they are grouped later in this facade so the workspace-first path is easier to
-discover.
+New integrations should start with ``WorkspaceService`` and
+``WorkspaceService.imports``. The explicit ``import_*_workspace(...)`` helpers
+remain public for function-level callers. Compatibility adapters remain public,
+but they are grouped later in this facade so the workspace-first path is easier
+to discover.
 """
 
 from __future__ import annotations
@@ -13,6 +14,7 @@ from typing import Any
 
 _WORKSPACE_EXPORTS: dict[str, tuple[str, str]] = {
     "WorkspaceLayout": (".services", "WorkspaceLayout"),
+    "WorkspaceImports": (".services", "WorkspaceImports"),
     "WorkspaceService": (".services", "WorkspaceService"),
     "ProjectDescriptor": (".formats.project", "ProjectDescriptor"),
     "init_project": (".formats.project", "init_project"),

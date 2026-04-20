@@ -11,6 +11,7 @@ def test_xpkg_api_exposes_io_contract() -> None:
         "ProjectDescriptor",
         "ConversionResult",
         "PoseTrack",
+        "WorkspaceImports",
         "WorkspaceLayout",
         "WorkspaceService",
         "convert_detectron2_coco",
@@ -44,6 +45,7 @@ def test_xpkg_api_exposes_io_contract() -> None:
     assert api.Labels.__name__ == "Labels"
     assert api.ProjectDescriptor.__name__ == "ProjectDescriptor"
     assert api.PoseTrack.__name__ == "PoseTrack"
+    assert api.WorkspaceImports.__name__ == "WorkspaceImports"
     assert api.WorkspaceService.__name__ == "WorkspaceService"
     assert callable(api.labels_from_json_payload)
     assert callable(api.labels_numpy)
@@ -58,6 +60,7 @@ def test_xpkg_api_lists_workspace_first_entrypoints_before_adapters() -> None:
     exports = api.__all__
 
     assert exports.index("WorkspaceService") < exports.index("ConversionResult")
+    assert exports.index("WorkspaceImports") < exports.index("ConversionResult")
     assert exports.index("WorkspaceService") < exports.index("convert_dlc_csv")
     assert exports.index("import_dlc_csv_workspace") < exports.index("convert_dlc_csv")
     assert exports.index("export_project_archive") < exports.index("current_project_archive_path")

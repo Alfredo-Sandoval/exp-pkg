@@ -93,7 +93,7 @@ from xpkg.model import (
     load_skeleton_ultralytics,
     load_skeleton_xpkg_json,
 )
-from xpkg.services import WorkspaceLayout, WorkspaceService
+from xpkg.services import WorkspaceImports, WorkspaceLayout, WorkspaceService
 
 
 def test_public_exports_are_callable() -> None:
@@ -162,6 +162,7 @@ def test_public_exports_are_callable() -> None:
     assert callable(labels_numpy)
     assert callable(labels_to_dataframe)
     assert callable(labels_to_json_payload)
+    assert WorkspaceImports is not None
     assert WorkspaceLayout is not None
     assert WorkspaceService is not None
 
