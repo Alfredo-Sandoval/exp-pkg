@@ -166,7 +166,9 @@ def _normalize_skeleton_links(
         zero_based = (start - 1, end - 1)
         if zero_based[0] == zero_based[1]:
             raise ValueError(f"Detectron2 skeleton links cannot self-reference in {path}.")
-        ordered = tuple(sorted(zero_based))
+        ordered = (
+            zero_based if zero_based[0] < zero_based[1] else (zero_based[1], zero_based[0])
+        )
         if ordered in seen:
             continue
         seen.add(ordered)

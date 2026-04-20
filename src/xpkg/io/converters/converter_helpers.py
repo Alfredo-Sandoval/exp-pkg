@@ -18,6 +18,8 @@ from xpkg.core.video_contract import video_total_frames
 from xpkg.io.video import Video, available_video_exts, write_video
 
 if TYPE_CHECKING:
+    from xpkg.core.annotations import Point
+    from xpkg.core.skeleton import Keypoint
     from xpkg.model import Labels as _Labels
 
 CliRunner = Callable[[argparse.Namespace, argparse.ArgumentParser], int]
@@ -61,12 +63,12 @@ def _emit(callback: ProgressCallback | None, message: str) -> None:
 
 
 def points_from_coords_scores(
-    node_names: Sequence[object],
+    node_names: Sequence[str | Keypoint],
     coords: np.ndarray,
     scores: np.ndarray,
     *,
     likelihood_threshold: float,
-) -> dict[object, Any]:
+) -> dict[str | Keypoint, Point]:
     """Build visible point objects from parallel keypoint coordinate and score arrays."""
 
     from xpkg.core.annotations import Point
@@ -86,7 +88,7 @@ def points_from_coords_scores(
             f"({node_count},), got {scores_array.shape}."
         )
 
-    points: dict[object, Any] = {}
+    points: dict[str | Keypoint, Point] = {}
     for node_idx, node_name in enumerate(node_names):
         score = float(scores_array[node_idx])
         if not np.isfinite(score) or score < likelihood_threshold:

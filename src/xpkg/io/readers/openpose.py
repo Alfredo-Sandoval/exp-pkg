@@ -142,7 +142,7 @@ def _load_people_payload(json_path: Path) -> list[dict[str, Any]]:
                 "OpenPose frame JSON 'people' entries must be objects: "
                 f"{json_path} person index {person_idx}"
             )
-        decoded.append(person)
+        decoded.append({str(key): value for key, value in person.items()})
     return decoded
 
 

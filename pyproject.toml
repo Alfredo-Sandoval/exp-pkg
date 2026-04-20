@@ -60,23 +60,6 @@ src = ["src"]
 select = ["E", "F", "W", "I", "B", "UP", "N"]
 ignore = []
 
-[tool.ty.src]
-exclude = [
-  "src/xpkg/adapters/detectron2.py",
-  "src/xpkg/adapters/mediapipe.py",
-  "src/xpkg/adapters/mmpose.py",
-  "src/xpkg/adapters/openpose.py",
-  "src/xpkg/io/converters/detectron2_import.py",
-  "src/xpkg/io/converters/mediapipe_import.py",
-  "src/xpkg/io/converters/mmpose_import.py",
-  "src/xpkg/io/converters/openpose_import.py",
-  "src/xpkg/io/converters/pose_track_import.py",
-  "src/xpkg/io/readers/detectron2_coco.py",
-  "src/xpkg/io/readers/mediapipe_pose_landmarks.py",
-  "src/xpkg/io/readers/mmpose.py",
-  "src/xpkg/io/readers/openpose.py",
-]
-
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 testpaths = ["tests"]

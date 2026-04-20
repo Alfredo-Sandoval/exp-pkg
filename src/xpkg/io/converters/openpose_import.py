@@ -24,6 +24,7 @@ from xpkg.io.readers.openpose import (
 from xpkg.io.video import Video
 
 if TYPE_CHECKING:
+    from xpkg.core.annotations import Point
     from xpkg.core.skeleton import Keypoint
     from xpkg.model import Labels as _Labels
 
@@ -47,7 +48,7 @@ def _points_for_person(
     node_names: tuple[str, ...],
     *,
     likelihood_threshold: float,
-) -> dict[str | Keypoint, object]:
+) -> dict[str | Keypoint, Point]:
     return points_from_coords_scores(
         node_names,
         person.coords,
