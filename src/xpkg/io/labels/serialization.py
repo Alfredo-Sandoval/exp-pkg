@@ -897,6 +897,20 @@ def _labels_payload_from_archive_payload(payload: dict[str, Any]) -> dict[str, A
     return hydrated_payload
 
 
+def _workspace_snapshot_cache_matches_committed_head(
+    workspace_root: Path,
+    snapshot_path: Path,
+) -> bool:
+    from xpkg.io.archive_store import ArchiveStore
+    from xpkg.io.project_layout import workspace_store_root
+
+    store = ArchiveStore.open(workspace_store_root(workspace_root))
+    if not store.has_current_root("snapshot"):
+        return False
+    committed_snapshot_path = store.current_root_path("snapshot")
+    return snapshot_path.read_bytes() == committed_snapshot_path.read_bytes()
+
+
 def labels_load_file(
     cls: type[Labels],
     filename: str,
@@ -920,6 +934,7 @@ def labels_load_file(
 
     from xpkg.io.project_layout import resolve_workspace_root, workspace_current_snapshot_path
     from xpkg.io.project_workspace import (
+        LegacyWorkspaceMigrationRequiredError,
         current_project_commit_id,
         rebase_workspace_payload_videos,
         rebuild_workspace_snapshot_cache,
@@ -933,7 +948,13 @@ def labels_load_file(
             snapshot_payload = read_workspace_snapshot(snapshot_path)
             snapshot_head = snapshot_commit_id(snapshot_payload)
             current_head = current_project_commit_id(workspace_root)
-            if current_head is None or snapshot_head == current_head:
+            if current_head is not None and snapshot_head == current_head:
+                if not _workspace_snapshot_cache_matches_committed_head(
+                    workspace_root,
+                    snapshot_path,
+                ):
+                    rebuilt_snapshot_path = rebuild_workspace_snapshot_cache(workspace_root)
+                    snapshot_payload = read_workspace_snapshot(rebuilt_snapshot_path)
                 rebase_workspace_payload_videos(snapshot_payload, workspace_root)
                 obj = labels_from_archive_payload(
                     cls,
@@ -948,7 +969,9 @@ def labels_load_file(
 
         try:
             rebuilt_snapshot_path = rebuild_workspace_snapshot_cache(workspace_root)
-        except FileNotFoundError:
+        except FileNotFoundError as exc:
+            if isinstance(exc, LegacyWorkspaceMigrationRequiredError):
+                raise
             obj = cls()
             obj.path = workspace_root
             return obj

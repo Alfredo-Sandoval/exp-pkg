@@ -245,7 +245,12 @@ def test_migrate_legacy_archive_rewrites_stale_project_metadata_paths(tmp_path: 
 
 def test_pack_snapshot_and_unpack_roundtrip_workspace(tmp_path: Path) -> None:
     from xpkg.compat import write_xpkg
-    from xpkg.formats import pack_project, unpack_project, validate_artifact
+    from xpkg.formats import (
+        current_project_snapshot_path,
+        pack_project,
+        unpack_project,
+        validate_artifact,
+    )
     from xpkg.model import Labels
 
     labels = _make_labels(tmp_path, x=5.0, y=6.0)
@@ -256,6 +261,11 @@ def test_pack_snapshot_and_unpack_roundtrip_workspace(tmp_path: Path) -> None:
     from xpkg.formats import migrate_legacy_archive
 
     migrate_legacy_archive(source_archive_path, workspace)
+    snapshot_path = current_project_snapshot_path(workspace)
+    snapshot_doc = json.loads(snapshot_path.read_text(encoding="utf-8"))
+    snapshot_doc["payload"]["data"]["keypoints"][0][0][0][0] = 51.0
+    snapshot_doc["payload"]["data"]["keypoints"][0][0][0][1] = 61.0
+    snapshot_path.write_text(json.dumps(snapshot_doc, indent=2) + "\n", encoding="utf-8")
 
     artifact = pack_project(workspace, mode="snapshot")
     validate_artifact(artifact)
@@ -354,11 +364,12 @@ def test_legacy_workspace_current_state_archive_requires_explicit_cutover(tmp_pa
     ):
         Labels.save_file(updated_labels, workspace.as_posix())
 
-    with pytest.raises(
-        LegacyWorkspaceMigrationRequiredError,
-        match="migrate_legacy_archive",
-    ):
-        current_project_archive_path(workspace)
+    with pytest.deprecated_call(match="compatibility-only"):
+        with pytest.raises(
+            LegacyWorkspaceMigrationRequiredError,
+            match="migrate_legacy_archive",
+        ):
+            current_project_archive_path(workspace)
 
     assert current_project_state_path(workspace) == workspace_state_root(workspace) / "current.json"
     assert not current_project_state_path(workspace).exists()
@@ -450,8 +461,10 @@ def test_labels_save_file_to_workspace_preserves_predictions(tmp_path: Path) -> 
     assert int(prediction_track_ids[0, 0]) == 4
 
 
-def test_workspace_load_prefers_current_snapshot(tmp_path: Path) -> None:
-    from xpkg.formats import init_project, workspace_state_root
+def test_workspace_load_rebuilds_tampered_snapshot_cache_when_commit_id_matches_head(
+    tmp_path: Path,
+) -> None:
+    from xpkg.formats import current_project_snapshot_path, init_project
     from xpkg.model import Labels
 
     source_root = tmp_path / "source"
@@ -461,8 +474,8 @@ def test_workspace_load_prefers_current_snapshot(tmp_path: Path) -> None:
     init_project(workspace, title="Snapshot Preferred")
 
     Labels.save_file(labels, workspace.as_posix())
-    snapshot_path = workspace_state_root(workspace) / "current.json"
-    snapshot_doc = json.loads(snapshot_path.read_text())
+    snapshot_path = current_project_snapshot_path(workspace)
+    snapshot_doc = json.loads(snapshot_path.read_text(encoding="utf-8"))
     keypoints = snapshot_doc["payload"]["data"]["keypoints"]
     keypoints[0][0][0][0] = 101.0
     keypoints[0][0][0][1] = 102.0
@@ -470,8 +483,12 @@ def test_workspace_load_prefers_current_snapshot(tmp_path: Path) -> None:
 
     loaded = Labels.load_file(workspace.as_posix())
     pts = loaded.labeled_frames[0].instances[0].get_points_array(copy=False, full=True)
-    assert float(pts["x"][0]) == 101.0
-    assert float(pts["y"][0]) == 102.0
+    repaired_snapshot = json.loads(snapshot_path.read_text(encoding="utf-8"))
+
+    assert float(pts["x"][0]) == 11.0
+    assert float(pts["y"][0]) == 12.0
+    assert float(repaired_snapshot["payload"]["data"]["keypoints"][0][0][0][0]) == 11.0
+    assert float(repaired_snapshot["payload"]["data"]["keypoints"][0][0][0][1]) == 12.0
 
 
 def test_workspace_load_rebuilds_missing_snapshot_from_committed_state(tmp_path: Path) -> None:

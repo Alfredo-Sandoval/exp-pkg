@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import shutil
 import tempfile
+import warnings
 from collections.abc import Callable
 from copy import deepcopy
 from dataclasses import dataclass
@@ -54,6 +55,14 @@ class LegacyWorkspaceMigrationRequiredError(FileNotFoundError):
 
 
 def current_project_archive_path(path: str | Path) -> Path:
+    """Compatibility alias for explicit `.xpkg` archive export."""
+
+    warnings.warn(
+        "current_project_archive_path(...) is compatibility-only; "
+        "use export_project_archive(...) for explicit archive export.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     return export_project_archive(path)
 
 
@@ -62,10 +71,14 @@ def export_project_archive(
     *,
     out: str | Path | None = None,
 ) -> Path:
+    """Materialize a compatibility `.xpkg` archive from the committed workspace head."""
+
     return _workspace_store(path).export_archive(out=out)
 
 
 def current_project_snapshot_path(path: str | Path) -> Path:
+    """Return the workspace snapshot cache path under `.xpkg/state/current.json`."""
+
     return workspace_current_snapshot_path(path)
 
 
@@ -74,6 +87,12 @@ def current_project_commit_id(path: str | Path) -> str | None:
 
 
 def current_project_state_path(path: str | Path) -> Path:
+    """Return the currently addressable workspace state path.
+
+    Normal workspace-first flows use `.xpkg/state/current.json`. Archive roots
+    are returned only for explicit compatibility-backed durable heads.
+    """
+
     store = _workspace_store(path)
     snapshot_path = current_project_snapshot_path(path)
     if snapshot_path.exists() or store.has_current_snapshot():
