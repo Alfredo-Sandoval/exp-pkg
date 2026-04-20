@@ -94,6 +94,7 @@ The repo and distribution name are <code>exp-pkg</code>; the Python import and C
 - `convert_dlc_csv`
 - `convert_dlc_h5`
 - `convert_dlc_project`
+- `import_dlc_project_workspace`
 - `convert_sleap_package`
 - `ConversionResult`
 </div>

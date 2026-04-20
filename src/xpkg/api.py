@@ -27,6 +27,7 @@ _LAZY_EXPORTS: dict[str, tuple[str, str]] = {
     "convert_sleap_package": (".adapters", "convert_sleap_package"),
     "import_dlc_csv_workspace": (".formats.project", "import_dlc_csv_workspace"),
     "import_dlc_h5_workspace": (".formats.project", "import_dlc_h5_workspace"),
+    "import_dlc_project_workspace": (".formats.project", "import_dlc_project_workspace"),
     "import_legacy_archive": (".formats.project", "import_legacy_archive"),
     "import_sleap_h5_workspace": (".formats.project", "import_sleap_h5_workspace"),
     "import_sleap_package_workspace": (".formats.project", "import_sleap_package_workspace"),

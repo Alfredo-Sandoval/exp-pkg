@@ -112,6 +112,11 @@ Import a DeepLabCut CSV into a workspace.
 
 Import a DeepLabCut H5 into a workspace.
 
+### `import_dlc_project_workspace(...)`
+
+Import a whole DeepLabCut project into one workspace, skipping incomplete
+project entries and preserving all imported items in the same managed state.
+
 ### `import_sleap_h5_workspace(...)`
 
 Import a SLEAP analysis H5 export into a workspace.

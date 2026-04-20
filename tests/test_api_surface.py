@@ -15,6 +15,7 @@ def test_xpkg_api_exposes_io_contract() -> None:
         "WorkspaceService",
         "convert_dlc_csv",
         "convert_sleap_h5",
+        "import_dlc_project_workspace",
         "import_sleap_h5_workspace",
         "labels_from_json_payload",
         "labels_numpy",

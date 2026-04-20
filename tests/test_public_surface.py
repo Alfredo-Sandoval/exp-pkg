@@ -41,6 +41,7 @@ from xpkg.formats import (
     default_expkg_path,
     import_dlc_csv_workspace,
     import_dlc_h5_workspace,
+    import_dlc_project_workspace,
     import_legacy_archive,
     import_sleap_h5_workspace,
     import_sleap_package_workspace,
@@ -106,6 +107,7 @@ def test_public_exports_are_callable() -> None:
     assert callable(default_expkg_path)
     assert callable(import_dlc_csv_workspace)
     assert callable(import_dlc_h5_workspace)
+    assert callable(import_dlc_project_workspace)
     assert callable(import_legacy_archive)
     assert callable(import_sleap_h5_workspace)
     assert callable(import_sleap_package_workspace)
@@ -177,6 +179,7 @@ def test_formats_core_surface_excludes_compat_symbols() -> None:
     assert "read_xpkg" not in xpkg.formats.__all__
     assert "write_xpkg" not in xpkg.formats.__all__
     assert "pack_project" in xpkg.formats.__all__
+    assert "import_dlc_project_workspace" in xpkg.formats.__all__
     assert "read_archive" not in dir(xpkg.formats)
     assert "write_archive" not in dir(xpkg.formats)
     assert "ArchiveStore" not in dir(xpkg.formats)

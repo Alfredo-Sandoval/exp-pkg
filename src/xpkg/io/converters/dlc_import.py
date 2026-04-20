@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Sequence
+from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -19,7 +20,7 @@ from xpkg.io.converters.converter_helpers import (
     project_archive_path,
 )
 from xpkg.io.readers.dlc import read_dlc_csv_table, read_dlc_h5_table
-from xpkg.io.video import Video
+from xpkg.io.video import Video, available_video_exts
 
 if TYPE_CHECKING:
     from xpkg.core.skeleton import Keypoint
@@ -41,6 +42,20 @@ DLC_H5_PROJECT_PROGRESS_MARKERS: tuple[tuple[str, int], ...] = (
     (_DLC_WRITE_ARCHIVE_MARKER, 80),
     (_DLC_DONE_MARKER, 100),
 )
+
+
+@dataclass(slots=True)
+class _DlcProjectItem:
+    name: str
+    data_path: Path
+    video_path: Path
+    source_type: str
+
+
+@dataclass(slots=True)
+class _DlcProjectSkip:
+    name: str
+    reason: str
 
 
 def _read_dlc_csv(csv_path: Path) -> tuple[pd.DataFrame, list[str]]:
@@ -98,6 +113,70 @@ def _resolve_video_paths(video_paths: Sequence[Path | str]) -> list[Path]:
             raise FileNotFoundError(f"Video file not found: {path}")
         resolved.append(path)
     return resolved
+
+
+def _find_project_video(videos_dir: Path, item_name: str) -> Path | None:
+    for extension in available_video_exts():
+        candidate = videos_dir / f"{item_name}{extension}"
+        if candidate.exists():
+            return candidate
+    return None
+
+
+def _discover_dlc_project_items(
+    project_dir: Path | str,
+    *,
+    progress_callback: ProgressCallback | None = None,
+) -> tuple[list[_DlcProjectItem], list[_DlcProjectSkip]]:
+    resolved_project_dir = resolve_path(project_dir)
+    labeled_data = resolved_project_dir / "labeled-data"
+    videos_dir = resolved_project_dir / "videos"
+
+    if not labeled_data.exists():
+        raise FileNotFoundError(f"No labeled-data directory in {resolved_project_dir}")
+
+    items: list[_DlcProjectItem] = []
+    skipped: list[_DlcProjectSkip] = []
+
+    for subdir in sorted(labeled_data.iterdir()):
+        if not subdir.is_dir():
+            continue
+
+        csv_files = sorted(subdir.glob("CollectedData*.csv"))
+        h5_files = sorted(subdir.glob("CollectedData*.h5"))
+
+        data_path: Path | None = None
+        source_type: str | None = None
+        if csv_files:
+            data_path = csv_files[0]
+            source_type = "csv"
+        elif h5_files:
+            data_path = h5_files[0]
+            source_type = "h5"
+
+        if data_path is None or source_type is None:
+            reason = "no data file"
+            skipped.append(_DlcProjectSkip(name=subdir.name, reason=reason))
+            _emit(progress_callback, f"IMPORT: Skipping {subdir.name} ({reason})")
+            continue
+
+        video_path = _find_project_video(videos_dir, subdir.name)
+        if video_path is None:
+            reason = "no video found"
+            skipped.append(_DlcProjectSkip(name=subdir.name, reason=reason))
+            _emit(progress_callback, f"IMPORT: Skipping {subdir.name} ({reason})")
+            continue
+
+        items.append(
+            _DlcProjectItem(
+                name=subdir.name,
+                data_path=data_path,
+                video_path=video_path,
+                source_type=source_type,
+            )
+        )
+
+    return items, skipped
 
 
 def _load_project_videos(
@@ -484,49 +563,19 @@ def convert_dlc_project(
     ensure_dir(out_dir)
     results: list[ConversionResult] = []
 
-    labeled_data = project_dir / "labeled-data"
-    videos_dir = project_dir / "videos"
+    items, _skipped = _discover_dlc_project_items(
+        project_dir,
+        progress_callback=progress_callback,
+    )
 
-    if not labeled_data.exists():
-        raise FileNotFoundError(f"No labeled-data directory in {project_dir}")
+    for item in items:
+        out_path = out_dir / f"{item.name}{CANONICAL_ARCHIVE_SUFFIX}"
+        _emit(progress_callback, f"IMPORT: Converting {item.name}")
 
-    for subdir in sorted(labeled_data.iterdir()):
-        if not subdir.is_dir():
-            continue
-
-        csv_files = list(subdir.glob("CollectedData*.csv"))
-        h5_files = list(subdir.glob("CollectedData*.h5"))
-
-        data_file = None
-        is_h5 = False
-        if csv_files:
-            data_file = csv_files[0]
-        elif h5_files:
-            data_file = h5_files[0]
-            is_h5 = True
-
-        if data_file is None:
-            _emit(progress_callback, f"IMPORT: Skipping {subdir.name} (no data file)")
-            continue
-
-        video_file = None
-        for extension in (".mp4", ".avi", ".mov", ".mkv"):
-            candidate = videos_dir / f"{subdir.name}{extension}"
-            if candidate.exists():
-                video_file = candidate
-                break
-
-        if video_file is None:
-            _emit(progress_callback, f"IMPORT: Skipping {subdir.name} (no video found)")
-            continue
-
-        out_path = out_dir / f"{subdir.name}{CANONICAL_ARCHIVE_SUFFIX}"
-        _emit(progress_callback, f"IMPORT: Converting {subdir.name}")
-
-        if is_h5:
+        if item.source_type == "h5":
             result = convert_dlc_h5(
-                data_file,
-                video_file,
+                item.data_path,
+                item.video_path,
                 out_path,
                 skeleton_name=project_dir.name,
                 likelihood_threshold=likelihood_threshold,
@@ -534,8 +583,8 @@ def convert_dlc_project(
             )
         else:
             result = convert_dlc_csv(
-                data_file,
-                video_file,
+                item.data_path,
+                item.video_path,
                 out_path,
                 skeleton_name=project_dir.name,
                 likelihood_threshold=likelihood_threshold,

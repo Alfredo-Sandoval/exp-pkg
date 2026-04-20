@@ -400,6 +400,64 @@ def test_cli_routes_import_dlc_csv_workspace(monkeypatch, capsys) -> None:
     assert ".xpkg/state/current.json" in stdout
 
 
+def test_cli_routes_import_dlc_project_workspace(monkeypatch, capsys) -> None:
+    from xpkg.cli import main
+
+    captured: dict[str, object] = {}
+
+    def fake_import_dlc_project_workspace(
+        project_dir: str,
+        workspace: str,
+        *,
+        skeleton_name: str | None = None,
+        likelihood_threshold: float,
+        default_pack_mode: str = "portable",
+        force: bool = False,
+        progress_callback,
+    ) -> Path:
+        captured["project_dir"] = project_dir
+        captured["workspace"] = workspace
+        captured["skeleton_name"] = skeleton_name
+        captured["likelihood_threshold"] = likelihood_threshold
+        captured["default_pack_mode"] = default_pack_mode
+        captured["force"] = force
+        progress_callback("project-import-progress")
+        return Path(workspace) / ".xpkg" / "state" / "current.json"
+
+    monkeypatch.setattr(
+        "xpkg.cli.import_dlc_project_workspace",
+        fake_import_dlc_project_workspace,
+    )
+
+    code = main(
+        [
+            "import",
+            "dlc",
+            "project",
+            "--project",
+            "dlc-project",
+            "--out",
+            "My Project",
+            "--threshold",
+            "0.5",
+        ]
+    )
+
+    assert code == 0
+    assert captured == {
+        "project_dir": "dlc-project",
+        "workspace": "My Project",
+        "skeleton_name": None,
+        "likelihood_threshold": 0.5,
+        "default_pack_mode": "portable",
+        "force": False,
+    }
+    stdout = capsys.readouterr().out
+    assert "project-import-progress" in stdout
+    assert "Imported DLC project into My Project" in stdout
+    assert ".xpkg/state/current.json" in stdout
+
+
 def test_cli_routes_import_sleap_h5_workspace(monkeypatch, capsys) -> None:
     from xpkg.cli import main
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 import shutil
 import tempfile
 from dataclasses import dataclass
@@ -433,6 +434,51 @@ def _commit_labels_to_workspace(
     )
 
 
+def _load_staged_archive_labels(
+    staged_archive: Path,
+) -> tuple[Labels, dict[str, Any] | None, dict[str, Any] | None]:
+    from xpkg.model import Labels
+
+    labels = Labels.load_file(staged_archive.as_posix())
+    payload = read_archive(staged_archive, lazy=False)
+    return (
+        labels,
+        _snapshot_metadata(payload),
+        _predictions_payload_from_state_payload(payload),
+    )
+
+
+def _import_workspace_from_staged_archive(
+    workspace: str | Path,
+    *,
+    default_pack_mode: PackMode,
+    force: bool,
+    reason: str,
+    build_staged_archive: Callable[[Path], Path],
+) -> Path:
+    root = _ensure_workspace_for_import(
+        workspace,
+        default_pack_mode=default_pack_mode,
+        force=force,
+    )
+    stage_parent = _stage_archive_parent(root)
+    with tempfile.TemporaryDirectory(
+        prefix=".workspace_import_",
+        dir=str(stage_parent),
+    ) as tmp_dir:
+        staged_archive = build_staged_archive(Path(tmp_dir))
+        labels, metadata, predictions = _load_staged_archive_labels(staged_archive)
+        snapshot_path = _commit_labels_to_workspace(
+            root,
+            labels=labels,
+            metadata=metadata,
+            predictions=predictions,
+            reason=reason,
+        )
+    _touch_descriptor(root)
+    return snapshot_path
+
+
 def rebuild_workspace_snapshot_cache(workspace_root: Path) -> Path:
     from xpkg.model import Labels
 
@@ -760,6 +806,106 @@ def _touch_descriptor(root: Path) -> None:
     write_project_descriptor(root, descriptor)
 
 
+def _build_dlc_csv_import_archive(
+    tmp_dir: Path,
+    *,
+    csv_path: str | Path,
+    video_path: str | Path,
+    skeleton_name: str,
+    likelihood_threshold: float,
+    progress_callback: Any | None,
+    convert_dlc_csv: Callable[..., Any],
+) -> Path:
+    staged_archive = tmp_dir / f"dlc_csv{CANONICAL_ARCHIVE_SUFFIX}"
+    convert_dlc_csv(
+        csv_path,
+        video_path,
+        staged_archive,
+        skeleton_name=skeleton_name,
+        likelihood_threshold=likelihood_threshold,
+        progress_callback=progress_callback,
+    )
+    return staged_archive
+
+
+def _build_dlc_h5_import_archive(
+    tmp_dir: Path,
+    *,
+    h5_path: str | Path,
+    video_path: str | Path,
+    skeleton_name: str,
+    likelihood_threshold: float,
+    progress_callback: Any | None,
+    convert_dlc_h5: Callable[..., Any],
+) -> Path:
+    staged_archive = tmp_dir / f"dlc_h5{CANONICAL_ARCHIVE_SUFFIX}"
+    convert_dlc_h5(
+        h5_path,
+        video_path,
+        staged_archive,
+        skeleton_name=skeleton_name,
+        likelihood_threshold=likelihood_threshold,
+        progress_callback=progress_callback,
+    )
+    return staged_archive
+
+
+def _build_sleap_h5_import_archive(
+    tmp_dir: Path,
+    *,
+    h5_path: str | Path,
+    video_path: str | Path,
+    skeleton_name: str,
+    likelihood_threshold: float,
+    progress_callback: Any | None,
+    convert_sleap_h5: Callable[..., Any],
+) -> Path:
+    staged_archive = tmp_dir / f"sleap_h5{CANONICAL_ARCHIVE_SUFFIX}"
+    convert_sleap_h5(
+        h5_path,
+        video_path,
+        staged_archive,
+        skeleton_name=skeleton_name,
+        likelihood_threshold=likelihood_threshold,
+        progress_callback=progress_callback,
+    )
+    return staged_archive
+
+
+def _unify_matching_skeletons(base_labels: Labels, new_labels: Labels) -> None:
+    mapping: dict[int, Any] = {}
+    for skeleton in new_labels.skeletons:
+        target = next(
+            (existing for existing in base_labels.skeletons if existing.matches(skeleton)),
+            None,
+        )
+        if target is not None:
+            mapping[id(skeleton)] = target
+
+    if not mapping:
+        return
+
+    for labeled_frame in new_labels.labeled_frames:
+        for instance in labeled_frame.instances:
+            target = mapping.get(id(instance.skeleton))
+            if target is None or instance.skeleton is target:
+                continue
+            instance.skeleton = target
+            instance.realign_points()
+
+
+def _merge_labels_for_import(
+    merged_labels: Labels | None,
+    new_labels: Labels,
+) -> Labels:
+    if merged_labels is None:
+        return new_labels
+
+    _unify_matching_skeletons(merged_labels, new_labels)
+    merged_labels.extend_from(new_labels, unify=False)
+    return merged_labels
+
+
 def import_dlc_csv_workspace(
     csv_path: str | Path,
     video_path: str | Path,
@@ -773,38 +919,21 @@ def import_dlc_csv_workspace(
 ) -> Path:
     from xpkg.io.converters.dlc_import import convert_dlc_csv
 
-    root = _ensure_workspace_for_import(
+    return _import_workspace_from_staged_archive(
         workspace,
         default_pack_mode=default_pack_mode,
         force=force,
-    )
-    from xpkg.model import Labels
-
-    stage_parent = _stage_archive_parent(root)
-    with tempfile.TemporaryDirectory(
-        prefix=".workspace_import_",
-        dir=str(stage_parent),
-    ) as tmp_dir:
-        staged_archive = Path(tmp_dir) / f"dlc_csv{CANONICAL_ARCHIVE_SUFFIX}"
-        convert_dlc_csv(
-            csv_path,
+        reason="workspace.import.dlc_csv",
+        build_staged_archive=lambda tmp_dir: _build_dlc_csv_import_archive(
+            tmp_dir,
+            csv_path=csv_path,
             video_path,
-            staged_archive,
             skeleton_name=skeleton_name,
             likelihood_threshold=likelihood_threshold,
             progress_callback=progress_callback,
-        )
-        labels = Labels.load_file(staged_archive.as_posix())
-        payload = read_archive(staged_archive, lazy=False)
-        snapshot_path = _commit_labels_to_workspace(
-            root,
-            labels=labels,
-            metadata=_snapshot_metadata(payload),
-            predictions=_predictions_payload_from_state_payload(payload),
-            reason="workspace.import.dlc_csv",
-        )
-    _touch_descriptor(root)
-    return snapshot_path
+            convert_dlc_csv=convert_dlc_csv,
+        ),
+    )
 
 
 def import_dlc_h5_workspace(
@@ -820,38 +949,119 @@ def import_dlc_h5_workspace(
 ) -> Path:
     from xpkg.io.converters.dlc_import import convert_dlc_h5
 
-    root = _ensure_workspace_for_import(
+    return _import_workspace_from_staged_archive(
         workspace,
         default_pack_mode=default_pack_mode,
         force=force,
-    )
-    from xpkg.model import Labels
-
-    stage_parent = _stage_archive_parent(root)
-    with tempfile.TemporaryDirectory(
-        prefix=".workspace_import_",
-        dir=str(stage_parent),
-    ) as tmp_dir:
-        staged_archive = Path(tmp_dir) / f"dlc_h5{CANONICAL_ARCHIVE_SUFFIX}"
-        convert_dlc_h5(
-            h5_path,
-            video_path,
-            staged_archive,
+        reason="workspace.import.dlc_h5",
+        build_staged_archive=lambda tmp_dir: _build_dlc_h5_import_archive(
+            tmp_dir,
+            h5_path=h5_path,
+            video_path=video_path,
             skeleton_name=skeleton_name,
             likelihood_threshold=likelihood_threshold,
             progress_callback=progress_callback,
+            convert_dlc_h5=convert_dlc_h5,
+        ),
+    )
+
+
+def import_dlc_project_workspace(
+    project_dir: str | Path,
+    workspace: str | Path,
+    *,
+    skeleton_name: str | None = None,
+    likelihood_threshold: float = 0.0,
+    default_pack_mode: PackMode = "portable",
+    force: bool = False,
+    progress_callback: Any | None = None,
+) -> Path:
+    from xpkg.io.archive_format import write_archive
+    from xpkg.io.converters.dlc_import import (
+        _discover_dlc_project_items,
+        _stored_project_path,
+        convert_dlc_csv,
+        convert_dlc_h5,
+    )
+
+    resolved_project_dir = resolve_path(project_dir)
+    resolved_skeleton_name = skeleton_name or resolved_project_dir.name or "dlc"
+
+    def _build_archive(tmp_dir: Path) -> Path:
+        project_items, skipped_items = _discover_dlc_project_items(
+            resolved_project_dir,
+            progress_callback=progress_callback,
         )
-        labels = Labels.load_file(staged_archive.as_posix())
-        payload = read_archive(staged_archive, lazy=False)
-        snapshot_path = _commit_labels_to_workspace(
-            root,
-            labels=labels,
-            metadata=_snapshot_metadata(payload),
-            predictions=_predictions_payload_from_state_payload(payload),
-            reason="workspace.import.dlc_h5",
+        if not project_items:
+            raise ValueError(f"No supported DLC project items found in {resolved_project_dir}")
+
+        staged_items_root = ensure_dir(tmp_dir / "items")
+        merged_labels: Labels | None = None
+        source_items: list[dict[str, str]] = []
+        for project_item in project_items:
+            staged_archive = staged_items_root / f"{project_item.name}{CANONICAL_ARCHIVE_SUFFIX}"
+            if project_item.source_type == "h5":
+                convert_dlc_h5(
+                    project_item.data_path,
+                    project_item.video_path,
+                    staged_archive,
+                    skeleton_name=resolved_skeleton_name,
+                    likelihood_threshold=likelihood_threshold,
+                    progress_callback=progress_callback,
+                )
+            else:
+                convert_dlc_csv(
+                    project_item.data_path,
+                    project_item.video_path,
+                    staged_archive,
+                    skeleton_name=resolved_skeleton_name,
+                    likelihood_threshold=likelihood_threshold,
+                    progress_callback=progress_callback,
+                )
+
+            labels, _metadata, _predictions = _load_staged_archive_labels(staged_archive)
+            merged_labels = _merge_labels_for_import(merged_labels, labels)
+            source_items.append(
+                {
+                    "name": project_item.name,
+                    "source": f"dlc_{project_item.source_type}_import",
+                    "source_data": _stored_project_path(
+                        project_item.data_path,
+                        project_root=resolved_project_dir,
+                    ),
+                    "source_video": _stored_project_path(
+                        project_item.video_path,
+                        project_root=resolved_project_dir,
+                    ),
+                }
+            )
+
+        assert merged_labels is not None
+        merged_labels.validate()
+
+        metadata = {
+            "project_name": resolved_project_dir.name,
+            "source": "dlc_project_import",
+            "source_project": resolved_project_dir.as_posix(),
+            "source_items_json": source_items,
+            "skipped_items_json": [
+                {"name": skipped_item.name, "reason": skipped_item.reason}
+                for skipped_item in skipped_items
+            ],
+        }
+        staged_archive = (
+            tmp_dir / f"{resolved_project_dir.name or 'dlc_project'}{CANONICAL_ARCHIVE_SUFFIX}"
         )
-    _touch_descriptor(root)
-    return snapshot_path
+        write_archive(staged_archive, merged_labels, metadata=metadata)
+        return staged_archive
+
+    return _import_workspace_from_staged_archive(
+        workspace,
+        default_pack_mode=default_pack_mode,
+        force=force,
+        reason="workspace.import.dlc_project",
+        build_staged_archive=_build_archive,
+    )
 
 
 def import_sleap_package_workspace(
@@ -866,37 +1076,19 @@ def import_sleap_package_workspace(
 ) -> Path:
     from xpkg.io.converters.sleap_import import convert_sleap_package
 
-    root = _ensure_workspace_for_import(
+    return _import_workspace_from_staged_archive(
         workspace,
         default_pack_mode=default_pack_mode,
         force=force,
-    )
-    from xpkg.model import Labels
-
-    stage_parent = _stage_archive_parent(root)
-    with tempfile.TemporaryDirectory(
-        prefix=".workspace_import_",
-        dir=str(stage_parent),
-    ) as tmp_dir:
-        import_root = Path(tmp_dir)
-        result = convert_sleap_package(
+        reason="workspace.import.sleap",
+        build_staged_archive=lambda tmp_dir: convert_sleap_package(
             slp,
-            import_root,
+            tmp_dir,
             fps=int(fps),
             encode_videos=encode_videos,
             progress_callback=progress_callback,
-        )
-        labels = Labels.load_file(result.archive_path.as_posix())
-        payload = read_archive(result.archive_path, lazy=False)
-        snapshot_path = _commit_labels_to_workspace(
-            root,
-            labels=labels,
-            metadata=_snapshot_metadata(payload),
-            predictions=_predictions_payload_from_state_payload(payload),
-            reason="workspace.import.sleap",
-        )
-    _touch_descriptor(root)
-    return snapshot_path
+        ).archive_path,
+    )
 
 
 def import_sleap_h5_workspace(
@@ -912,38 +1104,21 @@ def import_sleap_h5_workspace(
 ) -> Path:
     from xpkg.io.converters.sleap_import import convert_sleap_h5
 
-    root = _ensure_workspace_for_import(
+    return _import_workspace_from_staged_archive(
         workspace,
         default_pack_mode=default_pack_mode,
         force=force,
-    )
-    from xpkg.model import Labels
-
-    stage_parent = _stage_archive_parent(root)
-    with tempfile.TemporaryDirectory(
-        prefix=".workspace_import_",
-        dir=str(stage_parent),
-    ) as tmp_dir:
-        staged_archive = Path(tmp_dir) / f"sleap_h5{CANONICAL_ARCHIVE_SUFFIX}"
-        convert_sleap_h5(
-            h5_path,
-            video_path,
-            staged_archive,
+        reason="workspace.import.sleap_h5",
+        build_staged_archive=lambda tmp_dir: _build_sleap_h5_import_archive(
+            tmp_dir,
+            h5_path=h5_path,
+            video_path=video_path,
             skeleton_name=skeleton_name,
             likelihood_threshold=likelihood_threshold,
             progress_callback=progress_callback,
-        )
-        labels = Labels.load_file(staged_archive.as_posix())
-        payload = read_archive(staged_archive, lazy=False)
-        snapshot_path = _commit_labels_to_workspace(
-            root,
-            labels=labels,
-            metadata=_snapshot_metadata(payload),
-            predictions=_predictions_payload_from_state_payload(payload),
-            reason="workspace.import.sleap_h5",
-        )
-    _touch_descriptor(root)
-    return snapshot_path
+            convert_sleap_h5=convert_sleap_h5,
+        ),
+    )
 
 
 def save_workspace_labels(
@@ -1029,6 +1204,7 @@ __all__ = [
     "EXPORTS_DIRNAME",
     "import_dlc_csv_workspace",
     "import_dlc_h5_workspace",
+    "import_dlc_project_workspace",
     "import_sleap_h5_workspace",
     "import_sleap_package_workspace",
     "MEDIA_DIRNAME",

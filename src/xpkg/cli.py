@@ -10,6 +10,7 @@ from pathlib import Path
 from xpkg.formats import (
     import_dlc_csv_workspace,
     import_dlc_h5_workspace,
+    import_dlc_project_workspace,
     import_legacy_archive,
     import_sleap_h5_workspace,
     import_sleap_package_workspace,
@@ -231,10 +232,16 @@ def _add_import_parser(parent: argparse._SubParsersAction[argparse.ArgumentParse
 
     project_parser = dlc_subparsers.add_parser(
         "project",
-        help="Import an entire DLC project into one workspace (not implemented yet).",
+        help="Import an entire DLC project into one workspace.",
     )
     project_parser.add_argument("--project", required=True, help="Path to the DLC project root.")
     project_parser.add_argument("--out", required=True, help="Output workspace directory.")
+    project_parser.add_argument(
+        "--threshold",
+        type=_likelihood_threshold,
+        default=0.0,
+        help="Likelihood threshold for including keypoints (0 to 1).",
+    )
     project_parser.set_defaults(func=_cmd_import_dlc_project)
 
     sleap = import_subparsers.add_parser("sleap", help="Import SLEAP package or analysis H5 data.")
@@ -535,10 +542,15 @@ def _cmd_import_dlc_h5(args: argparse.Namespace) -> int:
 
 
 def _cmd_import_dlc_project(args: argparse.Namespace) -> int:
-    raise NotImplementedError(
-        "Workspace import for whole DLC projects is not implemented yet. "
-        "Use `xpkg convert dlc project` for now or import a single tracking item."
+    path = import_dlc_project_workspace(
+        args.project,
+        args.out,
+        likelihood_threshold=args.threshold,
+        progress_callback=_emit_progress,
     )
+    sys.stdout.write(f"Imported DLC project into {args.out}\n")
+    _write_path(path)
+    return 0
 
 
 def _cmd_import_sleap(args: argparse.Namespace) -> int:
