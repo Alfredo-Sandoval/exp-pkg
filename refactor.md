@@ -6,31 +6,26 @@ mid-refactor.
 ## Current Decisions
 
 - Public editable project = workspace folder
-- Private mutable/runtime state = `.xpkg/`
+- Private durable/runtime state = `.xpkg/`
+- Rebuildable local cache = `.xpkg/state/current.json`
+- Durable committed source of truth = store head under `.xpkg/`
+- Normal workspace head payload = workspace-native snapshot root
 - Portable packed artifact = `.expkg`
-- Canonical native bundle = `.sta`
-- `.siesta` is not a future-facing native format
-- `.siesta` should end as migration/import-only and then be removable
+- Direct `.xpkg` archive handling = compatibility/import/export surface
 
 ## Current Reality
 
-The public contract and the live workspace path are now closer.
+The storage model is now meaningfully cut over:
 
-Today the workspace path uses a native JSON snapshot as its source of truth:
+- workspace save/import/migrate commit a snapshot root into the durable store
+- `.xpkg/state/current.json` is written from committed workspace-native state
+- workspace load prefers the snapshot cache only when its embedded
+  `xpkg_commit_id` matches the durable head
+- stale or missing snapshot caches rebuild from the committed durable head
+- legacy archive-backed workspaces still open through explicit archive fallback
 
-- workspace save/load/import/migrate write and read
-  `.xpkg/state/current.json`
-- workspace-native predictions are preserved in the snapshot payload as a
-  detached `predictions` section
-- archive reads remain as a fallback for older workspaces and for explicit
-  bundle-facing workflows
-
-The remaining archive dependency is now below the normal workspace hot path:
-
-- the durable store still commits immutable archive objects in
-  `src/xpkg/io/siesta_store/store.py`
-- explicit `.sta` / legacy `.siesta` workflows still use
-  `src/xpkg/io/siesta_format/`
+Archive support still exists, but it is no longer the normal committed
+workspace write path.
 
 ## Ordered Phases
 
@@ -39,14 +34,6 @@ The remaining archive dependency is now below the normal workspace hot path:
 Goal:
 
 - replace `.poseproj` with `.expkg`
-
-Scope:
-
-- constants and helper names in `src/xpkg/io/project_workspace.py`
-- public exports in `src/xpkg/formats/project.py` and `src/xpkg/formats/__init__.py`
-- CLI text and validation messages in `src/xpkg/cli.py`
-- load guards in `src/xpkg/io/labels/serialization.py`
-- tests and docs
 
 Status:
 
@@ -58,56 +45,24 @@ Goal:
 
 - break `src/xpkg/io/project_workspace.py` into smaller boundaries
 
-Target split:
+Status:
 
-- descriptor/layout helpers
-- workspace save/commit path
-- migration/import path
-- pack/unpack path
-- validation path
-
-Reason:
-
-- the file currently mixes public artifact semantics, media management, import
-  orchestration, archive staging, and validation in one place
+- completed enough for the storage cutover
 
 Progress:
 
 - extracted descriptor/layout helpers into `src/xpkg/io/project_layout.py`
 - extracted pack/unpack/validation helpers into `src/xpkg/io/project_artifact.py`
-- reduced `src/xpkg/io/project_workspace.py` to store/save/import/media work
-- switched the canonical native bundle suffix from `.siesta` to `.sta`
-- changed conversion results and CLI plumbing from `siesta_path` to
-  `bundle_path`
-- made workspace state default to `current.sta` while still accepting
-  `current.siesta` during transition
-- extracted staged bundle rewrite/update/migration mechanics into
-  `src/xpkg/io/workspace_bundle_backend.py`
-- removed direct HDF5 bundle surgery from `src/xpkg/io/project_workspace.py`
-- switched workspace load/save/import/migrate to the native snapshot path in
-  `src/xpkg/io/workspace_snapshot_backend.py`
+- reduced `src/xpkg/io/project_workspace.py` to workspace/store/import/media work
+- added `src/xpkg/io/workspace_snapshot_backend.py` for the native snapshot path
 - made `WorkspaceService.describe()` report current workspace state rather than
   archive-only state
 
-Remaining:
-
-- move durable store commits from immutable archive blobs to workspace-native
-  snapshots
-- decide whether archive fallback should stay in the workspace loader or move to
-  explicit migration only
-
-### Phase 3: Stop using `.siesta` as the workspace save engine
+### Phase 3: Move the durable head from archive commits to snapshot commits
 
 Goal:
 
-- make workspace-native state the source of truth
-
-Required outcome:
-
-- workspace save no longer writes a staged `.sta` bundle first
-- `.xpkg/` stores canonical state directly
-- save/update/load behavior prefers the snapshot path and only falls back to
-  archives for older workspaces
+- make workspace-native state the committed durable contract
 
 Status:
 
@@ -115,60 +70,49 @@ Status:
 
 Progress:
 
-- added a workspace-native snapshot backend in
-  `src/xpkg/io/workspace_snapshot_backend.py`
-- workspace saves now materialize `.xpkg/state/current.json` from the
-  committed workspace state
-- workspace loads now prefer `.xpkg/state/current.json` over the current
-  bundle path
-- labels JSON now roundtrips named tracks and frame-level segmentation
-- workspace snapshots now preserve detached predictions alongside labels
+- the durable store now supports generic named roots instead of archive-only
+  runtime behavior
+- normal workspace save/import/migrate commit `roots["snapshot"]`
+- `.xpkg/state/current.json` is rebuilt from committed workspace-native state
+- stale snapshot protection still keys off the durable commit id
+- archive-backed heads remain readable for older workspaces
 
-Remaining:
-
-- stop rebuilding the snapshot from a committed `.sta` bundle and write it
-  directly from workspace-native state
-- move the durable store from archive commits to snapshot/state commits
-- remove the remaining archive-first assumptions from pack/validate/store APIs
-
-### Phase 4: Demote `.siesta` to one-way compatibility
+### Phase 4: Demote archive handling to explicit compatibility
 
 Goal:
 
-- keep `.siesta` only for import/migration during the transition
+- keep direct `.xpkg` archive handling available only where it is still needed
 
-Allowed uses:
+Current allowed uses:
 
-- explicit legacy import
-- fixtures needed during cutover
-- migration tooling
-- archive fallback for older workspaces while the durable store still points at
-  archive blobs
+- explicit archive import/export workflows
+- migration from older archive-backed state
+- compatibility fixtures and tests
+- lazy archive materialization for archive-facing helpers
 
-Disallowed direction:
+Current disallowed direction:
 
-- no new native save/load flows should target `.siesta`
+- no new normal workspace save/load flows should depend on archive-first
+  commits
 
-### Phase 5: Delete native `.siesta` write/update paths
+## Remaining Seams
 
-Goal:
-
-- remove `.siesta` as a first-class product/storage concept
-
-Exit criteria:
-
-- workspace-native storage handles labels, predictions, segmentation, metadata,
-  and portable export generation
-- store commits no longer point at archive blobs
-- public docs no longer frame `.siesta` as part of the normal user workflow
+- decide how long the workspace loader should keep automatic archive fallback
+  for older workspaces
+- consider adding typed root-entry helpers in the durable-store schema instead
+  of raw root dictionaries
+- consider whether explicit archive materialization should stay a helper-level
+  behavior or move behind a more explicit export API
+- keep shrinking archive-first assumptions in tests and docs
 
 ## Known Hotspots
 
 - `src/xpkg/io/project_workspace.py`
-- `src/xpkg/io/siesta_store/store.py`
-- `src/xpkg/io/siesta_format/writer_core.py`
-- `src/xpkg/io/siesta_format/reader_core.py`
+- `src/xpkg/io/workspace_snapshot_backend.py`
+- `src/xpkg/io/archive_store/store.py`
 - `src/xpkg/io/labels/serialization.py`
+- `tests/test_workspace_store_cache_sync.py`
+- `tests/test_project_workspace.py`
 
 ## Verification Expectations
 
@@ -182,4 +126,4 @@ For each phase:
 ## Notes
 
 - `docs/architecture/storage-direction.md` holds the storage rationale
-- this file is the execution tracker for the code cutover
+- this file is the execution tracker for the remaining storage seams

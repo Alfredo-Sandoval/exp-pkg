@@ -11,7 +11,12 @@ import numpy as np
 from xpkg.core.json_utils import parse_json_dict, write_json
 from xpkg.core.path_registry import ensure_dir, resolve_path
 from xpkg.io.archive_format.prediction_coerce import coerce_predictions_from_labels
-from xpkg.io.labels.json_format import labels_to_json_payload, read_labels_json_payload
+from xpkg.io.labels.json_format import (
+    XPKG_LABELS_JSON_FORMAT,
+    XPKG_LABELS_JSON_VERSION,
+    labels_to_json_payload,
+    read_labels_json_payload,
+)
 from xpkg.io.project_layout import (
     CURRENT_SNAPSHOT_FILENAME,
     workspace_media_root,
@@ -220,6 +225,83 @@ def normalize_predictions_payload(predictions: dict[str, Any] | None) -> dict[st
     return normalized
 
 
+def _normalized_snapshot_metadata(
+    metadata: dict[str, Any] | None,
+    *,
+    workspace_root: Path,
+    commit_id: str | None,
+) -> dict[str, Any]:
+    normalized_metadata = rewrite_workspace_metadata_paths(
+        metadata,
+        workspace_root=workspace_root,
+    )
+    if commit_id is None:
+        normalized_metadata.pop(WORKSPACE_COMMIT_ID_KEY, None)
+    else:
+        normalized_metadata[WORKSPACE_COMMIT_ID_KEY] = str(commit_id)
+    return normalized_metadata
+
+
+def build_workspace_snapshot_payload(
+    *,
+    labels: Labels,
+    workspace_root: Path,
+    metadata: dict[str, Any] | None = None,
+    predictions: dict[str, Any] | None = None,
+    commit_id: str | None = None,
+) -> dict[str, Any]:
+    normalized_metadata = _normalized_snapshot_metadata(
+        metadata,
+        workspace_root=workspace_root,
+        commit_id=commit_id,
+    )
+    document = labels_to_json_payload(labels, metadata=normalized_metadata)
+    payload = document["payload"]
+    _relativize_video_payload_paths(payload["videos"], workspace_root)
+    session_state = payload.get("session")
+    if isinstance(session_state, dict):
+        _rewrite_session_state_paths(session_state, workspace_root=workspace_root)
+    payload["predictions"] = normalize_predictions_payload(predictions)
+    return payload
+
+
+def _snapshot_payload_document(payload: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "format": XPKG_LABELS_JSON_FORMAT,
+        "version": XPKG_LABELS_JSON_VERSION,
+        "payload": payload,
+    }
+
+
+def write_workspace_snapshot_payload(
+    path: str | Path,
+    payload: Mapping[str, Any],
+    *,
+    commit_id: str | None = None,
+) -> Path:
+    target = resolve_path(path)
+    ensure_dir(target.parent)
+    normalized_payload = _materialize_json_value(payload)
+    if not isinstance(normalized_payload, dict):
+        raise TypeError("Workspace snapshot payload must normalize to a mapping")
+
+    metadata = normalized_payload.get("metadata")
+    normalized_metadata = dict(metadata) if isinstance(metadata, dict) else {}
+    if commit_id is None:
+        normalized_metadata.pop(WORKSPACE_COMMIT_ID_KEY, None)
+    else:
+        normalized_metadata[WORKSPACE_COMMIT_ID_KEY] = str(commit_id)
+    normalized_payload["metadata"] = normalized_metadata
+    write_json(
+        target,
+        _snapshot_payload_document(normalized_payload),
+        indent=2,
+        sort_keys=False,
+        ensure_ascii=True,
+    )
+    return target
+
+
 def _prediction_heatmap_shape(
     prediction_items: Sequence[PredictionAppendItem],
 ) -> tuple[int, int] | None:
@@ -331,23 +413,14 @@ def write_workspace_snapshot(
     predictions: dict[str, Any] | None = None,
     commit_id: str | None = None,
 ) -> Path:
-    target = resolve_path(path)
-    ensure_dir(target.parent)
-    normalized_metadata = rewrite_workspace_metadata_paths(
-        metadata,
+    payload = build_workspace_snapshot_payload(
+        labels=labels,
         workspace_root=workspace_root,
+        metadata=metadata,
+        predictions=predictions,
+        commit_id=commit_id,
     )
-    if commit_id is not None:
-        normalized_metadata[WORKSPACE_COMMIT_ID_KEY] = str(commit_id)
-    document = labels_to_json_payload(labels, metadata=normalized_metadata)
-    payload = document["payload"]
-    _relativize_video_payload_paths(payload["videos"], workspace_root)
-    session_state = payload.get("session")
-    if isinstance(session_state, dict):
-        _rewrite_session_state_paths(session_state, workspace_root=workspace_root)
-    payload["predictions"] = normalize_predictions_payload(predictions)
-    write_json(target, document, indent=2, sort_keys=False, ensure_ascii=True)
-    return target
+    return write_workspace_snapshot_payload(path, payload, commit_id=commit_id)
 
 
 def read_workspace_snapshot(path: str | Path) -> dict[str, Any]:
@@ -371,6 +444,7 @@ def snapshot_commit_id(payload: Mapping[str, Any]) -> str | None:
 
 
 __all__ = [
+    "build_workspace_snapshot_payload",
     "current_workspace_snapshot_path",
     "normalize_predictions_payload",
     "predictions_payload_from_labels",
@@ -380,4 +454,5 @@ __all__ = [
     "snapshot_commit_id",
     "WORKSPACE_COMMIT_ID_KEY",
     "write_workspace_snapshot",
+    "write_workspace_snapshot_payload",
 ]

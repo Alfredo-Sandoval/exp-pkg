@@ -13,6 +13,7 @@ from xpkg.formats import (
     init_project,
     save_workspace_labels,
 )
+from xpkg.io.archive_store import ArchiveStore
 from xpkg.io.project_workspace import current_project_commit_id
 from xpkg.io.workspace_snapshot_backend import snapshot_commit_id
 from xpkg.model import Labels, Video, build_keypoint_skeleton
@@ -54,13 +55,36 @@ def test_save_workspace_labels_creates_durable_head_and_snapshot_commit_id(tmp_p
 
     assert snapshot_path == current_project_snapshot_path(workspace)
     assert snapshot_path.exists()
-    assert current_project_archive_path(workspace).exists()
+    assert not (workspace / ".xpkg" / "state" / "current.xpkg").exists()
 
     commit_id = current_project_commit_id(workspace)
     assert commit_id is not None
+    store = ArchiveStore.open(workspace / ".xpkg")
+    assert store.has_current_root("snapshot")
+    assert not store.has_current_root("archive")
 
     snapshot_payload = json.loads(snapshot_path.read_text(encoding="utf-8"))["payload"]
     assert snapshot_commit_id(snapshot_payload) == commit_id
+
+
+def test_current_project_archive_path_materializes_archive_on_demand(tmp_path: Path) -> None:
+    workspace = tmp_path / "Project"
+    init_project(workspace, title="Project")
+
+    labels = _make_labels(tmp_path, x=5.0, y=6.0)
+    save_workspace_labels(workspace, labels)
+
+    materialized_archive = workspace / ".xpkg" / "state" / "current.xpkg"
+    assert not materialized_archive.exists()
+
+    archive_path = current_project_archive_path(workspace)
+    assert archive_path == materialized_archive
+    assert archive_path.exists()
+
+    loaded = Labels.load_file(archive_path.as_posix())
+    pts = loaded.labeled_frames[0].instances[0].get_points_array(copy=False, full=True)
+    assert float(pts["x"][0]) == 5.0
+    assert float(pts["y"][0]) == 6.0
 
 
 def test_workspace_load_ignores_snapshot_when_commit_id_mismatches_head(tmp_path: Path) -> None:

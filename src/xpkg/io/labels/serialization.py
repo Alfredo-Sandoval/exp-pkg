@@ -920,7 +920,6 @@ def labels_load_file(
 
     from xpkg.io.project_layout import resolve_workspace_root, workspace_current_snapshot_path
     from xpkg.io.project_workspace import (
-        current_project_archive_path,
         current_project_commit_id,
         rebase_workspace_payload_videos,
         rebuild_workspace_snapshot_cache,
@@ -947,22 +946,23 @@ def labels_load_file(
                 obj.path = workspace_root
                 return obj
 
-        archive_path = current_project_archive_path(workspace_root)
-        if not archive_path.exists():
+        try:
+            rebuilt_snapshot_path = rebuild_workspace_snapshot_cache(workspace_root)
+        except FileNotFoundError:
             obj = cls()
             obj.path = workspace_root
             return obj
-        payload = archive_reader(archive_path, lazy=False)
-        rebase_workspace_payload_videos(payload, workspace_root)
+
+        rebuilt_payload = read_workspace_snapshot(rebuilt_snapshot_path)
+        rebase_workspace_payload_videos(rebuilt_payload, workspace_root)
         obj = labels_from_archive_payload(
             cls,
-            _labels_payload_from_archive_payload(payload),
-            suggestions_payload=payload.get("suggestions"),
+            rebuilt_payload,
+            suggestions_payload=rebuilt_payload.get("suggestions"),
             video_builder=video_builder,
             video_finalizer=video_finalizer,
         )
         obj.validate()
-        rebuild_workspace_snapshot_cache(workspace_root)
         obj.path = workspace_root
         return obj
 

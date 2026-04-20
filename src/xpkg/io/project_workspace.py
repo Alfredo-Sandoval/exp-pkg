@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
 import shutil
 import tempfile
+from collections.abc import Callable
+from copy import deepcopy
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -41,6 +42,7 @@ from xpkg.io.workspace_snapshot_backend import (
     read_workspace_snapshot,
     rewrite_workspace_metadata_paths,
     write_workspace_snapshot,
+    write_workspace_snapshot_payload,
 )
 
 if TYPE_CHECKING:
@@ -61,7 +63,7 @@ def current_project_commit_id(path: str | Path) -> str | None:
 
 def current_project_state_path(path: str | Path) -> Path:
     snapshot_path = current_project_snapshot_path(path)
-    if snapshot_path.exists():
+    if snapshot_path.exists() or _workspace_store(path).has_current_snapshot():
         return snapshot_path
     return current_project_archive_path(path)
 
@@ -104,8 +106,13 @@ class WorkspaceStore:
 
     def has_current_archive(self) -> bool:
         if self.has_durable_store():
-            return self.open().current_archive_path().exists()
+            return self.open().has_current_root("archive")
         return self.has_legacy_archive()
+
+    def has_current_snapshot(self) -> bool:
+        if not self.has_durable_store():
+            return False
+        return self.open().has_current_root("snapshot")
 
     def current_commit_id(self) -> str | None:
         if not self.has_durable_store():
@@ -158,10 +165,22 @@ class WorkspaceStore:
 
     def current_archive_path(self) -> Path:
         if self.has_durable_store():
-            return self.open().current_archive_path()
+            store = self.open()
+            if store.has_current_root("archive"):
+                return store.current_archive_path()
+            if store.has_current_root("snapshot"):
+                return _materialize_workspace_archive_from_store(
+                    self.workspace_root,
+                    store.current_root_path("snapshot"),
+                )
         if self.has_legacy_archive():
             return self.ensure_store().current_archive_path()
         return self.legacy_current_archive_path
+
+    def current_snapshot_path(self) -> Path:
+        if not self.has_durable_store():
+            raise FileNotFoundError(f"Workspace has no durable snapshot root: {self.store_root}")
+        return self.open().current_root_path("snapshot")
 
     def commit_archive(
         self,
@@ -197,6 +216,39 @@ class WorkspaceStore:
             reason=reason,
         )
         return store.current_archive_path()
+
+    def commit_snapshot(
+        self,
+        snapshot_path: str | Path,
+        *,
+        reason: str,
+        created_by: dict[str, Any] | None = None,
+    ) -> Path:
+        candidate = resolve_path(snapshot_path)
+        if not candidate.is_file():
+            raise FileNotFoundError(f"Staged workspace snapshot not found: {candidate}")
+
+        if self.has_durable_store():
+            store = self.open()
+            store.commit_new_roots({"snapshot": candidate}, reason=reason, created_by=created_by)
+            self._cleanup_legacy_state()
+            return store.current_root_path("snapshot")
+
+        if self.has_legacy_archive():
+            store = self.ensure_store()
+            store.commit_new_roots({"snapshot": candidate}, reason=reason, created_by=created_by)
+            self._cleanup_legacy_state()
+            return store.current_root_path("snapshot")
+
+        from xpkg.io.archive_store import ArchiveStore
+
+        store = ArchiveStore.create_from_roots(
+            store_root=self.store_root,
+            initial_roots={"snapshot": candidate},
+            created_by=created_by,
+            reason=reason,
+        )
+        return store.current_root_path("snapshot")
 
 
 def _workspace_store(path: str | Path) -> WorkspaceStore:
@@ -271,6 +323,38 @@ def _predictions_payload_from_state_payload(
     if not isinstance(raw_predictions, dict):
         return None
     return normalize_predictions_payload(raw_predictions)
+
+
+def _current_workspace_state_payload(
+    workspace_root: Path,
+) -> tuple[dict[str, Any], str] | None:
+    store = _workspace_store(workspace_root)
+    if store.has_durable_store():
+        mounted = store.open()
+        if mounted.has_current_root("snapshot"):
+            return read_workspace_snapshot(mounted.current_root_path("snapshot")), "snapshot"
+        if mounted.has_current_root("archive"):
+            return read_archive(mounted.current_archive_path(), lazy=False), "archive"
+
+    if store.has_legacy_archive():
+        mounted = store.ensure_store()
+        return read_archive(mounted.current_archive_path(), lazy=False), "archive"
+
+    return None
+
+
+def _workspace_state_components(
+    state_payload: dict[str, Any],
+    *,
+    source_kind: str,
+) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
+    if source_kind == "snapshot":
+        metadata = _snapshot_metadata_from_state_payload(state_payload)
+    elif source_kind == "archive":
+        metadata = _snapshot_metadata(state_payload)
+    else:
+        raise ValueError(f"Unsupported workspace state source: {source_kind!r}")
+    return metadata, _predictions_payload_from_state_payload(state_payload)
 
 
 def _write_workspace_state(
@@ -396,8 +480,6 @@ def _commit_labels_to_workspace(
     predictions: dict[str, Any] | None = None,
     reason: str,
 ) -> Path:
-    from xpkg.io.archive_format import write_archive
-
     _manage_labels_media(labels, workspace_root)
     normalized_metadata = rewrite_workspace_metadata_paths(
         metadata,
@@ -414,15 +496,16 @@ def _commit_labels_to_workspace(
         prefix=".workspace_commit_",
         dir=str(stage_parent),
     ) as tmp_dir:
-        staged_archive = Path(tmp_dir) / f"workspace{CANONICAL_ARCHIVE_SUFFIX}"
-        write_archive(
-            staged_archive,
-            labels,
+        staged_snapshot = Path(tmp_dir) / CURRENT_SNAPSHOT_FILENAME
+        write_workspace_snapshot(
+            staged_snapshot,
+            labels=labels,
+            workspace_root=workspace_root,
             metadata=normalized_metadata,
-            predictions=_prediction_items_from_payload(normalized_predictions),
+            predictions=normalized_predictions,
         )
         store = _workspace_store(workspace_root)
-        store.commit_archive(staged_archive, reason=reason)
+        store.commit_snapshot(staged_snapshot, reason=reason)
         commit_id = store.current_commit_id()
 
     return _write_workspace_state(
@@ -479,19 +562,79 @@ def _import_workspace_from_staged_archive(
     return snapshot_path
 
 
+def _unify_matching_skeletons(base_labels: Labels, new_labels: Labels) -> None:
+    mapping: dict[int, Any] = {}
+    for skeleton in new_labels.skeletons:
+        target = next(
+            (existing for existing in base_labels.skeletons if existing.matches(skeleton)),
+            None,
+        )
+        if target is not None:
+            mapping[id(skeleton)] = target
+
+    if not mapping:
+        return
+
+    for labeled_frame in new_labels.labeled_frames:
+        for instance in labeled_frame.instances:
+            target = mapping.get(id(instance.skeleton))
+            if target is None or instance.skeleton is target:
+                continue
+            instance.skeleton = target
+            instance.realign_points()
+
+    deduped_skeletons: list[Any] = []
+    seen_ids: set[int] = set()
+    for skeleton in new_labels.skeletons:
+        target = mapping.get(id(skeleton), skeleton)
+        target_id = id(target)
+        if target_id in seen_ids:
+            continue
+        seen_ids.add(target_id)
+        deduped_skeletons.append(target)
+    new_labels.skeletons = deduped_skeletons
+
+
+def _merge_labels_for_import(
+    merged_labels: Labels | None,
+    new_labels: Labels,
+) -> Labels:
+    if merged_labels is None:
+        return new_labels
+
+    _unify_matching_skeletons(merged_labels, new_labels)
+    merged_labels.extend_from(new_labels, unify=False)
+    return merged_labels
+
+
 def rebuild_workspace_snapshot_cache(workspace_root: Path) -> Path:
+    state = _current_workspace_state_payload(workspace_root)
+    if state is None:
+        raise FileNotFoundError(f"Workspace has no committed state: {workspace_root}")
+
+    state_payload, source_kind = state
+    commit_id = _workspace_store(workspace_root).current_commit_id()
+    if source_kind == "snapshot":
+        return write_workspace_snapshot_payload(
+            workspace_current_snapshot_path(workspace_root),
+            state_payload,
+            commit_id=commit_id,
+        )
+
     from xpkg.model import Labels
 
-    store = _workspace_store(workspace_root)
-    archive_path = store.current_archive_path()
-    archive_payload = read_archive(archive_path, lazy=False)
+    archive_path = _workspace_store(workspace_root).current_archive_path()
     labels = Labels.load_file(archive_path.as_posix())
+    metadata, predictions = _workspace_state_components(
+        state_payload,
+        source_kind=source_kind,
+    )
     return _write_workspace_state(
         workspace_root,
         labels=labels,
-        metadata=_snapshot_metadata(archive_payload),
-        predictions=_predictions_payload_from_state_payload(archive_payload),
-        commit_id=store.current_commit_id(),
+        metadata=metadata,
+        predictions=predictions,
+        commit_id=commit_id,
     )
 
 
@@ -664,6 +807,31 @@ def rebase_workspace_payload_videos(payload: dict[str, Any], workspace_root: Pat
         metadata_videos = metadata.get("videos")
         if isinstance(metadata_videos, dict):
             _rebase_videos_info(metadata_videos)
+
+
+def _materialize_workspace_archive_from_store(
+    workspace_root: Path,
+    committed_snapshot_path: Path,
+) -> Path:
+    from xpkg.io.archive_format import write_archive
+    from xpkg.io.labels.json_format import labels_from_json_payload
+
+    snapshot_payload = read_workspace_snapshot(committed_snapshot_path)
+    hydrated_payload = deepcopy(snapshot_payload)
+    rebase_workspace_payload_videos(hydrated_payload, workspace_root)
+    labels = labels_from_json_payload(hydrated_payload)
+
+    archive_path = _workspace_store(workspace_root).legacy_current_archive_path
+    ensure_dir(archive_path.parent)
+    write_archive(
+        archive_path,
+        labels,
+        metadata=_snapshot_metadata_from_state_payload(snapshot_payload),
+        predictions=_prediction_items_from_payload(
+            _predictions_payload_from_state_payload(snapshot_payload)
+        ),
+    )
+    return archive_path
 
 
 def _absolutize_label_media(labels: Labels, *, source_root: Path) -> None:
@@ -872,40 +1040,6 @@ def _build_sleap_h5_import_archive(
     return staged_archive
 
 
-def _unify_matching_skeletons(base_labels: Labels, new_labels: Labels) -> None:
-    mapping: dict[int, Any] = {}
-    for skeleton in new_labels.skeletons:
-        target = next(
-            (existing for existing in base_labels.skeletons if existing.matches(skeleton)),
-            None,
-        )
-        if target is not None:
-            mapping[id(skeleton)] = target
-
-    if not mapping:
-        return
-
-    for labeled_frame in new_labels.labeled_frames:
-        for instance in labeled_frame.instances:
-            target = mapping.get(id(instance.skeleton))
-            if target is None or instance.skeleton is target:
-                continue
-            instance.skeleton = target
-            instance.realign_points()
-
-
-def _merge_labels_for_import(
-    merged_labels: Labels | None,
-    new_labels: Labels,
-) -> Labels:
-    if merged_labels is None:
-        return new_labels
-
-    _unify_matching_skeletons(merged_labels, new_labels)
-    merged_labels.extend_from(new_labels, unify=False)
-    return merged_labels
-
-
 def import_dlc_csv_workspace(
     csv_path: str | Path,
     video_path: str | Path,
@@ -927,7 +1061,7 @@ def import_dlc_csv_workspace(
         build_staged_archive=lambda tmp_dir: _build_dlc_csv_import_archive(
             tmp_dir,
             csv_path=csv_path,
-            video_path,
+            video_path=video_path,
             skeleton_name=skeleton_name,
             likelihood_threshold=likelihood_threshold,
             progress_callback=progress_callback,
@@ -996,7 +1130,7 @@ def import_dlc_project_workspace(
             raise ValueError(f"No supported DLC project items found in {resolved_project_dir}")
 
         staged_items_root = ensure_dir(tmp_dir / "items")
-        merged_labels: Labels | None = None
+        merged_labels = None
         source_items: list[dict[str, str]] = []
         for project_item in project_items:
             staged_archive = staged_items_root / f"{project_item.name}{CANONICAL_ARCHIVE_SUFFIX}"
@@ -1140,17 +1274,17 @@ def save_workspace_labels(
     ensure_dir(workspace_media_root(root))
     ensure_dir(workspace_exports_root(root))
 
-    store = _workspace_store(root)
     snapshot_path = current_project_snapshot_path(root)
-    has_snapshot = snapshot_path.exists()
-    has_archive = store.has_current_archive()
-    if metadata is not None and (has_snapshot or has_archive):
+    current_state = _current_workspace_state_payload(root)
+    has_snapshot_cache = snapshot_path.exists()
+    has_committed_state = current_state is not None
+    if metadata is not None and (has_snapshot_cache or has_committed_state):
         raise ValueError(
             "Workspace saves with existing history do not accept metadata overrides. "
             "Update workspace metadata through a dedicated metadata API."
         )
 
-    if not has_snapshot and not has_archive:
+    if not has_snapshot_cache and not has_committed_state:
         initial_metadata = rewrite_workspace_metadata_paths(
             metadata,
             workspace_root=root,
@@ -1169,14 +1303,16 @@ def save_workspace_labels(
     del journal
     state_metadata: dict[str, Any] | None = None
     predictions: dict[str, Any] | None = None
-    if has_snapshot:
-        state_payload = read_workspace_snapshot(snapshot_path)
-        state_metadata = _snapshot_metadata_from_state_payload(state_payload)
-        predictions = _predictions_payload_from_state_payload(state_payload)
-    elif has_archive:
-        archive_payload = read_archive(store.current_archive_path(), lazy=False)
-        state_metadata = _snapshot_metadata(archive_payload)
-        predictions = _predictions_payload_from_state_payload(archive_payload)
+    if current_state is not None:
+        state_payload, source_kind = current_state
+        state_metadata, predictions = _workspace_state_components(
+            state_payload,
+            source_kind=source_kind,
+        )
+    elif has_snapshot_cache:
+        snapshot_payload = read_workspace_snapshot(snapshot_path)
+        state_metadata = _snapshot_metadata_from_state_payload(snapshot_payload)
+        predictions = _predictions_payload_from_state_payload(snapshot_payload)
 
     if regenerate_predictions:
         predictions = predictions_payload_from_labels(labels)

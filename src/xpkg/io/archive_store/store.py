@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import secrets
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
@@ -103,11 +104,39 @@ def _commit_root_entry(object_id: str, *, ext: str) -> dict[str, str]:
     return {"object_id": object_id, "ext": ext}
 
 
-def _normalize_object_ext(path: Path) -> str:
-    suffix = _object_ext_for_path(path, default=CANONICAL_ARCHIVE_SUFFIX).lower()
-    if suffix == CANONICAL_ARCHIVE_SUFFIX:
-        return suffix
-    return CANONICAL_ARCHIVE_SUFFIX
+def _normalize_root_name(root_name: str) -> str:
+    normalized = str(root_name).strip().lower()
+    if not normalized:
+        raise ValueError("root_name must be a non-empty string")
+    return normalized
+
+
+def _object_ext_for_root(root_name: str, path: Path) -> str:
+    normalized_root = _normalize_root_name(root_name)
+    default_ext = CANONICAL_ARCHIVE_SUFFIX if normalized_root == "archive" else ".bin"
+    suffix = _object_ext_for_path(path, default=default_ext).lower()
+    if normalized_root == "archive":
+        return CANONICAL_ARCHIVE_SUFFIX
+    return suffix
+
+
+def _commit_root_entries(
+    paths: StorePaths,
+    root_paths: Mapping[str, Path],
+) -> dict[str, dict[str, str]]:
+    if not root_paths:
+        raise ValueError("root_paths must contain at least one entry")
+
+    entries: dict[str, dict[str, str]] = {}
+    for raw_root_name, raw_path in root_paths.items():
+        root_name = _normalize_root_name(raw_root_name)
+        candidate_path = Path(raw_path)
+        if not candidate_path.is_file():
+            raise FileNotFoundError(f"Root payload not found for {root_name}: {candidate_path}")
+        object_ext = _object_ext_for_root(root_name, candidate_path)
+        object_id = put_object_file(paths, candidate_path, ext=object_ext)
+        entries[root_name] = _commit_root_entry(object_id, ext=object_ext)
+    return entries
 
 
 class ArchiveStore:
@@ -125,6 +154,22 @@ class ArchiveStore:
         created_by: dict[str, Any] | None = None,
         reason: str = "init",
     ) -> ArchiveStore:
+        return cls.create_from_roots(
+            store_root,
+            {"archive": initial_archive},
+            created_by=created_by,
+            reason=reason,
+        )
+
+    @classmethod
+    def create_from_roots(
+        cls,
+        store_root: Path,
+        initial_roots: Mapping[str, Path],
+        *,
+        created_by: dict[str, Any] | None = None,
+        reason: str = "init",
+    ) -> ArchiveStore:
         store = cls(store_root)
         paths = store.paths
         paths.root.mkdir(parents=True, exist_ok=True)
@@ -134,13 +179,8 @@ class ArchiveStore:
         paths.workspace_dir.mkdir(parents=True, exist_ok=True)
         paths.snapshots_dir.mkdir(parents=True, exist_ok=True)
 
-        initial_path = Path(initial_archive)
-        object_ext = _normalize_object_ext(initial_path)
-
         with StoreLock(paths.root):
-            obj_id = put_object_file(paths, initial_path, ext=object_ext)
             commit_id = f"c_{1:012d}_{secrets.token_hex(4)}"
-            root_entry = _commit_root_entry(obj_id, ext=object_ext)
             commit = Commit(
                 commit_id=commit_id,
                 generation=1,
@@ -148,7 +188,7 @@ class ArchiveStore:
                 created_at=now_utc_iso(),
                 reason=reason,
                 created_by=created_by or {},
-                roots={"archive": root_entry},
+                roots=_commit_root_entries(paths, initial_roots),
             ).with_checksum()
 
             commit_path = paths.commit_json(1)
@@ -291,17 +331,26 @@ class ArchiveStore:
             raise ChecksumError("Commit checksum invalid")
         return commit
 
+    def has_current_root(self, root_name: str) -> bool:
+        commit = self.load_current_commit()
+        return _normalize_root_name(root_name) in commit.roots
+
     def current_archive_path(self) -> Path:
         """Return the current immutable archive payload path."""
+        return self.current_root_path("archive")
+
+    def current_root_path(self, root_name: str) -> Path:
+        """Return the current immutable payload path for a named commit root."""
         commit = self.load_current_commit()
-        root = commit.roots.get("archive")
+        normalized_root_name = _normalize_root_name(root_name)
+        root = commit.roots.get(normalized_root_name)
         if not isinstance(root, dict):
-            raise StoreCorruptionError("Commit missing roots.archive")
+            raise StoreCorruptionError(f"Commit missing roots.{normalized_root_name}")
         object_id = str(root.get("object_id", ""))
-        ext = str(root.get("ext", CANONICAL_ARCHIVE_SUFFIX))
+        ext = str(root.get("ext", _object_ext_for_root(normalized_root_name, Path("payload"))))
         path = get_object_file(self.paths, object_id, ext=ext)
         if not path.exists():
-            raise StoreCorruptionError(f"Archive object missing: {path}")
+            raise StoreCorruptionError(f"Commit root object missing: {path}")
         return path
 
     def commit_new_archive(
@@ -312,9 +361,21 @@ class ArchiveStore:
         created_by: dict[str, Any] | None = None,
     ) -> str:
         """Create a new immutable commit from a staged archive file."""
+        return self.commit_new_roots(
+            {"archive": archive_path},
+            reason=reason,
+            created_by=created_by,
+        )
+
+    def commit_new_roots(
+        self,
+        root_paths: Mapping[str, Path],
+        *,
+        reason: str,
+        created_by: dict[str, Any] | None = None,
+    ) -> str:
+        """Create a new immutable commit from staged named root payloads."""
         paths = self.paths
-        candidate_path = Path(archive_path)
-        object_ext = _normalize_object_ext(candidate_path)
 
         with StoreLock(paths.root):
             head = self._head()
@@ -334,15 +395,19 @@ class ArchiveStore:
             ).with_checksum()
             write_journal(paths.active_journal, journal.to_dict())
 
-            obj_id = put_object_file(paths, candidate_path, ext=object_ext)
-            journal.new_object_id = obj_id
+            root_entries = _commit_root_entries(paths, root_paths)
+            object_ids = [
+                str(root_entry.get("object_id", ""))
+                for root_entry in root_entries.values()
+                if isinstance(root_entry, dict)
+            ]
+            journal.new_object_id = object_ids[0] if object_ids else None
             journal.updated_at = now_utc_iso()
             journal.state = "validating"
             journal.with_checksum()
             write_journal(paths.active_journal, journal.to_dict())
 
             commit_id = f"c_{new_gen:012d}_{secrets.token_hex(4)}"
-            root_entry = _commit_root_entry(obj_id, ext=object_ext)
             commit = Commit(
                 commit_id=commit_id,
                 generation=new_gen,
@@ -350,7 +415,7 @@ class ArchiveStore:
                 created_at=now_utc_iso(),
                 reason=reason,
                 created_by=created_by or {},
-                roots={"archive": root_entry},
+                roots=root_entries,
             ).with_checksum()
 
             commit_path = paths.commit_json(new_gen)

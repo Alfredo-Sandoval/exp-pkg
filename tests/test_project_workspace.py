@@ -125,13 +125,13 @@ def test_init_project_writes_workspace_contract(tmp_path: Path) -> None:
 def test_migrate_legacy_archive_creates_workspace_and_workspace_loads(tmp_path: Path) -> None:
     from xpkg.compat import write_xpkg
     from xpkg.formats import (
-        current_project_archive_path,
         current_project_snapshot_path,
         migrate_legacy_archive,
         workspace_media_root,
         workspace_state_root,
         workspace_store_root,
     )
+    from xpkg.io.archive_store import ArchiveStore
     from xpkg.model import Labels
 
     source_root = tmp_path / "source"
@@ -145,10 +145,12 @@ def test_migrate_legacy_archive_creates_workspace_and_workspace_loads(tmp_path: 
 
     assert migrated_archive == current_project_snapshot_path(workspace)
     assert migrated_archive.exists()
-    assert current_project_archive_path(workspace).exists()
     assert (workspace_store_root(workspace) / "superblock.a.json").is_file()
     assert not (workspace_state_root(workspace) / "current.xpkg").exists()
     assert (workspace_state_root(workspace) / "current.json").is_file()
+    store = ArchiveStore.open(workspace_store_root(workspace))
+    assert store.has_current_root("snapshot")
+    assert not store.has_current_root("archive")
 
     loaded = Labels.load_file(workspace.as_posix())
     pts = loaded.labeled_frames[0].instances[0].get_points_array(copy=False, full=True)
@@ -351,10 +353,11 @@ def test_workspace_load_auto_adopts_current_state_archive(tmp_path: Path) -> Non
 
 def test_labels_save_file_to_workspace_creates_first_committed_state(tmp_path: Path) -> None:
     from xpkg.formats import (
-        current_project_archive_path,
         current_project_snapshot_path,
         init_project,
+        workspace_store_root,
     )
+    from xpkg.io.archive_store import ArchiveStore
     from xpkg.model import Labels
 
     source_root = tmp_path / "source"
@@ -369,7 +372,10 @@ def test_labels_save_file_to_workspace_creates_first_committed_state(tmp_path: P
 
     assert saved_target == workspace.as_posix()
     assert current_snapshot.exists()
-    assert current_project_archive_path(workspace).exists()
+    assert not (workspace / ".xpkg" / "state" / "current.xpkg").exists()
+    store = ArchiveStore.open(workspace_store_root(workspace))
+    assert store.has_current_root("snapshot")
+    assert not store.has_current_root("archive")
     assert labels.path == workspace
 
     loaded = Labels.load_file(workspace.as_posix())
@@ -453,7 +459,7 @@ def test_workspace_load_prefers_current_snapshot(tmp_path: Path) -> None:
     assert float(pts["y"][0]) == 102.0
 
 
-def test_workspace_load_rebuilds_missing_snapshot_from_committed_archive(tmp_path: Path) -> None:
+def test_workspace_load_rebuilds_missing_snapshot_from_committed_state(tmp_path: Path) -> None:
     from xpkg.formats import current_project_snapshot_path, init_project
     from xpkg.model import Labels
 
