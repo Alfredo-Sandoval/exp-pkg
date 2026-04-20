@@ -930,6 +930,7 @@ def migrate_legacy_archive(
     default_pack_mode: PackMode = "portable",
     force: bool = False,
 ) -> Path:
+    """Migrate an explicit legacy `.xpkg` archive into a workspace."""
     legacy_path = resolve_path(legacy_archive)
     if not legacy_path.is_file():
         raise FileNotFoundError(f"Legacy archive not found: {legacy_path}")
@@ -983,6 +984,7 @@ def import_legacy_archive(
     default_pack_mode: PackMode = "portable",
     force: bool = False,
 ) -> Path:
+    """Compatibility-oriented alias for ``migrate_legacy_archive(...)``."""
     return migrate_legacy_archive(
         legacy_archive,
         workspace,
@@ -1189,6 +1191,7 @@ def import_dlc_csv_workspace(
     force: bool = False,
     progress_callback: Any | None = None,
 ) -> Path:
+    """Import a DeepLabCut CSV plus video into a workspace."""
     from xpkg.io.converters.dlc_import import convert_dlc_csv
 
     return _import_workspace_from_staged_archive(
@@ -1219,6 +1222,7 @@ def import_dlc_h5_workspace(
     force: bool = False,
     progress_callback: Any | None = None,
 ) -> Path:
+    """Import a DeepLabCut H5 export plus video into a workspace."""
     from xpkg.io.converters.dlc_import import convert_dlc_h5
 
     return _import_workspace_from_staged_archive(
@@ -1248,6 +1252,7 @@ def import_dlc_project_workspace(
     force: bool = False,
     progress_callback: Any | None = None,
 ) -> Path:
+    """Import a supported DeepLabCut project into one workspace."""
     from xpkg.io.archive_format import write_archive
     from xpkg.io.converters.dlc_import import (
         _discover_dlc_project_items,
@@ -1346,6 +1351,7 @@ def import_sleap_package_workspace(
     force: bool = False,
     progress_callback: Any | None = None,
 ) -> Path:
+    """Import a SLEAP package into a workspace."""
     from xpkg.io.converters.sleap_import import convert_sleap_package
 
     return _import_workspace_from_staged_archive(
@@ -1374,6 +1380,7 @@ def import_sleap_h5_workspace(
     force: bool = False,
     progress_callback: Any | None = None,
 ) -> Path:
+    """Import a SLEAP analysis H5 export plus video into a workspace."""
     from xpkg.io.converters.sleap_import import convert_sleap_h5
 
     return _import_workspace_from_staged_archive(
@@ -1405,6 +1412,7 @@ def import_mmpose_topdown_json_workspace(
     force: bool = False,
     progress_callback: Any | None = None,
 ) -> Path:
+    """Import an MMPose top-down JSON export plus video into a workspace."""
     from xpkg.io.converters.mmpose_import import convert_mmpose_topdown_json
 
     return _import_workspace_from_staged_archive(
@@ -1436,6 +1444,7 @@ def import_openpose_json_workspace(
     force: bool = False,
     progress_callback: Any | None = None,
 ) -> Path:
+    """Import an OpenPose JSON directory plus video into a workspace."""
     from xpkg.io.converters.openpose_import import convert_openpose_json
 
     return _import_workspace_from_staged_archive(
@@ -1466,6 +1475,7 @@ def import_mediapipe_pose_landmarks_json_workspace(
     force: bool = False,
     progress_callback: Any | None = None,
 ) -> Path:
+    """Import MediaPipe pose-landmarks JSON plus video into a workspace."""
     from xpkg.io.converters.mediapipe_import import convert_mediapipe_pose_landmarks_json
 
     return _import_workspace_from_staged_archive(
@@ -1498,6 +1508,7 @@ def import_detectron2_coco_workspace(
     force: bool = False,
     progress_callback: Any | None = None,
 ) -> Path:
+    """Import Detectron2 COCO keypoint results plus image metadata into a workspace."""
     from xpkg.io.converters.detectron2_import import convert_detectron2_coco
 
     return _import_workspace_from_staged_archive(

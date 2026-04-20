@@ -1,4 +1,4 @@
-"""High-level SLEAP adapter exports for native project archives."""
+"""Compatibility SLEAP adapter exports for direct archive workflows."""
 
 from __future__ import annotations
 
@@ -31,7 +31,7 @@ def convert_sleap_package(
     encode_videos: bool | None = None,
     progress_callback: ProgressCallback | None = None,
 ) -> ConversionResult:
-    """Convert a SLEAP `.pkg.slp` archive into a native project."""
+    """Convert a SLEAP `.pkg.slp` archive into a compatibility-oriented output."""
 
     return _sleap_import.convert_sleap_package(
         slp,
@@ -55,7 +55,7 @@ def convert_sleap_h5(
     likelihood_threshold: float = 0.0,
     progress_callback: ProgressCallback | None = None,
 ) -> ConversionResult:
-    """Convert a SLEAP analysis H5 export plus its video into a native archive."""
+    """Convert a SLEAP analysis H5 export into a direct `.xpkg` compatibility archive."""
 
     return _sleap_import.convert_sleap_h5(
         h5_path,

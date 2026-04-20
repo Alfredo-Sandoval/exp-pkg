@@ -1,4 +1,4 @@
-"""High-level MMPose adapter exports for native project archives."""
+"""Compatibility MMPose adapter exports for direct archive workflows."""
 
 from __future__ import annotations
 
@@ -32,7 +32,7 @@ def convert_mmpose_topdown_json(
     likelihood_threshold: float = 0.0,
     progress_callback: ProgressCallback | None = None,
 ) -> ConversionResult:
-    """Convert official MMPose top-down demo JSON predictions into a native archive."""
+    """Convert official MMPose top-down demo JSON into a direct `.xpkg` archive."""
 
     return _mmpose_import.convert_mmpose_topdown_json(
         json_path,

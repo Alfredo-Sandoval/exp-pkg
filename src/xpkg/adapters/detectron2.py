@@ -1,4 +1,4 @@
-"""High-level Detectron2 adapter exports for native keypoint archives."""
+"""Compatibility Detectron2 adapter exports for direct archive workflows."""
 
 from __future__ import annotations
 
@@ -30,7 +30,7 @@ def convert_detectron2_coco(
     likelihood_threshold: float = 0.0,
     progress_callback: ProgressCallback | None = None,
 ) -> ConversionResult:
-    """Convert Detectron2 COCO keypoint predictions into a native archive."""
+    """Convert Detectron2 COCO keypoint predictions into a direct `.xpkg` archive."""
 
     return _detectron2_import.convert_detectron2_coco(
         predictions_path,

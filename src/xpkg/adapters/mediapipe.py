@@ -1,4 +1,4 @@
-"""High-level MediaPipe adapter exports for native project archives."""
+"""Compatibility MediaPipe adapter exports for direct archive workflows."""
 
 from __future__ import annotations
 
@@ -31,7 +31,7 @@ def convert_mediapipe_pose_landmarks_json(
     likelihood_threshold: float = 0.0,
     progress_callback: ProgressCallback | None = None,
 ) -> ConversionResult:
-    """Convert MediaPipe pose-landmarks JSON plus its video into a native archive."""
+    """Convert MediaPipe pose-landmarks JSON into a direct `.xpkg` archive."""
 
     return _mediapipe_import.convert_mediapipe_pose_landmarks_json(
         json_path,

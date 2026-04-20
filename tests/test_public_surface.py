@@ -204,6 +204,26 @@ def test_formats_core_surface_excludes_compat_symbols() -> None:
     assert "ArchiveStore" not in dir(xpkg.formats)
 
 
+def test_formats_surface_lists_workspace_first_exports_before_compat_aliases() -> None:
+    exports = xpkg.formats.__all__
+
+    assert exports.index("import_dlc_csv_workspace") < exports.index("export_project_archive")
+    assert exports.index("export_project_archive") < exports.index("current_project_archive_path")
+
+
+def test_formats_compat_warning_points_to_canonical_xpkg_name() -> None:
+    formats = importlib.reload(xpkg.formats)
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        assert callable(formats.read_archive)
+        assert callable(formats.create_store_from_archive)
+
+    messages = [str(item.message) for item in caught]
+    assert any("xpkg.compat.read_xpkg" in message for message in messages)
+    assert any("xpkg.compat.create_store_from_xpkg" in message for message in messages)
+
+
 def test_compat_surface_prefers_canonical_xpkg_names() -> None:
     assert callable(read_xpkg)
     assert callable(write_xpkg)

@@ -1,4 +1,4 @@
-"""High-level OpenPose adapter exports for native project archives."""
+"""Compatibility OpenPose adapter exports for direct archive workflows."""
 
 from __future__ import annotations
 
@@ -29,7 +29,7 @@ def convert_openpose_json(
     likelihood_threshold: float = 0.0,
     progress_callback: ProgressCallback | None = None,
 ) -> ConversionResult:
-    """Convert an OpenPose BODY_25 JSON directory plus its video into a native archive."""
+    """Convert an OpenPose BODY_25 JSON directory into a direct `.xpkg` archive."""
 
     return _openpose_import.convert_openpose_json(
         json_dir,

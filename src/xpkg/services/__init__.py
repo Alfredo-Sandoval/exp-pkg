@@ -1,4 +1,4 @@
-"""Primary workspace lifecycle service facade for xpkg integrations."""
+"""Primary workspace-first service facade for xpkg integrations."""
 
 from __future__ import annotations
 

@@ -52,3 +52,12 @@ def test_xpkg_api_exposes_io_contract() -> None:
     assert callable(api.read_pose_node_names)
     assert callable(api.read_pose_track)
     assert callable(api.resolve_pose_node_indices)
+
+
+def test_xpkg_api_lists_workspace_first_entrypoints_before_adapters() -> None:
+    exports = api.__all__
+
+    assert exports.index("WorkspaceService") < exports.index("ConversionResult")
+    assert exports.index("WorkspaceService") < exports.index("convert_dlc_csv")
+    assert exports.index("import_dlc_csv_workspace") < exports.index("convert_dlc_csv")
+    assert exports.index("export_project_archive") < exports.index("current_project_archive_path")

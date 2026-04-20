@@ -1,4 +1,4 @@
-"""High-level DeepLabCut adapter exports for native project archives."""
+"""Compatibility DeepLabCut adapter exports for direct archive workflows."""
 
 from __future__ import annotations
 
@@ -35,7 +35,7 @@ def convert_dlc_h5(
     likelihood_threshold: float = 0.0,
     progress_callback: ProgressCallback | None = None,
 ) -> ConversionResult:
-    """Convert one DLC H5 tracking file plus an explicit video into a native project."""
+    """Convert one DLC H5 tracking file into the adapter-managed compatibility layout."""
 
     normalized_video_paths = (
         [video_path] if isinstance(video_path, (str, Path)) else list(video_path)

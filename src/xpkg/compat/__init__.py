@@ -1,4 +1,9 @@
-"""Compatibility surface for canonical `.xpkg` archives and edge helpers."""
+"""Compatibility surface for canonical `.xpkg` archives and edge helpers.
+
+New integrations should start with ``xpkg.services`` and ``xpkg.formats``.
+This module remains public for direct archive IO, fixtures, migration, and
+interop seams that still need explicit `.xpkg` handling.
+"""
 
 from __future__ import annotations
 

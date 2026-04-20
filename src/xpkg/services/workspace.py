@@ -1,4 +1,8 @@
-"""Primary workspace lifecycle service for xpkg project operations."""
+"""Primary workspace lifecycle service for xpkg project operations.
+
+``WorkspaceService`` is the preferred entrypoint for new integrations that
+need to create, open, validate, pack, or unpack an xpkg workspace.
+"""
 
 from __future__ import annotations
 
@@ -60,6 +64,7 @@ class WorkspaceService:
         default_pack_mode: PackMode = "portable",
         force: bool = False,
     ) -> WorkspaceService:
+        """Create a workspace with the canonical public layout and open it."""
         init_project(
             workspace,
             title=title,
@@ -71,6 +76,7 @@ class WorkspaceService:
 
     @classmethod
     def open(cls, workspace: str | Path) -> WorkspaceService:
+        """Open an existing workspace root or a path inside one."""
         root = resolve_workspace_root(workspace)
         if root is None:
             raise FileNotFoundError(f"Not an xpkg workspace: {workspace}")
@@ -85,6 +91,7 @@ class WorkspaceService:
         force: bool = False,
         rename_title: str | None = None,
     ) -> WorkspaceService:
+        """Unpack a portable `.expkg` artifact into a workspace and open it."""
         unpack_project(
             artifact,
             out,
@@ -94,9 +101,11 @@ class WorkspaceService:
         return cls.open(out)
 
     def descriptor(self) -> ProjectDescriptor:
+        """Load the current workspace descriptor."""
         return load_project_descriptor(self.workspace_root)
 
     def describe(self) -> WorkspaceLayout:
+        """Return the normalized managed paths for this workspace."""
         descriptor = self.descriptor()
         state_path = current_project_state_path(self.workspace_root)
         return WorkspaceLayout(
@@ -112,10 +121,12 @@ class WorkspaceService:
         )
 
     def validate(self) -> WorkspaceLayout:
+        """Validate the workspace and return its normalized layout."""
         validate_workspace(self.workspace_root)
         return self.describe()
 
     def load_labels(self) -> Labels:
+        """Load the current workspace labels through the public workspace root."""
         from xpkg.model import Labels
 
         return Labels.load_file(self.workspace_root.as_posix())
@@ -128,6 +139,7 @@ class WorkspaceService:
         journal: bool = True,
         regenerate_predictions: bool = False,
     ) -> Path:
+        """Commit labels into the workspace-managed durable state."""
         return save_workspace_labels(
             self.workspace_root,
             labels,
@@ -143,6 +155,7 @@ class WorkspaceService:
         mode: PackMode | None = None,
         overwrite: bool = False,
     ) -> Path:
+        """Pack the workspace into a portable `.expkg` artifact."""
         return pack_project(
             self.workspace_root,
             out=out,

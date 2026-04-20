@@ -1,4 +1,9 @@
-"""Public adapter entry points for external pose ecosystems."""
+"""Compatibility adapter entry points for external pose ecosystems.
+
+These helpers remain public for edge workflows that still need direct archive
+conversion. New integrations should prefer the matching
+``xpkg.formats.import_*_workspace(...)`` helpers and ``WorkspaceService``.
+"""
 
 from __future__ import annotations
 

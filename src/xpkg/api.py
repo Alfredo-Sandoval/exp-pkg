@@ -1,37 +1,29 @@
-"""Stable public API for xpkg integrations and workspace services."""
+"""Stable public API for xpkg integrations.
+
+New integrations should start with ``WorkspaceService`` and the
+``import_*_workspace(...)`` helpers. Compatibility adapters remain public, but
+they are grouped later in this facade so the workspace-first path is easier to
+discover.
+"""
 
 from __future__ import annotations
 
 import importlib
 from typing import Any
 
-_LAZY_EXPORTS: dict[str, tuple[str, str]] = {
-    "ConversionResult": (".adapters", "ConversionResult"),
-    "Instance": (".model", "Instance"),
-    "Keypoint": (".model", "Keypoint"),
-    "LabeledFrame": (".model", "LabeledFrame"),
-    "Labels": (".model", "Labels"),
-    "ProjectDescriptor": (".formats.project", "ProjectDescriptor"),
-    "ROI": (".model", "ROI"),
-    "SegmentationMask": (".model", "SegmentationMask"),
-    "Skeleton": (".model", "Skeleton"),
-    "PoseTrack": (".io.readers", "PoseTrack"),
-    "Track": (".model", "Track"),
-    "Video": (".model", "Video"),
+_WORKSPACE_EXPORTS: dict[str, tuple[str, str]] = {
     "WorkspaceLayout": (".services", "WorkspaceLayout"),
     "WorkspaceService": (".services", "WorkspaceService"),
-    "convert_dlc_csv": (".adapters", "convert_dlc_csv"),
-    "convert_dlc_h5": (".adapters", "convert_dlc_h5"),
-    "convert_dlc_project": (".adapters", "convert_dlc_project"),
-    "convert_detectron2_coco": (".adapters", "convert_detectron2_coco"),
-    "convert_mediapipe_pose_landmarks_json": (
-        ".adapters",
-        "convert_mediapipe_pose_landmarks_json",
-    ),
-    "convert_mmpose_topdown_json": (".adapters", "convert_mmpose_topdown_json"),
-    "convert_openpose_json": (".adapters", "convert_openpose_json"),
-    "convert_sleap_h5": (".adapters", "convert_sleap_h5"),
-    "convert_sleap_package": (".adapters", "convert_sleap_package"),
+    "ProjectDescriptor": (".formats.project", "ProjectDescriptor"),
+    "init_project": (".formats.project", "init_project"),
+    "load_project_descriptor": (".formats.project", "load_project_descriptor"),
+    "save_workspace_labels": (".formats.project", "save_workspace_labels"),
+    "current_project_state_path": (".formats.project", "current_project_state_path"),
+    "current_project_snapshot_path": (".formats.project", "current_project_snapshot_path"),
+    "pack_project": (".formats.project", "pack_project"),
+    "unpack_project": (".formats.project", "unpack_project"),
+    "validate_workspace": (".formats.project", "validate_workspace"),
+    "default_expkg_path": (".formats.project", "default_expkg_path"),
     "import_detectron2_coco_workspace": (".formats.project", "import_detectron2_coco_workspace"),
     "import_dlc_csv_workspace": (".formats.project", "import_dlc_csv_workspace"),
     "import_dlc_h5_workspace": (".formats.project", "import_dlc_h5_workspace"),
@@ -48,22 +40,57 @@ _LAZY_EXPORTS: dict[str, tuple[str, str]] = {
     "import_openpose_json_workspace": (".formats.project", "import_openpose_json_workspace"),
     "import_sleap_h5_workspace": (".formats.project", "import_sleap_h5_workspace"),
     "import_sleap_package_workspace": (".formats.project", "import_sleap_package_workspace"),
-    "init_project": (".formats.project", "init_project"),
+    "export_project_archive": (".formats.project", "export_project_archive"),
+    "current_project_archive_path": (".formats.project", "current_project_archive_path"),
+}
+
+_MODEL_EXPORTS: dict[str, tuple[str, str]] = {
+    "Instance": (".model", "Instance"),
+    "Keypoint": (".model", "Keypoint"),
+    "LabeledFrame": (".model", "LabeledFrame"),
+    "Labels": (".model", "Labels"),
+    "ROI": (".model", "ROI"),
+    "SegmentationMask": (".model", "SegmentationMask"),
+    "Skeleton": (".model", "Skeleton"),
+    "Track": (".model", "Track"),
+    "Video": (".model", "Video"),
+}
+
+_CODEC_AND_READER_EXPORTS: dict[str, tuple[str, str]] = {
+    "PoseTrack": (".io.readers", "PoseTrack"),
     "labels_from_json_payload": (".codecs", "labels_from_json_payload"),
     "labels_numpy": (".codecs", "labels_numpy"),
     "labels_to_dataframe": (".codecs", "labels_to_dataframe"),
     "labels_to_json_payload": (".codecs", "labels_to_json_payload"),
-    "load_project_descriptor": (".formats.project", "load_project_descriptor"),
-    "pack_project": (".formats.project", "pack_project"),
     "read_pose_node_names": (".io.readers", "read_pose_node_names"),
     "read_pose_track": (".io.readers", "read_pose_track"),
     "resolve_pose_node_indices": (".io.readers", "resolve_pose_node_indices"),
-    "save_workspace_labels": (".formats.project", "save_workspace_labels"),
-    "unpack_project": (".formats.project", "unpack_project"),
-    "validate_workspace": (".formats.project", "validate_workspace"),
 }
 
-__all__ = sorted(_LAZY_EXPORTS)
+_ADAPTER_EXPORTS: dict[str, tuple[str, str]] = {
+    "ConversionResult": (".adapters", "ConversionResult"),
+    "convert_dlc_csv": (".adapters", "convert_dlc_csv"),
+    "convert_dlc_h5": (".adapters", "convert_dlc_h5"),
+    "convert_dlc_project": (".adapters", "convert_dlc_project"),
+    "convert_detectron2_coco": (".adapters", "convert_detectron2_coco"),
+    "convert_mediapipe_pose_landmarks_json": (
+        ".adapters",
+        "convert_mediapipe_pose_landmarks_json",
+    ),
+    "convert_mmpose_topdown_json": (".adapters", "convert_mmpose_topdown_json"),
+    "convert_openpose_json": (".adapters", "convert_openpose_json"),
+    "convert_sleap_h5": (".adapters", "convert_sleap_h5"),
+    "convert_sleap_package": (".adapters", "convert_sleap_package"),
+}
+
+_LAZY_EXPORTS: dict[str, tuple[str, str]] = {
+    **_WORKSPACE_EXPORTS,
+    **_MODEL_EXPORTS,
+    **_CODEC_AND_READER_EXPORTS,
+    **_ADAPTER_EXPORTS,
+}
+
+__all__ = list(_LAZY_EXPORTS)
 
 
 def __getattr__(name: str) -> Any:
