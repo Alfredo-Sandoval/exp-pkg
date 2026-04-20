@@ -58,6 +58,24 @@ available for compatibility and low-level workflows, but new code should prefer
 
 If you are wiring another repo into xpkg, this is the place to start.
 
+For foreign or legacy inputs, use the matching workspace import helper and then
+open the resulting workspace:
+
+```python
+from xpkg.formats import import_dlc_csv_workspace
+from xpkg.services import WorkspaceService
+
+import_dlc_csv_workspace(
+    "tracking.csv",
+    "video.mp4",
+    "./My Project",
+    skeleton_name="mouse",
+)
+
+workspace = WorkspaceService.open("./My Project")
+artifact = workspace.pack()
+```
+
 ## What It Does
 
 - Imports external pose / annotation formats into canonical xpkg objects

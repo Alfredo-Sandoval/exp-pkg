@@ -12,7 +12,9 @@ workflow is being wired in.
 !!! note
     The locked public artifact contract is workspace folder +
     <code>.expkg</code>. The adapter functions documented here currently emit
-    edge <code>.xpkg</code> archive outputs.
+    edge <code>.xpkg</code> archive outputs. Project-facing code should prefer
+    the matching <code>xpkg.formats.import_*_workspace(...)</code> helpers
+    whenever a workspace lifecycle is the real goal.
 
 ## Return Type
 

@@ -75,6 +75,26 @@ restored = WorkspaceService.unpack(artifact, "./Restored Project")
 Start here when another repo needs a stable project boundary. This is the
 normal xpkg contract.
 
+## Workspace import example
+
+```python
+from xpkg.formats import import_dlc_csv_workspace
+from xpkg.services import WorkspaceService
+
+import_dlc_csv_workspace(
+    "tracking.csv",
+    "video.mp4",
+    "./My Project",
+    skeleton_name="mouse",
+)
+
+workspace = WorkspaceService.open("./My Project")
+artifact = workspace.pack()
+```
+
+Project-facing imports should usually land in a workspace first, then move to
+portable `.expkg` export only when you explicitly pack.
+
 ## In-memory codec API
 
 ```python
@@ -113,7 +133,7 @@ fixtures, and transition work. `read_xpkg` returns a dict with these keys:
 | `"videos"` | `list[Video]` | Video references |
 | `"predictions"` | `dict` or `None` | Prediction payloads if present |
 
-## Current adapter import example
+## Advanced: Edge adapter output example
 
 ```python
 from xpkg.adapters import convert_dlc_csv
@@ -130,5 +150,4 @@ print(result.project_root)
 ```
 
 This is still a compatibility-oriented import example. New project-facing code
-should think in terms of workspace creation, import into a workspace, and
-portable `.expkg` export rather than a direct archive-first workflow.
+should prefer the workspace import helpers over direct archive conversion.

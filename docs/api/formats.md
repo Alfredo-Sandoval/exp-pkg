@@ -102,6 +102,18 @@ Validate a packed `.expkg` artifact.
 
 Validate either a workspace or a packed artifact, dispatching by path type.
 
+## Explicit Archive Compatibility Export
+
+### `export_project_archive(path, *, out=None)`
+
+Materialize a direct `.xpkg` archive from the current committed workspace head
+when you explicitly need archive interop.
+
+### `current_project_archive_path(path)`
+
+Legacy compatibility alias for `export_project_archive(...)`. Prefer the
+explicit export helper in new code.
+
 ## Import Into Workspaces
 
 ### `import_dlc_csv_workspace(...)`
@@ -159,7 +171,8 @@ Migrate a legacy archive into the workspace-first xpkg contract.
 ### `save_workspace_labels(...)`
 
 Persist the current `Labels` state into a workspace and refresh the managed
-project state.
+project state. The committed durable snapshot head remains authoritative;
+`.xpkg/state/current.json` is refreshed as a rebuildable cache.
 
 ## JSON Label Interchange
 

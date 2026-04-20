@@ -55,6 +55,11 @@ The missing cutover was runtime behavior. The store now uses that generic
 That means the durable head stays authoritative while the cache stays cheap to
 rebuild.
 
+Workspace load/pack/validate flows now also reject a tampered
+`.xpkg/state/current.json` cache even when its embedded `xpkg_commit_id`
+matches the head. If the cache diverges from the committed snapshot payload,
+xpkg rebuilds it from the durable store before continuing.
+
 ## Remaining Archive Uses
 
 The archive engine is still valuable, but its role is narrower now.
@@ -89,9 +94,9 @@ Remaining seams include:
 
 1. `current_project_archive_path(...)` still exists as a compatibility-shaped
    convenience over the clearer `export_project_archive(...)` surface.
-2. Some architectural docs and tests may still assume “store head equals
-   archive blob” and should keep getting retired as touched surfaces move
-   fully workspace-first.
+2. Direct archive-backed durable heads are still supported for explicit
+   compatibility workflows, so archive-aware code remains at those edges even
+   though normal workspace flows now commit native snapshot roots.
 
 ## Recommended Position
 
