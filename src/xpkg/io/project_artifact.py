@@ -51,11 +51,35 @@ def _is_within(path: Path, parent: Path) -> bool:
         return False
 
 
+def _validate_vicon_bundle_paths(workspace_root: Path, recording: Any) -> None:
+    store_root = workspace_store_root(workspace_root).resolve()
+    managed_paths = {
+        "recording": recording.path,
+        "xcp": recording.xcp_path,
+        "vsk": recording.vsk_path,
+    }
+    for label, raw_path in managed_paths.items():
+        if raw_path is None:
+            continue
+        resolved = resolve_path(raw_path)
+        if not resolved.is_file():
+            raise FileNotFoundError(f"Workspace Vicon {label} file missing: {resolved}")
+        if not _is_within(resolved, store_root):
+            raise ValueError(
+                "Workspace Vicon bundle files must live under the workspace store. "
+                f"Found unmanaged {label} path: {resolved}"
+            )
+
+
 def _workspace_media_violations(workspace_root: Path) -> list[str]:
     from xpkg.io.project_workspace import current_project_state_path
+    from xpkg.io.workspace_state import workspace_state_kind
     from xpkg.model import Labels
 
-    if not current_project_state_path(workspace_root).exists():
+    state_path = current_project_state_path(workspace_root)
+    if not state_path.exists():
+        return []
+    if state_path.suffix.lower() == ".json" and workspace_state_kind(state_path) == "vicon":
         return []
     labels = Labels.load_file(workspace_root.as_posix())
     media_root = workspace_media_root(workspace_root).resolve()
@@ -201,12 +225,25 @@ def validate_workspace(workspace: str | Path) -> None:
     if exports_root.exists() and not exports_root.is_dir():
         raise ValueError(f"Workspace exports root is not a directory: {exports_root}")
 
-    from xpkg.io.project_workspace import current_project_state_path
+    from xpkg.io.project_workspace import (
+        current_project_state_path,
+        ensure_current_workspace_snapshot_cache,
+        load_workspace_vicon_recording,
+    )
+    from xpkg.io.workspace_state import workspace_state_kind
     from xpkg.model import Labels
 
-    if current_project_state_path(root).exists():
-        labels = Labels.load_file(root.as_posix())
-        labels.validate()
+    snapshot_path = ensure_current_workspace_snapshot_cache(root)
+    state_path = snapshot_path if snapshot_path is not None else current_project_state_path(root)
+    if not state_path.exists():
+        return
+    if state_path.suffix.lower() == ".json":
+        if workspace_state_kind(state_path) == "vicon":
+            recording = load_workspace_vicon_recording(root)
+            _validate_vicon_bundle_paths(root, recording)
+            return
+    labels = Labels.load_file(root.as_posix())
+    labels.validate()
 
 
 def validate_expkg(artifact: str | Path) -> None:

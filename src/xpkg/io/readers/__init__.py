@@ -8,10 +8,28 @@ from xpkg.io.readers.pose import (
     read_pose_track,
     resolve_pose_node_indices,
 )
+from xpkg.io.readers.vicon import (
+    ViconAdditionalPointData,
+    ViconAnalogData,
+    ViconCamera,
+    ViconMarkerModel,
+    ViconRecording,
+    read_vicon_c3d,
+    read_vicon_csv,
+    read_vicon_recording,
+)
 
 __all__ = [
     "PoseTrack",
+    "ViconAdditionalPointData",
+    "ViconAnalogData",
+    "ViconCamera",
+    "ViconMarkerModel",
+    "ViconRecording",
     "read_pose_node_names",
     "read_pose_track",
+    "read_vicon_c3d",
+    "read_vicon_csv",
+    "read_vicon_recording",
     "resolve_pose_node_indices",
 ]

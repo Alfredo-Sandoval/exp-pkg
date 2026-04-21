@@ -175,6 +175,144 @@ def test_cli_routes_import_dlc_csv_workspace(monkeypatch, capsys) -> None:
     assert ".xpkg/state/current.json" in stdout
 
 
+def test_cli_routes_import_vicon_csv_workspace(monkeypatch, capsys) -> None:
+    from xpkg.cli import main
+
+    captured: dict[str, object] = {}
+
+    def fake_import_vicon_csv_workspace(
+        csv_path: str,
+        workspace: str,
+        *,
+        default_pack_mode: str = "portable",
+        force: bool = False,
+        progress_callback,
+    ) -> Path:
+        captured["csv_path"] = csv_path
+        captured["workspace"] = workspace
+        captured["default_pack_mode"] = default_pack_mode
+        captured["force"] = force
+        progress_callback("vicon-csv-progress")
+        return _workspace_state_path(workspace)
+
+    monkeypatch.setattr("xpkg.cli.import_vicon_csv_workspace", fake_import_vicon_csv_workspace)
+
+    code = main(
+        [
+            "import",
+            "vicon",
+            "--csv",
+            "trial.csv",
+            "--out",
+            "My Project",
+        ]
+    )
+
+    assert code == 0
+    assert captured == {
+        "csv_path": "trial.csv",
+        "workspace": "My Project",
+        "default_pack_mode": "portable",
+        "force": False,
+    }
+    stdout = capsys.readouterr().out
+    assert "vicon-csv-progress" in stdout
+    assert "Imported Vicon CSV into My Project" in stdout
+    assert ".xpkg/state/current.json" in stdout
+
+
+def test_cli_routes_import_vicon_c3d_workspace(monkeypatch, capsys) -> None:
+    from xpkg.cli import main
+
+    captured: dict[str, object] = {}
+
+    def fake_import_vicon_c3d_workspace(
+        c3d_path: str,
+        workspace: str,
+        *,
+        default_pack_mode: str = "portable",
+        force: bool = False,
+        progress_callback,
+    ) -> Path:
+        captured["c3d_path"] = c3d_path
+        captured["workspace"] = workspace
+        captured["default_pack_mode"] = default_pack_mode
+        captured["force"] = force
+        progress_callback("vicon-c3d-progress")
+        return _workspace_state_path(workspace)
+
+    monkeypatch.setattr("xpkg.cli.import_vicon_c3d_workspace", fake_import_vicon_c3d_workspace)
+
+    code = main(
+        [
+            "import",
+            "vicon",
+            "--c3d",
+            "trial.c3d",
+            "--out",
+            "My Project",
+        ]
+    )
+
+    assert code == 0
+    assert captured == {
+        "c3d_path": "trial.c3d",
+        "workspace": "My Project",
+        "default_pack_mode": "portable",
+        "force": False,
+    }
+    stdout = capsys.readouterr().out
+    assert "vicon-c3d-progress" in stdout
+    assert "Imported Vicon C3D into My Project" in stdout
+    assert ".xpkg/state/current.json" in stdout
+
+
+def test_cli_routes_import_vicon_recording_workspace(monkeypatch, capsys) -> None:
+    from xpkg.cli import main
+
+    captured: dict[str, object] = {}
+
+    def fake_import_vicon_workspace(
+        recording_path: str,
+        workspace: str,
+        *,
+        default_pack_mode: str = "portable",
+        force: bool = False,
+        progress_callback,
+    ) -> Path:
+        captured["recording_path"] = recording_path
+        captured["workspace"] = workspace
+        captured["default_pack_mode"] = default_pack_mode
+        captured["force"] = force
+        progress_callback("vicon-auto-progress")
+        return _workspace_state_path(workspace)
+
+    monkeypatch.setattr("xpkg.cli.import_vicon_workspace", fake_import_vicon_workspace)
+
+    code = main(
+        [
+            "import",
+            "vicon",
+            "--recording",
+            "trial.csv",
+            "--out",
+            "My Project",
+        ]
+    )
+
+    assert code == 0
+    assert captured == {
+        "recording_path": "trial.csv",
+        "workspace": "My Project",
+        "default_pack_mode": "portable",
+        "force": False,
+    }
+    stdout = capsys.readouterr().out
+    assert "vicon-auto-progress" in stdout
+    assert "Imported Vicon recording into My Project" in stdout
+    assert ".xpkg/state/current.json" in stdout
+
+
 def test_cli_routes_import_dlc_project_workspace(monkeypatch, capsys) -> None:
     from xpkg.cli import main
 

@@ -20,10 +20,18 @@ from xpkg.codecs.labels import (
     labels_to_dataframe,
     labels_to_json_payload,
 )
+from xpkg.codecs.vicon import (
+    read_vicon_json_payload,
+    vicon_recording_from_json_payload,
+    vicon_recording_to_json_payload,
+)
 
 __all__ = [
     "labels_from_json_payload",
     "labels_numpy",
     "labels_to_dataframe",
     "labels_to_json_payload",
+    "read_vicon_json_payload",
+    "vicon_recording_from_json_payload",
+    "vicon_recording_to_json_payload",
 ]

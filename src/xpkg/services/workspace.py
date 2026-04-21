@@ -26,8 +26,12 @@ from xpkg.formats.project import (
     import_openpose_json_workspace,
     import_sleap_h5_workspace,
     import_sleap_package_workspace,
+    import_vicon_c3d_workspace,
+    import_vicon_csv_workspace,
+    import_vicon_workspace,
     init_project,
     load_project_descriptor,
+    load_workspace_vicon_recording,
     pack_project,
     project_descriptor_path,
     resolve_workspace_root,
@@ -39,9 +43,11 @@ from xpkg.formats.project import (
     workspace_state_root,
     workspace_store_root,
 )
+from xpkg.io.project_workspace import ensure_current_workspace_snapshot_cache
+from xpkg.io.workspace_state import workspace_state_kind
 
 if TYPE_CHECKING:
-    from xpkg.model import Labels
+    from xpkg.model import Labels, ViconRecording
 
 PackMode = Literal["portable", "snapshot"]
 
@@ -54,6 +60,57 @@ class WorkspaceImports:
 
     def _import(self, importer: Callable[..., Path], /, *args: Any, **kwargs: Any) -> Path:
         return importer(*args, workspace=self.workspace_root, **kwargs)
+
+    def vicon(
+        self,
+        recording_path: str | Path,
+        *,
+        default_pack_mode: PackMode = "portable",
+        force: bool = False,
+        progress_callback: Any | None = None,
+    ) -> Path:
+        """Import a Vicon CSV or C3D recording into this workspace."""
+        return self._import(
+            import_vicon_workspace,
+            recording_path,
+            default_pack_mode=default_pack_mode,
+            force=force,
+            progress_callback=progress_callback,
+        )
+
+    def vicon_csv(
+        self,
+        csv_path: str | Path,
+        *,
+        default_pack_mode: PackMode = "portable",
+        force: bool = False,
+        progress_callback: Any | None = None,
+    ) -> Path:
+        """Import a Vicon CSV recording into this workspace."""
+        return self._import(
+            import_vicon_csv_workspace,
+            csv_path,
+            default_pack_mode=default_pack_mode,
+            force=force,
+            progress_callback=progress_callback,
+        )
+
+    def vicon_c3d(
+        self,
+        c3d_path: str | Path,
+        *,
+        default_pack_mode: PackMode = "portable",
+        force: bool = False,
+        progress_callback: Any | None = None,
+    ) -> Path:
+        """Import a Vicon C3D recording into this workspace."""
+        return self._import(
+            import_vicon_c3d_workspace,
+            c3d_path,
+            default_pack_mode=default_pack_mode,
+            force=force,
+            progress_callback=progress_callback,
+        )
 
     def dlc_csv(
         self,
@@ -365,7 +422,20 @@ class WorkspaceService:
         """Load the current workspace labels through the public workspace root."""
         from xpkg.model import Labels
 
+        state_path = ensure_current_workspace_snapshot_cache(self.workspace_root)
+        if state_path is None:
+            state_path = current_project_state_path(self.workspace_root)
+        if state_path.exists() and state_path.suffix.lower() == ".json":
+            if workspace_state_kind(state_path) == "vicon":
+                raise ValueError(
+                    "Workspace current state is a Vicon recording. "
+                    "Use WorkspaceService.load_vicon_recording()."
+                )
         return Labels.load_file(self.workspace_root.as_posix())
+
+    def load_vicon_recording(self) -> ViconRecording:
+        """Load the current workspace Vicon recording."""
+        return load_workspace_vicon_recording(self.workspace_root)
 
     def save_labels(
         self,

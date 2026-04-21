@@ -6,11 +6,17 @@ import shutil
 import tempfile
 from collections.abc import Callable
 from copy import deepcopy
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from xpkg.core.path_registry import ensure_dir, resolve_path
+from xpkg.codecs.vicon import (
+    read_vicon_json_payload,
+    vicon_recording_from_json_payload,
+    vicon_recording_to_json_payload,
+)
+from xpkg.core.json_utils import write_json
+from xpkg.core.path_registry import ensure_dir, resolve_path, slugify_path_component
 from xpkg.io.archive_format import read_archive
 from xpkg.io.project_artifact import validate_workspace
 from xpkg.io.project_layout import (
@@ -44,9 +50,14 @@ from xpkg.io.workspace_snapshot_backend import (
     write_workspace_snapshot,
     write_workspace_snapshot_payload,
 )
+from xpkg.io.workspace_state import (
+    read_workspace_state_document,
+    workspace_state_commit_id_from_document,
+    workspace_state_kind,
+)
 
 if TYPE_CHECKING:
-    from xpkg.model import Labels
+    from xpkg.model import Labels, ViconRecording
 
 
 class LegacyWorkspaceMigrationRequiredError(FileNotFoundError):
@@ -359,6 +370,61 @@ def _predictions_payload_from_state_payload(
     return normalize_predictions_payload(raw_predictions)
 
 
+def _normalized_workspace_metadata(
+    metadata: dict[str, Any] | None,
+    *,
+    workspace_root: Path,
+    commit_id: str | None,
+) -> dict[str, Any]:
+    normalized = rewrite_workspace_metadata_paths(
+        metadata,
+        workspace_root=workspace_root,
+    )
+    if commit_id is None:
+        normalized.pop(WORKSPACE_COMMIT_ID_KEY, None)
+    else:
+        normalized[WORKSPACE_COMMIT_ID_KEY] = str(commit_id)
+    return normalized
+
+
+def _workspace_snapshot_cache_matches_committed_head(
+    workspace_root: Path,
+    snapshot_path: Path,
+) -> bool:
+    from xpkg.io.archive_store import ArchiveStore
+
+    store = ArchiveStore.open(workspace_store_root(workspace_root))
+    if not store.has_current_root("snapshot"):
+        return False
+    committed_snapshot_path = store.current_root_path("snapshot")
+    return snapshot_path.read_bytes() == committed_snapshot_path.read_bytes()
+
+
+def ensure_current_workspace_snapshot_cache(workspace_root: Path) -> Path | None:
+    """Materialize the current workspace snapshot cache from the committed head when needed."""
+
+    snapshot_path = workspace_current_snapshot_path(workspace_root)
+    if snapshot_path.exists():
+        current_head = current_project_commit_id(workspace_root)
+        if current_head is None:
+            return snapshot_path
+        snapshot_document = read_workspace_state_document(snapshot_path)
+        snapshot_head = workspace_state_commit_id_from_document(snapshot_document)
+        if (
+            snapshot_head == current_head
+            and _workspace_snapshot_cache_matches_committed_head(
+                workspace_root,
+                snapshot_path,
+            )
+        ):
+            return snapshot_path
+
+    state = _current_workspace_state_payload(workspace_root)
+    if state is None:
+        return None
+    return rebuild_workspace_snapshot_cache(workspace_root)
+
+
 def _current_workspace_state_payload(
     workspace_root: Path,
 ) -> tuple[dict[str, Any], str] | None:
@@ -366,7 +432,11 @@ def _current_workspace_state_payload(
     if store.has_durable_store():
         mounted = store.open()
         if mounted.has_current_root("snapshot"):
-            return read_workspace_snapshot(mounted.current_root_path("snapshot")), "snapshot"
+            snapshot_path = mounted.current_root_path("snapshot")
+            snapshot_kind = workspace_state_kind(snapshot_path)
+            if snapshot_kind == "labels":
+                return read_workspace_snapshot(snapshot_path), "snapshot_labels"
+            return read_vicon_json_payload(snapshot_path), "snapshot_vicon"
         if mounted.has_current_root("archive"):
             return read_archive(mounted.current_archive_path(), lazy=False), "archive"
 
@@ -381,13 +451,18 @@ def _workspace_state_components(
     *,
     source_kind: str,
 ) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
-    if source_kind == "snapshot":
+    if source_kind in {"snapshot_labels", "snapshot_vicon"}:
         metadata = _snapshot_metadata_from_state_payload(state_payload)
     elif source_kind == "archive":
         metadata = _snapshot_metadata(state_payload)
     else:
         raise ValueError(f"Unsupported workspace state source: {source_kind!r}")
-    return metadata, _predictions_payload_from_state_payload(state_payload)
+    predictions = (
+        _predictions_payload_from_state_payload(state_payload)
+        if source_kind in {"snapshot_labels", "archive"}
+        else None
+    )
+    return metadata, predictions
 
 
 def _write_workspace_state(
@@ -407,6 +482,28 @@ def _write_workspace_state(
         predictions=predictions,
         commit_id=commit_id,
     )
+
+
+def _write_vicon_workspace_state(
+    workspace_root: Path,
+    *,
+    recording: ViconRecording,
+    metadata: dict[str, Any] | None = None,
+    commit_id: str | None = None,
+) -> Path:
+    document = vicon_recording_to_json_payload(
+        recording,
+        metadata=_normalized_workspace_metadata(
+            metadata,
+            workspace_root=workspace_root,
+            commit_id=commit_id,
+        ),
+        source_root=workspace_root,
+    )
+    target = workspace_current_snapshot_path(workspace_root)
+    ensure_dir(target.parent)
+    write_json(target, document, indent=2, sort_keys=False, ensure_ascii=True)
+    return target
 
 
 def _prediction_items_from_payload(predictions: dict[str, Any] | None) -> list[Any]:
@@ -550,6 +647,46 @@ def _commit_labels_to_workspace(
     )
 
 
+def _commit_vicon_to_workspace(
+    workspace_root: Path,
+    *,
+    recording: ViconRecording,
+    metadata: dict[str, Any] | None = None,
+    reason: str,
+) -> Path:
+    normalized_metadata = rewrite_workspace_metadata_paths(
+        metadata,
+        workspace_root=workspace_root,
+    )
+
+    stage_parent = _stage_archive_parent(workspace_root)
+    with tempfile.TemporaryDirectory(
+        prefix=".workspace_commit_",
+        dir=str(stage_parent),
+    ) as tmp_dir:
+        staged_snapshot = Path(tmp_dir) / CURRENT_SNAPSHOT_FILENAME
+        document = vicon_recording_to_json_payload(
+            recording,
+            metadata=_normalized_workspace_metadata(
+                normalized_metadata,
+                workspace_root=workspace_root,
+                commit_id=None,
+            ),
+            source_root=workspace_root,
+        )
+        write_json(staged_snapshot, document, indent=2, sort_keys=False, ensure_ascii=True)
+        store = _workspace_store(workspace_root)
+        store.commit_snapshot(staged_snapshot, reason=reason)
+        commit_id = store.current_commit_id()
+
+    return _write_vicon_workspace_state(
+        workspace_root,
+        recording=recording,
+        metadata=normalized_metadata,
+        commit_id=commit_id,
+    )
+
+
 def _load_staged_archive_labels(
     staged_archive: Path,
 ) -> tuple[Labels, dict[str, Any] | None, dict[str, Any] | None]:
@@ -647,10 +784,18 @@ def rebuild_workspace_snapshot_cache(workspace_root: Path) -> Path:
 
     state_payload, source_kind = state
     commit_id = _workspace_store(workspace_root).current_commit_id()
-    if source_kind == "snapshot":
+    if source_kind == "snapshot_labels":
         return write_workspace_snapshot_payload(
             workspace_current_snapshot_path(workspace_root),
             state_payload,
+            commit_id=commit_id,
+        )
+    if source_kind == "snapshot_vicon":
+        recording = vicon_recording_from_json_payload(state_payload, source_root=workspace_root)
+        return _write_vicon_workspace_state(
+            workspace_root,
+            recording=recording,
+            metadata=_snapshot_metadata_from_state_payload(state_payload),
             commit_id=commit_id,
         )
 
@@ -668,6 +813,32 @@ def rebuild_workspace_snapshot_cache(workspace_root: Path) -> Path:
         metadata=metadata,
         predictions=predictions,
         commit_id=commit_id,
+    )
+
+
+def load_workspace_vicon_recording(workspace: str | Path) -> ViconRecording:
+    """Load the current Vicon recording from a workspace-managed state snapshot."""
+
+    root = resolve_workspace_root(workspace)
+    if root is None:
+        raise FileNotFoundError(f"Not an xpkg workspace: {workspace}")
+
+    state_path = ensure_current_workspace_snapshot_cache(root)
+    if state_path is None:
+        raise FileNotFoundError(f"Workspace has no committed state: {root}")
+    if state_path.suffix.lower() != ".json":
+        raise ValueError(
+            "Workspace current state is not a Vicon JSON snapshot; "
+            "only workspace-native snapshots can be loaded as Vicon recordings."
+        )
+    if workspace_state_kind(state_path) != "vicon":
+        raise ValueError(
+            "Workspace current state is not a Vicon recording. "
+            "Use Labels.load_file(...) or WorkspaceService.load_labels()."
+        )
+    return vicon_recording_from_json_payload(
+        read_workspace_state_document(state_path),
+        source_root=root,
     )
 
 
@@ -704,6 +875,40 @@ def _dedupe_dir_target(target: Path) -> Path:
         if not candidate.exists():
             return candidate
         counter += 1
+
+
+def _copy_vicon_sidecar_into_bundle(sidecar_path: Path | None, bundle_root: Path) -> Path | None:
+    if sidecar_path is None:
+        return None
+    resolved_sidecar = resolve_path(sidecar_path)
+    if not resolved_sidecar.is_file():
+        raise FileNotFoundError(f"Vicon sidecar not found: {resolved_sidecar}")
+    target = bundle_root / resolved_sidecar.name
+    shutil.copy2(resolved_sidecar, target)
+    return target.resolve()
+
+
+def _copy_vicon_import_bundle(recording: ViconRecording, workspace_root: Path) -> ViconRecording:
+    imports_root = ensure_dir(workspace_store_root(workspace_root) / "imports" / "vicon")
+    bundle_root = ensure_dir(
+        _dedupe_dir_target(imports_root / slugify_path_component(recording.path))
+    )
+
+    source_path = resolve_path(recording.path)
+    if not source_path.is_file():
+        raise FileNotFoundError(f"Vicon recording not found: {source_path}")
+
+    managed_recording_path = bundle_root / source_path.name
+    shutil.copy2(source_path, managed_recording_path)
+    managed_xcp_path = _copy_vicon_sidecar_into_bundle(recording.xcp_path, bundle_root)
+    managed_vsk_path = _copy_vicon_sidecar_into_bundle(recording.vsk_path, bundle_root)
+
+    return replace(
+        recording,
+        path=managed_recording_path.resolve(),
+        xcp_path=managed_xcp_path,
+        vsk_path=managed_vsk_path,
+    )
 
 
 def _copy_file_into_media(source: Path, media_root: Path, copied: dict[Path, Path]) -> Path:
@@ -1149,6 +1354,115 @@ def _build_detectron2_coco_import_archive(
     return staged_archive
 
 
+def _import_vicon_workspace_recording(
+    recording_path: str | Path,
+    workspace: str | Path,
+    *,
+    default_pack_mode: PackMode,
+    force: bool,
+    reason: str,
+    progress_callback: Any | None,
+    reader: Callable[[str | Path], ViconRecording],
+    source_name: str,
+) -> Path:
+    root = _ensure_workspace_for_import(
+        workspace,
+        default_pack_mode=default_pack_mode,
+        force=force,
+    )
+    if progress_callback is not None:
+        progress_callback(f"Reading {source_name} recording")
+    recording = reader(recording_path)
+    if progress_callback is not None:
+        progress_callback("Copying Vicon recording bundle into workspace store")
+    managed_recording = _copy_vicon_import_bundle(recording, root)
+    metadata = {
+        "source": source_name,
+        "source_recording": resolve_path(recording_path).as_posix(),
+    }
+    if recording.xcp_path is not None:
+        metadata["source_xcp"] = resolve_path(recording.xcp_path).as_posix()
+    if recording.vsk_path is not None:
+        metadata["source_vsk"] = resolve_path(recording.vsk_path).as_posix()
+    snapshot_path = _commit_vicon_to_workspace(
+        root,
+        recording=managed_recording,
+        metadata=metadata,
+        reason=reason,
+    )
+    _touch_descriptor(root)
+    return snapshot_path
+
+
+def import_vicon_csv_workspace(
+    csv_path: str | Path,
+    workspace: str | Path,
+    *,
+    default_pack_mode: PackMode = "portable",
+    force: bool = False,
+    progress_callback: Any | None = None,
+) -> Path:
+    """Import a Vicon CSV recording into a workspace."""
+    from xpkg.io.readers import read_vicon_csv
+
+    return _import_vicon_workspace_recording(
+        csv_path,
+        workspace,
+        default_pack_mode=default_pack_mode,
+        force=force,
+        reason="workspace.import.vicon_csv",
+        progress_callback=progress_callback,
+        reader=read_vicon_csv,
+        source_name="vicon_csv_import",
+    )
+
+
+def import_vicon_c3d_workspace(
+    c3d_path: str | Path,
+    workspace: str | Path,
+    *,
+    default_pack_mode: PackMode = "portable",
+    force: bool = False,
+    progress_callback: Any | None = None,
+) -> Path:
+    """Import a Vicon C3D recording into a workspace."""
+    from xpkg.io.readers import read_vicon_c3d
+
+    return _import_vicon_workspace_recording(
+        c3d_path,
+        workspace,
+        default_pack_mode=default_pack_mode,
+        force=force,
+        reason="workspace.import.vicon_c3d",
+        progress_callback=progress_callback,
+        reader=read_vicon_c3d,
+        source_name="vicon_c3d_import",
+    )
+
+
+def import_vicon_workspace(
+    recording_path: str | Path,
+    workspace: str | Path,
+    *,
+    default_pack_mode: PackMode = "portable",
+    force: bool = False,
+    progress_callback: Any | None = None,
+) -> Path:
+    """Import a Vicon CSV or C3D recording into a workspace."""
+    from xpkg.io.readers import read_vicon_recording
+
+    return _import_vicon_workspace_recording(
+        recording_path,
+        workspace,
+        default_pack_mode=default_pack_mode,
+        force=force,
+        reason="workspace.import.vicon",
+        progress_callback=progress_callback,
+        reader=read_vicon_recording,
+        source_name="vicon_import",
+    )
+
+
 def import_dlc_csv_workspace(
     csv_path: str | Path,
     video_path: str | Path,
@@ -1583,6 +1897,9 @@ __all__ = [
     "CURRENT_SNAPSHOT_FILENAME",
     "EXPORTS_DIRNAME",
     "export_project_archive",
+    "import_vicon_c3d_workspace",
+    "import_vicon_csv_workspace",
+    "import_vicon_workspace",
     "import_dlc_csv_workspace",
     "import_dlc_h5_workspace",
     "import_dlc_project_workspace",
@@ -1600,6 +1917,7 @@ __all__ = [
     "current_project_snapshot_path",
     "current_project_state_path",
     "init_project",
+    "load_workspace_vicon_recording",
     "load_project_descriptor",
     "migrate_legacy_archive",
     "resolve_workspace_root",

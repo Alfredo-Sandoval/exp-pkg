@@ -10,12 +10,16 @@ def test_xpkg_api_exposes_workspace_first_contract() -> None:
         "Labels",
         "ProjectDescriptor",
         "PoseTrack",
+        "ViconRecording",
         "WorkspaceImports",
         "WorkspaceLayout",
         "WorkspaceService",
         "current_project_snapshot_path",
         "current_project_state_path",
         "default_expkg_path",
+        "import_vicon_c3d_workspace",
+        "import_vicon_csv_workspace",
+        "import_vicon_workspace",
         "import_detectron2_coco_workspace",
         "import_dlc_csv_workspace",
         "import_dlc_h5_workspace",
@@ -29,14 +33,21 @@ def test_xpkg_api_exposes_workspace_first_contract() -> None:
         "labels_numpy",
         "labels_to_dataframe",
         "labels_to_json_payload",
+        "load_workspace_vicon_recording",
         "migrate_legacy_archive",
         "pack_project",
         "read_pose_node_names",
         "read_pose_track",
+        "read_vicon_c3d",
+        "read_vicon_csv",
+        "read_vicon_recording",
+        "read_vicon_json_payload",
         "resolve_pose_node_indices",
         "save_workspace_labels",
         "unpack_project",
         "validate_workspace",
+        "vicon_recording_from_json_payload",
+        "vicon_recording_to_json_payload",
     }
 
     assert expected.issubset(set(api.__all__))
@@ -52,16 +63,24 @@ def test_xpkg_api_exposes_workspace_first_contract() -> None:
     assert api.Labels.__name__ == "Labels"
     assert api.ProjectDescriptor.__name__ == "ProjectDescriptor"
     assert api.PoseTrack.__name__ == "PoseTrack"
+    assert api.ViconRecording.__name__ == "ViconRecording"
     assert api.WorkspaceImports.__name__ == "WorkspaceImports"
     assert api.WorkspaceService.__name__ == "WorkspaceService"
     assert callable(api.labels_from_json_payload)
     assert callable(api.labels_numpy)
     assert callable(api.labels_to_dataframe)
     assert callable(api.labels_to_json_payload)
+    assert callable(api.load_workspace_vicon_recording)
     assert callable(api.read_pose_node_names)
     assert callable(api.read_pose_track)
+    assert callable(api.read_vicon_c3d)
+    assert callable(api.read_vicon_csv)
+    assert callable(api.read_vicon_recording)
+    assert callable(api.read_vicon_json_payload)
     assert callable(api.resolve_pose_node_indices)
     assert callable(api.migrate_legacy_archive)
+    assert callable(api.vicon_recording_from_json_payload)
+    assert callable(api.vicon_recording_to_json_payload)
 
 
 def test_xpkg_api_lists_service_entrypoints_before_free_function_helpers() -> None:

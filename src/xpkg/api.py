@@ -19,6 +19,7 @@ _WORKSPACE_EXPORTS: dict[str, tuple[str, str]] = {
     "ProjectDescriptor": (".formats.project", "ProjectDescriptor"),
     "init_project": (".formats.project", "init_project"),
     "load_project_descriptor": (".formats.project", "load_project_descriptor"),
+    "load_workspace_vicon_recording": (".formats.project", "load_workspace_vicon_recording"),
     "save_workspace_labels": (".formats.project", "save_workspace_labels"),
     "current_project_state_path": (".formats.project", "current_project_state_path"),
     "current_project_snapshot_path": (".formats.project", "current_project_snapshot_path"),
@@ -26,6 +27,9 @@ _WORKSPACE_EXPORTS: dict[str, tuple[str, str]] = {
     "unpack_project": (".formats.project", "unpack_project"),
     "validate_workspace": (".formats.project", "validate_workspace"),
     "default_expkg_path": (".formats.project", "default_expkg_path"),
+    "import_vicon_workspace": (".formats.project", "import_vicon_workspace"),
+    "import_vicon_csv_workspace": (".formats.project", "import_vicon_csv_workspace"),
+    "import_vicon_c3d_workspace": (".formats.project", "import_vicon_c3d_workspace"),
     "import_detectron2_coco_workspace": (".formats.project", "import_detectron2_coco_workspace"),
     "import_dlc_csv_workspace": (".formats.project", "import_dlc_csv_workspace"),
     "import_dlc_h5_workspace": (".formats.project", "import_dlc_h5_workspace"),
@@ -54,6 +58,11 @@ _MODEL_EXPORTS: dict[str, tuple[str, str]] = {
     "Skeleton": (".model", "Skeleton"),
     "Track": (".model", "Track"),
     "Video": (".model", "Video"),
+    "ViconAdditionalPointData": (".model", "ViconAdditionalPointData"),
+    "ViconAnalogData": (".model", "ViconAnalogData"),
+    "ViconCamera": (".model", "ViconCamera"),
+    "ViconMarkerModel": (".model", "ViconMarkerModel"),
+    "ViconRecording": (".model", "ViconRecording"),
 }
 
 _CODEC_AND_READER_EXPORTS: dict[str, tuple[str, str]] = {
@@ -62,8 +71,14 @@ _CODEC_AND_READER_EXPORTS: dict[str, tuple[str, str]] = {
     "labels_numpy": (".codecs", "labels_numpy"),
     "labels_to_dataframe": (".codecs", "labels_to_dataframe"),
     "labels_to_json_payload": (".codecs", "labels_to_json_payload"),
+    "read_vicon_json_payload": (".codecs", "read_vicon_json_payload"),
+    "vicon_recording_from_json_payload": (".codecs", "vicon_recording_from_json_payload"),
+    "vicon_recording_to_json_payload": (".codecs", "vicon_recording_to_json_payload"),
     "read_pose_node_names": (".io.readers", "read_pose_node_names"),
     "read_pose_track": (".io.readers", "read_pose_track"),
+    "read_vicon_c3d": (".io.readers", "read_vicon_c3d"),
+    "read_vicon_csv": (".io.readers", "read_vicon_csv"),
+    "read_vicon_recording": (".io.readers", "read_vicon_recording"),
     "resolve_pose_node_indices": (".io.readers", "resolve_pose_node_indices"),
 }
 

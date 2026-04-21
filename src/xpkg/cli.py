@@ -17,6 +17,9 @@ from xpkg.formats import (
     import_openpose_json_workspace,
     import_sleap_h5_workspace,
     import_sleap_package_workspace,
+    import_vicon_c3d_workspace,
+    import_vicon_csv_workspace,
+    import_vicon_workspace,
     init_project,
     migrate_legacy_archive,
     pack_project,
@@ -90,6 +93,26 @@ def _add_import_parser(parent: argparse._SubParsersAction[argparse.ArgumentParse
         help="Import external tracking data into a workspace-first exp-pkg project.",
     )
     import_subparsers = imported.add_subparsers(dest="import_source", required=True)
+
+    vicon = import_subparsers.add_parser(
+        "vicon",
+        help="Import a Vicon CSV or C3D recording into a workspace.",
+    )
+    vicon_group = vicon.add_mutually_exclusive_group(required=True)
+    vicon_group.add_argument(
+        "--recording",
+        help="Path to a Vicon recording (.csv or .c3d).",
+    )
+    vicon_group.add_argument(
+        "--csv",
+        help="Path to a Vicon Nexus CSV trajectory export.",
+    )
+    vicon_group.add_argument(
+        "--c3d",
+        help="Path to a Vicon C3D recording.",
+    )
+    vicon.add_argument("--out", required=True, help="Output workspace directory.")
+    vicon.set_defaults(func=_cmd_import_vicon)
 
     dlc = import_subparsers.add_parser("dlc", help="Import DeepLabCut tracking into a workspace.")
     dlc_subparsers = dlc.add_subparsers(dest="dlc_source", required=True)
@@ -399,6 +422,37 @@ def _cmd_import_dlc_csv(args: argparse.Namespace) -> int:
         progress_callback=_emit_progress,
     )
     sys.stdout.write(f"Imported DLC CSV into {args.out}\n")
+    _write_path(path)
+    return 0
+
+
+def _cmd_import_vicon(args: argparse.Namespace) -> int:
+    if args.csv:
+        path = import_vicon_csv_workspace(
+            args.csv,
+            args.out,
+            progress_callback=_emit_progress,
+        )
+        sys.stdout.write(f"Imported Vicon CSV into {args.out}\n")
+        _write_path(path)
+        return 0
+
+    if args.c3d:
+        path = import_vicon_c3d_workspace(
+            args.c3d,
+            args.out,
+            progress_callback=_emit_progress,
+        )
+        sys.stdout.write(f"Imported Vicon C3D into {args.out}\n")
+        _write_path(path)
+        return 0
+
+    path = import_vicon_workspace(
+        args.recording,
+        args.out,
+        progress_callback=_emit_progress,
+    )
+    sys.stdout.write(f"Imported Vicon recording into {args.out}\n")
     _write_path(path)
     return 0
 

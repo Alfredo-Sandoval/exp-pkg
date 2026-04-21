@@ -897,20 +897,6 @@ def _labels_payload_from_archive_payload(payload: dict[str, Any]) -> dict[str, A
     return hydrated_payload
 
 
-def _workspace_snapshot_cache_matches_committed_head(
-    workspace_root: Path,
-    snapshot_path: Path,
-) -> bool:
-    from xpkg.io.archive_store import ArchiveStore
-    from xpkg.io.project_layout import workspace_store_root
-
-    store = ArchiveStore.open(workspace_store_root(workspace_root))
-    if not store.has_current_root("snapshot"):
-        return False
-    committed_snapshot_path = store.current_root_path("snapshot")
-    return snapshot_path.read_bytes() == committed_snapshot_path.read_bytes()
-
-
 def labels_load_file(
     cls: type[Labels],
     filename: str,
@@ -935,6 +921,7 @@ def labels_load_file(
     from xpkg.io.project_layout import resolve_workspace_root, workspace_current_snapshot_path
     from xpkg.io.project_workspace import (
         LegacyWorkspaceMigrationRequiredError,
+        _workspace_snapshot_cache_matches_committed_head,
         current_project_commit_id,
         rebase_workspace_payload_videos,
         rebuild_workspace_snapshot_cache,

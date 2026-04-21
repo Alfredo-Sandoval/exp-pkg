@@ -31,6 +31,13 @@ from xpkg.io.skeleton_loaders import (
     load_skeleton_xpkg_json,
 )
 from xpkg.io.video import Video
+from xpkg.model.vicon import (
+    ViconAdditionalPointData,
+    ViconAnalogData,
+    ViconCamera,
+    ViconMarkerModel,
+    ViconRecording,
+)
 
 __all__ = [
     "build_keypoint_skeleton",
@@ -53,6 +60,11 @@ __all__ = [
     "SuggestionFrame",
     "Track",
     "Video",
+    "ViconAdditionalPointData",
+    "ViconAnalogData",
+    "ViconCamera",
+    "ViconMarkerModel",
+    "ViconRecording",
     "is_predicted_instance",
     "load_skeleton",
     "load_skeleton_dlc",

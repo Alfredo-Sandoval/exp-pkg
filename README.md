@@ -72,6 +72,7 @@ you want a function-level API or need to import before reopening a workspace.
 
 The shipped workspace import surface currently covers:
 
+- Vicon CSV and C3D recordings
 - DeepLabCut CSV, H5, and project imports
 - SLEAP analysis H5 and `.pkg.slp`
 - MMPose top-down demo JSON (`--save-predictions`)
@@ -111,6 +112,8 @@ Mission direction:
 
 | Source | Format | Status |
 |--------|--------|--------|
+| Vicon | CSV | Supported |
+| Vicon | C3D | Supported |
 | DeepLabCut | CSV | Supported |
 | DeepLabCut | H5 | Supported |
 | DeepLabCut | Project | Supported |
@@ -214,7 +217,54 @@ xpkg migrate "./legacy.xpkg" --out "./My Project"
 ```
 
 The same `xpkg import` command also ships source-specific workspace imports for
-SLEAP, MMPose JSON, MediaPipe JSON, OpenPose JSON, and Detectron2 COCO input.
+Vicon recordings, SLEAP, MMPose JSON, MediaPipe JSON, OpenPose JSON, and
+Detectron2 COCO input.
+
+## Vicon Recording API
+
+Vicon support is intentionally narrow and mocap-native: it preserves marker
+names, source labels, `(frames, markers, 3)` positions, validity/gaps, fps,
+frame offsets, optional analog channels, optional additional point channels,
+and sibling `.xcp` / `.vsk` sidecars when present.
+
+Use the low-level reader when another repo just needs to load a recording:
+
+```python
+from xpkg.api import read_vicon_recording
+
+recording = read_vicon_recording("trial.c3d")
+print(recording.marker_names)
+print(recording.positions.shape)
+print(recording.analog.channel_names if recording.analog is not None else ())
+```
+
+Use the workspace service when another repo wants an imported, portable project:
+
+```python
+from xpkg.api import WorkspaceService
+
+workspace = WorkspaceService.create("./Vicon Project", title="Vicon Project")
+workspace.imports.vicon("trial.c3d")
+recording = workspace.load_vicon_recording()
+artifact = workspace.pack()
+```
+
+The explicit free-function surface is also public:
+
+```python
+from xpkg.api import import_vicon_c3d_workspace, load_workspace_vicon_recording
+
+import_vicon_c3d_workspace("trial.c3d", "./Vicon Project")
+recording = load_workspace_vicon_recording("./Vicon Project")
+```
+
+CLI examples:
+
+```bash
+xpkg import vicon --recording trial.c3d --out "./Vicon Project"
+xpkg import vicon --csv trial.csv --out "./Vicon Project"
+xpkg import vicon --c3d trial.c3d --out "./Vicon Project"
+```
 
 ## Contributing
 

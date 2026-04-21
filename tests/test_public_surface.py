@@ -10,6 +10,9 @@ from xpkg.codecs import (
     labels_numpy,
     labels_to_dataframe,
     labels_to_json_payload,
+    read_vicon_json_payload,
+    vicon_recording_from_json_payload,
+    vicon_recording_to_json_payload,
 )
 from xpkg.formats import (
     EXPKG_SUFFIX,
@@ -27,9 +30,13 @@ from xpkg.formats import (
     import_openpose_json_workspace,
     import_sleap_h5_workspace,
     import_sleap_package_workspace,
+    import_vicon_c3d_workspace,
+    import_vicon_csv_workspace,
+    import_vicon_workspace,
     init_project,
     is_workspace_root,
     load_project_descriptor,
+    load_workspace_vicon_recording,
     migrate_legacy_archive,
     pack_project,
     project_descriptor_path,
@@ -57,6 +64,7 @@ from xpkg.model import (
     Skeleton,
     SuggestionFrame,
     Track,
+    ViconRecording,
     Video,
     build_keypoint_skeleton,
     is_predicted_instance,
@@ -95,6 +103,9 @@ def test_public_exports_are_callable() -> None:
     assert callable(current_project_snapshot_path)
     assert callable(current_project_state_path)
     assert callable(default_expkg_path)
+    assert callable(import_vicon_c3d_workspace)
+    assert callable(import_vicon_csv_workspace)
+    assert callable(import_vicon_workspace)
     assert callable(import_detectron2_coco_workspace)
     assert callable(import_dlc_csv_workspace)
     assert callable(import_dlc_h5_workspace)
@@ -107,6 +118,7 @@ def test_public_exports_are_callable() -> None:
     assert callable(init_project)
     assert callable(is_workspace_root)
     assert callable(load_project_descriptor)
+    assert callable(load_workspace_vicon_recording)
     assert callable(migrate_legacy_archive)
     assert callable(pack_project)
     assert callable(project_descriptor_path)
@@ -123,6 +135,9 @@ def test_public_exports_are_callable() -> None:
     assert callable(labels_numpy)
     assert callable(labels_to_dataframe)
     assert callable(labels_to_json_payload)
+    assert callable(read_vicon_json_payload)
+    assert callable(vicon_recording_from_json_payload)
+    assert callable(vicon_recording_to_json_payload)
     assert WorkspaceImports is not None
     assert WorkspaceLayout is not None
     assert WorkspaceService is not None
@@ -143,6 +158,9 @@ def test_workspace_imports_surface_covers_supported_workspace_importers() -> Non
         "openpose_json",
         "sleap_h5",
         "sleap_package",
+        "vicon",
+        "vicon_c3d",
+        "vicon_csv",
     }
 
     assert expected.issubset(set(dir(WorkspaceImports)))
@@ -163,6 +181,7 @@ def test_model_exports_are_available() -> None:
     assert PointArray is not None
     assert PredictedPointArray is not None
     assert Video is not None
+    assert ViconRecording is not None
     assert KPFlag is not None
     assert callable(build_keypoint_skeleton)
     assert callable(is_predicted_instance)
@@ -184,6 +203,7 @@ def test_formats_surface_is_workspace_first_only() -> None:
     assert "import_legacy_archive" not in xpkg.formats.__all__
     assert "pack_project" in xpkg.formats.__all__
     assert "import_dlc_project_workspace" in xpkg.formats.__all__
+    assert "import_vicon_workspace" in xpkg.formats.__all__
     assert "migrate_legacy_archive" in xpkg.formats.__all__
 
     with pytest.raises(AttributeError):
@@ -223,4 +243,7 @@ def test_codecs_surface_is_curated() -> None:
         "labels_numpy",
         "labels_to_dataframe",
         "labels_to_json_payload",
+        "read_vicon_json_payload",
+        "vicon_recording_from_json_payload",
+        "vicon_recording_to_json_payload",
     ]
