@@ -15,6 +15,7 @@ from xpkg.io.project_artifact import (
     validate_expkg,
     validate_workspace,
 )
+from xpkg.io.project_inspection import WorkspaceInspection, inspect_workspace
 from xpkg.io.project_layout import (
     EXPKG_SUFFIX,
     PROJECT_DESCRIPTOR_FILENAME,
@@ -30,6 +31,7 @@ from xpkg.io.project_layout import (
     workspace_store_root,
     write_project_descriptor,
 )
+from xpkg.io.project_metadata import load_workspace_metadata_field, save_workspace_metadata_field
 from xpkg.io.project_workspace import (
     current_project_snapshot_path,
     current_project_state_path,
@@ -61,6 +63,7 @@ __all__ = [
     "EXPKG_SUFFIX",
     "PROJECT_DESCRIPTOR_FILENAME",
     "ProjectDescriptor",
+    "WorkspaceInspection",
     "init_project",
     "load_project_descriptor",
     "write_project_descriptor",
@@ -78,10 +81,13 @@ __all__ = [
     "validate_workspace",
     "validate_expkg",
     "validate_artifact",
+    "inspect_workspace",
     "load_workspace_metadata",
+    "load_workspace_metadata_field",
     "load_workspace_payload",
     "save_workspace_labels",
     "save_workspace_metadata",
+    "save_workspace_metadata_field",
     "current_project_state_path",
     "current_project_snapshot_path",
     "load_workspace_vicon_recording",

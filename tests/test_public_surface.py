@@ -18,6 +18,7 @@ from xpkg.formats import (
     EXPKG_SUFFIX,
     PROJECT_DESCRIPTOR_FILENAME,
     ProjectDescriptor,
+    WorkspaceInspection,
     current_project_snapshot_path,
     current_project_state_path,
     default_expkg_path,
@@ -35,9 +36,11 @@ from xpkg.formats import (
     import_vicon_csv_workspace,
     import_vicon_workspace,
     init_project,
+    inspect_workspace,
     is_workspace_root,
     load_project_descriptor,
     load_workspace_metadata,
+    load_workspace_metadata_field,
     load_workspace_payload,
     load_workspace_vicon_recording,
     migrate_legacy_archive,
@@ -47,6 +50,7 @@ from xpkg.formats import (
     resolve_workspace_root,
     save_workspace_labels,
     save_workspace_metadata,
+    save_workspace_metadata_field,
     unpack_project,
     validate_artifact,
     validate_expkg,
@@ -70,7 +74,9 @@ from xpkg.model import (
     Track,
     ViconRecording,
     Video,
+    VideoStub,
     build_keypoint_skeleton,
+    build_prediction_stub,
     is_predicted_instance,
     load_skeleton,
     load_skeleton_dlc,
@@ -78,7 +84,14 @@ from xpkg.model import (
     load_skeleton_ultralytics,
     load_skeleton_xpkg_json,
 )
-from xpkg.services import WorkspaceImports, WorkspaceLayout, WorkspaceService
+from xpkg.services import (
+    WorkspaceImports,
+    WorkspaceLayout,
+    WorkspaceService,
+)
+from xpkg.services import (
+    WorkspaceInspection as ServiceWorkspaceInspection,
+)
 
 
 def test_root_namespace_is_curated_to_workspace_first_modules() -> None:
@@ -104,6 +117,7 @@ def test_public_exports_are_callable() -> None:
     assert EXPKG_SUFFIX == ".expkg"
     assert PROJECT_DESCRIPTOR_FILENAME == "PROJECT.json"
     assert ProjectDescriptor is not None
+    assert WorkspaceInspection is not None
     assert callable(current_project_snapshot_path)
     assert callable(current_project_state_path)
     assert callable(default_expkg_path)
@@ -121,9 +135,11 @@ def test_public_exports_are_callable() -> None:
     assert callable(import_sleap_h5_workspace)
     assert callable(import_sleap_package_workspace)
     assert callable(init_project)
+    assert callable(inspect_workspace)
     assert callable(is_workspace_root)
     assert callable(load_project_descriptor)
     assert callable(load_workspace_metadata)
+    assert callable(load_workspace_metadata_field)
     assert callable(load_workspace_payload)
     assert callable(load_workspace_vicon_recording)
     assert callable(migrate_legacy_archive)
@@ -133,6 +149,7 @@ def test_public_exports_are_callable() -> None:
     assert callable(resolve_workspace_root)
     assert callable(save_workspace_metadata)
     assert callable(save_workspace_labels)
+    assert callable(save_workspace_metadata_field)
     assert callable(unpack_project)
     assert callable(validate_artifact)
     assert callable(validate_expkg)
@@ -147,12 +164,18 @@ def test_public_exports_are_callable() -> None:
     assert callable(vicon_recording_from_json_payload)
     assert callable(vicon_recording_to_json_payload)
     assert WorkspaceImports is not None
+    assert ServiceWorkspaceInspection is not None
     assert WorkspaceLayout is not None
     assert WorkspaceService is not None
 
 
 def test_services_surface_lists_workspace_service_first() -> None:
-    assert xpkg.services.__all__ == ["WorkspaceService", "WorkspaceImports", "WorkspaceLayout"]
+    assert xpkg.services.__all__ == [
+        "WorkspaceService",
+        "WorkspaceImports",
+        "WorkspaceLayout",
+        "WorkspaceInspection",
+    ]
 
 
 def test_workspace_imports_surface_covers_supported_workspace_importers() -> None:
@@ -189,8 +212,10 @@ def test_model_exports_are_available() -> None:
     assert PointArray is not None
     assert PredictedPointArray is not None
     assert Video is not None
+    assert VideoStub is not None
     assert ViconRecording is not None
     assert KPFlag is not None
+    assert callable(build_prediction_stub)
     assert callable(build_keypoint_skeleton)
     assert callable(is_predicted_instance)
     assert callable(load_skeleton)
@@ -212,11 +237,14 @@ def test_formats_surface_is_workspace_first_only() -> None:
     assert "pack_project" in xpkg.formats.__all__
     assert "export_workspace_archive" in xpkg.formats.__all__
     assert "import_dlc_project_workspace" in xpkg.formats.__all__
+    assert "inspect_workspace" in xpkg.formats.__all__
     assert "load_workspace_payload" in xpkg.formats.__all__
     assert "load_workspace_metadata" in xpkg.formats.__all__
+    assert "load_workspace_metadata_field" in xpkg.formats.__all__
     assert "import_vicon_workspace" in xpkg.formats.__all__
     assert "migrate_legacy_archive" in xpkg.formats.__all__
     assert "save_workspace_metadata" in xpkg.formats.__all__
+    assert "save_workspace_metadata_field" in xpkg.formats.__all__
 
     with pytest.raises(AttributeError):
         xpkg.formats.__getattribute__("read_archive")
@@ -233,6 +261,8 @@ def test_direct_compat_module_keeps_only_canonical_xpkg_names() -> None:
     assert callable(compat.update_labels_xpkg)
     assert callable(compat.append_predictions_xpkg)
     assert callable(compat.merge_predictions_xpkg)
+    assert callable(compat.load_archive_metadata_field)
+    assert callable(compat.save_archive_metadata_field)
     assert callable(compat.summarize_xpkg)
     assert callable(compat.validate_xpkg)
     assert callable(compat.create_store_from_xpkg)

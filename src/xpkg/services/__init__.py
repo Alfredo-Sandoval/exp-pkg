@@ -2,6 +2,11 @@
 
 from __future__ import annotations
 
-from xpkg.services.workspace import WorkspaceImports, WorkspaceLayout, WorkspaceService
+from xpkg.services.workspace import (
+    WorkspaceImports,
+    WorkspaceInspection,
+    WorkspaceLayout,
+    WorkspaceService,
+)
 
-__all__ = ["WorkspaceService", "WorkspaceImports", "WorkspaceLayout"]
+__all__ = ["WorkspaceService", "WorkspaceImports", "WorkspaceLayout", "WorkspaceInspection"]

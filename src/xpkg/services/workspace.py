@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING, Any, Literal
 
 from xpkg.formats.project import (
     ProjectDescriptor,
+    WorkspaceInspection,
     current_project_state_path,
     import_detectron2_coco_workspace,
     import_dlc_csv_workspace,
@@ -30,6 +31,7 @@ from xpkg.formats.project import (
     import_vicon_csv_workspace,
     import_vicon_workspace,
     init_project,
+    inspect_workspace,
     load_project_descriptor,
     load_workspace_vicon_recording,
     pack_project,
@@ -321,6 +323,7 @@ class WorkspaceImports:
             progress_callback=progress_callback,
         )
 
+
 @dataclass(frozen=True, slots=True)
 class WorkspaceLayout:
     """Normalized workspace summary returned by ``describe()`` and ``validate()``."""
@@ -418,6 +421,10 @@ class WorkspaceService:
         validate_workspace(self.workspace_root)
         return self.describe()
 
+    def inspect(self) -> WorkspaceInspection:
+        """Inspect the current workspace using canonical package-owned summary APIs."""
+        return inspect_workspace(self.workspace_root)
+
     def load_labels(self) -> Labels:
         """Load the current workspace labels through the public workspace root."""
         from xpkg.model import Labels
@@ -470,4 +477,4 @@ class WorkspaceService:
         )
 
 
-__all__ = ["WorkspaceService", "WorkspaceImports", "WorkspaceLayout"]
+__all__ = ["WorkspaceService", "WorkspaceImports", "WorkspaceLayout", "WorkspaceInspection"]

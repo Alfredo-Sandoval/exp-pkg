@@ -180,6 +180,121 @@ def test_update_labels_xpkg_preserves_predictions_by_default(tmp_path: Path) -> 
     assert int(prediction_track_ids[0, 0]) == 7
 
 
+def test_append_predictions_xpkg_roundtrip_uses_canonical_compat_surface(tmp_path: Path) -> None:
+    from xpkg.compat import (
+        PredictionAppendItem,
+        SerializerPredictedInstance,
+        append_predictions_xpkg,
+        read_xpkg,
+        write_xpkg,
+    )
+
+    labels = _make_labels(tmp_path, x=1.0, y=2.0)
+    archive_path = tmp_path / "append.xpkg"
+    write_xpkg(archive_path, labels, predictions=[])
+
+    appended = append_predictions_xpkg(
+        archive_path,
+        [
+            PredictionAppendItem(
+                video_index=0,
+                frame_index=0,
+                instances=[
+                    SerializerPredictedInstance(
+                        keypoints=[(11.0, 12.0, 0.75)],
+                        keypoint_scores=[0.75],
+                        score=0.95,
+                        track_id=5,
+                    )
+                ],
+            )
+        ],
+        allow_max_inst_growth=True,
+    )
+
+    payload = read_xpkg(archive_path, lazy=False)
+    frames = np.asarray(payload["predictions"]["frames"]["num_instances"], dtype=np.int32)
+    keypoints = np.asarray(payload["predictions"]["data"]["keypoints"], dtype=np.float32)
+    track_ids = np.asarray(payload["predictions"]["data"]["track_id"], dtype=np.int32)
+
+    assert appended == 1
+    assert int(payload["predictions"]["attrs"]["committed_length"]) == 1
+    assert int(frames[0]) == 1
+    assert float(keypoints[0, 0, 0, 0]) == 11.0
+    assert float(keypoints[0, 0, 0, 1]) == 12.0
+    assert float(keypoints[0, 0, 0, 2]) == pytest.approx(0.75)
+    assert int(track_ids[0, 0]) == 5
+
+
+def test_merge_predictions_xpkg_roundtrip_uses_canonical_compat_surface(tmp_path: Path) -> None:
+    from xpkg.compat import (
+        PredictionAppendItem,
+        SerializerPredictedInstance,
+        merge_predictions_xpkg,
+        read_xpkg,
+        write_xpkg,
+    )
+
+    labels = _make_labels(tmp_path, x=1.0, y=2.0)
+    archive_path = tmp_path / "merge.xpkg"
+    write_xpkg(
+        archive_path,
+        labels,
+        predictions=[
+            PredictionAppendItem(
+                video_index=0,
+                frame_index=0,
+                instances=[
+                    SerializerPredictedInstance(
+                        keypoints=[(3.0, 4.0, 0.5)],
+                        keypoint_scores=[0.5],
+                        score=0.8,
+                        track_id=1,
+                    )
+                ],
+            )
+        ],
+    )
+
+    merged = merge_predictions_xpkg(
+        archive_path,
+        [
+            PredictionAppendItem(
+                video_index=0,
+                frame_index=0,
+                instances=[
+                    SerializerPredictedInstance(
+                        keypoints=[(13.0, 14.0, 0.9)],
+                        keypoint_scores=[0.9],
+                        score=0.97,
+                        track_id=9,
+                    )
+                ],
+            )
+        ],
+        allow_max_inst_growth=True,
+    )
+
+    payload = read_xpkg(archive_path, lazy=False)
+    frames = np.asarray(payload["predictions"]["frames"]["num_instances"], dtype=np.int32)
+    keypoints = np.asarray(payload["predictions"]["data"]["keypoints"], dtype=np.float32)
+    instance_scores = np.asarray(
+        payload["predictions"]["data"]["instance_score"],
+        dtype=np.float32,
+    )
+    track_ids = np.asarray(payload["predictions"]["data"]["track_id"], dtype=np.int32)
+
+    assert merged == 1
+    assert int(payload["predictions"]["attrs"]["committed_length"]) == 1
+    assert int(frames[0]) == 2
+    assert float(keypoints[0, 0, 0, 0]) == 3.0
+    assert float(keypoints[0, 1, 0, 0]) == 13.0
+    assert float(instance_scores[0, 0]) == pytest.approx(0.8)
+    assert float(instance_scores[0, 1]) == pytest.approx(0.97)
+    assert int(track_ids[0, 0]) == 1
+    assert int(track_ids[0, 1]) == 9
+
+
 def test_read_xpkg_tolerates_missing_manifest_with_path_fallback(tmp_path: Path) -> None:
     from xpkg.compat import read_xpkg, write_xpkg
 
@@ -196,3 +311,77 @@ def test_read_xpkg_tolerates_missing_manifest_with_path_fallback(tmp_path: Path)
     videos_info = payload["metadata"]["videos"]
     assert videos_info["resolved_exists"] == [True]
     assert videos_info["resolved_paths"][0].endswith("frame.png")
+
+
+def test_archive_metadata_field_helpers_roundtrip_mapping_payload(tmp_path: Path) -> None:
+    from xpkg.compat import (
+        load_archive_metadata_field,
+        save_archive_metadata_field,
+        write_xpkg,
+    )
+
+    labels = _make_labels(tmp_path, x=8.0, y=9.0)
+    archive_path = tmp_path / "metadata.xpkg"
+    write_xpkg(archive_path, labels)
+
+    save_archive_metadata_field(
+        archive_path,
+        "session_json",
+        {"active_frame_idx": 7},
+    )
+
+    assert load_archive_metadata_field(archive_path, "session_json") == {"active_frame_idx": 7}
+
+
+def test_summarize_xpkg_uses_committed_prediction_length_when_metadata_count_is_stale(
+    tmp_path: Path,
+) -> None:
+    from xpkg.compat import (
+        PredictionAppendItem,
+        SerializerPredictedInstance,
+        summarize_xpkg,
+        write_xpkg,
+    )
+
+    labels = _make_labels(tmp_path, x=1.0, y=2.0)
+    archive_path = tmp_path / "summary.xpkg"
+    write_xpkg(
+        archive_path,
+        labels,
+        predictions=[
+            PredictionAppendItem(
+                video_index=0,
+                frame_index=0,
+                instances=[
+                    SerializerPredictedInstance(
+                        keypoints=[(3.0, 4.0, 0.5)],
+                        keypoint_scores=[0.5],
+                        score=0.8,
+                        track_id=1,
+                    )
+                ],
+            )
+        ],
+    )
+
+    with h5py.File(archive_path.as_posix(), "r+") as handle:
+        handle["project_metadata"].attrs["n_predictions_committed"] = 0
+
+    summary = summarize_xpkg(archive_path)
+
+    assert summary.prediction_frames == 1
+
+
+def test_video_stub_and_build_prediction_stub_cover_generic_prediction_setup() -> None:
+    from xpkg.model import VideoStub, build_prediction_stub
+
+    video = VideoStub(filename="clip.mp4", frames=4, height=32, width=24)
+    labels = build_prediction_stub(["nose", "tail"], video, skeleton_name="demo-predict")
+
+    assert video.last_frame_idx == 3
+    assert video.image_filenames == []
+    with pytest.raises(RuntimeError, match="metadata-only"):
+        video.get_frame(0)
+    assert labels.videos[0] == video
+    assert labels.skeletons[0].name == "demo-predict"
+    assert [kp.name for kp in labels.keypoints] == ["nose", "tail"]

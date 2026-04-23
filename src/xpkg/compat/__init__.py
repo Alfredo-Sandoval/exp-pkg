@@ -19,10 +19,16 @@ from xpkg.io.archive_io import (
     append_predictions_archive as _append_predictions_archive,
 )
 from xpkg.io.archive_io import (
+    load_archive_metadata_field as _load_archive_metadata_field,
+)
+from xpkg.io.archive_io import (
     merge_predictions_archive as _merge_predictions_archive,
 )
 from xpkg.io.archive_io import (
     read_archive as _read_archive,
+)
+from xpkg.io.archive_io import (
+    save_archive_metadata_field as _save_archive_metadata_field,
 )
 from xpkg.io.archive_io import (
     summarize_archive as _summarize_archive,
@@ -51,6 +57,8 @@ append_predictions_xpkg = _append_predictions_archive
 merge_predictions_xpkg = _merge_predictions_archive
 summarize_xpkg = _summarize_archive
 validate_xpkg = _validate_archive
+load_archive_metadata_field = _load_archive_metadata_field
+save_archive_metadata_field = _save_archive_metadata_field
 
 create_store_from_xpkg = _create_xpkg_store
 open_store = open_archive_store
@@ -63,10 +71,12 @@ __all__ = [
     "SerializerPredictedInstance",
     "append_predictions_xpkg",
     "create_store_from_xpkg",
+    "load_archive_metadata_field",
     "merge_predictions_xpkg",
     "open_store",
     "read_metrics_table",
     "read_xpkg",
+    "save_archive_metadata_field",
     "summarize_xpkg",
     "update_labels_xpkg",
     "validate_xpkg",

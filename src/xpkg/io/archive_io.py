@@ -25,6 +25,7 @@ from xpkg.io.archive_format.metrics_hdf5 import (
 from xpkg.io.archive_format.metrics_hdf5 import (
     write_table as write_metrics_table,
 )
+from xpkg.io.project_metadata import load_archive_metadata_field, save_archive_metadata_field
 
 __all__ = [
     "LazyDatasetHandle",
@@ -32,9 +33,11 @@ __all__ = [
     "PredictionAppendItem",
     "SerializerPredictedInstance",
     "append_predictions_archive",
+    "load_archive_metadata_field",
     "merge_predictions_archive",
     "read_archive",
     "read_metrics_table",
+    "save_archive_metadata_field",
     "summarize_archive",
     "update_labels_archive",
     "validate_archive",

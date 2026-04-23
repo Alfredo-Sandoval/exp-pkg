@@ -23,7 +23,7 @@ def _check_frame_group_consistency(group: dict, group_name: str) -> None:
     arrays = {key: group[key] for key in keys if key in group}
     if not arrays:
         return
-    lengths = {key: int(value.shape[0]) for key, value in arrays.items()}
+    lengths = {key: _row_count(value) for key, value in arrays.items()}
     values = set(lengths.values())
     if len(values) > 1:
         detail = ", ".join(f"{key}={value}" for key, value in lengths.items())
@@ -48,11 +48,10 @@ def _validate_payload(project: dict[str, Any]) -> None:
 
     filenames = list(videos["filenames"])
     shapes = videos["shapes"]
-    if not filenames:
-        raise RuntimeError("Project contains no videos")
-    if shapes is None or shapes.shape is None:
+    shape_tuple = _shape_tuple(shapes)
+    if shape_tuple is None:
         raise RuntimeError("videos group missing shapes dataset")
-    if shapes.shape[0] != len(filenames):
+    if shape_tuple[0] != len(filenames):
         raise RuntimeError("videos.shapes row count does not match filenames length")
 
     labels = project["labels"]
@@ -97,11 +96,47 @@ class ProjectSummary:
             stream.write(f" created: {self.created}  modified: {self.modified}\n")
 
 
-def summarize_project(path: Path) -> ProjectSummary:
-    from xpkg.io.archive_format.reader import read_archive
+def _summary_count(value: Any) -> int | None:
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        return int(value)
+    if isinstance(value, int | float):
+        return int(value)
+    if isinstance(value, str):
+        stripped = value.strip()
+        if not stripped:
+            return None
+        try:
+            return int(stripped)
+        except ValueError:
+            return None
+    return None
 
-    project = read_archive(path, lazy=True)
 
+def _row_count(value: Any) -> int:
+    shape = getattr(value, "shape", None)
+    if shape:
+        return int(shape[0])
+    if isinstance(value, list | tuple):
+        return len(value)
+    return 0
+
+
+def _shape_tuple(value: Any) -> tuple[int, ...] | None:
+    shape = getattr(value, "shape", None)
+    if shape:
+        return tuple(int(dim) for dim in shape)
+    if isinstance(value, list | tuple):
+        if not value:
+            return (0,)
+        if isinstance(value[0], list | tuple):
+            return (len(value), len(value[0]))
+        return (len(value),)
+    return None
+
+
+def summarize_loaded_project(project: dict[str, Any], *, path: Path) -> ProjectSummary:
     videos = _labels_videos_group(project)
     labels = project.get("labels") or {}
     preds = project.get("predictions") or {}
@@ -110,22 +145,20 @@ def summarize_project(path: Path) -> ProjectSummary:
     filenames = list(videos.get("filenames") or [])
     shapes = videos.get("shapes")
 
-    label_frames = 0
+    label_frames = _summary_count(metadata.get("n_labels")) or 0
     frames_grp = labels.get("frames") or {}
-    video_index = frames_grp.get("video_index")
-    if video_index is not None:
-        label_frames = int(video_index.shape[0])
+    if label_frames <= 0:
+        label_frames = _row_count(frames_grp.get("video_index"))
 
-    prediction_frames = 0
+    prediction_frames = _summary_count(metadata.get("n_predictions_committed")) or 0
     preds_frames_grp = preds.get("frames") or {}
-    frame_index = preds_frames_grp.get("frame_index")
-    if frame_index is not None:
-        prediction_frames = int(frame_index.shape[0])
+    if prediction_frames <= 0:
+        prediction_frames = _row_count(preds_frames_grp.get("frame_index"))
 
     return ProjectSummary(
         path=path,
         video_filenames=filenames,
-        video_shapes=tuple(shapes.shape) if shapes is not None and shapes.shape else None,
+        video_shapes=_shape_tuple(shapes),
         label_frames=label_frames,
         prediction_frames=prediction_frames,
         schema_version=metadata.get("schema_version") or metadata.get("version"),
@@ -135,16 +168,28 @@ def summarize_project(path: Path) -> ProjectSummary:
     )
 
 
+def summarize_project(path: Path) -> ProjectSummary:
+    from xpkg.io.archive_format.reader import read_archive
+
+    return summarize_loaded_project(read_archive(path, lazy=True), path=path)
+
+
+def validate_loaded_project(project: dict[str, Any]) -> None:
+    _validate_payload(project)
+
+
 def validate_project(path: Path) -> None:
     from xpkg.io.archive_format.reader import read_archive
 
-    _validate_payload(read_archive(path, lazy=False))
+    validate_loaded_project(read_archive(path, lazy=False))
 
 
 __all__ = [
     "ProjectSummary",
     "_check_frame_group_consistency",
     "_validate_payload",
+    "summarize_loaded_project",
     "summarize_project",
+    "validate_loaded_project",
     "validate_project",
 ]

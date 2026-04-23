@@ -207,7 +207,10 @@ def _make_unconfigured_labels():
     from xpkg.core.skeleton import Skeleton
     from xpkg.model import Labels
 
-    return Labels(skeletons=[Skeleton(name="unconfigured", keypoints=[], links_ids=[])], keypoints=[])
+    return Labels(
+        skeletons=[Skeleton(name="unconfigured", keypoints=[], links_ids=[])],
+        keypoints=[],
+    )
 
 
 def test_init_project_writes_workspace_contract(tmp_path: Path) -> None:
@@ -297,21 +300,37 @@ def test_workspace_metadata_helpers_roundtrip_without_existing_labels(tmp_path: 
 
     labels = _make_labels(tmp_path, x=1.5, y=2.5)
     save_workspace_labels(workspace, labels)
+    manifest_payload = {
+        "entries": [
+            {
+                "id": "archive",
+                "label": "Metadata Project.xpkg",
+                "path": "Metadata Project.xpkg",
+                "asset_type": "predictions",
+                "metadata": {"role": "archive"},
+            }
+        ]
+    }
 
     saved_path = save_workspace_metadata(
         workspace,
-        {"session_json": {"active_frame_idx": 7}},
+        {
+            "manifest_json": manifest_payload,
+            "session_json": {"active_frame_idx": 7},
+        },
         reason="test.metadata",
     )
 
     assert saved_path.is_file()
     assert load_workspace_metadata(workspace) == {
+        "manifest_json": manifest_payload,
         "preferences": {},
         "session_json": {"active_frame_idx": 7},
     }
     payload = load_workspace_payload(workspace)
     assert "labels" in payload
     assert payload["labels"]["frames"]["frame_index"] == [0]
+    assert payload["metadata"]["manifest_json"] == manifest_payload
     assert payload["metadata"]["session_json"]["active_frame_idx"] == 7
     assert payload["labels"]["metadata"]["preferences"] == {}
     assert payload["predictions"]["attrs"]["committed_length"] == 0
@@ -855,3 +874,72 @@ def test_summarize_project_and_validate_project_read_labels_video_group(tmp_path
     assert summary.video_shapes == (1, 4)
     assert summary.label_frames == 1
     assert summary.prediction_frames == 0
+
+
+def test_workspace_metadata_field_helpers_roundtrip_current_head(tmp_path: Path) -> None:
+    from xpkg.formats import (
+        init_project,
+        load_workspace_metadata,
+        load_workspace_metadata_field,
+        save_workspace_labels,
+        save_workspace_metadata_field,
+    )
+
+    workspace = tmp_path / "Field Metadata Project"
+    init_project(workspace, title="Field Metadata Project")
+    save_workspace_labels(workspace, _make_labels(tmp_path, x=1.0, y=2.0))
+
+    saved_path = save_workspace_metadata_field(
+        workspace,
+        "session_json",
+        {"active_frame_idx": 7},
+        reason="test.workspace_metadata_field",
+    )
+
+    assert saved_path.is_file()
+    assert load_workspace_metadata_field(workspace, "session_json") == {"active_frame_idx": 7}
+    assert load_workspace_metadata(workspace)["session_json"] == {"active_frame_idx": 7}
+
+
+def test_inspect_workspace_reports_current_head_summary_and_metadata(tmp_path: Path) -> None:
+    from xpkg.formats import (
+        WorkspaceInspection,
+        init_project,
+        inspect_workspace,
+        save_workspace_labels,
+    )
+    from xpkg.services import WorkspaceService
+
+    workspace = tmp_path / "Inspection Project"
+    training_state = {
+        "schema_version": 1,
+        "latest": {
+            "run_id": "run_1",
+            "created_ns": 1,
+        },
+        "runs": [],
+    }
+
+    init_project(workspace, title="Inspection Project")
+    save_workspace_labels(
+        workspace,
+        _make_labels(tmp_path, x=3.0, y=4.0),
+        metadata={
+            "project_name": "Inspection Project",
+            "training_state_json": training_state,
+        },
+    )
+
+    inspection = inspect_workspace(workspace)
+    service_inspection = WorkspaceService.open(workspace).inspect()
+
+    assert isinstance(inspection, WorkspaceInspection)
+    assert inspection.current_state_path.exists()
+    assert inspection.state_kind == "labels"
+    assert inspection.summary is not None
+    assert inspection.summary.label_frames == 1
+    assert inspection.summary.prediction_frames == 0
+    assert inspection.metadata["project_name"] == "Inspection Project"
+    assert inspection.metadata["training_state_json"] == training_state
+    assert inspection.is_valid is True
+    assert service_inspection == inspection
