@@ -33,6 +33,7 @@ from xpkg.io.project_layout import (
 from xpkg.io.project_workspace import (
     current_project_snapshot_path,
     current_project_state_path,
+    export_project_archive,
     import_detectron2_coco_workspace,
     import_dlc_csv_workspace,
     import_dlc_h5_workspace,
@@ -46,10 +47,15 @@ from xpkg.io.project_workspace import (
     import_vicon_csv_workspace,
     import_vicon_workspace,
     init_project,
+    load_workspace_metadata,
+    load_workspace_payload,
     load_workspace_vicon_recording,
     migrate_legacy_archive,
     save_workspace_labels,
+    save_workspace_metadata,
 )
+
+export_workspace_archive = export_project_archive
 
 __all__ = [
     "EXPKG_SUFFIX",
@@ -66,12 +72,16 @@ __all__ = [
     "workspace_state_root",
     "workspace_store_root",
     "default_expkg_path",
+    "export_workspace_archive",
     "pack_project",
     "unpack_project",
     "validate_workspace",
     "validate_expkg",
     "validate_artifact",
+    "load_workspace_metadata",
+    "load_workspace_payload",
     "save_workspace_labels",
+    "save_workspace_metadata",
     "current_project_state_path",
     "current_project_snapshot_path",
     "load_workspace_vicon_recording",

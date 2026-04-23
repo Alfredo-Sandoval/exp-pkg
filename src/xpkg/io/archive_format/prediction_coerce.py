@@ -11,7 +11,6 @@ import numpy as np
 from xpkg.io.archive_format.predictions_datasets import (
     PredictionAppendItem,
     _instance_keypoint_length,
-    predicted_instance_types,
 )
 from xpkg.io.archive_format.shared import _skeleton_keypoint_count
 from xpkg.io.labels.model import Labels as LabelsModel
@@ -24,11 +23,7 @@ def coerce_predictions_from_labels(labels: LabelsModel) -> list[PredictionAppend
     video_to_index = {v: i for i, v in enumerate(labels.videos)}
 
     for labeled_frame in labels.labeled_frames:
-        predicted_instances = [
-            inst
-            for inst in labeled_frame.instances
-            if isinstance(inst, predicted_instance_types())
-        ]
+        predicted_instances = list(labeled_frame.predicted_instances)
         if not predicted_instances:
             continue
 

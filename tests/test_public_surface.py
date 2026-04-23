@@ -21,6 +21,7 @@ from xpkg.formats import (
     current_project_snapshot_path,
     current_project_state_path,
     default_expkg_path,
+    export_workspace_archive,
     import_detectron2_coco_workspace,
     import_dlc_csv_workspace,
     import_dlc_h5_workspace,
@@ -36,6 +37,8 @@ from xpkg.formats import (
     init_project,
     is_workspace_root,
     load_project_descriptor,
+    load_workspace_metadata,
+    load_workspace_payload,
     load_workspace_vicon_recording,
     migrate_legacy_archive,
     pack_project,
@@ -43,6 +46,7 @@ from xpkg.formats import (
     read_labels_json_payload,
     resolve_workspace_root,
     save_workspace_labels,
+    save_workspace_metadata,
     unpack_project,
     validate_artifact,
     validate_expkg,
@@ -103,6 +107,7 @@ def test_public_exports_are_callable() -> None:
     assert callable(current_project_snapshot_path)
     assert callable(current_project_state_path)
     assert callable(default_expkg_path)
+    assert callable(export_workspace_archive)
     assert callable(import_vicon_c3d_workspace)
     assert callable(import_vicon_csv_workspace)
     assert callable(import_vicon_workspace)
@@ -118,12 +123,15 @@ def test_public_exports_are_callable() -> None:
     assert callable(init_project)
     assert callable(is_workspace_root)
     assert callable(load_project_descriptor)
+    assert callable(load_workspace_metadata)
+    assert callable(load_workspace_payload)
     assert callable(load_workspace_vicon_recording)
     assert callable(migrate_legacy_archive)
     assert callable(pack_project)
     assert callable(project_descriptor_path)
     assert callable(read_labels_json_payload)
     assert callable(resolve_workspace_root)
+    assert callable(save_workspace_metadata)
     assert callable(save_workspace_labels)
     assert callable(unpack_project)
     assert callable(validate_artifact)
@@ -202,9 +210,13 @@ def test_formats_surface_is_workspace_first_only() -> None:
     assert "current_project_archive_path" not in xpkg.formats.__all__
     assert "import_legacy_archive" not in xpkg.formats.__all__
     assert "pack_project" in xpkg.formats.__all__
+    assert "export_workspace_archive" in xpkg.formats.__all__
     assert "import_dlc_project_workspace" in xpkg.formats.__all__
+    assert "load_workspace_payload" in xpkg.formats.__all__
+    assert "load_workspace_metadata" in xpkg.formats.__all__
     assert "import_vicon_workspace" in xpkg.formats.__all__
     assert "migrate_legacy_archive" in xpkg.formats.__all__
+    assert "save_workspace_metadata" in xpkg.formats.__all__
 
     with pytest.raises(AttributeError):
         xpkg.formats.__getattribute__("read_archive")

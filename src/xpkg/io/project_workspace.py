@@ -10,6 +10,8 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+import numpy as np
+
 from xpkg.codecs.vicon import (
     read_vicon_json_payload,
     vicon_recording_from_json_payload,
@@ -72,6 +74,37 @@ def export_project_archive(
     """Materialize a compatibility `.xpkg` archive from the committed workspace head."""
 
     return _workspace_store(path).export_archive(out=out)
+
+
+def load_workspace_payload(path: str | Path) -> dict[str, Any]:
+    """Return the current committed workspace payload on the public bundle surface."""
+    root = resolve_workspace_root(path)
+    if root is None:
+        raise FileNotFoundError(f"Not an xpkg workspace: {path}")
+    state = _current_workspace_state_payload(root)
+    if state is None:
+        return {"metadata": {}}
+    payload, source_kind = state
+    if source_kind == "archive":
+        return payload
+
+    metadata = _snapshot_metadata_from_state_payload(payload) or {}
+    if source_kind == "snapshot_labels":
+        with tempfile.TemporaryDirectory(
+            prefix=".workspace_payload_",
+            dir=str(_stage_archive_parent(root)),
+        ) as tmp_dir:
+            archive_path = Path(tmp_dir) / f"current{CANONICAL_ARCHIVE_SUFFIX}"
+            exported_archive = export_project_archive(root, out=archive_path)
+            public_payload = read_archive(exported_archive, lazy=False)
+        public_payload["metadata"] = metadata
+        return public_payload
+    if source_kind == "snapshot_vicon":
+        return {
+            "recording": deepcopy(payload),
+            "metadata": metadata,
+        }
+    raise ValueError(f"Unsupported workspace state source: {source_kind!r}")
 
 
 def current_project_snapshot_path(path: str | Path) -> Path:
@@ -368,6 +401,167 @@ def _predictions_payload_from_state_payload(
     if not isinstance(raw_predictions, dict):
         return None
     return normalize_predictions_payload(raw_predictions)
+
+
+def _predictions_committed_length(predictions: dict[str, Any] | None) -> int:
+    normalized = normalize_predictions_payload(predictions)
+    attrs = normalized.get("attrs")
+    if not isinstance(attrs, dict):
+        return 0
+    return int(attrs.get("committed_length", 0) or 0)
+
+
+def _label_track_ids_array(
+    data_info: dict[str, Any],
+    *,
+    row_count: int,
+    max_instances: int,
+) -> np.ndarray:
+    raw_track_ids = data_info.get("track_ids")
+    if raw_track_ids is None:
+        raw_track_ids = data_info.get("track_id")
+    if raw_track_ids is None:
+        return np.full((row_count, max_instances), -1, dtype=np.int32)
+    return np.asarray(raw_track_ids, dtype=np.int32)
+
+
+def _prediction_instance_signatures(
+    predictions_payload: dict[str, Any] | None,
+) -> dict[tuple[int, int], list[tuple[np.ndarray, int]]]:
+    if _predictions_committed_length(predictions_payload) <= 0:
+        return {}
+    assert predictions_payload is not None
+
+    frames = predictions_payload.get("frames")
+    data = predictions_payload.get("data")
+    if not isinstance(frames, dict) or not isinstance(data, dict):
+        raise TypeError("Predictions payload must contain frames/data mappings")
+
+    frame_index = np.asarray(frames.get("frame_index", []), dtype=np.int32)
+    video_index = np.asarray(frames.get("video_index", []), dtype=np.int32)
+    num_instances = np.asarray(frames.get("num_instances", []), dtype=np.int32)
+    keypoints = np.asarray(data.get("keypoints", []), dtype=np.float32)
+    max_instances = keypoints.shape[1] if keypoints.ndim >= 2 else 0
+    track_ids = _label_track_ids_array(
+        data,
+        row_count=keypoints.shape[0] if keypoints.ndim >= 1 else 0,
+        max_instances=max_instances,
+    )
+
+    row_count = min(
+        frame_index.shape[0],
+        video_index.shape[0],
+        num_instances.shape[0],
+        keypoints.shape[0] if keypoints.ndim >= 1 else 0,
+    )
+    grouped: dict[tuple[int, int], list[tuple[np.ndarray, int]]] = {}
+    for row in range(row_count):
+        key = (int(video_index[row]), int(frame_index[row]))
+        row_signatures = grouped.setdefault(key, [])
+        inst_count = min(int(num_instances[row]), max_instances)
+        for inst_idx in range(inst_count):
+            row_signatures.append(
+                (
+                    np.asarray(keypoints[row, inst_idx], dtype=np.float32),
+                    int(track_ids[row, inst_idx]),
+                )
+            )
+    return grouped
+
+
+def _strip_prediction_instances_from_snapshot_payload(
+    snapshot_payload: dict[str, Any],
+) -> dict[str, Any]:
+    stripped_payload = deepcopy(snapshot_payload)
+    predictions_payload = _predictions_payload_from_state_payload(snapshot_payload)
+    prediction_map = _prediction_instance_signatures(predictions_payload)
+    if not prediction_map:
+        return stripped_payload
+
+    frames_info = stripped_payload.get("frames")
+    data_info = stripped_payload.get("data")
+    if not isinstance(frames_info, dict) or not isinstance(data_info, dict):
+        raise TypeError("Workspace snapshot labels payload must contain frames/data mappings")
+
+    frame_index = np.asarray(frames_info.get("frame_index", []), dtype=np.int32)
+    video_index = np.asarray(frames_info.get("video_index", []), dtype=np.int32)
+    num_instances = np.asarray(frames_info.get("num_instances", []), dtype=np.int32)
+    keypoints = np.asarray(data_info.get("keypoints", []), dtype=np.float32)
+    flags = np.asarray(data_info.get("flags", []), dtype=np.uint8)
+    max_instances = keypoints.shape[1] if keypoints.ndim >= 2 else 1
+    keypoint_count = keypoints.shape[2] if keypoints.ndim >= 3 else 0
+    track_ids = _label_track_ids_array(
+        data_info,
+        row_count=keypoints.shape[0] if keypoints.ndim >= 1 else 0,
+        max_instances=max_instances,
+    )
+
+    row_count = min(
+        frame_index.shape[0],
+        video_index.shape[0],
+        num_instances.shape[0],
+        keypoints.shape[0] if keypoints.ndim >= 1 else 0,
+    )
+    kept_rows: list[tuple[int, list[int]]] = []
+    for row in range(row_count):
+        key = (int(video_index[row]), int(frame_index[row]))
+        predicted_signatures = prediction_map.get(key)
+        inst_count = min(int(num_instances[row]), max_instances)
+        if not predicted_signatures:
+            kept_rows.append((row, list(range(inst_count))))
+            continue
+
+        matched_indices: set[int] = set()
+        for predicted_points, predicted_track_id in predicted_signatures:
+            matched_idx: int | None = None
+            for inst_idx in range(inst_count):
+                if inst_idx in matched_indices:
+                    continue
+                if int(track_ids[row, inst_idx]) != predicted_track_id:
+                    continue
+                if np.allclose(keypoints[row, inst_idx], predicted_points, equal_nan=True):
+                    matched_idx = inst_idx
+                    break
+            if matched_idx is None:
+                raise ValueError(
+                    "Workspace snapshot labels/predictions are inconsistent for "
+                    f"video_index={key[0]}, frame_index={key[1]}"
+                )
+            matched_indices.add(matched_idx)
+
+        kept_indices = [inst_idx for inst_idx in range(inst_count) if inst_idx not in matched_indices]
+        if kept_indices:
+            kept_rows.append((row, kept_indices))
+
+    kept_row_count = len(kept_rows)
+    kept_max_instances = max((len(indices) for _, indices in kept_rows), default=max(max_instances, 1))
+    kept_video_index = np.zeros((kept_row_count,), dtype=np.int32)
+    kept_frame_index = np.zeros((kept_row_count,), dtype=np.int32)
+    kept_num_instances = np.zeros((kept_row_count,), dtype=np.int32)
+    kept_keypoints = np.full(
+        (kept_row_count, kept_max_instances, keypoint_count, 3),
+        np.nan,
+        dtype=np.float32,
+    )
+    kept_flags = np.zeros((kept_row_count, kept_max_instances, keypoint_count), dtype=np.uint8)
+    kept_track_ids = np.full((kept_row_count, kept_max_instances), -1, dtype=np.int32)
+
+    for out_row, (src_row, kept_indices) in enumerate(kept_rows):
+        kept_video_index[out_row] = int(video_index[src_row])
+        kept_frame_index[out_row] = int(frame_index[src_row])
+        kept_num_instances[out_row] = len(kept_indices)
+        for out_inst, src_inst in enumerate(kept_indices):
+            kept_keypoints[out_row, out_inst] = keypoints[src_row, src_inst]
+            kept_flags[out_row, out_inst] = flags[src_row, src_inst]
+            kept_track_ids[out_row, out_inst] = track_ids[src_row, src_inst]
+
+    frames_info["video_index"] = kept_video_index.tolist()
+    frames_info["frame_index"] = kept_frame_index.tolist()
+    frames_info["num_instances"] = kept_num_instances.tolist()
+    data_info["keypoints"] = kept_keypoints.tolist()
+    data_info["flags"] = kept_flags.tolist()
+    data_info["track_ids"] = kept_track_ids.tolist()
+    return stripped_payload
 
 
 def _normalized_workspace_metadata(
@@ -1053,7 +1247,8 @@ def _export_workspace_archive_from_snapshot(
     from xpkg.io.labels.json_format import labels_from_json_payload
 
     snapshot_payload = read_workspace_snapshot(committed_snapshot_path)
-    hydrated_payload = deepcopy(snapshot_payload)
+    labels_payload = _strip_prediction_instances_from_snapshot_payload(snapshot_payload)
+    hydrated_payload = deepcopy(labels_payload)
     rebase_workspace_payload_videos(hydrated_payload, workspace_root)
     labels = labels_from_json_payload(hydrated_payload)
 
@@ -1872,12 +2067,14 @@ def save_workspace_labels(
         state_metadata = _snapshot_metadata_from_state_payload(snapshot_payload)
         predictions = _predictions_payload_from_state_payload(snapshot_payload)
 
+    candidate_predictions = predictions_payload_from_labels(labels)
     if regenerate_predictions:
-        predictions = predictions_payload_from_labels(labels)
-    elif predictions is None:
-        candidate_predictions = predictions_payload_from_labels(labels)
-        if int(candidate_predictions["attrs"]["committed_length"]) > 0:
-            predictions = candidate_predictions
+        predictions = candidate_predictions
+    elif (
+        _predictions_committed_length(predictions) <= 0
+        and _predictions_committed_length(candidate_predictions) > 0
+    ):
+        predictions = candidate_predictions
 
     state_path = _commit_labels_to_workspace(
         root,
@@ -1887,6 +2084,60 @@ def save_workspace_labels(
         reason="workspace.save",
     )
     _touch_descriptor(root)
+    labels.path = root
+    return state_path
+
+
+def load_workspace_metadata(path: str | Path) -> dict[str, Any] | None:
+    """Return the current committed workspace metadata mapping."""
+    payload = load_workspace_payload(path)
+    metadata = payload.get("metadata")
+    if metadata is None:
+        return None
+    if not isinstance(metadata, dict):
+        raise TypeError("workspace metadata must be a mapping")
+    return dict(metadata)
+
+
+def save_workspace_metadata(
+    path: str | Path,
+    metadata: dict[str, Any],
+    *,
+    reason: str,
+) -> Path:
+    """Commit metadata to the current workspace head without changing labels."""
+    root = resolve_workspace_root(path)
+    if root is None:
+        raise FileNotFoundError(f"Not an xpkg workspace: {path}")
+    metadata_copy = _clone_metadata(metadata)
+    state = _current_workspace_state_payload(root)
+    if state is None:
+        raise FileNotFoundError(f"Workspace has no committed state: {root}")
+
+    payload, source_kind = state
+    if source_kind == "snapshot_vicon":
+        recording = vicon_recording_from_json_payload(payload, source_root=root)
+        return _commit_vicon_to_workspace(
+            root,
+            recording=recording,
+            metadata=metadata_copy,
+            reason=reason,
+        )
+
+    from xpkg.model import Labels
+
+    labels = Labels.load_file(root.as_posix())
+    _existing_metadata, predictions = _workspace_state_components(
+        payload,
+        source_kind=source_kind,
+    )
+    state_path = _commit_labels_to_workspace(
+        root,
+        labels=labels,
+        metadata=metadata_copy,
+        predictions=predictions,
+        reason=reason,
+    )
     labels.path = root
     return state_path
 
@@ -1918,10 +2169,13 @@ __all__ = [
     "current_project_state_path",
     "init_project",
     "load_workspace_vicon_recording",
+    "load_workspace_metadata",
+    "load_workspace_payload",
     "load_project_descriptor",
     "migrate_legacy_archive",
     "resolve_workspace_root",
     "rebase_workspace_payload_videos",
+    "save_workspace_metadata",
     "save_workspace_labels",
     "validate_workspace",
     "workspace_exports_root",

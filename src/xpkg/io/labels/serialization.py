@@ -76,6 +76,8 @@ def _as_array(
         arr = arr.reshape(1)
 
     if fallback_shape is not None and arr.shape != fallback_shape:
+        if arr.size == 0 and np.prod(fallback_shape, dtype=np.int64) == 0:
+            return np.zeros(fallback_shape, dtype=dtype)
         raise ValueError(
             f"Field '{name}' shape {arr.shape} does not match expected {fallback_shape}"
         )
@@ -255,8 +257,20 @@ def _track_lookup_from_payload(payload: dict[str, Any]) -> dict[int, Track]:
     return track_lookup
 
 
-def _normalize_keypoints_array(raw_keypoints: Any) -> np.ndarray:
+def _normalize_keypoints_array(
+    raw_keypoints: Any,
+    *,
+    frame_count: int,
+    max_instances: int,
+    keypoint_count: int,
+) -> np.ndarray:
     keypoints_arr = _as_array(raw_keypoints, dtype=np.float32)
+    if keypoints_arr.size == 0:
+        return np.full(
+            (int(frame_count), int(max_instances), int(keypoint_count), 3),
+            np.nan,
+            dtype=np.float32,
+        )
     if keypoints_arr.ndim == 3:
         keypoints_arr = keypoints_arr[:, np.newaxis, :, :]
     elif keypoints_arr.ndim == 2:
@@ -401,6 +415,8 @@ def _parse_shapes(videos_info: dict[str, Any]) -> np.ndarray:
         if shapes_raw is not None
         else np.zeros((0, 4), dtype=np.int32)
     )
+    if shapes_arr.size == 0:
+        return np.zeros((0, 4), dtype=np.int32)
     if shapes_raw is not None and (shapes_arr.ndim != 2 or shapes_arr.shape[1] < 4):
         raise ValueError(
             "videos.shapes must be 2D with at least 4 columns (frames,height,width,channels)"
@@ -812,7 +828,16 @@ def labels_from_archive_payload(
     if raw_keypoints is None:
         raise ValueError("data.keypoints missing from native archive payload")
 
-    keypoints_arr = _normalize_keypoints_array(raw_keypoints)
+    frame_count = int(frame_index.shape[0])
+    max_instances = int(num_instances.max()) if num_instances.size else 1
+    max_instances = max(max_instances, 1)
+    keypoint_count = len(list(skeleton_info.get("names") or []))
+    keypoints_arr = _normalize_keypoints_array(
+        raw_keypoints,
+        frame_count=frame_count,
+        max_instances=max_instances,
+        keypoint_count=keypoint_count,
+    )
     skeleton, keypoints = _build_skeleton(skeleton_info, keypoints_arr)
     flags_arr, track_ids_arr, visibility_arr = _load_label_data_arrays(
         data_info,
@@ -863,11 +888,12 @@ def labels_from_archive_payload(
     session = payload.get("session") or {}
 
     suggestions = load_suggestions(suggestions_payload, videos)
+    has_explicit_skeleton = bool(skeleton_info)
 
     labels_obj = cls(
         labeled_frames=labeled_frames,
         videos=videos,
-        skeletons=[skeleton] if keypoints else [],
+        skeletons=[skeleton] if keypoints or has_explicit_skeleton else [],
         keypoints=list(keypoints),
         suggestions=suggestions,
         provenance=provenance,

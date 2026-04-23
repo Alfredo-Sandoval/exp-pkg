@@ -9,6 +9,73 @@ import numpy as np
 import pytest
 
 
+class _ForeignTrack:
+    def __init__(self, track_id: int) -> None:
+        self.spawned_on = int(track_id)
+
+    @property
+    def id(self) -> int:
+        return int(self.spawned_on)
+
+
+class _ForeignPredictedInstance:
+    def __init__(
+        self,
+        *,
+        x: float,
+        y: float,
+        point_score: float,
+        instance_score: float,
+        track_id: int,
+    ) -> None:
+        self.score = float(instance_score)
+        self.track = _ForeignTrack(track_id)
+        self._points = np.array(
+            [(x, y, True, True, point_score, 0)],
+            dtype=[
+                ("x", "f4"),
+                ("y", "f4"),
+                ("visible", "?"),
+                ("complete", "?"),
+                ("score", "f4"),
+                ("flags", "u1"),
+            ],
+        )
+
+    def get_points_array(self, *, copy: bool, full: bool) -> np.ndarray:
+        assert full
+        return self._points.copy() if copy else self._points
+
+
+class _ForeignFrame:
+    def __init__(
+        self,
+        *,
+        video: object,
+        frame_idx: int,
+        predicted_instances: list[_ForeignPredictedInstance],
+        heatmaps: np.ndarray | None = None,
+    ) -> None:
+        self.video = video
+        self.frame_idx = int(frame_idx)
+        self.instances: list[object] = []
+        self.predicted_instances = list(predicted_instances)
+        self.heatmaps = heatmaps
+
+
+class _ForeignSkeleton:
+    def __init__(self) -> None:
+        self.keypoints = ["nose"]
+
+
+class _ForeignLabels:
+    def __init__(self, *, videos: list[object], labeled_frames: list[_ForeignFrame]) -> None:
+        self.videos = list(videos)
+        self.labeled_frames = list(labeled_frames)
+        self.skeletons = [_ForeignSkeleton()]
+        self.skeleton = self.skeletons[0]
+
+
 def _video_writer_fourcc(code: str) -> int:
     fourcc_fn = getattr(cv2, "VideoWriter_fourcc", None)
     if not callable(fourcc_fn):
@@ -97,6 +164,52 @@ def _make_media_labels(video_path: Path, *, x: float, y: float):
     return labels
 
 
+def _make_predicted_labels(
+    tmp_path: Path,
+    *,
+    x: float,
+    y: float,
+    point_score: float = 0.9,
+    instance_score: float = 0.97,
+    track_id: int = 7,
+    heatmaps: np.ndarray | None = None,
+):
+    from xpkg.core.annotations import LabeledFrame, PredictedInstance, PredictedPoint, Track
+    from xpkg.model import Labels, build_keypoint_skeleton
+
+    _, video = _make_single_frame_video(tmp_path)
+    skeleton = build_keypoint_skeleton(["nose"], name="mouse")
+    frame = LabeledFrame(video=video, frame_idx=0)
+    frame.heatmaps = heatmaps
+    frame.instances = [
+        PredictedInstance(
+            skeleton=skeleton,
+            frame=frame,
+            track=Track(spawned_on=track_id, name=f"track-{track_id}"),
+            init_points={
+                "nose": PredictedPoint(
+                    x,
+                    y,
+                    visible=True,
+                    complete=True,
+                    score=point_score,
+                )
+            },
+            score=instance_score,
+        )
+    ]
+    labels = Labels(labeled_frames=[frame], videos=[video], skeletons=[skeleton])
+    labels.validate()
+    return labels
+
+
+def _make_unconfigured_labels():
+    from xpkg.core.skeleton import Skeleton
+    from xpkg.model import Labels
+
+    return Labels(skeletons=[Skeleton(name="unconfigured", keypoints=[], links_ids=[])], keypoints=[])
+
+
 def test_init_project_writes_workspace_contract(tmp_path: Path) -> None:
     from xpkg.formats import (
         current_project_state_path,
@@ -165,6 +278,118 @@ def test_migrate_legacy_archive_creates_workspace_and_workspace_loads(tmp_path: 
             resolved = Path(str(frame_path))
             assert _is_within(resolved, media_root)
             assert resolved.exists()
+
+
+def test_workspace_metadata_helpers_roundtrip_without_existing_labels(tmp_path: Path) -> None:
+    from xpkg.formats import (
+        init_project,
+        load_workspace_metadata,
+        load_workspace_payload,
+        save_workspace_labels,
+        save_workspace_metadata,
+    )
+
+    workspace = tmp_path / "Metadata Project"
+    init_project(workspace, title="Metadata Project")
+
+    assert load_workspace_payload(workspace) == {"metadata": {}}
+    assert load_workspace_metadata(workspace) == {}
+
+    labels = _make_labels(tmp_path, x=1.5, y=2.5)
+    save_workspace_labels(workspace, labels)
+
+    saved_path = save_workspace_metadata(
+        workspace,
+        {"session_json": {"active_frame_idx": 7}},
+        reason="test.metadata",
+    )
+
+    assert saved_path.is_file()
+    assert load_workspace_metadata(workspace) == {
+        "preferences": {},
+        "session_json": {"active_frame_idx": 7},
+    }
+    payload = load_workspace_payload(workspace)
+    assert "labels" in payload
+    assert payload["labels"]["frames"]["frame_index"] == [0]
+    assert payload["metadata"]["session_json"]["active_frame_idx"] == 7
+    assert payload["labels"]["metadata"]["preferences"] == {}
+    assert payload["predictions"]["attrs"]["committed_length"] == 0
+    resolved_path = Path(payload["labels"]["videos"]["resolved_paths"][0])
+    assert resolved_path.is_absolute()
+    assert resolved_path.exists()
+
+
+def test_export_workspace_archive_matches_public_workspace_contract(tmp_path: Path) -> None:
+    from xpkg.formats import export_workspace_archive, init_project, save_workspace_labels
+
+    workspace = tmp_path / "Archive Project"
+    init_project(workspace, title="Archive Project")
+    labels = _make_labels(tmp_path, x=1.0, y=2.0)
+    save_workspace_labels(workspace, labels)
+
+    archive = export_workspace_archive(workspace)
+
+    assert archive.is_file()
+    assert archive.suffix == ".xpkg"
+
+
+def test_empty_placeholder_workspace_loads_and_exports(tmp_path: Path) -> None:
+    from xpkg.formats import (
+        export_workspace_archive,
+        init_project,
+        load_workspace_payload,
+        save_workspace_labels,
+    )
+    from xpkg.model import Labels
+
+    workspace = tmp_path / "Placeholder Project"
+    init_project(workspace, title="Placeholder Project")
+    save_workspace_labels(
+        workspace,
+        _make_unconfigured_labels(),
+        metadata={"project_name": "Placeholder Project"},
+    )
+
+    loaded = Labels.load_file(workspace.as_posix())
+    assert loaded.labeled_frames == []
+    assert len(loaded.skeletons) == 1
+    assert loaded.skeletons[0].name == "unconfigured"
+
+    payload = load_workspace_payload(workspace)
+    assert "labels" in payload
+    assert np.asarray(payload["labels"]["data"]["keypoints"], dtype=np.float32).size == 0
+    assert payload["predictions"]["attrs"]["committed_length"] == 0
+
+    archive = export_workspace_archive(workspace)
+    assert archive.is_file()
+    assert archive.suffix == ".xpkg"
+
+
+def test_load_workspace_payload_keeps_predictions_out_of_labels_bundle(tmp_path: Path) -> None:
+    from xpkg.formats import init_project, load_workspace_payload
+    from xpkg.model import Labels
+
+    workspace = tmp_path / "Prediction Project"
+    init_project(workspace, title="Prediction Project")
+    labels = _make_predicted_labels(
+        tmp_path,
+        x=10.0,
+        y=20.0,
+        track_id=7,
+        heatmaps=np.ones((1, 2, 2), dtype=np.float32),
+    )
+    Labels.save_file(labels, workspace.as_posix())
+
+    payload = load_workspace_payload(workspace)
+    label_frames = np.asarray(payload["labels"]["frames"]["frame_index"], dtype=np.int32)
+    label_track_ids = np.asarray(payload["labels"]["data"]["track_id"], dtype=np.int32)
+    prediction_track_ids = np.asarray(payload["predictions"]["data"]["track_id"], dtype=np.int32)
+
+    assert label_frames.size == 0
+    assert label_track_ids.size == 0
+    assert int(payload["predictions"]["attrs"]["committed_length"]) == 1
+    assert int(prediction_track_ids[0, 0]) == 7
 
 
 def test_migrate_legacy_archive_rewrites_stale_project_metadata_paths(tmp_path: Path) -> None:
@@ -460,6 +685,71 @@ def test_labels_save_file_to_workspace_preserves_predictions(tmp_path: Path) -> 
     assert float(label_keypoints[0, 0, 0, 1]) == 22.0
     assert float(prediction_scores[0, 0, 0]) == pytest.approx(0.9)
     assert int(prediction_track_ids[0, 0]) == 4
+
+
+def test_labels_save_file_to_workspace_seeds_predictions_from_labels_when_current_is_empty(
+    tmp_path: Path,
+) -> None:
+    from xpkg.formats import current_project_snapshot_path, init_project
+    from xpkg.io.workspace_snapshot_backend import read_workspace_snapshot_payload
+    from xpkg.model import Labels
+
+    source_root = tmp_path / "source"
+    source_root.mkdir()
+    labels_without_predictions = _make_labels(source_root, x=1.0, y=2.0)
+    labels_with_predictions = _make_predicted_labels(
+        source_root,
+        x=13.0,
+        y=14.0,
+        track_id=7,
+    )
+    workspace = tmp_path / "Workspace Save"
+
+    init_project(workspace, title="Workspace Save")
+    Labels.save_file(labels_without_predictions, workspace.as_posix())
+    Labels.save_file(labels_with_predictions, workspace.as_posix())
+    payload = read_workspace_snapshot_payload(current_project_snapshot_path(workspace))
+
+    assert int(payload["predictions"]["attrs"]["committed_length"]) == 1
+    prediction_track_ids = np.asarray(payload["predictions"]["data"]["track_id"], dtype=np.int32)
+    assert int(prediction_track_ids[0, 0]) == 7
+
+
+def test_predictions_payload_from_labels_uses_frame_predicted_instances_view() -> None:
+    from xpkg.io.workspace_snapshot_backend import predictions_payload_from_labels
+
+    video = object()
+    predicted = _ForeignPredictedInstance(
+        x=10.0,
+        y=20.0,
+        point_score=0.9,
+        instance_score=0.97,
+        track_id=9,
+    )
+    labels = _ForeignLabels(
+        videos=[video],
+        labeled_frames=[
+            _ForeignFrame(
+                video=video,
+                frame_idx=3,
+                predicted_instances=[predicted],
+                heatmaps=np.ones((1, 2, 2), dtype=np.float32),
+            )
+        ],
+    )
+
+    payload = predictions_payload_from_labels(labels)
+    frame_index = np.asarray(payload["frames"]["frame_index"], dtype=np.int32)
+    track_ids = np.asarray(payload["data"]["track_id"], dtype=np.int32)
+    keypoints = np.asarray(payload["data"]["keypoints"], dtype=np.float32)
+    heatmaps = np.asarray(payload["data"]["heatmaps"], dtype=np.float16)
+
+    assert int(payload["attrs"]["committed_length"]) == 1
+    assert int(frame_index[0]) == 3
+    assert int(track_ids[0, 0]) == 9
+    assert float(keypoints[0, 0, 0, 0]) == pytest.approx(10.0)
+    assert float(keypoints[0, 0, 0, 1]) == pytest.approx(20.0)
+    assert heatmaps.shape == (1, 1, 2, 2)
 
 
 def test_workspace_load_rebuilds_tampered_snapshot_cache_when_commit_id_matches_head(
