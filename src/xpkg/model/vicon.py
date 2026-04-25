@@ -24,6 +24,19 @@ def _tuple_str(items: Sequence[str]) -> tuple[str, ...]:
     return tuple(str(item) for item in items)
 
 
+def _normalize_event_type(label: str) -> str:
+    normalized = str(label).strip().lower().replace("-", "_").replace(" ", "_")
+    slug = "".join(ch for ch in normalized if ch.isalnum() or ch == "_").strip("_")
+    return slug or "event"
+
+
+def _normalize_event_side(context: str) -> str | None:
+    normalized = str(context).strip().lower()
+    if normalized in {"left", "right"}:
+        return normalized
+    return None
+
+
 def _coerce_path(value: str | Path | None) -> Path | None:
     if value is None:
         return None
@@ -220,6 +233,77 @@ class ViconCamera:
     def label(self) -> str:
         return f"Cam {self.user_id}"
 
+    def forward_vector(self, *, length: float = 100.0) -> np.ndarray:
+        """Return the camera optical axis in world coordinates.
+
+        XCP stores the orientation quaternion as world-to-camera, so this
+        rotates the local +Z axis by the conjugate to recover the world-space
+        viewing direction.
+        """
+
+        x, y, z, w = np.asarray(self.orientation, dtype=np.float64)
+        x, y, z = -x, -y, -z
+        forward = np.array(
+            [
+                2.0 * (x * z + w * y),
+                2.0 * (y * z - w * x),
+                1.0 - 2.0 * (x * x + y * y),
+            ],
+            dtype=np.float64,
+        )
+        norm = float(np.linalg.norm(forward))
+        if norm > 0.0:
+            forward /= norm
+        return forward * float(length)
+
+
+@dataclass(frozen=True, slots=True)
+class ViconEvent:
+    """A single raw event parsed from C3D ``EVENT`` metadata."""
+
+    context: str
+    label: str
+    frame: int
+    source_frame: int
+    time_seconds: float
+    event_type: str
+    side: str | None = None
+    subject_label: str | None = None
+
+    def __post_init__(self) -> None:
+        context = str(self.context).strip()
+        label = str(self.label).strip()
+        frame = int(self.frame)
+        source_frame = int(self.source_frame)
+        time_seconds = float(self.time_seconds)
+        event_type = _normalize_event_type(str(self.event_type).strip() or label)
+        side = self.side
+        subject_label = self.subject_label
+
+        if not context:
+            raise ValueError("event.context cannot be empty.")
+        if not label:
+            raise ValueError("event.label cannot be empty.")
+        if frame < 0:
+            raise ValueError(f"event.frame must be >= 0, got {frame}.")
+        if source_frame < 0:
+            raise ValueError(f"event.source_frame must be >= 0, got {source_frame}.")
+        if side is not None:
+            side = _normalize_event_side(side)
+            if side is None:
+                raise ValueError("event.side must be 'left', 'right', or None.")
+        if subject_label is not None:
+            subject_label = str(subject_label).strip() or None
+
+        object.__setattr__(self, "context", context)
+        object.__setattr__(self, "label", label)
+        object.__setattr__(self, "frame", frame)
+        object.__setattr__(self, "source_frame", source_frame)
+        object.__setattr__(self, "time_seconds", time_seconds)
+        object.__setattr__(self, "event_type", event_type)
+        object.__setattr__(self, "side", side)
+        object.__setattr__(self, "subject_label", subject_label)
+
 
 @dataclass(frozen=True, slots=True)
 class ViconMarkerModel:
@@ -268,6 +352,7 @@ class ViconRecording:
     positions: np.ndarray  # (frames, markers, 3) float64
     marker_valid: np.ndarray  # (frames, markers) bool
     frame_offset: int
+    events: tuple[ViconEvent, ...] = ()
     analog: ViconAnalogData | None = None
     additional_points: ViconAdditionalPointData | None = None
     cameras: tuple[ViconCamera, ...] = ()
@@ -283,6 +368,7 @@ class ViconRecording:
         source_marker_labels = _tuple_str(self.source_marker_labels)
         positions = _float_array(self.positions, name="recording.positions")
         marker_valid = _bool_array(self.marker_valid, name="recording.marker_valid")
+        events = tuple(self.events)
         cameras = tuple(self.cameras)
         xcp_path = _coerce_path(self.xcp_path)
         vsk_path = _coerce_path(self.vsk_path)
@@ -311,6 +397,22 @@ class ViconRecording:
                 "recording.source_marker_labels length does not match positions.shape[1]: "
                 f"{len(source_marker_labels)} vs {positions.shape[1]}."
             )
+        if events and source_type != "c3d":
+            raise ValueError("recording.events are only supported for 'c3d' source_type.")
+        for event in events:
+            if not isinstance(event, ViconEvent):
+                raise TypeError(f"recording.events must contain ViconEvent items, got {event!r}.")
+            if event.frame >= positions.shape[0]:
+                raise ValueError(
+                    "recording.event frame falls outside recording frame range: "
+                    f"{event.frame} vs {positions.shape[0]} frames."
+                )
+            expected_source_frame = int(self.frame_offset) + int(event.frame)
+            if event.source_frame != expected_source_frame:
+                raise ValueError(
+                    "recording.event source_frame must equal frame_offset + frame: "
+                    f"{event.source_frame} vs {expected_source_frame}."
+                )
         if (
             self.additional_points is not None
             and self.additional_points.n_frames != positions.shape[0]
@@ -347,6 +449,7 @@ class ViconRecording:
         object.__setattr__(self, "positions", positions)
         object.__setattr__(self, "marker_valid", marker_valid)
         object.__setattr__(self, "frame_offset", int(self.frame_offset))
+        object.__setattr__(self, "events", events)
         object.__setattr__(self, "cameras", cameras)
         object.__setattr__(self, "xcp_path", xcp_path)
         object.__setattr__(self, "vsk_path", vsk_path)
@@ -376,8 +479,20 @@ class ViconRecording:
         return self.additional_points is not None and self.additional_points.n_points > 0
 
     @property
+    def has_events(self) -> bool:
+        return bool(self.events)
+
+    @property
     def has_cameras(self) -> bool:
         return bool(self.cameras)
+
+    @property
+    def gait_events(self) -> tuple[ViconEvent, ...]:
+        return tuple(
+            event
+            for event in self.events
+            if event.side is not None and event.event_type in {"foot_strike", "foot_off"}
+        )
 
     def marker_index(self, name: str) -> int:
         return _lookup_unique_index(
@@ -391,6 +506,7 @@ __all__ = [
     "ViconAdditionalPointData",
     "ViconAnalogData",
     "ViconCamera",
+    "ViconEvent",
     "ViconMarkerModel",
     "ViconRecording",
 ]

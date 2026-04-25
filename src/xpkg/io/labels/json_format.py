@@ -99,9 +99,9 @@ def _instance_point_payload(
 
 
 def _frame_data_payload(labels: Labels) -> tuple[dict[str, Any], dict[str, Any]]:
-    rows = _sorted_labeled_frames(labels)
+    rows = [frame for frame in _sorted_labeled_frames(labels) if frame.user_instances]
     keypoint_count = len(labels.skeleton.keypoints)
-    max_instances = max((len(frame.instances) for frame in rows), default=1)
+    max_instances = max((len(frame.user_instances) for frame in rows), default=1)
     row_count = len(rows)
     video_lookup = {video: idx for idx, video in enumerate(labels.videos)}
 
@@ -113,10 +113,11 @@ def _frame_data_payload(labels: Labels) -> tuple[dict[str, Any], dict[str, Any]]
     track_ids = np.full((row_count, max_instances), -1, dtype=np.int32)
 
     for row_idx, labeled_frame in enumerate(rows):
+        user_instances = labeled_frame.user_instances
         video_index[row_idx] = int(video_lookup[labeled_frame.video])
         frame_index[row_idx] = int(labeled_frame.frame_idx)
-        num_instances[row_idx] = int(len(labeled_frame.instances))
-        for inst_idx, instance in enumerate(labeled_frame.instances):
+        num_instances[row_idx] = int(len(user_instances))
+        for inst_idx, instance in enumerate(user_instances):
             coords, point_flags = _instance_point_payload(instance, keypoint_count)
             keypoints[row_idx, inst_idx] = coords
             flags[row_idx, inst_idx] = point_flags

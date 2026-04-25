@@ -18,6 +18,7 @@ from xpkg.formats.project import (
     ProjectDescriptor,
     WorkspaceInspection,
     current_project_state_path,
+    export_workspace_archive,
     import_detectron2_coco_workspace,
     import_dlc_csv_workspace,
     import_dlc_h5_workspace,
@@ -33,11 +34,14 @@ from xpkg.formats.project import (
     init_project,
     inspect_workspace,
     load_project_descriptor,
+    load_workspace_metadata,
+    load_workspace_payload,
     load_workspace_vicon_recording,
     pack_project,
     project_descriptor_path,
     resolve_workspace_root,
     save_workspace_labels,
+    save_workspace_metadata,
     unpack_project,
     validate_workspace,
     workspace_exports_root,
@@ -444,6 +448,27 @@ class WorkspaceService:
         """Load the current workspace Vicon recording."""
         return load_workspace_vicon_recording(self.workspace_root)
 
+    def load_metadata(self) -> dict[str, Any] | None:
+        """Load the current workspace metadata payload."""
+        return load_workspace_metadata(self.workspace_root)
+
+    def load_payload(self) -> dict[str, Any]:
+        """Load the current workspace payload with workspace-relative media rebased."""
+        return load_workspace_payload(self.workspace_root)
+
+    def save_metadata(
+        self,
+        metadata: dict[str, Any] | None,
+        *,
+        reason: str = "workspace.save.metadata",
+    ) -> Path:
+        """Commit metadata onto the current workspace head."""
+        return save_workspace_metadata(
+            self.workspace_root,
+            metadata,
+            reason=reason,
+        )
+
     def save_labels(
         self,
         labels: Labels,
@@ -475,6 +500,14 @@ class WorkspaceService:
             mode=mode,
             overwrite=overwrite,
         )
+
+    def export_archive(
+        self,
+        *,
+        out: str | Path | None = None,
+    ) -> Path:
+        """Materialize the current workspace head as a compatibility `.xpkg` archive."""
+        return export_workspace_archive(self.workspace_root, out=out)
 
 
 __all__ = ["WorkspaceService", "WorkspaceImports", "WorkspaceLayout", "WorkspaceInspection"]

@@ -10,7 +10,10 @@ import numpy as np
 
 from xpkg.core.json_utils import parse_json_dict, write_json
 from xpkg.core.path_registry import ensure_dir, resolve_path
-from xpkg.io.archive_format.prediction_coerce import coerce_predictions_from_labels
+from xpkg.io.archive_format.prediction_coerce import (
+    PredictionLabelsView,
+    coerce_predictions_from_labels,
+)
 from xpkg.io.labels.json_format import (
     XPKG_LABELS_JSON_FORMAT,
     XPKG_LABELS_JSON_VERSION,
@@ -398,9 +401,11 @@ def _prediction_payload_from_items(
     )
 
 
-def predictions_payload_from_labels(labels: Labels) -> dict[str, Any]:
+def predictions_payload_from_labels(labels: PredictionLabelsView) -> dict[str, Any]:
     prediction_items = coerce_predictions_from_labels(labels)
-    keypoint_count = len(labels.skeleton.keypoints) if labels.skeletons else 0
+    skeletons = getattr(labels, "skeletons", ())
+    skeleton = getattr(labels, "skeleton", None)
+    keypoint_count = len(skeleton.keypoints) if skeletons and skeleton is not None else 0
     return _prediction_payload_from_items(prediction_items, keypoint_count=keypoint_count)
 
 

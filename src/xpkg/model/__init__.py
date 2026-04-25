@@ -36,6 +36,7 @@ from xpkg.model.vicon import (
     ViconAdditionalPointData,
     ViconAnalogData,
     ViconCamera,
+    ViconEvent,
     ViconMarkerModel,
     ViconRecording,
 )
@@ -65,6 +66,7 @@ __all__ = [
     "ViconAdditionalPointData",
     "ViconAnalogData",
     "ViconCamera",
+    "ViconEvent",
     "ViconMarkerModel",
     "ViconRecording",
     "build_prediction_stub",

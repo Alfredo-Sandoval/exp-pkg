@@ -3,9 +3,11 @@
 This module defines the stable workspace/project boundary. New integrations
 should prefer ``WorkspaceService`` and ``WorkspaceService.imports`` for the
 normal lifecycle and ingestion flow, with ``import_*_workspace(...)`` kept
-public for explicit function-level callers. The only retained legacy bridge on
-this surface is ``migrate_legacy_archive(...)`` for cutting older ``.xpkg``
-archives over to the workspace contract.
+public for explicit function-level callers. ``export_workspace_archive(...)``
+is the explicit compatibility helper for callers that still need a materialized
+``.xpkg`` archive from the current workspace head, and the only retained legacy
+bridge on this surface is ``migrate_legacy_archive(...)`` for cutting older
+``.xpkg`` archives over to the workspace contract.
 """
 
 from __future__ import annotations

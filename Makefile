@@ -47,10 +47,19 @@ build:
 	$(RUN_IN_ENV) env UV_CACHE_DIR="$${UV_CACHE_DIR:-/tmp/uv-cache}" uv build --out-dir dist --clear
 
 package-check:
-	@tmpdir="$$(mktemp -d)"; \
+	@set -eu; \
+	tmpdir="$$(mktemp -d)"; \
+	trap 'rm -rf "$$tmpdir"' EXIT; \
 	$(RUN_IN_ENV) env UV_CACHE_DIR="$${UV_CACHE_DIR:-/tmp/uv-cache}" uv build --out-dir "$$tmpdir" --clear; \
 	$(RUN_IN_ENV) python -m twine check "$$tmpdir"/*; \
-	rm -rf "$$tmpdir"
+	wheel="$$(find "$$tmpdir" -maxdepth 1 -type f -name '*.whl' -print -quit)"; \
+	test -n "$$wheel"; \
+	venv="$$tmpdir/install-smoke-venv"; \
+	$(RUN_IN_ENV) python -m venv "$$venv"; \
+	"$$venv/bin/python" -m pip install --upgrade pip; \
+	"$$venv/bin/python" -m pip install "$$wheel"; \
+	"$$venv/bin/xpkg" --help >/dev/null; \
+	"$$venv/bin/python" -c "from xpkg.services import WorkspaceService; assert WorkspaceService"
 
 docs-build:
 	$(RUN_IN_ENV) python -m mkdocs build --strict

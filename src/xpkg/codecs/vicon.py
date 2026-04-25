@@ -14,12 +14,13 @@ from xpkg.model.vicon import (
     ViconAdditionalPointData,
     ViconAnalogData,
     ViconCamera,
+    ViconEvent,
     ViconMarkerModel,
     ViconRecording,
 )
 
 XPKG_VICON_JSON_FORMAT = "xpkg.vicon-recording-json"
-XPKG_VICON_JSON_VERSION = "1.0.0"
+XPKG_VICON_JSON_VERSION = "1.1.0"
 
 
 def _serialize_path(path: str | Path | None, *, source_root: Path | None = None) -> str | None:
@@ -109,6 +110,36 @@ def _camera_from_payload(payload: Any) -> ViconCamera:
         image_error=float(payload.get("image_error", 0.0)),
         world_error=float(payload.get("world_error", 0.0)),
         sensor_size=(sensor_width, sensor_height),
+    )
+
+
+def _event_to_payload(event: ViconEvent) -> dict[str, Any]:
+    return {
+        "context": event.context,
+        "label": event.label,
+        "frame": int(event.frame),
+        "source_frame": int(event.source_frame),
+        "time_seconds": float(event.time_seconds),
+        "event_type": event.event_type,
+        "side": event.side,
+        "subject_label": event.subject_label,
+    }
+
+
+def _event_from_payload(payload: Any) -> ViconEvent:
+    if not isinstance(payload, dict):
+        raise TypeError("event payload must be a mapping.")
+    raw_side = payload.get("side")
+    raw_subject = payload.get("subject_label")
+    return ViconEvent(
+        context=str(payload.get("context", "")),
+        label=str(payload.get("label", "")),
+        frame=int(payload.get("frame", 0)),
+        source_frame=int(payload.get("source_frame", 0)),
+        time_seconds=float(payload.get("time_seconds", 0.0)),
+        event_type=str(payload.get("event_type", "")),
+        side=None if raw_side is None else str(raw_side),
+        subject_label=None if raw_subject is None else str(raw_subject),
     )
 
 
@@ -202,6 +233,7 @@ def vicon_recording_to_json_payload(
         "source_marker_labels": list(recording.source_marker_labels),
         "positions": _encode_array(recording.positions),
         "marker_valid": _encode_array(recording.marker_valid),
+        "events": [_event_to_payload(event) for event in recording.events],
         "analog": _analog_to_payload(recording.analog),
         "additional_points": _additional_points_to_payload(recording.additional_points),
         "cameras": [_camera_to_payload(camera) for camera in recording.cameras],
@@ -256,6 +288,7 @@ def vicon_recording_from_json_payload(
 
     payload = _coerce_vicon_json_payload(document_or_payload)
     raw_cameras = payload.get("cameras") or []
+    raw_events = payload.get("events") or []
     return ViconRecording(
         path=_deserialize_path(payload.get("path"), source_root=source_root)
         or Path("recording"),
@@ -268,6 +301,7 @@ def vicon_recording_from_json_payload(
         positions=_decode_array(payload.get("positions"), name="positions"),
         marker_valid=_decode_array(payload.get("marker_valid"), name="marker_valid"),
         frame_offset=int(payload.get("frame_offset", 0)),
+        events=tuple(_event_from_payload(item) for item in raw_events),
         analog=_analog_from_payload(payload.get("analog")),
         additional_points=_additional_points_from_payload(payload.get("additional_points")),
         cameras=tuple(_camera_from_payload(item) for item in raw_cameras),

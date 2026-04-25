@@ -38,6 +38,10 @@ Run the broader local CI pass:
 make ci-local
 ```
 
+`make package-check` builds the sdist and wheel, runs `twine check`, installs
+the built wheel into a temporary fresh venv, and smoke-tests `xpkg --help` plus
+`from xpkg.services import WorkspaceService`.
+
 `ci-local` runs:
 
 - lint

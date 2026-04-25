@@ -76,7 +76,7 @@ def _as_array(
         arr = arr.reshape(1)
 
     if fallback_shape is not None and arr.shape != fallback_shape:
-        if arr.size == 0 and np.prod(fallback_shape, dtype=np.int64) == 0:
+        if arr.size == 0 and int(np.prod(fallback_shape, dtype=np.int64)) == 0:
             return np.zeros(fallback_shape, dtype=dtype)
         raise ValueError(
             f"Field '{name}' shape {arr.shape} does not match expected {fallback_shape}"
@@ -410,6 +410,12 @@ def _load_label_data_arrays(
 
 def _parse_shapes(videos_info: dict[str, Any]) -> np.ndarray:
     shapes_raw = _materialize(videos_info.get("shapes"))
+    if (
+        isinstance(shapes_raw, Sequence)
+        and not isinstance(shapes_raw, bytes | bytearray | str)
+        and len(shapes_raw) == 0
+    ):
+        return np.zeros((0, 4), dtype=np.int32)
     shapes_arr = (
         np.asarray(shapes_raw, dtype=np.int32)
         if shapes_raw is not None
@@ -827,6 +833,15 @@ def labels_from_archive_payload(
     raw_keypoints = _materialize(data_info.get("keypoints"))
     if raw_keypoints is None:
         raise ValueError("data.keypoints missing from native archive payload")
+    if (
+        isinstance(raw_keypoints, Sequence)
+        and not isinstance(raw_keypoints, bytes | bytearray | str)
+        and len(raw_keypoints) == 0
+    ):
+        raw_keypoints = np.empty(
+            (0, 1, len(list(skeleton_info.get("names") or [])), 3),
+            dtype=np.float32,
+        )
 
     frame_count = int(frame_index.shape[0])
     max_instances = int(num_instances.max()) if num_instances.size else 1

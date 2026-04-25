@@ -1,9 +1,36 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 import c3d
 import numpy as np
+
+
+def _set_c3d_string_array(group: Any, name: str, values: list[str]) -> None:
+    width = max(len(value) for value in values)
+    payload = "".join(value.ljust(width) for value in values)
+    group.set_str(name, f"{name.title()} values.", payload, width, len(values))
+
+
+def _add_sample_event_group(writer: c3d.Writer) -> None:
+    event_group = writer.add_group(8, "EVENT", "Event metadata")
+    event_group.set("USED", "Number of event entries.", 2, "<h", 3)
+    _set_c3d_string_array(event_group, "CONTEXTS", ["Left", "General", "Right"])
+    _set_c3d_string_array(event_group, "LABELS", ["Foot Strike", "Start", "Foot Off"])
+    _set_c3d_string_array(event_group, "SUBJECTS", ["Subject-1", "", "Subject-2"])
+    event_group.set_array(
+        "TIMES",
+        "Event times in seconds.",
+        np.array(
+            [
+                [0.0, 0.11],
+                [0.0, 0.11],
+                [0.0, 0.12],
+            ],
+            dtype=np.float32,
+        ),
+    )
 
 
 def write_sample_vicon_csv(path: Path) -> None:
@@ -111,5 +138,6 @@ def write_sample_vicon_c3d(path: Path) -> None:
         frame[0, 0] = points
         frame[0, 1] = analog
         writer.add_frames(frame)
+    _add_sample_event_group(writer)
     with path.open("wb") as handle:
         writer.write(handle)

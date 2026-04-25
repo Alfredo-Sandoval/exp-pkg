@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from typing import Any
+from typing import Any, Protocol
 
 import h5py
 import numpy as np
@@ -13,10 +13,17 @@ from xpkg.io.archive_format.predictions_datasets import (
     _instance_keypoint_length,
 )
 from xpkg.io.archive_format.shared import _skeleton_keypoint_count
-from xpkg.io.labels.model import Labels as LabelsModel
 
 
-def coerce_predictions_from_labels(labels: LabelsModel) -> list[PredictionAppendItem]:
+class PredictionLabelsView(Protocol):
+    @property
+    def videos(self) -> Sequence[object]: ...
+
+    @property
+    def labeled_frames(self) -> Sequence[Any]: ...
+
+
+def coerce_predictions_from_labels(labels: PredictionLabelsView) -> list[PredictionAppendItem]:
     """Extract predictions from a Labels object into a linear list."""
     items: list[PredictionAppendItem] = []
 

@@ -31,6 +31,7 @@ def test_read_vicon_csv_preserves_marker_labels_gaps_and_sidecars(tmp_path: Path
     assert recording.positions.shape == (2, 3, 3)
     assert recording.marker_valid.tolist() == [[True, True, True], [True, True, False]]
     assert np.isnan(recording.positions[1, 2]).all()
+    assert not recording.has_events
     assert recording.model is not None
     assert recording.model.source == "vsk"
     assert recording.vsk_path == csv_path.with_suffix(".vsk")
@@ -39,7 +40,7 @@ def test_read_vicon_csv_preserves_marker_labels_gaps_and_sidecars(tmp_path: Path
     assert recording.xcp_path == csv_path.with_suffix(".xcp")
 
 
-def test_read_vicon_c3d_preserves_analog_and_additional_points(tmp_path: Path) -> None:
+def test_read_vicon_c3d_preserves_events_analog_and_additional_points(tmp_path: Path) -> None:
     from xpkg.io.readers import read_vicon_c3d
 
     c3d_path = tmp_path / "trial.c3d"
@@ -57,6 +58,22 @@ def test_read_vicon_c3d_preserves_analog_and_additional_points(tmp_path: Path) -
     assert recording.positions.shape == (2, 2, 3)
     assert recording.marker_valid.tolist() == [[True, True], [True, False]]
     assert np.isnan(recording.positions[1, 1]).all()
+    assert recording.has_events
+    assert [(event.context, event.label, event.frame) for event in recording.events] == [
+        ("Left", "Foot Strike", 0),
+        ("General", "Start", 0),
+        ("Right", "Foot Off", 1),
+    ]
+    assert [
+        (event.side, event.event_type, event.source_frame)
+        for event in recording.gait_events
+    ] == [
+        ("left", "foot_strike", 11),
+        ("right", "foot_off", 12),
+    ]
+    assert recording.events[0].subject_label == "Subject-1"
+    assert recording.events[1].subject_label is None
+    assert recording.events[2].subject_label == "Subject-2"
     assert recording.has_analog
     assert recording.analog is not None
     assert recording.analog.channel_names == ("Fx", "Fy", "Fz")
@@ -135,3 +152,25 @@ def test_vicon_lookup_requires_namespaced_query_when_suffix_is_ambiguous() -> No
         recording.marker_index("LASI")
     with pytest.raises(KeyError, match="ambiguous"):
         recording.analog.channel_index("Fz")
+
+
+def test_vicon_camera_forward_vector_uses_orientation_and_length() -> None:
+    from xpkg.model import ViconCamera
+
+    camera = ViconCamera(
+        device_id=1,
+        user_id=7,
+        sensor="Bonita",
+        position=np.array([0.0, 0.0, 0.0], dtype=np.float64),
+        orientation=np.array([0.0, 0.0, 0.0, 1.0], dtype=np.float64),
+        focal_length=1200.0,
+        image_error=0.0,
+        world_error=0.0,
+        sensor_size=(2048, 2048),
+    )
+
+    np.testing.assert_allclose(camera.forward_vector(), np.array([0.0, 0.0, 100.0]))
+    np.testing.assert_allclose(
+        camera.forward_vector(length=25.0),
+        np.array([0.0, 0.0, 25.0]),
+    )

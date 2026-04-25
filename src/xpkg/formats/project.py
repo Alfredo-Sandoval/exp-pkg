@@ -3,7 +3,9 @@
 These free functions stay public for integrations that want an explicit
 function-level API. New code should usually drive lifecycle and ingestion
 through ``WorkspaceService`` and ``WorkspaceService.imports`` rather than build
-around archive-first helpers.
+around archive-first helpers. ``export_workspace_archive(...)`` remains public
+only for compatibility consumers that still need a materialized ``.xpkg``
+archive from the current workspace head.
 """
 
 from __future__ import annotations

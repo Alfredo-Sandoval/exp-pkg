@@ -15,6 +15,7 @@ from xpkg.model.vicon import (
     ViconAdditionalPointData,
     ViconAnalogData,
     ViconCamera,
+    ViconEvent,
     ViconMarkerModel,
     ViconRecording,
 )
@@ -224,6 +225,23 @@ def _slugify(value: str) -> str:
 def _fallback_label(raw_label: str, *, prefix: str, ordinal: int) -> str:
     label = str(raw_label).strip()
     return label if label else f"{prefix}_{ordinal}"
+
+
+def _normalize_event_strings(values: Sequence[object]) -> tuple[str, ...]:
+    return tuple(str(value).strip() for value in values)
+
+
+def _event_type_from_label(label: str) -> str:
+    normalized = str(label).strip().lower().replace("-", "_").replace(" ", "_")
+    slug = "".join(ch for ch in normalized if ch.isalnum() or ch == "_").strip("_")
+    return slug or "event"
+
+
+def _event_side_from_context(context: str) -> str | None:
+    normalized = str(context).strip().lower()
+    if normalized in {"left", "right"}:
+        return normalized
+    return None
 
 
 def _match_known_model(marker_names: Sequence[str]) -> ViconMarkerModel | None:
@@ -527,6 +545,117 @@ def _read_analog_labels(reader: Any) -> tuple[str, ...]:
     )
 
 
+def _c3d_event_group(reader: Any) -> Any | None:
+    try:
+        return reader.get("EVENT")
+    except KeyError:
+        return None
+
+
+def _c3d_event_string_values(group: Any, key: str, *, used: int) -> tuple[str, ...]:
+    param = group.get(key)
+    if param is None:
+        raise ValueError(f"C3D EVENT group is missing {key}.")
+    values = np.asarray(param.string_array, dtype=object).reshape(-1)
+    return _normalize_event_strings(tuple(values[:used]))
+
+
+def _c3d_event_time_seconds(group: Any, *, used: int) -> np.ndarray:
+    param = group.get("TIMES")
+    if param is None:
+        raise ValueError("C3D EVENT group is missing TIMES.")
+    values = np.asarray(param.float_array, dtype=np.float64)
+    if values.ndim != 2:
+        raise ValueError(
+            "Expected EVENT:TIMES to be a 2D array with frame/time pairs, "
+            f"got {values.shape}."
+        )
+    if values.size != used * 2:
+        raise ValueError(
+            "Expected EVENT:TIMES to encode exactly two values per event, "
+            f"got shape {values.shape} for used={used}."
+        )
+    paired_values = values.reshape(-1).reshape(used, 2)
+    if paired_values.shape != (used, 2):
+        raise ValueError(
+            "Expected EVENT:TIMES to reshape to (n_events, 2), "
+            f"got {paired_values.shape} from {values.shape}."
+        )
+    return paired_values[:, 1]
+
+
+def _c3d_event_subject_labels(group: Any, *, used: int) -> tuple[str | None, ...]:
+    param = group.get("SUBJECTS")
+    if param is None:
+        return (None,) * used
+    values = np.asarray(param.string_array, dtype=object).reshape(-1)
+    normalized = _normalize_event_strings(tuple(values[:used]))
+    return tuple(value or None for value in normalized)
+
+
+def _read_c3d_events(
+    reader: Any,
+    *,
+    fps: int,
+    frame_offset: int,
+    n_frames: int,
+    path: Path,
+) -> tuple[ViconEvent, ...]:
+    group = _c3d_event_group(reader)
+    if group is None:
+        return ()
+
+    used_param = group.get("USED")
+    if used_param is None:
+        raise ValueError(f"Recording {path} has an EVENT group without EVENT:USED.")
+    used = int(used_param.int16_value)
+    if used < 0:
+        raise ValueError(f"Recording {path} has invalid EVENT:USED={used}.")
+    if used == 0:
+        return ()
+
+    contexts = _c3d_event_string_values(group, "CONTEXTS", used=used)
+    labels = _c3d_event_string_values(group, "LABELS", used=used)
+    times_seconds = _c3d_event_time_seconds(group, used=used)
+    subject_labels = _c3d_event_subject_labels(group, used=used)
+    if not (len(contexts) == len(labels) == len(times_seconds) == len(subject_labels) == used):
+        raise ValueError(
+            "C3D EVENT arrays are inconsistent: "
+            f"used={used}, contexts={len(contexts)}, labels={len(labels)}, "
+            f"times={len(times_seconds)}, subjects={len(subject_labels)}."
+        )
+
+    last_source_frame = frame_offset + n_frames - 1
+    events: list[ViconEvent] = []
+    for context, label, time_seconds, subject_label in zip(
+        contexts,
+        labels,
+        times_seconds,
+        subject_labels,
+        strict=True,
+    ):
+        source_frame = int(round(float(time_seconds) * float(fps)))
+        frame = source_frame - frame_offset
+        if frame < 0 or frame >= n_frames:
+            raise ValueError(
+                f"Event {context!r} / {label!r} at source_frame={source_frame} falls outside "
+                f"recording frame range {frame_offset}..{last_source_frame}."
+            )
+        events.append(
+            ViconEvent(
+                context=context,
+                label=label,
+                frame=frame,
+                source_frame=source_frame,
+                time_seconds=float(time_seconds),
+                event_type=_event_type_from_label(label),
+                side=_event_side_from_context(context),
+                subject_label=subject_label,
+            )
+        )
+    return tuple(events)
+
+
 def read_vicon_csv(path: str | Path) -> ViconRecording:
     """Read a Vicon Nexus CSV trajectory export."""
 
@@ -662,6 +791,8 @@ def read_vicon_c3d(path: str | Path) -> ViconRecording:
     if not positions_by_frame:
         raise ValueError(f"No point frames parsed from {path}.")
 
+    frame_offset_value = 0 if frame_offset is None else frame_offset
+    fps = int(round(float(reader.header.frame_rate)))
     positions = np.stack(positions_by_frame, axis=0)
     marker_valid = np.stack(valid_by_frame, axis=0)
     analog_data = None
@@ -678,17 +809,25 @@ def read_vicon_c3d(path: str | Path) -> ViconRecording:
             labels=additional_labels,
             values=np.stack(additional_by_frame, axis=0),
         )
+    events = _read_c3d_events(
+        reader,
+        fps=fps,
+        frame_offset=frame_offset_value,
+        n_frames=positions.shape[0],
+        path=path,
+    )
 
     cameras, xcp_path = _associated_cameras(path)
     return ViconRecording(
         path=path,
         source_type="c3d",
-        fps=int(round(float(reader.header.frame_rate))),
+        fps=fps,
         marker_names=marker_names,
         source_marker_labels=source_marker_labels,
         positions=positions,
         marker_valid=marker_valid,
-        frame_offset=0 if frame_offset is None else frame_offset,
+        frame_offset=frame_offset_value,
+        events=events,
         analog=analog_data,
         additional_points=additional_points,
         cameras=cameras,
@@ -714,6 +853,7 @@ __all__ = [
     "ViconAdditionalPointData",
     "ViconAnalogData",
     "ViconCamera",
+    "ViconEvent",
     "ViconMarkerModel",
     "ViconRecording",
     "canonical_marker_label",

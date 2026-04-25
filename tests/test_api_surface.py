@@ -12,6 +12,7 @@ def test_xpkg_api_exposes_workspace_first_contract() -> None:
         "PoseTrack",
         "VideoStub",
         "ViconRecording",
+        "ViconEvent",
         "WorkspaceImports",
         "WorkspaceInspection",
         "WorkspaceLayout",
@@ -20,6 +21,7 @@ def test_xpkg_api_exposes_workspace_first_contract() -> None:
         "current_project_snapshot_path",
         "current_project_state_path",
         "default_expkg_path",
+        "export_workspace_archive",
         "import_vicon_c3d_workspace",
         "import_vicon_csv_workspace",
         "import_vicon_workspace",
@@ -37,7 +39,9 @@ def test_xpkg_api_exposes_workspace_first_contract() -> None:
         "labels_numpy",
         "labels_to_dataframe",
         "labels_to_json_payload",
+        "load_workspace_metadata",
         "load_workspace_metadata_field",
+        "load_workspace_payload",
         "load_workspace_vicon_recording",
         "migrate_legacy_archive",
         "pack_project",
@@ -48,6 +52,7 @@ def test_xpkg_api_exposes_workspace_first_contract() -> None:
         "read_vicon_recording",
         "read_vicon_json_payload",
         "resolve_pose_node_indices",
+        "save_workspace_metadata",
         "save_workspace_labels",
         "save_workspace_metadata_field",
         "unpack_project",
@@ -70,6 +75,7 @@ def test_xpkg_api_exposes_workspace_first_contract() -> None:
     assert api.ProjectDescriptor.__name__ == "ProjectDescriptor"
     assert api.PoseTrack.__name__ == "PoseTrack"
     assert api.VideoStub.__name__ == "VideoStub"
+    assert api.ViconEvent.__name__ == "ViconEvent"
     assert api.ViconRecording.__name__ == "ViconRecording"
     assert api.WorkspaceImports.__name__ == "WorkspaceImports"
     assert api.WorkspaceInspection.__name__ == "WorkspaceInspection"
@@ -80,7 +86,9 @@ def test_xpkg_api_exposes_workspace_first_contract() -> None:
     assert callable(api.labels_numpy)
     assert callable(api.labels_to_dataframe)
     assert callable(api.labels_to_json_payload)
+    assert callable(api.load_workspace_metadata)
     assert callable(api.load_workspace_metadata_field)
+    assert callable(api.load_workspace_payload)
     assert callable(api.load_workspace_vicon_recording)
     assert callable(api.read_pose_node_names)
     assert callable(api.read_pose_track)
@@ -90,6 +98,7 @@ def test_xpkg_api_exposes_workspace_first_contract() -> None:
     assert callable(api.read_vicon_json_payload)
     assert callable(api.resolve_pose_node_indices)
     assert callable(api.migrate_legacy_archive)
+    assert callable(api.save_workspace_metadata)
     assert callable(api.save_workspace_metadata_field)
     assert callable(api.vicon_recording_from_json_payload)
     assert callable(api.vicon_recording_to_json_payload)

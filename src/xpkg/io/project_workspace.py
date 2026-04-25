@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import shutil
 import tempfile
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from copy import deepcopy
 from dataclasses import dataclass, replace
 from pathlib import Path
@@ -86,6 +86,7 @@ def load_workspace_payload(path: str | Path) -> dict[str, Any]:
         return {"metadata": {}}
     payload, source_kind = state
     if source_kind == "archive":
+        rebase_workspace_payload_videos(payload, root)
         return payload
 
     metadata = _snapshot_metadata_from_state_payload(payload) or {}
@@ -97,6 +98,7 @@ def load_workspace_payload(path: str | Path) -> dict[str, Any]:
             archive_path = Path(tmp_dir) / f"current{CANONICAL_ARCHIVE_SUFFIX}"
             exported_archive = export_project_archive(root, out=archive_path)
             public_payload = read_archive(exported_archive, lazy=False)
+        rebase_workspace_payload_videos(public_payload, root)
         public_payload["metadata"] = metadata
         return public_payload
     if source_kind == "snapshot_vicon":
@@ -529,12 +531,17 @@ def _strip_prediction_instances_from_snapshot_payload(
                 )
             matched_indices.add(matched_idx)
 
-        kept_indices = [inst_idx for inst_idx in range(inst_count) if inst_idx not in matched_indices]
+        kept_indices = [
+            inst_idx for inst_idx in range(inst_count) if inst_idx not in matched_indices
+        ]
         if kept_indices:
             kept_rows.append((row, kept_indices))
 
     kept_row_count = len(kept_rows)
-    kept_max_instances = max((len(indices) for _, indices in kept_rows), default=max(max_instances, 1))
+    kept_max_instances = max(
+        (len(indices) for _, indices in kept_rows),
+        default=max(max_instances, 1),
+    )
     kept_video_index = np.zeros((kept_row_count,), dtype=np.int32)
     kept_frame_index = np.zeros((kept_row_count,), dtype=np.int32)
     kept_num_instances = np.zeros((kept_row_count,), dtype=np.int32)
@@ -1034,6 +1041,81 @@ def load_workspace_vicon_recording(workspace: str | Path) -> ViconRecording:
         read_workspace_state_document(state_path),
         source_root=root,
     )
+
+
+def load_workspace_metadata(workspace: str | Path) -> dict[str, Any]:
+    """Return the current workspace metadata payload from the managed head."""
+
+    root = resolve_workspace_root(workspace)
+    if root is None:
+        raise FileNotFoundError(f"Not an xpkg workspace: {workspace}")
+
+    current_state = _current_workspace_state_payload(root)
+    if current_state is None:
+        return {}
+
+    state_payload, source_kind = current_state
+    metadata, _predictions = _workspace_state_components(
+        state_payload,
+        source_kind=source_kind,
+    )
+    return _clone_metadata(metadata)
+
+
+def save_workspace_metadata(
+    workspace: str | Path,
+    metadata: Mapping[str, Any] | None,
+    *,
+    reason: str = "workspace.save.metadata",
+) -> Path:
+    """Commit updated metadata onto the current workspace head."""
+
+    root = resolve_workspace_root(workspace)
+    if root is None:
+        raise FileNotFoundError(f"Not an xpkg workspace: {workspace}")
+
+    descriptor = load_project_descriptor(root)
+    descriptor.validate()
+    ensure_dir(workspace_store_root(root))
+    ensure_dir(workspace_media_root(root))
+    ensure_dir(workspace_exports_root(root))
+
+    current_state = _current_workspace_state_payload(root)
+    if current_state is None:
+        raise FileNotFoundError(f"Workspace has no committed state: {root}")
+
+    normalized_metadata = rewrite_workspace_metadata_paths(
+        None if metadata is None else dict(metadata),
+        workspace_root=root,
+    )
+    state_payload, source_kind = current_state
+    if source_kind == "snapshot_vicon":
+        state_path = _commit_vicon_to_workspace(
+            root,
+            recording=load_workspace_vicon_recording(root),
+            metadata=normalized_metadata,
+            reason=reason,
+        )
+        _touch_descriptor(root)
+        return state_path
+
+    from xpkg.model import Labels
+
+    labels = Labels.load_file(root.as_posix())
+    _state_metadata, predictions = _workspace_state_components(
+        state_payload,
+        source_kind=source_kind,
+    )
+    state_path = _commit_labels_to_workspace(
+        root,
+        labels=labels,
+        metadata=normalized_metadata,
+        predictions=predictions,
+        reason=reason,
+    )
+    _touch_descriptor(root)
+    labels.path = root
+    return state_path
 
 
 def _is_within(path: Path, parent: Path) -> bool:
@@ -2088,60 +2170,6 @@ def save_workspace_labels(
     return state_path
 
 
-def load_workspace_metadata(path: str | Path) -> dict[str, Any] | None:
-    """Return the current committed workspace metadata mapping."""
-    payload = load_workspace_payload(path)
-    metadata = payload.get("metadata")
-    if metadata is None:
-        return None
-    if not isinstance(metadata, dict):
-        raise TypeError("workspace metadata must be a mapping")
-    return dict(metadata)
-
-
-def save_workspace_metadata(
-    path: str | Path,
-    metadata: dict[str, Any],
-    *,
-    reason: str,
-) -> Path:
-    """Commit metadata to the current workspace head without changing labels."""
-    root = resolve_workspace_root(path)
-    if root is None:
-        raise FileNotFoundError(f"Not an xpkg workspace: {path}")
-    metadata_copy = _clone_metadata(metadata)
-    state = _current_workspace_state_payload(root)
-    if state is None:
-        raise FileNotFoundError(f"Workspace has no committed state: {root}")
-
-    payload, source_kind = state
-    if source_kind == "snapshot_vicon":
-        recording = vicon_recording_from_json_payload(payload, source_root=root)
-        return _commit_vicon_to_workspace(
-            root,
-            recording=recording,
-            metadata=metadata_copy,
-            reason=reason,
-        )
-
-    from xpkg.model import Labels
-
-    labels = Labels.load_file(root.as_posix())
-    _existing_metadata, predictions = _workspace_state_components(
-        payload,
-        source_kind=source_kind,
-    )
-    state_path = _commit_labels_to_workspace(
-        root,
-        labels=labels,
-        metadata=metadata_copy,
-        predictions=predictions,
-        reason=reason,
-    )
-    labels.path = root
-    return state_path
-
-
 __all__ = [
     "CANONICAL_ARCHIVE_SUFFIX",
     "CURRENT_ARCHIVE_FILENAME",
@@ -2168,9 +2196,9 @@ __all__ = [
     "current_project_snapshot_path",
     "current_project_state_path",
     "init_project",
-    "load_workspace_vicon_recording",
     "load_workspace_metadata",
     "load_workspace_payload",
+    "load_workspace_vicon_recording",
     "load_project_descriptor",
     "migrate_legacy_archive",
     "resolve_workspace_root",

@@ -45,6 +45,11 @@ def test_import_vicon_workspace_roundtrips_through_workspace_and_expkg(tmp_path:
     assert recording.xcp_path is not None and recording.xcp_path.is_file()
     assert recording.vsk_path is not None and recording.vsk_path.is_file()
     assert recording.marker_names == ("center", "R_foot")
+    assert [event.label for event in recording.events] == ["Foot Strike", "Start", "Foot Off"]
+    assert [event.event_type for event in recording.gait_events] == [
+        "foot_strike",
+        "foot_off",
+    ]
     assert recording.additional_points is not None
     assert recording.analog is not None
 
@@ -56,6 +61,7 @@ def test_import_vicon_workspace_roundtrips_through_workspace_and_expkg(tmp_path:
     assert restored.source_type == recording.source_type
     assert restored.frame_offset == recording.frame_offset
     assert restored.source_marker_labels == recording.source_marker_labels
+    assert restored.events == recording.events
     assert restored.path.is_file()
     assert restored.path.name == "trial.c3d"
     assert restored_root in restored.path.parents
@@ -134,8 +140,14 @@ def test_load_workspace_vicon_recording_rebuilds_tampered_snapshot_cache(tmp_pat
 
     assert recording.path.is_file()
     assert recording.path.name == "trial.c3d"
+    assert [event.label for event in recording.events] == ["Foot Strike", "Start", "Foot Off"]
     rebuilt_document = json.loads(snapshot_path.read_text(encoding="utf-8"))
     assert rebuilt_document["payload"]["path"] != "broken/trial.c3d"
+    assert [event["label"] for event in rebuilt_document["payload"]["events"]] == [
+        "Foot Strike",
+        "Start",
+        "Foot Off",
+    ]
 
 
 def test_validate_workspace_rebuilds_missing_vicon_snapshot_cache(tmp_path: Path) -> None:

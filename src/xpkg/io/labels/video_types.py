@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterator
+from collections.abc import Iterator, Sequence
 from typing import Protocol, runtime_checkable
 
 import numpy as np
@@ -23,7 +23,12 @@ class VideoProtocol(Protocol):
     channels: int
     backend: str
     last_frame_idx: int
-    _image_filenames: list[str]
+
+    @property
+    def _image_filenames(self) -> Sequence[str]: ...
+
+    @_image_filenames.setter
+    def _image_filenames(self, value: Sequence[str]) -> None: ...
 
     @property
     def image_filenames(self) -> list[str]: ...
