@@ -16,8 +16,23 @@ from xpkg.io.project_artifact import (
     validate_expkg,
     validate_workspace,
 )
+from xpkg.io.project_figures import (
+    FIGURE_ARTIFACT_SCHEMA_VERSION,
+    FIGURE_ARTIFACT_TYPE,
+    FIGURE_MANIFEST_FILENAME,
+    FIGURES_DIRNAME,
+    FigureArtifact,
+    list_workspace_figures,
+    load_workspace_figure,
+    save_workspace_figure,
+    validate_workspace_figure,
+    validate_workspace_figures,
+    workspace_figure_root,
+    workspace_figures_root,
+)
 from xpkg.io.project_inspection import WorkspaceInspection, inspect_workspace
 from xpkg.io.project_layout import (
+    ARTIFACTS_DIRNAME,
     EXPKG_SUFFIX,
     PROJECT_DESCRIPTOR_FILENAME,
     ProjectDescriptor,
@@ -26,6 +41,7 @@ from xpkg.io.project_layout import (
     load_project_descriptor,
     project_descriptor_path,
     resolve_workspace_root,
+    workspace_artifacts_root,
     workspace_exports_root,
     workspace_media_root,
     workspace_state_root,
@@ -33,6 +49,13 @@ from xpkg.io.project_layout import (
     write_project_descriptor,
 )
 from xpkg.io.project_metadata import load_workspace_metadata_field, save_workspace_metadata_field
+from xpkg.io.project_segmentation import (
+    SegmentationFrame,
+    clear_workspace_segmentation_masks,
+    load_workspace_segmentation_frames,
+    load_workspace_segmentation_masks,
+    save_workspace_segmentation_masks,
+)
 from xpkg.io.project_workspace import (
     current_project_snapshot_path,
     current_project_state_path,
@@ -58,8 +81,14 @@ from xpkg.io.project_workspace import (
 )
 
 __all__ = [
+    "ARTIFACTS_DIRNAME",
     "EXPKG_SUFFIX",
+    "FIGURE_ARTIFACT_SCHEMA_VERSION",
+    "FIGURE_ARTIFACT_TYPE",
+    "FIGURE_MANIFEST_FILENAME",
+    "FIGURES_DIRNAME",
     "PROJECT_DESCRIPTOR_FILENAME",
+    "FigureArtifact",
     "ProjectDescriptor",
     "WorkspaceInspection",
     "init_project",
@@ -72,6 +101,9 @@ __all__ = [
     "workspace_media_root",
     "workspace_state_root",
     "workspace_store_root",
+    "workspace_artifacts_root",
+    "workspace_figures_root",
+    "workspace_figure_root",
     "default_expkg_path",
     "pack_project",
     "unpack_project",
@@ -82,7 +114,17 @@ __all__ = [
     "load_workspace_metadata",
     "load_workspace_metadata_field",
     "load_workspace_payload",
+    "list_workspace_figures",
+    "load_workspace_figure",
+    "save_workspace_figure",
+    "validate_workspace_figure",
+    "validate_workspace_figures",
     "save_workspace_labels",
+    "load_workspace_segmentation_frames",
+    "load_workspace_segmentation_masks",
+    "save_workspace_segmentation_masks",
+    "clear_workspace_segmentation_masks",
+    "SegmentationFrame",
     "save_workspace_metadata",
     "save_workspace_metadata_field",
     "current_project_state_path",

@@ -15,10 +15,18 @@ from xpkg.codecs import (
     vicon_recording_to_json_payload,
 )
 from xpkg.formats import (
+    ARTIFACTS_DIRNAME,
     EXPKG_SUFFIX,
+    FIGURE_ARTIFACT_SCHEMA_VERSION,
+    FIGURE_ARTIFACT_TYPE,
+    FIGURE_MANIFEST_FILENAME,
+    FIGURES_DIRNAME,
     PROJECT_DESCRIPTOR_FILENAME,
+    FigureArtifact,
     ProjectDescriptor,
+    SegmentationFrame,
     WorkspaceInspection,
+    clear_workspace_segmentation_masks,
     current_project_snapshot_path,
     current_project_state_path,
     default_expkg_path,
@@ -37,23 +45,34 @@ from xpkg.formats import (
     init_project,
     inspect_workspace,
     is_workspace_root,
+    list_workspace_figures,
     load_project_descriptor,
+    load_workspace_figure,
     load_workspace_metadata,
     load_workspace_metadata_field,
     load_workspace_payload,
+    load_workspace_segmentation_frames,
+    load_workspace_segmentation_masks,
     load_workspace_vicon_recording,
     migrate_legacy_archive,
     pack_project,
     project_descriptor_path,
     read_labels_json_payload,
     resolve_workspace_root,
+    save_workspace_figure,
     save_workspace_labels,
     save_workspace_metadata,
     save_workspace_metadata_field,
+    save_workspace_segmentation_masks,
     unpack_project,
     validate_artifact,
     validate_expkg,
     validate_workspace,
+    validate_workspace_figure,
+    validate_workspace_figures,
+    workspace_artifacts_root,
+    workspace_figure_root,
+    workspace_figures_root,
     write_labels_json,
     write_project_descriptor,
 )
@@ -85,8 +104,10 @@ from xpkg.model import (
     load_skeleton_xpkg_json,
 )
 from xpkg.services import (
+    WorkspaceFigures,
     WorkspaceImports,
     WorkspaceLayout,
+    WorkspaceSegmentation,
     WorkspaceService,
 )
 from xpkg.services import (
@@ -114,10 +135,18 @@ def test_root_namespace_is_curated_to_workspace_first_modules() -> None:
 
 
 def test_public_exports_are_callable() -> None:
+    assert ARTIFACTS_DIRNAME == "artifacts"
     assert EXPKG_SUFFIX == ".expkg"
+    assert FIGURE_ARTIFACT_SCHEMA_VERSION == "1.0.0"
+    assert FIGURE_ARTIFACT_TYPE == "figure"
+    assert FIGURE_MANIFEST_FILENAME == "manifest.json"
+    assert FIGURES_DIRNAME == "figures"
     assert PROJECT_DESCRIPTOR_FILENAME == "PROJECT.json"
+    assert FigureArtifact is not None
     assert ProjectDescriptor is not None
+    assert SegmentationFrame is not None
     assert WorkspaceInspection is not None
+    assert callable(clear_workspace_segmentation_masks)
     assert callable(current_project_snapshot_path)
     assert callable(current_project_state_path)
     assert callable(default_expkg_path)
@@ -136,23 +165,34 @@ def test_public_exports_are_callable() -> None:
     assert callable(init_project)
     assert callable(inspect_workspace)
     assert callable(is_workspace_root)
+    assert callable(list_workspace_figures)
+    assert callable(load_workspace_figure)
     assert callable(load_project_descriptor)
     assert callable(load_workspace_metadata)
     assert callable(load_workspace_metadata_field)
     assert callable(load_workspace_payload)
+    assert callable(load_workspace_segmentation_frames)
+    assert callable(load_workspace_segmentation_masks)
     assert callable(load_workspace_vicon_recording)
     assert callable(migrate_legacy_archive)
     assert callable(pack_project)
     assert callable(project_descriptor_path)
     assert callable(read_labels_json_payload)
     assert callable(resolve_workspace_root)
+    assert callable(save_workspace_figure)
     assert callable(save_workspace_metadata)
     assert callable(save_workspace_labels)
     assert callable(save_workspace_metadata_field)
+    assert callable(save_workspace_segmentation_masks)
     assert callable(unpack_project)
     assert callable(validate_artifact)
     assert callable(validate_expkg)
+    assert callable(validate_workspace_figure)
+    assert callable(validate_workspace_figures)
     assert callable(validate_workspace)
+    assert callable(workspace_artifacts_root)
+    assert callable(workspace_figure_root)
+    assert callable(workspace_figures_root)
     assert callable(write_labels_json)
     assert callable(write_project_descriptor)
     assert callable(labels_from_json_payload)
@@ -163,8 +203,10 @@ def test_public_exports_are_callable() -> None:
     assert callable(vicon_recording_from_json_payload)
     assert callable(vicon_recording_to_json_payload)
     assert WorkspaceImports is not None
+    assert WorkspaceFigures is not None
     assert ServiceWorkspaceInspection is not None
     assert WorkspaceLayout is not None
+    assert WorkspaceSegmentation is not None
     assert WorkspaceService is not None
 
 
@@ -174,6 +216,8 @@ def test_services_surface_lists_workspace_service_first() -> None:
         "WorkspaceImports",
         "WorkspaceLayout",
         "WorkspaceInspection",
+        "WorkspaceFigures",
+        "WorkspaceSegmentation",
     ]
 
 
@@ -239,12 +283,17 @@ def test_formats_surface_is_workspace_first_only() -> None:
     assert "import_dlc_project_workspace" in xpkg.formats.__all__
     assert "inspect_workspace" in xpkg.formats.__all__
     assert "load_workspace_payload" in xpkg.formats.__all__
+    assert "list_workspace_figures" in xpkg.formats.__all__
+    assert "save_workspace_figure" in xpkg.formats.__all__
+    assert "workspace_artifacts_root" in xpkg.formats.__all__
     assert "load_workspace_metadata" in xpkg.formats.__all__
     assert "load_workspace_metadata_field" in xpkg.formats.__all__
     assert "import_vicon_workspace" in xpkg.formats.__all__
     assert "migrate_legacy_archive" in xpkg.formats.__all__
     assert "save_workspace_metadata" in xpkg.formats.__all__
     assert "save_workspace_metadata_field" in xpkg.formats.__all__
+    assert "save_workspace_segmentation_masks" in xpkg.formats.__all__
+    assert "load_workspace_segmentation_masks" in xpkg.formats.__all__
 
     with pytest.raises(AttributeError):
         xpkg.formats.__getattribute__("read_archive")

@@ -8,14 +8,18 @@ import xpkg.api as api
 def test_xpkg_api_exposes_workspace_first_contract() -> None:
     expected = {
         "Labels",
+        "FigureArtifact",
         "ProjectDescriptor",
         "PoseTrack",
+        "SegmentationFrame",
         "VideoStub",
         "ViconRecording",
         "ViconEvent",
         "WorkspaceImports",
+        "WorkspaceFigures",
         "WorkspaceInspection",
         "WorkspaceLayout",
+        "WorkspaceSegmentation",
         "WorkspaceService",
         "build_prediction_stub",
         "current_project_snapshot_path",
@@ -34,13 +38,17 @@ def test_xpkg_api_exposes_workspace_first_contract() -> None:
         "import_sleap_h5_workspace",
         "import_sleap_package_workspace",
         "inspect_workspace",
+        "list_workspace_figures",
         "labels_from_json_payload",
         "labels_numpy",
         "labels_to_dataframe",
         "labels_to_json_payload",
+        "load_workspace_figure",
         "load_workspace_metadata",
         "load_workspace_metadata_field",
         "load_workspace_payload",
+        "load_workspace_segmentation_frames",
+        "load_workspace_segmentation_masks",
         "load_workspace_vicon_recording",
         "migrate_legacy_archive",
         "pack_project",
@@ -51,10 +59,15 @@ def test_xpkg_api_exposes_workspace_first_contract() -> None:
         "read_vicon_recording",
         "read_vicon_json_payload",
         "resolve_pose_node_indices",
+        "save_workspace_figure",
         "save_workspace_metadata",
         "save_workspace_labels",
         "save_workspace_metadata_field",
+        "save_workspace_segmentation_masks",
+        "clear_workspace_segmentation_masks",
         "unpack_project",
+        "validate_workspace_figure",
+        "validate_workspace_figures",
         "validate_workspace",
         "vicon_recording_from_json_payload",
         "vicon_recording_to_json_payload",
@@ -72,16 +85,21 @@ def test_xpkg_api_exposes_workspace_first_contract() -> None:
     assert "read_sleap_track" not in api.__all__
     assert "resolve_sleap_node_indices" not in api.__all__
     assert api.Labels.__name__ == "Labels"
+    assert api.FigureArtifact.__name__ == "FigureArtifact"
     assert api.ProjectDescriptor.__name__ == "ProjectDescriptor"
     assert api.PoseTrack.__name__ == "PoseTrack"
     assert api.VideoStub.__name__ == "VideoStub"
     assert api.ViconEvent.__name__ == "ViconEvent"
     assert api.ViconRecording.__name__ == "ViconRecording"
     assert api.WorkspaceImports.__name__ == "WorkspaceImports"
+    assert api.WorkspaceFigures.__name__ == "WorkspaceFigures"
     assert api.WorkspaceInspection.__name__ == "WorkspaceInspection"
+    assert api.WorkspaceSegmentation.__name__ == "WorkspaceSegmentation"
     assert api.WorkspaceService.__name__ == "WorkspaceService"
+    assert api.SegmentationFrame.__name__ == "SegmentationFrame"
     assert callable(api.build_prediction_stub)
     assert callable(api.inspect_workspace)
+    assert callable(api.list_workspace_figures)
     assert callable(api.labels_from_json_payload)
     assert callable(api.labels_numpy)
     assert callable(api.labels_to_dataframe)
@@ -89,6 +107,9 @@ def test_xpkg_api_exposes_workspace_first_contract() -> None:
     assert callable(api.load_workspace_metadata)
     assert callable(api.load_workspace_metadata_field)
     assert callable(api.load_workspace_payload)
+    assert callable(api.load_workspace_figure)
+    assert callable(api.load_workspace_segmentation_frames)
+    assert callable(api.load_workspace_segmentation_masks)
     assert callable(api.load_workspace_vicon_recording)
     assert callable(api.read_pose_node_names)
     assert callable(api.read_pose_track)
@@ -98,8 +119,13 @@ def test_xpkg_api_exposes_workspace_first_contract() -> None:
     assert callable(api.read_vicon_json_payload)
     assert callable(api.resolve_pose_node_indices)
     assert callable(api.migrate_legacy_archive)
+    assert callable(api.save_workspace_figure)
     assert callable(api.save_workspace_metadata)
     assert callable(api.save_workspace_metadata_field)
+    assert callable(api.save_workspace_segmentation_masks)
+    assert callable(api.clear_workspace_segmentation_masks)
+    assert callable(api.validate_workspace_figure)
+    assert callable(api.validate_workspace_figures)
     assert callable(api.vicon_recording_from_json_payload)
     assert callable(api.vicon_recording_to_json_payload)
 

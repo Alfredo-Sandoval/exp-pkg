@@ -23,6 +23,7 @@ from xpkg.io.project_layout import (
     load_project_descriptor,
     project_descriptor_path,
     resolve_workspace_root,
+    workspace_artifacts_root,
     workspace_media_root,
     workspace_store_root,
     write_project_descriptor,
@@ -224,7 +225,11 @@ def validate_workspace(workspace: str | Path) -> None:
         raise ValueError(f"Workspace media root is not a directory: {media_root}")
     if exports_root.exists() and not exports_root.is_dir():
         raise ValueError(f"Workspace exports root is not a directory: {exports_root}")
+    artifacts_root = workspace_artifacts_root(root)
+    if artifacts_root.exists() and not artifacts_root.is_dir():
+        raise ValueError(f"Workspace artifacts root is not a directory: {artifacts_root}")
 
+    from xpkg.io.project_figures import validate_workspace_figures
     from xpkg.io.project_workspace import (
         current_project_state_path,
         ensure_current_workspace_snapshot_cache,
@@ -232,6 +237,8 @@ def validate_workspace(workspace: str | Path) -> None:
     )
     from xpkg.io.workspace_state import workspace_state_kind
     from xpkg.model import Labels
+
+    validate_workspace_figures(root)
 
     snapshot_path = ensure_current_workspace_snapshot_cache(root)
     state_path = snapshot_path if snapshot_path is not None else current_project_state_path(root)

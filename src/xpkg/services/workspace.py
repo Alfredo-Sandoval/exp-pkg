@@ -43,6 +43,7 @@ from xpkg.formats.project import (
     save_workspace_metadata,
     unpack_project,
     validate_workspace,
+    workspace_artifacts_root,
     workspace_exports_root,
     workspace_media_root,
     workspace_state_root,
@@ -50,6 +51,8 @@ from xpkg.formats.project import (
 )
 from xpkg.io.project_workspace import ensure_current_workspace_snapshot_cache
 from xpkg.io.workspace_state import workspace_state_kind
+from xpkg.services.figures import WorkspaceFigures
+from xpkg.services.segmentation import WorkspaceSegmentation
 
 if TYPE_CHECKING:
     from xpkg.model import Labels, ViconRecording
@@ -335,6 +338,7 @@ class WorkspaceLayout:
     descriptor: ProjectDescriptor
     descriptor_path: Path
     store_root: Path
+    artifacts_root: Path
     state_root: Path
     media_root: Path
     exports_root: Path
@@ -403,6 +407,16 @@ class WorkspaceService:
         """Return service-bound import helpers backed by the public format API."""
         return WorkspaceImports(workspace_root=self.workspace_root)
 
+    @property
+    def segmentation(self) -> WorkspaceSegmentation:
+        """Return service-bound segmentation mask helpers."""
+        return WorkspaceSegmentation(workspace_root=self.workspace_root)
+
+    @property
+    def figures(self) -> WorkspaceFigures:
+        """Return service-bound figure artifact helpers."""
+        return WorkspaceFigures(workspace_root=self.workspace_root)
+
     def describe(self) -> WorkspaceLayout:
         """Return the normalized managed paths for this workspace."""
         descriptor = self.descriptor()
@@ -412,6 +426,7 @@ class WorkspaceService:
             descriptor=descriptor,
             descriptor_path=project_descriptor_path(self.workspace_root),
             store_root=workspace_store_root(self.workspace_root),
+            artifacts_root=workspace_artifacts_root(self.workspace_root),
             state_root=workspace_state_root(self.workspace_root),
             media_root=workspace_media_root(self.workspace_root),
             exports_root=workspace_exports_root(self.workspace_root),
@@ -501,4 +516,11 @@ class WorkspaceService:
         )
 
 
-__all__ = ["WorkspaceService", "WorkspaceImports", "WorkspaceLayout", "WorkspaceInspection"]
+__all__ = [
+    "WorkspaceService",
+    "WorkspaceImports",
+    "WorkspaceLayout",
+    "WorkspaceInspection",
+    "WorkspaceFigures",
+    "WorkspaceSegmentation",
+]

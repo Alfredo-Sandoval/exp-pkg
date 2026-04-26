@@ -16,6 +16,7 @@ PROJECT_DESCRIPTOR_FILENAME = "PROJECT.json"
 EXPKG_SUFFIX = ".expkg"
 STORE_DIRNAME = ".xpkg"
 STORE_STATE_DIRNAME = "state"
+ARTIFACTS_DIRNAME = "artifacts"
 CURRENT_SNAPSHOT_FILENAME = "current.json"
 CURRENT_ARCHIVE_FILENAME = f"current{CANONICAL_ARCHIVE_SUFFIX}"
 SUPPORTED_CURRENT_ARCHIVE_FILENAMES = (
@@ -215,6 +216,10 @@ def workspace_state_root(path: str | Path) -> Path:
     return workspace_store_root(path) / STORE_STATE_DIRNAME
 
 
+def workspace_artifacts_root(path: str | Path) -> Path:
+    return workspace_store_root(path) / ARTIFACTS_DIRNAME
+
+
 def workspace_current_snapshot_path(path: str | Path) -> Path:
     return workspace_state_root(path) / CURRENT_SNAPSHOT_FILENAME
 
@@ -246,6 +251,7 @@ def default_expkg_path(path: str | Path) -> Path:
 
 __all__ = [
     "CANONICAL_ARCHIVE_SUFFIX",
+    "ARTIFACTS_DIRNAME",
     "CURRENT_ARCHIVE_FILENAME",
     "CURRENT_SNAPSHOT_FILENAME",
     "EXPORTS_DIRNAME",
@@ -265,6 +271,7 @@ __all__ = [
     "project_descriptor_path",
     "resolve_workspace_root",
     "workspace_current_snapshot_path",
+    "workspace_artifacts_root",
     "workspace_exports_root",
     "workspace_media_root",
     "workspace_state_root",

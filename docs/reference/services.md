@@ -13,5 +13,7 @@ workflow.
 - `WorkspaceService`
 - `WorkspaceImports`
 - `WorkspaceLayout`
+- `WorkspaceFigures`
+- `WorkspaceSegmentation`
 
 ::: xpkg.services.workspace

@@ -183,6 +183,58 @@ Persist the current `Labels` state into a workspace and refresh the managed
 project state. The committed durable snapshot head remains authoritative;
 `.xpkg/state/current.json` is refreshed as a rebuildable cache.
 
+## Figure Artifacts
+
+### `save_workspace_figure(...)`
+
+Copy figure outputs into `.xpkg/artifacts/figures/<figure_id>/` and write a
+portable `manifest.json` with the figure title, inputs, producer metadata,
+outputs, stats reports, and optional metadata.
+
+Pass `namespace="openoperant"` or another app name to save under
+`.xpkg/<namespace>/figures/<figure_id>/` instead of the generic registry.
+
+### `load_workspace_figure(...)`
+
+Load one saved `FigureArtifact` manifest by figure id.
+
+### `list_workspace_figures(...)`
+
+Return all saved figure manifests in a workspace.
+
+### `validate_workspace_figure(...)`
+
+Validate one figure manifest and every input/output/stat path it references.
+
+### `validate_workspace_figures(...)`
+
+Validate every saved figure artifact in the workspace.
+
+### `workspace_figures_root(...)` / `workspace_figure_root(...)`
+
+Resolve the private figure artifact directories under `.xpkg/artifacts/`.
+
+### `save_workspace_segmentation_masks(...)`
+
+Save the segmentation masks for one workspace video frame. This is the
+function-level form of `workspace.segmentation.save_masks(...)`; pass
+`mode="append"` to keep existing masks on the frame.
+
+### `load_workspace_segmentation_masks(...)`
+
+Load masks for one workspace video frame. The `video` selector may be omitted
+when the workspace has exactly one video, or provided as a video index, id,
+label, path, or video object.
+
+### `load_workspace_segmentation_frames(...)`
+
+Load every frame that currently has segmentation masks, optionally filtered by
+video, frame index, prediction status, or class name.
+
+### `clear_workspace_segmentation_masks(...)`
+
+Remove all segmentation masks from one workspace video frame.
+
 ## JSON Label Interchange
 
 These helpers remain file-oriented interchange helpers on

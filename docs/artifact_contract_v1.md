@@ -110,6 +110,15 @@ Its internal sublayout is not part of the public long-term contract. That
 preserves room to evolve journals, commits, objects, caches, and indexes
 without freezing every internal subdirectory forever.
 
+Current xpkg workspaces also use `.xpkg/artifacts/` for registered scientific
+outputs such as figures. These artifact entries are still private workspace
+state, but their manifests are portable JSON records that connect outputs back
+to inputs, producer commands, stats reports, and source data.
+
+Domain packages may also keep derived outputs under app-owned namespaces such
+as `.xpkg/openoperant/figures/`. The same figure manifest contract applies;
+the namespace only controls where the files live inside the workspace.
+
 ### `Media/`
 
 This is the standard location for managed media. Any media copied into the

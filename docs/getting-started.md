@@ -82,11 +82,63 @@ import through `workspace.imports`, validate, then pack only when you want a
 portable artifact. The dedicated guide for that surface lives in
 [Services](api/services.md).
 
+## Save figure artifacts
+
+Use `workspace.figures` after your domain package or plotting script has
+created the actual figure files. `xpkg` copies the files into the workspace and
+records the portable lineage manifest:
+
+```python
+from xpkg.services import WorkspaceService
+
+workspace = WorkspaceService.open("./My Project")
+
+workspace.figures.save(
+    figure_id="openoperant_validation_figure_3",
+    title="Validation against human labels",
+    namespace="openoperant",
+    outputs={
+        "figure.svg": "output/validation_figure_3.svg",
+        "figure.pdf": "output/validation_figure_3.pdf",
+        "source_data.csv": "output/validation_figure_3_source_data.csv",
+    },
+    inputs=[".xpkg/openoperant/events/session_001/final_events.csv"],
+    producer={"package": "openoperant"},
+)
+```
+
+That stores the figure outputs and manifest under
+`.xpkg/openoperant/figures/openoperant-validation-figure-3/`. Without a
+namespace, xpkg uses `.xpkg/artifacts/figures/`.
+
+## Save segmentation masks
+
+Segmentation masks are workspace state too. Downstream repos can save a mask
+onto a frame without manually constructing the full labels payload:
+
+```python
+import numpy as np
+
+from xpkg.model import SegmentationMask
+from xpkg.services import WorkspaceService
+
+workspace = WorkspaceService.open("./My Project")
+
+binary = np.zeros((480, 640), dtype=np.uint8)
+binary[120:260, 180:340] = 1
+mask = SegmentationMask.from_binary_mask(binary, class_name="cell")
+
+workspace.segmentation.save_masks(frame_index=42, masks=[mask])
+loaded = workspace.segmentation.load_masks(frame_index=42)
+```
+
 Pick the surface by intent:
 
 | Task | Preferred entrypoint |
 | --- | --- |
 | Workspace lifecycle and service-bound imports | `xpkg.services.WorkspaceService` |
+| Save/load figure outputs with lineage | `workspace.figures.*` |
+| Save/load frame segmentation masks | `workspace.segmentation.*` |
 | Function-level workspace imports | `xpkg.formats.import_*_workspace(...)` |
 | Legacy `.xpkg` cutover | `xpkg migrate` or `xpkg.formats.migrate_legacy_archive(...)` |
 

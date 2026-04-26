@@ -14,6 +14,11 @@ import into, validate, pack, or unpack a workspace-first project.
   lifecycle operations.
 - Use <code>workspace.imports.*</code> when you want the supported external
   importers without dropping out of that service object.
+- Use <code>workspace.figures.*</code> when you want to save figure outputs
+  with portable provenance manifests.
+- Use <code>workspace.segmentation.*</code> when you want to save or load
+  frame-level segmentation masks without manually rebuilding a
+  <code>Labels</code> object.
 - Use <code>xpkg.formats.import_*_workspace(...)</code> when you explicitly
   want the same importers as free functions.
 - Use <code>xpkg.formats.migrate_legacy_archive(...)</code> or
@@ -57,6 +62,12 @@ object:
 - `workspace.validate()`
 - `workspace.load_labels()`
 - `workspace.save_labels(...)`
+- `workspace.figures.save(...)`
+- `workspace.figures.load(...)`
+- `workspace.figures.list(...)`
+- `workspace.segmentation.save_masks(...)`
+- `workspace.segmentation.load_masks(...)`
+- `workspace.segmentation.load_frames(...)`
 - `workspace.pack(...)`
 
 `workspace.validate()` returns a `WorkspaceLayout` with the normalized managed
@@ -81,6 +92,86 @@ Each service-bound importer mirrors a public
 
 The service-bound methods are the preferred path for new project-facing code.
 The free functions remain public for explicit function-level integrations.
+
+## Figure Artifacts
+
+Figures are saved as workspace artifacts, not plotted by `xpkg`. Your domain
+package creates the figure and source-data files; `xpkg` copies those outputs
+into the same workspace and writes a manifest that records inputs, producer
+metadata, stats reports, and portable output paths.
+
+```python
+from xpkg.services import WorkspaceService
+
+workspace = WorkspaceService.open("./My Project")
+
+figure = workspace.figures.save(
+    figure_id="openoperant_validation_figure_3",
+    title="Validation against human labels",
+    namespace="openoperant",
+    outputs={
+        "figure.svg": "output/validation_figure_3.svg",
+        "figure.pdf": "output/validation_figure_3.pdf",
+        "source_data.csv": "output/validation_figure_3_source_data.csv",
+    },
+    inputs=[
+        ".xpkg/openoperant/events/session_001/final_events.csv",
+        ".xpkg/openoperant/labels/session_001/human_labels.csv",
+    ],
+    stats=[
+        ".xpkg/openoperant/analysis/validation/stats_report.json",
+    ],
+    producer={
+        "package": "openoperant",
+        "module": "openoperant.figures.validation",
+        "command": "openoperant make-figures --analysis validation",
+        "git_commit": "...",
+    },
+)
+
+workspace.figures.validate(figure.artifact_id)
+```
+
+With `namespace="openoperant"`, outputs are copied under
+`.xpkg/openoperant/figures/<figure_id>/`. Omit `namespace` to use the generic
+`.xpkg/artifacts/figures/<figure_id>/` registry. The manifest is intentionally
+generic: `xpkg` tracks and packages the claim-carrying artifact; OpenOperant,
+PHRASE, FIESTA, or another downstream package still owns the scientific
+meaning of the plot.
+
+## Segmentation Masks
+
+Segmentation masks are first-class workspace state. Attach them to frames
+through the service instead of manually constructing a full labels payload:
+
+```python
+import numpy as np
+
+from xpkg.model import SegmentationMask
+from xpkg.services import WorkspaceService
+
+workspace = WorkspaceService.open("./My Project")
+
+binary = np.zeros((480, 640), dtype=np.uint8)
+binary[120:260, 180:340] = 1
+mask = SegmentationMask.from_binary_mask(
+    binary,
+    class_name="cell",
+    confidence=0.94,
+)
+
+workspace.segmentation.save_masks(
+    frame_index=42,
+    masks=[mask],
+)
+
+masks = workspace.segmentation.load_masks(frame_index=42)
+```
+
+Use `mode="append"` to add masks to a frame without replacing the existing
+ones. Use `workspace.segmentation.load_frames(...)` when you want every frame
+that currently has segmentation masks, with optional filters such as
+`predicted=True` or `class_name="cell"`.
 
 ## Secondary Public Surfaces
 

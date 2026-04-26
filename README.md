@@ -64,11 +64,17 @@ Choose the public surface by job:
 | --- | --- |
 | Create, open, import into, validate, pack, or unpack a project | `xpkg.services.WorkspaceService` |
 | Import foreign pose data into a project you already manage through the service | `workspace.imports.*` from `xpkg.services.WorkspaceService` |
+| Save figure outputs and their lineage manifests | `workspace.figures.*` from `xpkg.services.WorkspaceService` |
+| Save or load frame-level segmentation masks | `workspace.segmentation.*` from `xpkg.services.WorkspaceService` |
 | Import foreign pose data through explicit free functions | `xpkg.formats.import_*_workspace(...)` |
 | Cut over a legacy `.xpkg` archive into the workspace contract | `xpkg migrate` or `xpkg.formats.migrate_legacy_archive(...)` |
 
 The explicit `xpkg.formats.import_*_workspace(...)` helpers remain public when
 you want a function-level API or need to import before reopening a workspace.
+
+Figure artifacts can use a generic registry under `.xpkg/artifacts/figures/`
+or an app namespace such as `.xpkg/openoperant/figures/` by passing
+`namespace="openoperant"` to `workspace.figures.save(...)`.
 
 The shipped workspace import surface currently covers:
 
@@ -86,6 +92,8 @@ The shipped workspace import surface currently covers:
 - Defines a stable project contract: workspace folder + private `.xpkg/` + `.expkg`
 - Manages workspace lifecycle: create, open, validate, pack, unpack
 - Carries canonical containers such as `Labels`, `Skeleton`, `Instance`, and `Video`
+- Registers figure outputs with portable manifests for inputs, producer metadata, stats, and source data
+- Saves and loads frame-level segmentation masks through `workspace.segmentation`
 - Exposes a clean in-memory codec layer through `xpkg.codecs`
 - Handles media-aware packaging and workspace-relative project state
 - Ships one explicit legacy migration path for older `.xpkg` archives
