@@ -72,9 +72,11 @@ Choose the public surface by job:
 The explicit `xpkg.formats.import_*_workspace(...)` helpers remain public when
 you want a function-level API or need to import before reopening a workspace.
 
-Figure artifacts can use a generic registry under `.xpkg/artifacts/figures/`
-or an app namespace such as `.xpkg/openoperant/figures/` by passing
-`namespace="openoperant"` to `workspace.figures.save(...)`.
+Figure artifacts can use a generic registry under `.xpkg/artifacts/figures/`.
+Callers may also choose their own app namespace, such as
+`.xpkg/analysis-app/figures/`, by passing `namespace="analysis-app"` to
+`workspace.figures.save(...)`. `xpkg` treats namespaces as caller-owned strings;
+it does not reserve or hard-code downstream package names.
 
 The shipped workspace import surface currently covers:
 

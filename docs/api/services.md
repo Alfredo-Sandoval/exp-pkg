@@ -106,25 +106,25 @@ from xpkg.services import WorkspaceService
 workspace = WorkspaceService.open("./My Project")
 
 figure = workspace.figures.save(
-    figure_id="openoperant_validation_figure_3",
-    title="Validation against human labels",
-    namespace="openoperant",
+    figure_id="validation_figure_3",
+    title="Validation against reviewer labels",
+    namespace="analysis-app",
     outputs={
         "figure.svg": "output/validation_figure_3.svg",
         "figure.pdf": "output/validation_figure_3.pdf",
         "source_data.csv": "output/validation_figure_3_source_data.csv",
     },
     inputs=[
-        ".xpkg/openoperant/events/session_001/final_events.csv",
-        ".xpkg/openoperant/labels/session_001/human_labels.csv",
+        ".xpkg/analysis-app/events/session_001/final_events.csv",
+        ".xpkg/analysis-app/labels/session_001/reviewer_labels.csv",
     ],
     stats=[
-        ".xpkg/openoperant/analysis/validation/stats_report.json",
+        ".xpkg/analysis-app/analysis/validation/stats_report.json",
     ],
     producer={
-        "package": "openoperant",
-        "module": "openoperant.figures.validation",
-        "command": "openoperant make-figures --analysis validation",
+        "package": "analysis-app",
+        "module": "analysis_app.figures.validation",
+        "command": "analysis-app make-figures --analysis validation",
         "git_commit": "...",
     },
 )
@@ -132,12 +132,13 @@ figure = workspace.figures.save(
 workspace.figures.validate(figure.artifact_id)
 ```
 
-With `namespace="openoperant"`, outputs are copied under
-`.xpkg/openoperant/figures/<figure_id>/`. Omit `namespace` to use the generic
-`.xpkg/artifacts/figures/<figure_id>/` registry. The manifest is intentionally
-generic: `xpkg` tracks and packages the claim-carrying artifact; OpenOperant,
-PHRASE, FIESTA, or another downstream package still owns the scientific
-meaning of the plot.
+With `namespace="analysis-app"`, outputs are copied under
+`.xpkg/analysis-app/figures/<figure_id>/`. Omit `namespace` to use the generic
+`.xpkg/artifacts/figures/<figure_id>/` registry. Namespaces are caller-owned
+strings; `xpkg` does not reserve or hard-code downstream package names. The
+manifest is intentionally generic: `xpkg` tracks and packages the
+claim-carrying artifact, while the downstream package still owns the scientific
+or domain-specific meaning of the plot.
 
 ## Segmentation Masks
 

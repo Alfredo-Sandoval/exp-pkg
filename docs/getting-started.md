@@ -94,22 +94,23 @@ from xpkg.services import WorkspaceService
 workspace = WorkspaceService.open("./My Project")
 
 workspace.figures.save(
-    figure_id="openoperant_validation_figure_3",
-    title="Validation against human labels",
-    namespace="openoperant",
+    figure_id="validation_figure_3",
+    title="Validation against reviewer labels",
+    namespace="analysis-app",
     outputs={
         "figure.svg": "output/validation_figure_3.svg",
         "figure.pdf": "output/validation_figure_3.pdf",
         "source_data.csv": "output/validation_figure_3_source_data.csv",
     },
-    inputs=[".xpkg/openoperant/events/session_001/final_events.csv"],
-    producer={"package": "openoperant"},
+    inputs=[".xpkg/analysis-app/events/session_001/final_events.csv"],
+    producer={"package": "analysis-app"},
 )
 ```
 
 That stores the figure outputs and manifest under
-`.xpkg/openoperant/figures/openoperant-validation-figure-3/`. Without a
-namespace, xpkg uses `.xpkg/artifacts/figures/`.
+`.xpkg/analysis-app/figures/validation-figure-3/`. Without a namespace, xpkg
+uses `.xpkg/artifacts/figures/`. Namespace values are supplied by downstream
+callers; xpkg does not know or reserve package-specific namespace names.
 
 ## Save segmentation masks
 

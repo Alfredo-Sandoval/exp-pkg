@@ -191,8 +191,9 @@ Copy figure outputs into `.xpkg/artifacts/figures/<figure_id>/` and write a
 portable `manifest.json` with the figure title, inputs, producer metadata,
 outputs, stats reports, and optional metadata.
 
-Pass `namespace="openoperant"` or another app name to save under
-`.xpkg/<namespace>/figures/<figure_id>/` instead of the generic registry.
+Pass any caller-owned namespace, such as `namespace="analysis-app"`, to save
+under `.xpkg/<namespace>/figures/<figure_id>/` instead of the generic registry.
+`xpkg` does not reserve or hard-code downstream package names.
 
 ### `load_workspace_figure(...)`
 

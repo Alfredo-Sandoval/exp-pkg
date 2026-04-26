@@ -29,17 +29,17 @@ def test_workspace_figures_save_manifest_and_outputs(tmp_path: Path) -> None:
     pdf = _write_text(source_dir / "validation.pdf", "%PDF-1.7\n")
     source_data = _write_text(source_dir / "source_data.csv", "x,y\n1,2\n")
     event_table = _write_text(
-        workspace.workspace_root / ".xpkg/openoperant/events/session_001/final_events.csv",
-        "event,time\nlever,1.0\n",
+        workspace.workspace_root / ".xpkg/analysis/events/session_001/final_events.csv",
+        "event,time\nresponse,1.0\n",
     )
     stats_report = _write_text(
-        workspace.workspace_root / ".xpkg/openoperant/analysis/validation/stats_report.json",
+        workspace.workspace_root / ".xpkg/analysis/stats/session_001/stats_report.json",
         "{}\n",
     )
 
     artifact = workspace.figures.save(
-        figure_id="OpenOperant Validation Figure 3",
-        title="Validation against human labels",
+        figure_id="Validation Figure 3",
+        title="Validation against reviewer labels",
         outputs={
             "figure.svg": svg,
             "figure.pdf": pdf,
@@ -48,34 +48,34 @@ def test_workspace_figures_save_manifest_and_outputs(tmp_path: Path) -> None:
         inputs=[event_table],
         stats=[stats_report],
         producer={
-            "package": "openoperant",
-            "module": "openoperant.figures.validation",
-            "command": "openoperant make-figures --analysis validation",
+            "package": "analysis-toolkit",
+            "module": "analysis_toolkit.figures.validation",
+            "command": "analysis-toolkit make-figures --figure validation",
             "git_commit": "abc123",
         },
         metadata={"panel": "figure-3"},
     )
 
-    assert artifact.artifact_id == "openoperant-validation-figure-3"
-    assert artifact.title == "Validation against human labels"
+    assert artifact.artifact_id == "validation-figure-3"
+    assert artifact.title == "Validation against reviewer labels"
     assert artifact.outputs == (
-        ".xpkg/artifacts/figures/openoperant-validation-figure-3/figure.svg",
-        ".xpkg/artifacts/figures/openoperant-validation-figure-3/figure.pdf",
-        ".xpkg/artifacts/figures/openoperant-validation-figure-3/source_data.csv",
+        ".xpkg/artifacts/figures/validation-figure-3/figure.svg",
+        ".xpkg/artifacts/figures/validation-figure-3/figure.pdf",
+        ".xpkg/artifacts/figures/validation-figure-3/source_data.csv",
     )
     assert artifact.inputs == (
-        ".xpkg/openoperant/events/session_001/final_events.csv",
+        ".xpkg/analysis/events/session_001/final_events.csv",
     )
     assert artifact.stats == (
-        ".xpkg/openoperant/analysis/validation/stats_report.json",
+        ".xpkg/analysis/stats/session_001/stats_report.json",
     )
     assert artifact.manifest_path.is_file()
     assert (artifact.artifact_root / "figure.svg").read_text(encoding="utf-8") == "<svg></svg>\n"
 
-    loaded = workspace.figures.load("openoperant-validation-figure-3")
+    loaded = workspace.figures.load("validation-figure-3")
     assert loaded.to_dict() == artifact.to_dict()
     assert workspace.figures.list()[0].artifact_id == artifact.artifact_id
-    assert workspace.figures.validate("openoperant-validation-figure-3").artifact_id == (
+    assert workspace.figures.validate("validation-figure-3").artifact_id == (
         artifact.artifact_id
     )
 
@@ -107,44 +107,44 @@ def test_workspace_figure_free_functions_and_pack_include_artifacts(
 
 
 def test_workspace_figures_save_into_app_namespace(tmp_path: Path) -> None:
-    workspace = WorkspaceService.create(tmp_path / "OpenOperant Workspace")
+    workspace = WorkspaceService.create(tmp_path / "Namespaced Workspace")
     svg = _write_text(tmp_path / "validation.svg", "<svg></svg>\n")
     event_table = _write_text(
-        workspace.workspace_root / ".xpkg/openoperant/events/session_001/final_events.csv",
-        "event,time\nlever,1.0\n",
+        workspace.workspace_root / ".xpkg/analysis-app/events/session_001/final_events.csv",
+        "event,time\nresponse,1.0\n",
     )
 
     artifact = workspace.figures.save(
         figure_id="validation_figure_3",
-        title="Validation against human labels",
+        title="Validation against reviewer labels",
         outputs={"figure.svg": svg},
         inputs=[event_table],
-        producer={"package": "openoperant"},
-        namespace="openoperant",
+        producer={"package": "analysis-app"},
+        namespace="analysis-app",
     )
 
-    assert artifact.namespace == "openoperant"
+    assert artifact.namespace == "analysis-app"
     assert artifact.outputs == (
-        ".xpkg/openoperant/figures/validation-figure-3/figure.svg",
+        ".xpkg/analysis-app/figures/validation-figure-3/figure.svg",
     )
     assert workspace.figures.load(
         "validation_figure_3",
-        namespace="openoperant",
-    ).namespace == "openoperant"
-    assert workspace.figures.list(namespace="openoperant")[0].artifact_id == (
+        namespace="analysis-app",
+    ).namespace == "analysis-app"
+    assert workspace.figures.list(namespace="analysis-app")[0].artifact_id == (
         "validation-figure-3"
     )
     assert workspace.figures.validate(
         "validation_figure_3",
-        namespace="openoperant",
+        namespace="analysis-app",
     ).outputs == artifact.outputs
 
 
-def test_workspace_figures_support_multiple_scientific_repo_namespaces(
+def test_workspace_figures_support_arbitrary_app_namespaces(
     tmp_path: Path,
 ) -> None:
-    workspace = WorkspaceService.create(tmp_path / "Shared Science Workspace")
-    namespaces = ("openoperant", "fiesta", "phrase", "siesta", "vicon")
+    workspace = WorkspaceService.create(tmp_path / "Shared Workspace")
+    namespaces = ("analysis-a", "analysis-b", "review-ui", "qc-runner", "report-builder")
 
     for namespace in namespaces:
         output = _write_text(tmp_path / f"{namespace}.svg", f"<svg>{namespace}</svg>\n")
@@ -158,7 +158,7 @@ def test_workspace_figures_support_multiple_scientific_repo_namespaces(
 
     artifacts = workspace.figures.list()
     assert {artifact.namespace for artifact in artifacts} == set(namespaces)
-    assert workspace.figures.load("summary", namespace="phrase").namespace == "phrase"
+    assert workspace.figures.load("summary", namespace="review-ui").namespace == "review-ui"
     with pytest.raises(ValueError, match="multiple namespaces"):
         workspace.figures.load("summary")
 

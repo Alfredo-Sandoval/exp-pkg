@@ -115,9 +115,10 @@ outputs such as figures. These artifact entries are still private workspace
 state, but their manifests are portable JSON records that connect outputs back
 to inputs, producer commands, stats reports, and source data.
 
-Domain packages may also keep derived outputs under app-owned namespaces such
-as `.xpkg/openoperant/figures/`. The same figure manifest contract applies;
-the namespace only controls where the files live inside the workspace.
+Domain packages may also keep derived outputs under caller-owned namespaces
+such as `.xpkg/analysis-app/figures/`. The same figure manifest contract
+applies; the namespace only controls where the files live inside the workspace.
+`xpkg` does not reserve or hard-code downstream package names.
 
 ### `Media/`
 
