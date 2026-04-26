@@ -28,21 +28,3 @@ manifest:
   schema: "none"
   canonical_paths: []
   optional_paths: []
-
-skills:
-  required:
-    - repo-setup
-    - agent-playbook
-  routing:
-    setup:
-      when: "setup|environment|dependency|lint|typecheck"
-      use:
-        - repo-setup
-    typing:
-      when: "type|typing|annotation|ty"
-      use:
-        - type-check
-    tests:
-      when: "test|pytest|regression"
-      use:
-        - test-writing

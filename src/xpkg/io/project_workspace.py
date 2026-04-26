@@ -20,6 +20,7 @@ from xpkg.codecs.vicon import (
 from xpkg.core.json_utils import write_json
 from xpkg.core.path_registry import ensure_dir, resolve_path, slugify_path_component
 from xpkg.io.archive_format import read_archive
+from xpkg.io.archive_store.hashing import sha256_file
 from xpkg.io.project_artifact import validate_workspace
 from xpkg.io.project_layout import (
     CANONICAL_ARCHIVE_SUFFIX,
@@ -49,13 +50,16 @@ from xpkg.io.workspace_snapshot_backend import (
     predictions_payload_from_labels,
     read_workspace_snapshot,
     rewrite_workspace_metadata_paths,
+    workspace_snapshot_cache_digest_matches,
     write_workspace_snapshot,
+    write_workspace_snapshot_cache_digest,
     write_workspace_snapshot_payload,
 )
 from xpkg.io.workspace_state import (
     read_workspace_state_document,
     workspace_state_commit_id_from_document,
     workspace_state_kind,
+    workspace_state_payload_from_document,
 )
 
 if TYPE_CHECKING:
@@ -91,15 +95,8 @@ def load_workspace_payload(path: str | Path) -> dict[str, Any]:
 
     metadata = _snapshot_metadata_from_state_payload(payload) or {}
     if source_kind == "snapshot_labels":
-        with tempfile.TemporaryDirectory(
-            prefix=".workspace_payload_",
-            dir=str(_stage_archive_parent(root)),
-        ) as tmp_dir:
-            archive_path = Path(tmp_dir) / f"current{CANONICAL_ARCHIVE_SUFFIX}"
-            exported_archive = export_project_archive(root, out=archive_path)
-            public_payload = read_archive(exported_archive, lazy=False)
+        public_payload = _public_payload_from_snapshot_labels(payload, metadata=metadata)
         rebase_workspace_payload_videos(public_payload, root)
-        public_payload["metadata"] = metadata
         return public_payload
     if source_kind == "snapshot_vicon":
         return {
@@ -117,6 +114,329 @@ def current_project_snapshot_path(path: str | Path) -> Path:
 
 def current_project_commit_id(path: str | Path) -> str | None:
     return _workspace_store(path).current_commit_id()
+
+
+def _public_payload_from_snapshot_labels(
+    snapshot_payload: dict[str, Any],
+    *,
+    metadata: dict[str, Any],
+) -> dict[str, Any]:
+    labels_payload = _public_labels_payload_from_snapshot(snapshot_payload, metadata=metadata)
+    keypoint_count = int(labels_payload["metadata"]["num_keypoints"])
+    return {
+        "labels": labels_payload,
+        "predictions": _public_predictions_payload_from_snapshot(
+            snapshot_payload,
+            keypoint_count=keypoint_count,
+        ),
+        "metrics": {
+            "schema_version": 0,
+            "tables": {},
+            "metadata": {},
+        },
+        "suggestions": _public_suggestions_payload_from_snapshot(snapshot_payload),
+        "runs": _empty_runs_payload(),
+        "metadata": dict(metadata),
+        "provenance": deepcopy(snapshot_payload.get("provenance") or {"events": []}),
+        "session": _public_session_payload_from_snapshot(snapshot_payload, metadata=metadata),
+        "segmentation": _public_segmentation_payload_from_snapshot(snapshot_payload),
+    }
+
+
+def _public_labels_payload_from_snapshot(
+    snapshot_payload: dict[str, Any],
+    *,
+    metadata: dict[str, Any],
+) -> dict[str, Any]:
+    labels_snapshot = _strip_prediction_instances_from_snapshot_payload(snapshot_payload)
+    frames_info = labels_snapshot.get("frames")
+    data_info = labels_snapshot.get("data")
+    if not isinstance(frames_info, dict) or not isinstance(data_info, dict):
+        raise TypeError("Workspace snapshot labels payload must contain frames/data mappings")
+
+    skeleton_info = deepcopy(labels_snapshot.get("skeleton") or {})
+    skeleton_names = list(skeleton_info.get("names") or [])
+    video_index = np.asarray(frames_info.get("video_index", []), dtype=np.int32)
+    frame_index = np.asarray(frames_info.get("frame_index", []), dtype=np.int32)
+    num_instances = np.asarray(frames_info.get("num_instances", []), dtype=np.int32)
+    raw_keypoints = data_info.get("keypoints")
+    raw_keypoints_array = np.asarray(
+        [] if raw_keypoints is None else raw_keypoints,
+        dtype=np.float32,
+    )
+
+    frame_count = max(
+        video_index.shape[0],
+        frame_index.shape[0],
+        num_instances.shape[0],
+        raw_keypoints_array.shape[0] if raw_keypoints_array.ndim >= 1 else 0,
+    )
+    keypoint_count = (
+        int(raw_keypoints_array.shape[2])
+        if raw_keypoints_array.ndim >= 3
+        else len(skeleton_names)
+    )
+    max_instances = (
+        int(raw_keypoints_array.shape[1])
+        if raw_keypoints_array.ndim >= 2
+        else int(num_instances.max())
+        if num_instances.size
+        else 1
+    )
+    max_instances = max(max_instances, 1)
+
+    keypoints = _coerce_array(
+        raw_keypoints,
+        dtype=np.float32,
+        default=np.full(
+            (frame_count, max_instances, keypoint_count, 3),
+            np.nan,
+            dtype=np.float32,
+        ),
+    )
+    flags = _coerce_array(
+        data_info.get("flags"),
+        dtype=np.uint8,
+        default=np.zeros((frame_count, max_instances, keypoint_count), dtype=np.uint8),
+    )
+    track_ids = _label_track_ids_array(
+        data_info,
+        row_count=frame_count,
+        max_instances=max_instances,
+    )
+    visibility = _public_visibility_array(
+        data_info.get("visibility"),
+        keypoints=keypoints,
+        frame_count=frame_count,
+        max_instances=max_instances,
+        keypoint_count=keypoint_count,
+    )
+
+    return {
+        "frames": {
+            "video_index": _coerce_array(
+                frames_info.get("video_index"),
+                dtype=np.int32,
+                default=np.zeros((frame_count,), dtype=np.int32),
+            ),
+            "frame_index": _coerce_array(
+                frames_info.get("frame_index"),
+                dtype=np.int32,
+                default=np.arange(frame_count, dtype=np.int32),
+            ),
+            "num_instances": _coerce_array(
+                frames_info.get("num_instances"),
+                dtype=np.int32,
+                default=np.zeros((frame_count,), dtype=np.int32),
+            ),
+        },
+        "data": {
+            "keypoints": keypoints,
+            "flags": flags,
+            "track_id": track_ids,
+            "visibility": visibility,
+        },
+        "metadata": {
+            "num_frames": int(frame_count),
+            "max_instances": int(max_instances),
+            "num_keypoints": int(keypoint_count),
+            "preferences": dict(metadata.get("preferences") or {}),
+        },
+        "skeleton": skeleton_info,
+        "videos": _public_videos_payload_from_snapshot(labels_snapshot),
+        "tracks": deepcopy(labels_snapshot.get("tracks") or {}),
+        "provenance": deepcopy(labels_snapshot.get("provenance") or {"events": []}),
+    }
+
+
+def _coerce_array(value: Any, *, dtype: Any, default: np.ndarray) -> np.ndarray:
+    if value is None:
+        return default
+    array = np.asarray(value, dtype=dtype)
+    if array.size == 0 and default.shape:
+        return default
+    return array
+
+
+def _public_visibility_array(
+    value: Any,
+    *,
+    keypoints: np.ndarray,
+    frame_count: int,
+    max_instances: int,
+    keypoint_count: int,
+) -> np.ndarray:
+    default = np.zeros((frame_count, max_instances, keypoint_count), dtype=np.uint8)
+    if value is not None:
+        return _coerce_array(value, dtype=np.uint8, default=default)
+    if keypoints.ndim < 4 or keypoints.shape[-1] < 2:
+        return default
+    return (np.isfinite(keypoints[..., 0]) & np.isfinite(keypoints[..., 1])).astype(np.uint8)
+
+
+def _public_videos_payload_from_snapshot(snapshot_payload: dict[str, Any]) -> dict[str, Any]:
+    videos_info = deepcopy(snapshot_payload.get("videos") or {})
+    shapes = np.asarray(videos_info.get("shapes", []), dtype=np.int32)
+    video_count = max(
+        len(videos_info.get("filenames") or []),
+        len(videos_info.get("image_filenames") or []),
+        len(videos_info.get("resolved_paths") or []),
+        shapes.shape[0] if shapes.ndim >= 2 else 0,
+    )
+    videos_info.setdefault("base_dir", "")
+    videos_info["filenames"] = list(videos_info.get("filenames") or [""] * video_count)
+    videos_info["image_filenames"] = list(videos_info.get("image_filenames") or [[]] * video_count)
+    videos_info["backends"] = list(videos_info.get("backends") or ["opencv"] * video_count)
+    videos_info["sha256"] = list(videos_info.get("sha256") or [""] * video_count)
+    videos_info["video_ids"] = list(videos_info.get("video_ids") or [""] * video_count)
+    videos_info["video_labels"] = list(videos_info.get("video_labels") or [""] * video_count)
+    videos_info["shapes"] = (
+        shapes if shapes.size else np.zeros((video_count, 4), dtype=np.int32)
+    )
+    return videos_info
+
+
+def _public_predictions_payload_from_snapshot(
+    snapshot_payload: dict[str, Any],
+    *,
+    keypoint_count: int,
+) -> dict[str, Any]:
+    predictions = normalize_predictions_payload(
+        _predictions_payload_from_state_payload(snapshot_payload)
+    )
+    metadata = dict(predictions.get("metadata") or {})
+    attrs = dict(predictions.get("attrs") or {})
+    frame_count = int(attrs.get("committed_length") or metadata.get("num_frames") or 0)
+    max_instances = max(int(metadata.get("max_instances") or 0), 1)
+    prediction_keypoints = int(metadata.get("num_keypoints") or keypoint_count)
+
+    raw_frames_info = predictions.get("frames")
+    frames_info: dict[str, Any] = raw_frames_info if isinstance(raw_frames_info, dict) else {}
+    raw_data_info = predictions.get("data")
+    data_info: dict[str, Any] = raw_data_info if isinstance(raw_data_info, dict) else {}
+    data = {
+        "keypoints": _coerce_array(
+            data_info.get("keypoints"),
+            dtype=np.float32,
+            default=np.zeros(
+                (frame_count, max_instances, prediction_keypoints, 3),
+                dtype=np.float32,
+            ),
+        ),
+        "keypoint_score": _coerce_array(
+            data_info.get("keypoint_score"),
+            dtype=np.float32,
+            default=np.zeros(
+                (frame_count, max_instances, prediction_keypoints),
+                dtype=np.float32,
+            ),
+        ),
+        "instance_score": _coerce_array(
+            data_info.get("instance_score"),
+            dtype=np.float32,
+            default=np.zeros((frame_count, max_instances), dtype=np.float32),
+        ),
+        "track_id": _coerce_array(
+            data_info.get("track_id"),
+            dtype=np.int32,
+            default=np.full((frame_count, max_instances), -1, dtype=np.int32),
+        ),
+        "deleted": _coerce_array(
+            data_info.get("deleted"),
+            dtype=np.uint8,
+            default=np.zeros((frame_count, max_instances), dtype=np.uint8),
+        ),
+        "heatmaps": None,
+    }
+    heatmaps = data_info.get("heatmaps")
+    if heatmaps is not None:
+        data["heatmaps"] = np.asarray(heatmaps, dtype=np.float16)
+
+    return {
+        "frames": {
+            "video_index": _coerce_array(
+                frames_info.get("video_index") if isinstance(frames_info, dict) else None,
+                dtype=np.int32,
+                default=np.zeros((frame_count,), dtype=np.int32),
+            ),
+            "frame_index": _coerce_array(
+                frames_info.get("frame_index") if isinstance(frames_info, dict) else None,
+                dtype=np.int32,
+                default=np.arange(frame_count, dtype=np.int32),
+            ),
+            "num_instances": _coerce_array(
+                frames_info.get("num_instances") if isinstance(frames_info, dict) else None,
+                dtype=np.int32,
+                default=np.zeros((frame_count,), dtype=np.int32),
+            ),
+        },
+        "data": data,
+        "attrs": {"committed_length": frame_count},
+        "metadata": {
+            "num_frames": frame_count,
+            "max_instances": max_instances,
+            "num_keypoints": prediction_keypoints,
+            "heatmap_height": int(metadata.get("heatmap_height") or 0),
+            "heatmap_width": int(metadata.get("heatmap_width") or 0),
+        },
+    }
+
+
+def _public_suggestions_payload_from_snapshot(snapshot_payload: dict[str, Any]) -> dict[str, Any]:
+    suggestions = snapshot_payload.get("suggestions")
+    if not isinstance(suggestions, dict):
+        return {
+            "video_indices": np.zeros((0,), dtype=np.int32),
+            "frame_indices": np.zeros((0,), dtype=np.int32),
+            "scores": None,
+        }
+    return {
+        "video_indices": _coerce_array(
+            suggestions.get("video_indices"),
+            dtype=np.int32,
+            default=np.zeros((0,), dtype=np.int32),
+        ),
+        "frame_indices": _coerce_array(
+            suggestions.get("frame_indices"),
+            dtype=np.int32,
+            default=np.zeros((0,), dtype=np.int32),
+        ),
+        "scores": (
+            None
+            if suggestions.get("scores") is None
+            else np.asarray(suggestions.get("scores"), dtype=np.float32)
+        ),
+    }
+
+
+def _empty_runs_payload() -> dict[str, Any]:
+    return {
+        "table": {
+            "run_id": np.zeros((0,), dtype=np.int32),
+            "created_ns": np.zeros((0,), dtype=np.int64),
+            "config_json": np.zeros((0,), dtype=object),
+        },
+        "entries": [],
+    }
+
+
+def _public_session_payload_from_snapshot(
+    snapshot_payload: dict[str, Any],
+    *,
+    metadata: dict[str, Any],
+) -> dict[str, Any]:
+    session_json = metadata.get("session_json")
+    if isinstance(session_json, dict):
+        return deepcopy(session_json)
+    session_payload = snapshot_payload.get("session")
+    return deepcopy(session_payload) if isinstance(session_payload, dict) else {}
+
+
+def _public_segmentation_payload_from_snapshot(snapshot_payload: dict[str, Any]) -> dict[str, Any]:
+    segmentation = snapshot_payload.get("segmentation")
+    if isinstance(segmentation, dict):
+        return deepcopy(segmentation)
+    return {"masks": [], "rois": [], "schema_version": ""}
 
 
 def current_project_state_path(path: str | Path) -> Path:
@@ -241,7 +561,7 @@ class WorkspaceStore:
                     return current_archive
                 return _copy_archive_export(current_archive, target_archive_path)
             if store.has_current_root("snapshot"):
-                return _export_workspace_archive_from_snapshot(
+                return _export_archive_from_snapshot(
                     self.workspace_root,
                     store.current_root_path("snapshot"),
                     archive_path=target_archive_path,
@@ -595,10 +915,82 @@ def _workspace_snapshot_cache_matches_committed_head(
     from xpkg.io.archive_store import ArchiveStore
 
     store = ArchiveStore.open(workspace_store_root(workspace_root))
-    if not store.has_current_root("snapshot"):
+    commit = store.load_current_commit()
+    if not commit.has_root("snapshot"):
         return False
-    committed_snapshot_path = store.current_root_path("snapshot")
-    return snapshot_path.read_bytes() == committed_snapshot_path.read_bytes()
+    if workspace_snapshot_cache_digest_matches(snapshot_path, commit_id=commit.commit_id):
+        return True
+    root_entry = commit.root_entry("snapshot")
+    committed_snapshot_path = store.paths.object_path(root_entry.object_id, ext=root_entry.ext)
+    if not committed_snapshot_path.exists():
+        return False
+    if f"obj_{sha256_file(snapshot_path)}" == root_entry.object_id:
+        write_workspace_snapshot_cache_digest(snapshot_path, commit_id=commit.commit_id)
+        return True
+
+    cache_document = read_workspace_state_document(snapshot_path)
+    committed_document = read_workspace_state_document(committed_snapshot_path)
+    if _workspace_state_documents_match_cache(cache_document, committed_document):
+        write_workspace_snapshot_cache_digest(snapshot_path, commit_id=commit.commit_id)
+        return True
+    return False
+
+
+def _metadata_matches_without_commit_id(
+    cache_metadata: Mapping[str, Any],
+    committed_metadata: Mapping[str, Any],
+) -> bool:
+    cache_keys = set(cache_metadata)
+    committed_keys = set(committed_metadata)
+    cache_keys.discard(WORKSPACE_COMMIT_ID_KEY)
+    committed_keys.discard(WORKSPACE_COMMIT_ID_KEY)
+    if cache_keys != committed_keys:
+        return False
+    return all(cache_metadata[key] == committed_metadata[key] for key in cache_keys)
+
+
+def _workspace_payload_matches_cache(
+    cache_payload: Mapping[str, Any],
+    committed_payload: Mapping[str, Any],
+) -> bool:
+    cache_keys = set(cache_payload)
+    committed_keys = set(committed_payload)
+    if cache_keys != committed_keys:
+        return False
+
+    for key in cache_keys:
+        if key == "metadata":
+            continue
+        if cache_payload[key] != committed_payload[key]:
+            return False
+
+    cache_metadata = cache_payload.get("metadata")
+    committed_metadata = committed_payload.get("metadata")
+    if isinstance(cache_metadata, Mapping) and isinstance(committed_metadata, Mapping):
+        return _metadata_matches_without_commit_id(cache_metadata, committed_metadata)
+    return cache_metadata == committed_metadata
+
+
+def _workspace_state_documents_match_cache(
+    cache_document: Mapping[str, Any],
+    committed_document: Mapping[str, Any],
+) -> bool:
+    cache_payload = workspace_state_payload_from_document(cache_document)
+    committed_payload = workspace_state_payload_from_document(committed_document)
+
+    if cache_payload is not cache_document or committed_payload is not committed_document:
+        cache_keys = set(cache_document)
+        committed_keys = set(committed_document)
+        if cache_keys != committed_keys:
+            return False
+        for key in cache_keys:
+            if key == "payload":
+                continue
+            if cache_document[key] != committed_document[key]:
+                return False
+        return _workspace_payload_matches_cache(cache_payload, committed_payload)
+
+    return _workspace_payload_matches_cache(cache_document, committed_document)
 
 
 def ensure_current_workspace_snapshot_cache(workspace_root: Path) -> Path | None:
@@ -703,7 +1095,16 @@ def _write_vicon_workspace_state(
     )
     target = workspace_current_snapshot_path(workspace_root)
     ensure_dir(target.parent)
-    write_json(target, document, indent=2, sort_keys=False, ensure_ascii=True)
+    write_json(
+        target,
+        document,
+        indent=None,
+        sort_keys=False,
+        ensure_ascii=True,
+        compact=True,
+    )
+    if commit_id is not None:
+        write_workspace_snapshot_cache_digest(target, commit_id=str(commit_id))
     return target
 
 
@@ -848,6 +1249,52 @@ def _commit_labels_to_workspace(
     )
 
 
+def _commit_snapshot_metadata_to_workspace(
+    workspace_root: Path,
+    *,
+    state_payload: dict[str, Any],
+    metadata: dict[str, Any] | None,
+    reason: str,
+) -> Path:
+    normalized_metadata = rewrite_workspace_metadata_paths(
+        metadata,
+        workspace_root=workspace_root,
+    )
+    existing_metadata = state_payload.get("metadata")
+    if "preferences" not in normalized_metadata:
+        preferences = (
+            existing_metadata.get("preferences")
+            if isinstance(existing_metadata, dict)
+            else None
+        )
+        normalized_metadata["preferences"] = dict(preferences or {})
+    staged_payload = deepcopy(state_payload)
+    staged_payload["metadata"] = _normalized_workspace_metadata(
+        normalized_metadata,
+        workspace_root=workspace_root,
+        commit_id=None,
+    )
+
+    stage_parent = _stage_archive_parent(workspace_root)
+    with tempfile.TemporaryDirectory(
+        prefix=".workspace_commit_",
+        dir=str(stage_parent),
+    ) as tmp_dir:
+        staged_snapshot = Path(tmp_dir) / CURRENT_SNAPSHOT_FILENAME
+        write_workspace_snapshot_payload(staged_snapshot, staged_payload)
+        store = _workspace_store(workspace_root)
+        store.commit_snapshot(staged_snapshot, reason=reason)
+        commit_id = store.current_commit_id()
+
+    current_payload = deepcopy(state_payload)
+    current_payload["metadata"] = normalized_metadata
+    return write_workspace_snapshot_payload(
+        workspace_current_snapshot_path(workspace_root),
+        current_payload,
+        commit_id=commit_id,
+    )
+
+
 def _commit_vicon_to_workspace(
     workspace_root: Path,
     *,
@@ -875,7 +1322,14 @@ def _commit_vicon_to_workspace(
             ),
             source_root=workspace_root,
         )
-        write_json(staged_snapshot, document, indent=2, sort_keys=False, ensure_ascii=True)
+        write_json(
+            staged_snapshot,
+            document,
+            indent=None,
+            sort_keys=False,
+            ensure_ascii=True,
+            compact=True,
+        )
         store = _workspace_store(workspace_root)
         store.commit_snapshot(staged_snapshot, reason=reason)
         commit_id = store.current_commit_id()
@@ -1089,6 +1543,16 @@ def save_workspace_metadata(
         workspace_root=root,
     )
     state_payload, source_kind = current_state
+    if source_kind == "snapshot_labels":
+        state_path = _commit_snapshot_metadata_to_workspace(
+            root,
+            state_payload=state_payload,
+            metadata=normalized_metadata,
+            reason=reason,
+        )
+        _touch_descriptor(root)
+        return state_path
+
     if source_kind == "snapshot_vicon":
         state_path = _commit_vicon_to_workspace(
             root,
@@ -1121,6 +1585,14 @@ def save_workspace_metadata(
 def _is_within(path: Path, parent: Path) -> bool:
     try:
         path.resolve().relative_to(parent.resolve())
+        return True
+    except ValueError:
+        return False
+
+
+def _is_within_resolved(path: Path, resolved_parent: Path) -> bool:
+    try:
+        path.relative_to(resolved_parent)
         return True
     except ValueError:
         return False
@@ -1192,7 +1664,8 @@ def _copy_file_into_media(source: Path, media_root: Path, copied: dict[Path, Pat
     cached = copied.get(resolved_source)
     if cached is not None:
         return cached
-    if _is_within(resolved_source, media_root):
+    resolved_media_root = media_root.resolve()
+    if _is_within_resolved(resolved_source, resolved_media_root):
         copied[resolved_source] = resolved_source
         return resolved_source
     target = _dedupe_file_target(media_root / resolved_source.name)
@@ -1209,7 +1682,10 @@ def _copy_sequence_into_media(
     copied: dict[Path, Path],
 ) -> tuple[Path, list[Path]]:
     resolved_frames = [frame.resolve() for frame in frames]
-    if resolved_frames and all(_is_within(frame, media_root) for frame in resolved_frames):
+    resolved_media_root = media_root.resolve()
+    if resolved_frames and all(
+        _is_within_resolved(frame, resolved_media_root) for frame in resolved_frames
+    ):
         sequence_root = resolved_frames[0].parent
         return sequence_root, resolved_frames
 
@@ -1298,6 +1774,7 @@ def rebase_workspace_payload_videos(payload: dict[str, Any], workspace_root: Pat
                     rebased_frames.append(resolved_frame.as_posix())
             rebased_sequences.append(rebased_frames)
 
+        videos_info["filenames"] = rebased_resolved_paths
         videos_info["resolved_paths"] = rebased_resolved_paths
         videos_info["resolved_exists"] = rebased_exists
         videos_info["image_filenames"] = rebased_sequences
@@ -1319,7 +1796,7 @@ def rebase_workspace_payload_videos(payload: dict[str, Any], workspace_root: Pat
             _rebase_videos_info(metadata_videos)
 
 
-def _export_workspace_archive_from_snapshot(
+def _export_archive_from_snapshot(
     workspace_root: Path,
     committed_snapshot_path: Path,
     *,

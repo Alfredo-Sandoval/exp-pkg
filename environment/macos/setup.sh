@@ -19,9 +19,10 @@ else
   exit 1
 fi
 
-if ! command -v uv >/dev/null 2>&1; then
-  echo "Missing dependency: install uv." >&2
-  exit 1
+if command -v conda >/dev/null 2>&1; then
+  ENV_LIST_BIN="conda"
+else
+  ENV_LIST_BIN="${MAMBA_BIN}"
 fi
 
 ENV_NAME="$(awk -F':' '/^name:/ {gsub(/ /, "", $2); print $2; exit}' "${ENV_FILE}")"
@@ -35,6 +36,40 @@ if "${MAMBA_BIN}" env list | awk '{print $1}' | grep -Fxq "${ENV_NAME}"; then
 else
   "${MAMBA_BIN}" env create -n "${ENV_NAME}" -f "${ENV_FILE}" -y
 fi
-"${MAMBA_BIN}" run -n "${ENV_NAME}" uv pip install -e "${REPO_ROOT}[dev,docs]"
+
+ENV_PREFIX="$(
+  "${ENV_LIST_BIN}" env list --json | python -c '
+import json
+import pathlib
+import sys
+
+env_name = sys.argv[1]
+payload = json.load(sys.stdin)
+for path in payload.get("envs", []):
+    candidate = pathlib.Path(path)
+    if candidate.name == env_name:
+        print(candidate)
+        break
+else:
+    raise SystemExit(1)
+' "${ENV_NAME}"
+)"
+if [[ -z "${ENV_PREFIX}" ]]; then
+  echo "Could not resolve environment prefix for '${ENV_NAME}'." >&2
+  exit 1
+fi
+
+UV_BIN="${ENV_PREFIX}/bin/uv"
+PYTHON_BIN="${ENV_PREFIX}/bin/python"
+if [[ ! -x "${UV_BIN}" ]]; then
+  echo "Missing uv binary in environment: ${UV_BIN}" >&2
+  exit 1
+fi
+if [[ ! -x "${PYTHON_BIN}" ]]; then
+  echo "Missing Python binary in environment: ${PYTHON_BIN}" >&2
+  exit 1
+fi
+
+"${UV_BIN}" pip install --python "${PYTHON_BIN}" -e "${REPO_ROOT}[dev,docs]"
 
 echo "Environment '${ENV_NAME}' is ready."

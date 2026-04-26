@@ -120,6 +120,13 @@ def _object_ext_for_root(root_name: str, path: Path) -> str:
     return suffix
 
 
+def _generation_from_commit_id(commit_id: str) -> int | None:
+    parts = str(commit_id).split("_", 2)
+    if len(parts) < 2 or parts[0] != "c" or not parts[1].isdigit():
+        return None
+    return int(parts[1])
+
+
 def _commit_root_entries(
     paths: StorePaths,
     root_paths: Mapping[str, Path],
@@ -310,6 +317,18 @@ class ArchiveStore:
         commits_dir = self.paths.commits_dir
         if not commits_dir.exists():
             return None
+
+        generation = _generation_from_commit_id(commit_id)
+        if generation is not None:
+            candidate = self.paths.commit_json(generation)
+            if candidate.exists():
+                try:
+                    payload = _load_verified_json(candidate)
+                except Exception:
+                    return None
+                if payload.get("commit_id") == commit_id:
+                    return candidate
+
         for commit_json in commits_dir.glob("*/commit.json"):
             try:
                 payload = _load_verified_json(commit_json)
@@ -329,6 +348,12 @@ class ArchiveStore:
         commit = Commit.from_dict(payload)
         if not commit.checksum_valid():
             raise ChecksumError("Commit checksum invalid")
+        if commit.commit_id != head.superblock.current_commit_id:
+            raise StoreCorruptionError(
+                "Current commit id mismatch: "
+                f"head={head.superblock.current_commit_id!r}, "
+                f"commit={commit.commit_id!r}"
+            )
         return commit
 
     def has_current_root(self, root_name: str) -> bool:

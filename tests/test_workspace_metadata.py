@@ -1,15 +1,12 @@
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 import cv2
-import h5py
 import numpy as np
 
 from xpkg.formats import (
     current_project_snapshot_path,
-    export_workspace_archive,
     init_project,
     load_workspace_metadata,
     load_workspace_payload,
@@ -79,16 +76,6 @@ def test_workspace_metadata_roundtrips_on_workspace_head(tmp_path: Path) -> None
     assert snapshot_payload["metadata"]["session_json"] == metadata["session_json"]
     assert snapshot_payload["metadata"]["training_state_json"] == metadata["training_state_json"]
     assert snapshot_payload["metadata"]["manifest_json"] == metadata["manifest_json"]
-
-    archive_path = export_workspace_archive(workspace)
-    with h5py.File(archive_path, "r") as handle:
-        metadata_group = handle["project_metadata"]
-        assert json.loads(metadata_group.attrs["session_json"]) == metadata["session_json"]
-        assert (
-            json.loads(metadata_group.attrs["training_state_json"])
-            == metadata["training_state_json"]
-        )
-        assert json.loads(metadata_group.attrs["manifest_json"]) == metadata["manifest_json"]
 
 
 def test_workspace_metadata_load_returns_empty_before_first_commit(tmp_path: Path) -> None:

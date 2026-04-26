@@ -18,7 +18,6 @@ from xpkg.formats.project import (
     ProjectDescriptor,
     WorkspaceInspection,
     current_project_state_path,
-    export_workspace_archive,
     import_detectron2_coco_workspace,
     import_dlc_csv_workspace,
     import_dlc_h5_workspace,
@@ -500,14 +499,6 @@ class WorkspaceService:
             mode=mode,
             overwrite=overwrite,
         )
-
-    def export_archive(
-        self,
-        *,
-        out: str | Path | None = None,
-    ) -> Path:
-        """Materialize the current workspace head as a compatibility `.xpkg` archive."""
-        return export_workspace_archive(self.workspace_root, out=out)
 
 
 __all__ = ["WorkspaceService", "WorkspaceImports", "WorkspaceLayout", "WorkspaceInspection"]

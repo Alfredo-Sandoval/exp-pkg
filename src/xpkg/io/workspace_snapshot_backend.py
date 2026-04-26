@@ -8,12 +8,13 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
-from xpkg.core.json_utils import parse_json_dict, write_json
+from xpkg.core.json_utils import load_json_dict, parse_json_dict, write_json
 from xpkg.core.path_registry import ensure_dir, resolve_path
 from xpkg.io.archive_format.prediction_coerce import (
     PredictionLabelsView,
     coerce_predictions_from_labels,
 )
+from xpkg.io.archive_store.hashing import sha256_file
 from xpkg.io.labels.json_format import (
     XPKG_LABELS_JSON_FORMAT,
     XPKG_LABELS_JSON_VERSION,
@@ -32,11 +33,54 @@ if TYPE_CHECKING:
 
 
 WORKSPACE_COMMIT_ID_KEY = "xpkg_commit_id"
+WORKSPACE_CACHE_DIGEST_KEY = "sha256"
 
 
 def current_workspace_snapshot_path(path: str | Path) -> Path:
     """Return the canonical workspace snapshot path."""
     return workspace_state_root(path) / CURRENT_SNAPSHOT_FILENAME
+
+
+def workspace_snapshot_cache_digest_path(path: str | Path) -> Path:
+    """Return the private digest sidecar path for a workspace snapshot cache."""
+
+    target = resolve_path(path)
+    return target.with_name(f"{target.name}.sha256")
+
+
+def write_workspace_snapshot_cache_digest(path: str | Path, *, commit_id: str) -> Path:
+    """Write the digest sidecar used to trust a current snapshot cache quickly."""
+
+    target = resolve_path(path)
+    digest_path = workspace_snapshot_cache_digest_path(target)
+    write_json(
+        digest_path,
+        {
+            WORKSPACE_COMMIT_ID_KEY: str(commit_id),
+            WORKSPACE_CACHE_DIGEST_KEY: sha256_file(target),
+        },
+        indent=2,
+        sort_keys=False,
+        ensure_ascii=True,
+    )
+    return digest_path
+
+
+def workspace_snapshot_cache_digest_matches(path: str | Path, *, commit_id: str) -> bool:
+    """Return whether the snapshot cache matches its private digest sidecar."""
+
+    target = resolve_path(path)
+    digest_path = workspace_snapshot_cache_digest_path(target)
+    if not digest_path.is_file():
+        return False
+    try:
+        payload = load_json_dict(digest_path)
+    except Exception:
+        return False
+    if str(payload.get(WORKSPACE_COMMIT_ID_KEY, "")).strip() != str(commit_id):
+        return False
+    expected = str(payload.get(WORKSPACE_CACHE_DIGEST_KEY, "")).strip()
+    return bool(expected) and expected == sha256_file(target)
 
 
 def _materialize_json_value(value: Any) -> Any:
@@ -63,12 +107,23 @@ def _materialize_json_value(value: Any) -> Any:
     return value
 
 
-def _relative_workspace_path(path: str | Path, workspace_root: Path) -> str:
+def _relative_workspace_path(
+    path: str | Path,
+    workspace_root: Path,
+    *,
+    resolved_workspace_root: Path | None = None,
+) -> str:
     resolved = resolve_path(path)
-    return resolved.relative_to(workspace_root.resolve()).as_posix()
+    root = (
+        resolved_workspace_root
+        if resolved_workspace_root is not None
+        else workspace_root.resolve()
+    )
+    return resolved.relative_to(root).as_posix()
 
 
 def _relativize_video_payload_paths(videos_payload: dict[str, Any], workspace_root: Path) -> None:
+    resolved_workspace_root = workspace_root.resolve()
     filenames = list(videos_payload.get("filenames") or [])
     image_sequences = list(videos_payload.get("image_filenames") or [])
 
@@ -78,7 +133,13 @@ def _relativize_video_payload_paths(videos_payload: dict[str, Any], workspace_ro
         if not filename:
             relative_filenames.append("")
             continue
-        relative_filenames.append(_relative_workspace_path(filename, workspace_root))
+        relative_filenames.append(
+            _relative_workspace_path(
+                filename,
+                workspace_root,
+                resolved_workspace_root=resolved_workspace_root,
+            )
+        )
 
     relative_sequences: list[list[str]] = []
     for sequence_entry in image_sequences:
@@ -88,7 +149,14 @@ def _relativize_video_payload_paths(videos_payload: dict[str, Any], workspace_ro
             relative_sequences.append([])
             continue
         relative_sequences.append(
-            [_relative_workspace_path(frame_path, workspace_root) for frame_path in sequence_entry]
+            [
+                _relative_workspace_path(
+                    frame_path,
+                    workspace_root,
+                    resolved_workspace_root=resolved_workspace_root,
+                )
+                for frame_path in sequence_entry
+            ]
         )
 
     videos_payload["filenames"] = relative_filenames
@@ -298,10 +366,16 @@ def write_workspace_snapshot_payload(
     write_json(
         target,
         _snapshot_payload_document(normalized_payload),
-        indent=2,
+        indent=None,
         sort_keys=False,
         ensure_ascii=True,
+        compact=True,
     )
+    digest_path = workspace_snapshot_cache_digest_path(target)
+    if commit_id is None:
+        digest_path.unlink(missing_ok=True)
+    else:
+        write_workspace_snapshot_cache_digest(target, commit_id=str(commit_id))
     return target
 
 
@@ -458,6 +532,9 @@ __all__ = [
     "rewrite_workspace_metadata_paths",
     "snapshot_commit_id",
     "WORKSPACE_COMMIT_ID_KEY",
+    "workspace_snapshot_cache_digest_matches",
+    "workspace_snapshot_cache_digest_path",
+    "write_workspace_snapshot_cache_digest",
     "write_workspace_snapshot",
     "write_workspace_snapshot_payload",
 ]

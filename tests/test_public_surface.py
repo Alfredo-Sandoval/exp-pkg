@@ -22,7 +22,6 @@ from xpkg.formats import (
     current_project_snapshot_path,
     current_project_state_path,
     default_expkg_path,
-    export_workspace_archive,
     import_detectron2_coco_workspace,
     import_dlc_csv_workspace,
     import_dlc_h5_workspace,
@@ -122,7 +121,6 @@ def test_public_exports_are_callable() -> None:
     assert callable(current_project_snapshot_path)
     assert callable(current_project_state_path)
     assert callable(default_expkg_path)
-    assert callable(export_workspace_archive)
     assert callable(import_vicon_c3d_workspace)
     assert callable(import_vicon_csv_workspace)
     assert callable(import_vicon_workspace)
@@ -237,7 +235,7 @@ def test_formats_surface_is_workspace_first_only() -> None:
     assert "current_project_archive_path" not in xpkg.formats.__all__
     assert "import_legacy_archive" not in xpkg.formats.__all__
     assert "pack_project" in xpkg.formats.__all__
-    assert "export_workspace_archive" in xpkg.formats.__all__
+    assert "export_workspace_archive" not in xpkg.formats.__all__
     assert "import_dlc_project_workspace" in xpkg.formats.__all__
     assert "inspect_workspace" in xpkg.formats.__all__
     assert "load_workspace_payload" in xpkg.formats.__all__
@@ -255,30 +253,9 @@ def test_formats_surface_is_workspace_first_only() -> None:
         xpkg.formats.__getattribute__("create_store_from_archive")
 
 
-def test_direct_compat_module_keeps_only_canonical_xpkg_names() -> None:
-    compat = importlib.import_module("xpkg.compat")
-
-    assert callable(compat.read_xpkg)
-    assert callable(compat.write_xpkg)
-    assert callable(compat.update_labels_xpkg)
-    assert callable(compat.append_predictions_xpkg)
-    assert callable(compat.merge_predictions_xpkg)
-    assert callable(compat.load_archive_metadata_field)
-    assert callable(compat.save_archive_metadata_field)
-    assert callable(compat.summarize_xpkg)
-    assert callable(compat.validate_xpkg)
-    assert callable(compat.create_store_from_xpkg)
-    assert callable(compat.read_metrics_table)
-    assert callable(compat.write_metrics_table)
-    assert "read_archive" not in compat.__all__
-    assert "write_archive" not in compat.__all__
-    assert "create_archive_store" not in compat.__all__
-
-    with pytest.raises(AttributeError):
-        compat.__getattribute__("read_archive")
-
-    with pytest.raises(AttributeError):
-        compat.__getattribute__("write_archive")
+def test_direct_compat_module_is_removed() -> None:
+    with pytest.raises(ModuleNotFoundError):
+        importlib.import_module("xpkg.compat")
 
 
 def test_codecs_surface_is_curated() -> None:

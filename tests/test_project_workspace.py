@@ -239,7 +239,6 @@ def test_init_project_writes_workspace_contract(tmp_path: Path) -> None:
 
 
 def test_migrate_legacy_archive_creates_workspace_and_workspace_loads(tmp_path: Path) -> None:
-    from xpkg.compat import write_xpkg
     from xpkg.formats import (
         current_project_snapshot_path,
         migrate_legacy_archive,
@@ -247,6 +246,7 @@ def test_migrate_legacy_archive_creates_workspace_and_workspace_loads(tmp_path: 
         workspace_state_root,
         workspace_store_root,
     )
+    from xpkg.io.archive_format import write_archive
     from xpkg.io.archive_store import ArchiveStore
     from xpkg.model import Labels
 
@@ -255,7 +255,7 @@ def test_migrate_legacy_archive_creates_workspace_and_workspace_loads(tmp_path: 
     labels = _make_labels(source_root, x=3.0, y=4.0)
     source_archive_path = tmp_path / "tracking.xpkg"
     workspace = tmp_path / "Migrated Project"
-    write_xpkg(source_archive_path, labels)
+    write_archive(source_archive_path, labels)
 
     migrated_archive = migrate_legacy_archive(source_archive_path, workspace)
 
@@ -339,23 +339,39 @@ def test_workspace_metadata_helpers_roundtrip_without_existing_labels(tmp_path: 
     assert resolved_path.exists()
 
 
-def test_export_workspace_archive_matches_public_workspace_contract(tmp_path: Path) -> None:
-    from xpkg.formats import export_workspace_archive, init_project, save_workspace_labels
-
-    workspace = tmp_path / "Archive Project"
-    init_project(workspace, title="Archive Project")
-    labels = _make_labels(tmp_path, x=1.0, y=2.0)
-    save_workspace_labels(workspace, labels)
-
-    archive = export_workspace_archive(workspace)
-
-    assert archive.is_file()
-    assert archive.suffix == ".xpkg"
-
-
-def test_empty_placeholder_workspace_loads_and_exports(tmp_path: Path) -> None:
+def test_save_workspace_metadata_commits_snapshot_without_labels_recommit(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import xpkg.io.project_workspace as project_workspace
     from xpkg.formats import (
-        export_workspace_archive,
+        init_project,
+        load_workspace_metadata,
+        save_workspace_labels,
+        save_workspace_metadata,
+    )
+
+    workspace = tmp_path / "Metadata Fast Path"
+    init_project(workspace, title="Metadata Fast Path")
+    save_workspace_labels(workspace, _make_labels(tmp_path, x=1.0, y=2.0))
+
+    def fail_commit(*_args, **_kwargs):
+        raise AssertionError("metadata-only save should not recommit Labels")
+
+    monkeypatch.setattr(project_workspace, "_commit_labels_to_workspace", fail_commit)
+
+    saved_path = save_workspace_metadata(
+        workspace,
+        {"session_json": {"active_frame_idx": 12}},
+        reason="test.metadata.fast_path",
+    )
+
+    assert saved_path.is_file()
+    assert load_workspace_metadata(workspace)["session_json"] == {"active_frame_idx": 12}
+
+
+def test_empty_placeholder_workspace_loads(tmp_path: Path) -> None:
+    from xpkg.formats import (
         init_project,
         load_workspace_payload,
         save_workspace_labels,
@@ -379,10 +395,6 @@ def test_empty_placeholder_workspace_loads_and_exports(tmp_path: Path) -> None:
     assert "labels" in payload
     assert np.asarray(payload["labels"]["data"]["keypoints"], dtype=np.float32).size == 0
     assert payload["predictions"]["attrs"]["committed_length"] == 0
-
-    archive = export_workspace_archive(workspace)
-    assert archive.is_file()
-    assert archive.suffix == ".xpkg"
 
 
 def test_load_workspace_payload_keeps_predictions_out_of_labels_bundle(tmp_path: Path) -> None:
@@ -411,13 +423,37 @@ def test_load_workspace_payload_keeps_predictions_out_of_labels_bundle(tmp_path:
     assert int(prediction_track_ids[0, 0]) == 7
 
 
+def test_load_workspace_payload_uses_snapshot_without_archive_export(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import xpkg.io.project_workspace as project_workspace
+    from xpkg.formats import init_project, load_workspace_payload
+    from xpkg.model import Labels
+
+    workspace = tmp_path / "Direct Payload Project"
+    init_project(workspace, title="Direct Payload Project")
+    Labels.save_file(_make_labels(tmp_path, x=4.0, y=5.0), workspace.as_posix())
+
+    def fail_export(*_args, **_kwargs):
+        raise AssertionError("load_workspace_payload should not export an archive")
+
+    monkeypatch.setattr(project_workspace, "export_project_archive", fail_export)
+
+    payload = load_workspace_payload(workspace)
+
+    assert payload["labels"]["frames"]["frame_index"].tolist() == [0]
+    assert payload["labels"]["data"]["track_id"].shape == (1, 1)
+    assert payload["predictions"]["attrs"]["committed_length"] == 0
+
+
 def test_migrate_legacy_archive_rewrites_stale_project_metadata_paths(tmp_path: Path) -> None:
-    from xpkg.compat import write_xpkg
     from xpkg.formats import (
         current_project_snapshot_path,
         init_project,
         migrate_legacy_archive,
     )
+    from xpkg.io.archive_format import write_archive
     from xpkg.io.workspace_snapshot_backend import read_workspace_snapshot_payload
 
     legacy_root = tmp_path / "bootstrap_2026-01-13"
@@ -457,7 +493,7 @@ def test_migrate_legacy_archive_rewrites_stale_project_metadata_paths(tmp_path: 
         "active_video_path": source_video.as_posix(),
         "active_frame_idx": 2,
     }
-    write_xpkg(
+    write_archive(
         source_archive_path,
         labels,
         metadata={
@@ -488,18 +524,18 @@ def test_migrate_legacy_archive_rewrites_stale_project_metadata_paths(tmp_path: 
 
 
 def test_pack_snapshot_and_unpack_roundtrip_workspace(tmp_path: Path) -> None:
-    from xpkg.compat import write_xpkg
     from xpkg.formats import (
         current_project_snapshot_path,
         pack_project,
         unpack_project,
         validate_artifact,
     )
+    from xpkg.io.archive_format import write_archive
     from xpkg.model import Labels
 
     labels = _make_labels(tmp_path, x=5.0, y=6.0)
     source_archive_path = tmp_path / "tracking.xpkg"
-    write_xpkg(source_archive_path, labels)
+    write_archive(source_archive_path, labels)
 
     workspace = tmp_path / "Roundtrip Project"
     from xpkg.formats import migrate_legacy_archive
@@ -525,7 +561,6 @@ def test_pack_snapshot_and_unpack_roundtrip_workspace(tmp_path: Path) -> None:
 
 
 def test_pack_portable_and_unpack_uses_managed_media_after_source_removal(tmp_path: Path) -> None:
-    from xpkg.compat import write_xpkg
     from xpkg.formats import (
         migrate_legacy_archive,
         pack_project,
@@ -533,13 +568,14 @@ def test_pack_portable_and_unpack_uses_managed_media_after_source_removal(tmp_pa
         validate_artifact,
         workspace_media_root,
     )
+    from xpkg.io.archive_format import write_archive
     from xpkg.model import Labels
 
     source_root = tmp_path / "source"
     source_root.mkdir()
     labels = _make_labels(source_root, x=7.0, y=8.0)
     source_archive_path = tmp_path / "external.xpkg"
-    write_xpkg(source_archive_path, labels)
+    write_archive(source_archive_path, labels)
 
     workspace = tmp_path / "Portable Project"
     migrate_legacy_archive(source_archive_path, workspace)
@@ -574,13 +610,13 @@ def test_pack_portable_and_unpack_uses_managed_media_after_source_removal(tmp_pa
 
 
 def test_legacy_workspace_current_state_archive_requires_explicit_cutover(tmp_path: Path) -> None:
-    from xpkg.compat import write_xpkg
     from xpkg.formats import (
         current_project_state_path,
         init_project,
         workspace_state_root,
         workspace_store_root,
     )
+    from xpkg.io.archive_format import write_archive
     from xpkg.io.project_workspace import (
         LegacyWorkspaceMigrationRequiredError,
         export_project_archive,
@@ -596,7 +632,7 @@ def test_legacy_workspace_current_state_archive_requires_explicit_cutover(tmp_pa
     init_project(workspace, title="Legacy Workspace")
     current_state_archive = workspace_state_root(workspace) / "current.xpkg"
     current_state_archive.parent.mkdir(parents=True, exist_ok=True)
-    write_xpkg(current_state_archive, legacy_labels)
+    write_archive(current_state_archive, legacy_labels)
 
     with pytest.raises(
         LegacyWorkspaceMigrationRequiredError,
@@ -656,10 +692,14 @@ def test_labels_save_file_to_workspace_creates_first_committed_state(tmp_path: P
 
 
 def test_labels_save_file_to_workspace_preserves_predictions(tmp_path: Path) -> None:
-    from xpkg.compat import PredictionAppendItem, SerializerPredictedInstance, write_xpkg
     from xpkg.formats import (
         current_project_snapshot_path,
         migrate_legacy_archive,
+    )
+    from xpkg.io.archive_format import (
+        PredictionAppendItem,
+        SerializerPredictedInstance,
+        write_archive,
     )
     from xpkg.io.workspace_snapshot_backend import read_workspace_snapshot_payload
     from xpkg.model import Labels
@@ -686,7 +726,7 @@ def test_labels_save_file_to_workspace_preserves_predictions(tmp_path: Path) -> 
         )
     ]
 
-    write_xpkg(source_archive_path, initial_labels, predictions=predictions)
+    write_archive(source_archive_path, initial_labels, predictions=predictions)
     migrate_legacy_archive(source_archive_path, workspace)
 
     saved_target = Labels.save_file(updated_labels, workspace.as_posix())
@@ -848,8 +888,8 @@ def test_workspace_load_ignores_stale_snapshot_when_commit_id_mismatches(tmp_pat
 
 
 def test_summarize_project_and_validate_project_read_labels_video_group(tmp_path: Path) -> None:
-    from xpkg.compat import summarize_xpkg, validate_xpkg
     from xpkg.formats import current_project_snapshot_path, init_project
+    from xpkg.io.archive_format import summarize_project, validate_project
     from xpkg.io.project_workspace import export_project_archive
     from xpkg.model import Labels
 
@@ -862,12 +902,12 @@ def test_summarize_project_and_validate_project_read_labels_video_group(tmp_path
     saved_target = Labels.save_file(labels, workspace.as_posix())
     archive = export_project_archive(workspace)
     labels.save_file(labels, archive.as_posix())
-    summary = summarize_xpkg(archive)
+    summary = summarize_project(archive)
 
     assert saved_target == workspace.as_posix()
     assert current_project_snapshot_path(workspace).exists()
     assert archive.exists()
-    validate_xpkg(archive)
+    validate_project(archive)
     assert summary.n_videos == 1
     assert len(summary.video_filenames) == 1
     assert Path(summary.video_filenames[0]).name == source_video.name

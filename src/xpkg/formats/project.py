@@ -3,9 +3,8 @@
 These free functions stay public for integrations that want an explicit
 function-level API. New code should usually drive lifecycle and ingestion
 through ``WorkspaceService`` and ``WorkspaceService.imports`` rather than build
-around archive-first helpers. ``export_workspace_archive(...)`` remains public
-only for compatibility consumers that still need a materialized ``.xpkg``
-archive from the current workspace head.
+around archive-first helpers. Direct archive export stays private to the
+workspace storage internals.
 """
 
 from __future__ import annotations
@@ -37,7 +36,6 @@ from xpkg.io.project_metadata import load_workspace_metadata_field, save_workspa
 from xpkg.io.project_workspace import (
     current_project_snapshot_path,
     current_project_state_path,
-    export_project_archive,
     import_detectron2_coco_workspace,
     import_dlc_csv_workspace,
     import_dlc_h5_workspace,
@@ -59,8 +57,6 @@ from xpkg.io.project_workspace import (
     save_workspace_metadata,
 )
 
-export_workspace_archive = export_project_archive
-
 __all__ = [
     "EXPKG_SUFFIX",
     "PROJECT_DESCRIPTOR_FILENAME",
@@ -77,7 +73,6 @@ __all__ = [
     "workspace_state_root",
     "workspace_store_root",
     "default_expkg_path",
-    "export_workspace_archive",
     "pack_project",
     "unpack_project",
     "validate_workspace",

@@ -136,13 +136,13 @@ def test_archive_labels_roundtrip_uses_explicit_visibility_dataset(tmp_path: Pat
     assert bool(pts["complete"][0]) is True
 
 
-def test_update_labels_xpkg_preserves_predictions_by_default(tmp_path: Path) -> None:
-    from xpkg.compat import (
+def test_update_labels_archive_preserves_predictions_by_default(tmp_path: Path) -> None:
+    from xpkg.io.archive_format import (
         PredictionAppendItem,
         SerializerPredictedInstance,
-        read_xpkg,
-        update_labels_xpkg,
-        write_xpkg,
+        read_archive,
+        update_labels_archive,
+        write_archive,
     )
 
     initial_labels = _make_labels(tmp_path, x=1.0, y=2.0)
@@ -163,10 +163,10 @@ def test_update_labels_xpkg_preserves_predictions_by_default(tmp_path: Path) -> 
         )
     ]
 
-    write_xpkg(archive_path, initial_labels, predictions=predictions)
-    update_labels_xpkg(archive_path, updated_labels)
+    write_archive(archive_path, initial_labels, predictions=predictions)
+    update_labels_archive(archive_path, updated_labels)
 
-    payload = read_xpkg(archive_path, lazy=False)
+    payload = read_archive(archive_path, lazy=False)
     label_keypoints = np.asarray(payload["labels"]["data"]["keypoints"], dtype=np.float32)
     prediction_scores = np.asarray(
         payload["predictions"]["data"]["keypoint_score"],
@@ -180,20 +180,20 @@ def test_update_labels_xpkg_preserves_predictions_by_default(tmp_path: Path) -> 
     assert int(prediction_track_ids[0, 0]) == 7
 
 
-def test_append_predictions_xpkg_roundtrip_uses_canonical_compat_surface(tmp_path: Path) -> None:
-    from xpkg.compat import (
+def test_append_predictions_archive_roundtrip_uses_archive_format_surface(tmp_path: Path) -> None:
+    from xpkg.io.archive_format import (
         PredictionAppendItem,
         SerializerPredictedInstance,
-        append_predictions_xpkg,
-        read_xpkg,
-        write_xpkg,
+        append_predictions_archive,
+        read_archive,
+        write_archive,
     )
 
     labels = _make_labels(tmp_path, x=1.0, y=2.0)
     archive_path = tmp_path / "append.xpkg"
-    write_xpkg(archive_path, labels, predictions=[])
+    write_archive(archive_path, labels, predictions=[])
 
-    appended = append_predictions_xpkg(
+    appended = append_predictions_archive(
         archive_path,
         [
             PredictionAppendItem(
@@ -212,7 +212,7 @@ def test_append_predictions_xpkg_roundtrip_uses_canonical_compat_surface(tmp_pat
         allow_max_inst_growth=True,
     )
 
-    payload = read_xpkg(archive_path, lazy=False)
+    payload = read_archive(archive_path, lazy=False)
     frames = np.asarray(payload["predictions"]["frames"]["num_instances"], dtype=np.int32)
     keypoints = np.asarray(payload["predictions"]["data"]["keypoints"], dtype=np.float32)
     track_ids = np.asarray(payload["predictions"]["data"]["track_id"], dtype=np.int32)
@@ -226,18 +226,18 @@ def test_append_predictions_xpkg_roundtrip_uses_canonical_compat_surface(tmp_pat
     assert int(track_ids[0, 0]) == 5
 
 
-def test_merge_predictions_xpkg_roundtrip_uses_canonical_compat_surface(tmp_path: Path) -> None:
-    from xpkg.compat import (
+def test_merge_predictions_archive_roundtrip_uses_archive_format_surface(tmp_path: Path) -> None:
+    from xpkg.io.archive_format import (
         PredictionAppendItem,
         SerializerPredictedInstance,
-        merge_predictions_xpkg,
-        read_xpkg,
-        write_xpkg,
+        merge_predictions_archive,
+        read_archive,
+        write_archive,
     )
 
     labels = _make_labels(tmp_path, x=1.0, y=2.0)
     archive_path = tmp_path / "merge.xpkg"
-    write_xpkg(
+    write_archive(
         archive_path,
         labels,
         predictions=[
@@ -256,7 +256,7 @@ def test_merge_predictions_xpkg_roundtrip_uses_canonical_compat_surface(tmp_path
         ],
     )
 
-    merged = merge_predictions_xpkg(
+    merged = merge_predictions_archive(
         archive_path,
         [
             PredictionAppendItem(
@@ -275,7 +275,7 @@ def test_merge_predictions_xpkg_roundtrip_uses_canonical_compat_surface(tmp_path
         allow_max_inst_growth=True,
     )
 
-    payload = read_xpkg(archive_path, lazy=False)
+    payload = read_archive(archive_path, lazy=False)
     frames = np.asarray(payload["predictions"]["frames"]["num_instances"], dtype=np.int32)
     keypoints = np.asarray(payload["predictions"]["data"]["keypoints"], dtype=np.float32)
     instance_scores = np.asarray(
@@ -295,17 +295,17 @@ def test_merge_predictions_xpkg_roundtrip_uses_canonical_compat_surface(tmp_path
     assert int(track_ids[0, 1]) == 9
 
 
-def test_read_xpkg_tolerates_missing_manifest_with_path_fallback(tmp_path: Path) -> None:
-    from xpkg.compat import read_xpkg, write_xpkg
+def test_read_archive_tolerates_missing_manifest_with_path_fallback(tmp_path: Path) -> None:
+    from xpkg.io.archive_format import read_archive, write_archive
 
     labels = _make_labels(tmp_path, x=5.0, y=6.0)
     archive_path = tmp_path / "nometa.xpkg"
-    write_xpkg(archive_path, labels)
+    write_archive(archive_path, labels)
 
     with h5py.File(archive_path.as_posix(), "r+") as handle:
         del handle["project_metadata"].attrs["manifest_json"]
 
-    payload = read_xpkg(archive_path, lazy=False)
+    payload = read_archive(archive_path, lazy=False)
 
     assert payload["metadata"]["manifest"] is None
     videos_info = payload["metadata"]["videos"]
@@ -314,15 +314,12 @@ def test_read_xpkg_tolerates_missing_manifest_with_path_fallback(tmp_path: Path)
 
 
 def test_archive_metadata_field_helpers_roundtrip_mapping_payload(tmp_path: Path) -> None:
-    from xpkg.compat import (
-        load_archive_metadata_field,
-        save_archive_metadata_field,
-        write_xpkg,
-    )
+    from xpkg.io.archive_format import write_archive
+    from xpkg.io.project_metadata import load_archive_metadata_field, save_archive_metadata_field
 
     labels = _make_labels(tmp_path, x=8.0, y=9.0)
     archive_path = tmp_path / "metadata.xpkg"
-    write_xpkg(archive_path, labels)
+    write_archive(archive_path, labels)
 
     save_archive_metadata_field(
         archive_path,
@@ -333,19 +330,19 @@ def test_archive_metadata_field_helpers_roundtrip_mapping_payload(tmp_path: Path
     assert load_archive_metadata_field(archive_path, "session_json") == {"active_frame_idx": 7}
 
 
-def test_summarize_xpkg_uses_committed_prediction_length_when_metadata_count_is_stale(
+def test_summarize_project_uses_committed_prediction_length_when_metadata_count_is_stale(
     tmp_path: Path,
 ) -> None:
-    from xpkg.compat import (
+    from xpkg.io.archive_format import (
         PredictionAppendItem,
         SerializerPredictedInstance,
-        summarize_xpkg,
-        write_xpkg,
+        summarize_project,
+        write_archive,
     )
 
     labels = _make_labels(tmp_path, x=1.0, y=2.0)
     archive_path = tmp_path / "summary.xpkg"
-    write_xpkg(
+    write_archive(
         archive_path,
         labels,
         predictions=[
@@ -367,7 +364,7 @@ def test_summarize_xpkg_uses_committed_prediction_length_when_metadata_count_is_
     with h5py.File(archive_path.as_posix(), "r+") as handle:
         handle["project_metadata"].attrs["n_predictions_committed"] = 0
 
-    summary = summarize_xpkg(archive_path)
+    summary = summarize_project(archive_path)
 
     assert summary.prediction_frames == 1
 

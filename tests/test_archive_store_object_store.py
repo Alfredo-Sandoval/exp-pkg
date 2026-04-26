@@ -2,8 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from xpkg.compat import create_store_from_xpkg, open_store
-from xpkg.io.archive_store import ArchiveStore
+from xpkg.io.archive_store import ArchiveStore, create_xpkg_store, open_archive_store
 from xpkg.io.archive_store.object_store import get_object_file, put_object_file
 from xpkg.io.archive_store.paths import StorePaths
 
@@ -27,7 +26,7 @@ def test_store_wrapper_roundtrip_preserves_archive_suffix(tmp_path: Path) -> Non
     initial_archive = tmp_path / "initial.xpkg"
     initial_archive.write_bytes(b"first")
 
-    store = create_store_from_xpkg(tmp_path / "project.xpkg", initial_archive)
+    store = create_xpkg_store(tmp_path / "project.xpkg", initial_archive)
     current = store.current_archive_path()
     assert current.suffix == ".xpkg"
     assert current.read_bytes() == b"first"
@@ -37,7 +36,7 @@ def test_store_wrapper_roundtrip_preserves_archive_suffix(tmp_path: Path) -> Non
     commit_id = store.commit_new_archive(updated_archive, reason="update")
     assert commit_id.startswith("c_")
 
-    reopened = open_store(tmp_path / "project.xpkg")
+    reopened = open_archive_store(tmp_path / "project.xpkg")
     assert reopened.current_archive_path().suffix == ".xpkg"
     assert reopened.current_archive_path().read_bytes() == b"second"
 

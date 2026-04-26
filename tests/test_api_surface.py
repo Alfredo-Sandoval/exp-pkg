@@ -21,7 +21,6 @@ def test_xpkg_api_exposes_workspace_first_contract() -> None:
         "current_project_snapshot_path",
         "current_project_state_path",
         "default_expkg_path",
-        "export_workspace_archive",
         "import_vicon_c3d_workspace",
         "import_vicon_csv_workspace",
         "import_vicon_workspace",
@@ -65,6 +64,7 @@ def test_xpkg_api_exposes_workspace_first_contract() -> None:
     assert "ConversionResult" not in api.__all__
     assert "convert_dlc_csv" not in api.__all__
     assert "current_project_archive_path" not in api.__all__
+    assert "export_workspace_archive" not in api.__all__
     assert "export_project_archive" not in api.__all__
     assert "import_legacy_archive" not in api.__all__
     assert "SleapTrack" not in api.__all__

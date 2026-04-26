@@ -14,7 +14,11 @@ from xpkg.formats import (
 )
 from xpkg.io.archive_store import ArchiveStore
 from xpkg.io.project_workspace import current_project_commit_id, export_project_archive
-from xpkg.io.workspace_snapshot_backend import snapshot_commit_id
+from xpkg.io.workspace_snapshot_backend import (
+    snapshot_commit_id,
+    workspace_snapshot_cache_digest_matches,
+    workspace_snapshot_cache_digest_path,
+)
 from xpkg.model import Labels, Video, build_keypoint_skeleton
 
 
@@ -64,6 +68,8 @@ def test_save_workspace_labels_creates_durable_head_and_snapshot_commit_id(tmp_p
 
     snapshot_payload = json.loads(snapshot_path.read_text(encoding="utf-8"))["payload"]
     assert snapshot_commit_id(snapshot_payload) == commit_id
+    assert workspace_snapshot_cache_digest_path(snapshot_path).is_file()
+    assert workspace_snapshot_cache_digest_matches(snapshot_path, commit_id=commit_id)
 
 
 def test_export_project_archive_materializes_archive_on_demand(tmp_path: Path) -> None:

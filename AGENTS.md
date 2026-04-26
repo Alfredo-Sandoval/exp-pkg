@@ -19,15 +19,6 @@ Canonical identity lives in `repo_profile.yaml`.
 - `repo.preset`: `base`
 - `repo.support_matrix`: `macos`, `linux`
 
-## Required Skills
-
-For repository tasks, always load:
-
-- `repo-setup`
-- `agent-playbook`
-
-Then use `repo_profile.yaml` `skills.routing` for intent-specific skills.
-
 ## Environment Policy
 
 - Canonical setup entrypoint: `make env`

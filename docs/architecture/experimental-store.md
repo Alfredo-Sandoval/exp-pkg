@@ -4,24 +4,24 @@
 <p>
 xpkg now has an <strong>experimental</strong> durable store layer for crash-safe,
 commit-oriented project state. In the locked v1 artifact contract this belongs
-under the workspace-owned <code>.xpkg/</code> directory. The current prototype
-still wraps staged <code>.xpkg</code> archives internally while we harden the
-private storage engine.
+under the workspace-owned <code>.xpkg/</code> directory. Normal workspace
+commits now store workspace-native snapshot roots in that private store, while
+legacy archive roots remain only for explicit compatibility paths.
 </p>
 </div>
 
-If you want the broader rationale for why the runtime still stages
-direct archive payloads at all, read [Storage Direction](storage-direction.md).
+If you want the broader rationale for the storage cutover, read
+[Storage Direction](storage-direction.md).
 
 !!! warning
-    This workflow is experimental private machinery. The public v1 artifact
-    contract is workspace folder + <code>.expkg</code>. Use the durable store
-    when you want stronger recovery semantics inside <code>.xpkg/</code>, not
-    as a public interchange layer.
+This workflow is experimental private machinery. The public v1 artifact
+contract is workspace folder + <code>.expkg</code>. Use the durable store
+when you want stronger recovery semantics inside <code>.xpkg/</code>, not
+as a public interchange layer.
 
 !!! info
-    Status: current private prototype. The committed source of truth is the
-    durable store head; <code>.xpkg/state/current.json</code> is only a cache.
+Status: current private prototype. The committed source of truth is the
+durable store head; <code>.xpkg/state/current.json</code> is only a cache.
 
 ## What Changed
 
@@ -36,8 +36,8 @@ My Project/
     My Project.expkg
 ```
 
-Inside that workspace, the current experimental prototype manages committed
-compatibility archives internally:
+Inside that workspace, the current private store manages committed root
+payloads behind dual superblocks:
 
 ```text
 My Project/.xpkg/
@@ -49,9 +49,9 @@ My Project/.xpkg/
   commits/
     000000000001/commit.json
   objects/
-    ab/cd/obj_<sha256>.xpkg
+    ab/cd/obj_<sha256>.json
   workspace/
-    tmp-<txn>.xpkg
+    tmp-<txn>
   state/
     current.json
 ```
@@ -65,77 +65,47 @@ version.
 Use the durable store when you want commit-style persistence around autosave or
 interactive editing boundaries:
 
-- each committed archive is immutable
+- each committed root payload is immutable
 - the current head is selected by a superblock flip instead of in-place mutation
 - recovery falls back to the last clean commit when a journal is left behind
-- staged writes are separated from the committed archive head
+- staged writes are separated from the committed head
 
 This is aimed at protecting the last committed human-label state when a process
 dies mid-save.
 
 ## Recommended Experimental Workflow
 
-The current prototype sits on top of the low-level `.xpkg` archive helpers
-while targeting the `.xpkg/` private state layer.
-
-1. Produce a normal `.xpkg` compatibility archive with the low-level archive
-   helpers.
-2. Create a store root from that archive.
-3. For each new save boundary, write a fresh staged archive.
-4. Commit that staged archive into the store.
-5. Reopen through the store when you want recovery semantics.
+Normal project-facing code should not call the store directly. Use the
+workspace APIs; they commit snapshot roots into `.xpkg/` and refresh
+`.xpkg/state/current.json` as a rebuildable cache.
 
 Example:
 
 ```python
-from pathlib import Path
-
-from xpkg.compat import (
-    create_store_from_xpkg,
-    open_store,
-    read_xpkg,
-    write_xpkg,
-)
 from xpkg.model import Labels
+from xpkg.services import WorkspaceService
 
 labels = Labels()
 
-# 1. Create the first staged compatibility archive
-workspace_root = Path("My Project")
-seed_archive = workspace_root / ".xpkg" / "workspace" / "seed.xpkg"
-seed_archive.parent.mkdir(parents=True, exist_ok=True)
-write_xpkg(seed_archive, labels)
-
-# 2. Wrap it in the experimental private store root
-store = create_store_from_xpkg(workspace_root / ".xpkg", seed_archive)
-
-# 3. Later, stage a fresh compatibility archive with the normal writer
-staged_archive = workspace_root / ".xpkg" / "workspace" / "session-next.xpkg"
-write_xpkg(staged_archive, labels)
-
-# 4. Commit the staged archive as the new durable head
-store.commit_new_archive(staged_archive, reason="autosave")
-
-# 5. Reopen with recovery semantics and resolve the current committed archive
-store = open_store(workspace_root / ".xpkg")
-payload = read_xpkg(store.current_archive_path(), lazy=False)
+workspace = WorkspaceService.create("My Project", title="My Project")
+workspace.save_labels(labels, metadata={"source": "manual"})
+workspace.validate()
 ```
 
 ## Low-Level Entry Points
 
-These helpers still exist because the durable store needs a concrete staged
-archive format underneath `.xpkg/`, but they are intentionally outside the
-workspace-first public contract and do not appear in `xpkg.api`,
-`xpkg.formats`, or the CLI:
+Low-level store helpers still exist for tests, recovery work, and private
+workspace storage flows. They are intentionally outside the workspace-first
+public contract and do not appear in `xpkg.api`, `xpkg.formats`, or the CLI:
 
-- `create_store_from_xpkg(store_root, initial_xpkg)`
-- `open_store(store_root)`
+- `ArchiveStore.create_from_archive(store_root, initial_xpkg)`
+- `ArchiveStore.open(store_root)`
 - `ArchiveStore.current_archive_path()`
 - `ArchiveStore.commit_new_archive(...)`
 
 ## Recovery Model
 
-`open_store(...)` calls recovery before returning a mounted store.
+`ArchiveStore.open(...)` calls recovery before returning a mounted store.
 
 The recovery logic is intentionally narrow:
 
@@ -163,8 +133,8 @@ Experimental today:
 - private `.xpkg/` durable-store machinery
 - commit-oriented autosave flow
 - superblock/journal durability layer
-- low-level `.xpkg` archive helpers in `xpkg.compat` for migration and private
-  store machinery
+- low-level `.xpkg` archive helpers under `xpkg.io.archive_format` for
+  migrations, fixtures, and private storage internals
 
 If you are building the public project contract, think in terms of workspace +
 `.expkg`. If you are prototyping crash-safe editing or autosave behavior,

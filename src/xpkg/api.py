@@ -30,7 +30,6 @@ _WORKSPACE_EXPORTS: dict[str, tuple[str, str]] = {
     "load_workspace_payload": (".formats.project", "load_workspace_payload"),
     "current_project_state_path": (".formats.project", "current_project_state_path"),
     "current_project_snapshot_path": (".formats.project", "current_project_snapshot_path"),
-    "export_workspace_archive": (".formats.project", "export_workspace_archive"),
     "pack_project": (".formats.project", "pack_project"),
     "unpack_project": (".formats.project", "unpack_project"),
     "validate_workspace": (".formats.project", "validate_workspace"),

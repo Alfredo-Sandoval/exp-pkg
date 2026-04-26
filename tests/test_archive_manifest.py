@@ -39,7 +39,7 @@ def _find_manifest_entry(
 
 
 def test_write_archive_manifest_tracks_archive_only_by_default(tmp_path: Path) -> None:
-    from xpkg.compat import write_xpkg
+    from xpkg.io.archive_format import write_archive
     from xpkg.model import Labels
 
     project_root = tmp_path / "proj"
@@ -47,7 +47,7 @@ def test_write_archive_manifest_tracks_archive_only_by_default(tmp_path: Path) -
 
     archive_path = project_root / "proj.xpkg"
     labels = Labels()
-    write_xpkg(archive_path, labels)
+    write_archive(archive_path, labels)
 
     with h5py.File(str(archive_path), "r") as handle:
         raw = handle["project_metadata"].attrs["manifest_json"]
@@ -74,12 +74,12 @@ def test_write_archive_manifest_tracks_archive_only_by_default(tmp_path: Path) -
 
 
 def test_write_archive_persists_preferences_payload(tmp_path: Path) -> None:
-    from xpkg.compat import write_xpkg
+    from xpkg.io.archive_format import write_archive
     from xpkg.model import Labels
 
     archive_path = tmp_path / "prefs.xpkg"
     labels = Labels(preferences={"theme": "paper", "show_scores": True})
-    write_xpkg(archive_path, labels)
+    write_archive(archive_path, labels)
 
     with h5py.File(str(archive_path), "r") as handle:
         raw = handle["project_metadata"].attrs["preferences_json"]
@@ -94,7 +94,7 @@ def test_write_archive_registers_image_sequence_video_directory(tmp_path: Path) 
     import cv2
     import numpy as np
 
-    from xpkg.compat import write_xpkg
+    from xpkg.io.archive_format import write_archive
     from xpkg.model import Labels, Video
 
     project_root = tmp_path / "proj"
@@ -111,7 +111,7 @@ def test_write_archive_registers_image_sequence_video_directory(tmp_path: Path) 
 
     archive_path = project_root / "proj.xpkg"
     labels = Labels(videos=[Video.from_image_filenames(frame_paths)])
-    write_xpkg(archive_path, labels)
+    write_archive(archive_path, labels)
 
     entries = _load_manifest_entries(archive_path)
     entry = _find_manifest_entry(
@@ -134,7 +134,7 @@ def test_write_archive_rejects_image_sequence_with_multiple_parent_dirs(tmp_path
     import cv2
     import numpy as np
 
-    from xpkg.compat import write_xpkg
+    from xpkg.io.archive_format import write_archive
     from xpkg.model import Labels, Video
 
     first_dir = tmp_path / "first"
@@ -155,4 +155,4 @@ def test_write_archive_rejects_image_sequence_with_multiple_parent_dirs(tmp_path
     )
 
     with pytest.raises(ValueError, match="share exactly one parent directory"):
-        write_xpkg(archive_path, labels)
+        write_archive(archive_path, labels)

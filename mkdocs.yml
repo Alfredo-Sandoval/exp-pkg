@@ -84,7 +84,6 @@ nav:
       - Media IO Stack: architecture/media-io.md
       - Storage Direction: architecture/storage-direction.md
       - Experimental Durable Store: architecture/experimental-store.md
-      - POSIX Durable Store Spec: architecture/posix-durable-store-spec.md
   - Development:
       - Local CI: development/local-ci.md
   - API Guide:
