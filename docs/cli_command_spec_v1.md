@@ -13,6 +13,7 @@ The workspace-first command surface is:
 ```text
 xpkg init
 xpkg import
+xpkg artifacts
 xpkg pack
 xpkg unpack
 xpkg validate
@@ -100,6 +101,38 @@ xpkg import detectron2 --predictions coco_instances_results.json --dataset-json 
 
 - Import is not an in-place update of packed `.expkg` artifacts.
 - Import is not the legacy `.xpkg` cutover command; use `xpkg migrate` for that.
+
+## `xpkg artifacts`
+
+Inspect and validate registered workspace output artifacts.
+
+### Synopsis
+
+```bash
+xpkg artifacts list "./My Project"
+xpkg artifacts list "./My Project" --kind figure
+xpkg artifacts inspect "./My Project" validation-figure-3 --kind figure
+xpkg artifacts validate "./My Project" --kind figure
+xpkg artifacts validate "./My Project" validation-figure-3 --kind figure
+xpkg artifacts rebuild-index "./My Project"
+```
+
+### Required behavior
+
+- Reads artifact manifests from a workspace.
+- Lists compact entries from `.xpkg/artifacts/index.json`, rebuilding the index
+  if it is missing.
+- Prints one full manifest for `inspect`.
+- Validates referenced input, output, and stats files.
+- Verifies recorded checksums and sizes when present.
+- Supports optional artifact kind and caller-owned namespace filters.
+
+### Non-goals
+
+- `artifacts` does not render plots, compute statistics, or choose scientific
+  models.
+- `artifacts` does not make `.expkg` files mutable; use `xpkg pack` after
+  workspace changes.
 
 ## `xpkg pack`
 

@@ -183,6 +183,57 @@ Persist the current `Labels` state into a workspace and refresh the managed
 project state. The committed durable snapshot head remains authoritative;
 `.xpkg/state/current.json` is refreshed as a rebuildable cache.
 
+## Generic Artifact Registry
+
+### `save_workspace_artifact(...)`
+
+Copy output files into `.xpkg/artifacts/<kind>/<artifact_id>/` and write a
+portable `manifest.json` with artifact type, title, inputs, producer metadata,
+outputs, stats reports, optional metadata, and checksum-bearing file records.
+
+Pass `namespace="analysis-app"` or any other caller-owned namespace to save
+under `.xpkg/<namespace>/<kind>/<artifact_id>/`. xpkg normalizes the namespace
+into a path-safe slug but does not interpret it.
+
+### `load_workspace_artifact(...)`
+
+Load one saved `ArtifactManifest` by artifact id, with optional
+`artifact_type=...` and `namespace=...` disambiguation.
+
+### `list_workspace_artifacts(...)`
+
+Return saved artifact manifests, optionally filtered by artifact type or
+namespace.
+
+### `list_workspace_artifact_index(...)`
+
+Return compact `ArtifactIndexEntry` records from `.xpkg/artifacts/index.json`,
+rebuilding the index when it is missing.
+
+### `validate_workspace_artifact(...)`
+
+Validate one artifact manifest, ensure every referenced input/output/stat file
+exists, and verify recorded file checksums and sizes when present.
+
+### `validate_workspace_artifacts(...)`
+
+Validate every saved artifact manifest in the workspace, optionally filtered by
+artifact type or namespace.
+
+### `rebuild_workspace_artifact_index(...)`
+
+Rebuild `.xpkg/artifacts/index.json` from artifact manifests. This is useful
+after manual repair or when importing a workspace created by an older xpkg
+version.
+
+### `workspace_artifact_type_root(...)` / `workspace_artifact_root(...)`
+
+Resolve private artifact directories for a type or one artifact instance.
+
+### `workspace_artifact_index_path(...)`
+
+Resolve `.xpkg/artifacts/index.json`.
+
 ## Figure Artifacts
 
 ### `save_workspace_figure(...)`
@@ -194,6 +245,9 @@ outputs, stats reports, and optional metadata.
 Pass any caller-owned namespace, such as `namespace="analysis-app"`, to save
 under `.xpkg/<namespace>/figures/<figure_id>/` instead of the generic registry.
 `xpkg` does not reserve or hard-code downstream package names.
+
+The figure helpers are the figure-specific convenience layer over
+`save_workspace_artifact(..., artifact_type="figure", ...)`.
 
 ### `load_workspace_figure(...)`
 

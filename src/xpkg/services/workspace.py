@@ -51,6 +51,7 @@ from xpkg.formats.project import (
 )
 from xpkg.io.project_workspace import ensure_current_workspace_snapshot_cache
 from xpkg.io.workspace_state import workspace_state_kind
+from xpkg.services.artifacts import WorkspaceArtifacts
 from xpkg.services.figures import WorkspaceFigures
 from xpkg.services.segmentation import WorkspaceSegmentation
 
@@ -413,6 +414,11 @@ class WorkspaceService:
         return WorkspaceSegmentation(workspace_root=self.workspace_root)
 
     @property
+    def artifacts(self) -> WorkspaceArtifacts:
+        """Return service-bound generic artifact registry helpers."""
+        return WorkspaceArtifacts(workspace_root=self.workspace_root)
+
+    @property
     def figures(self) -> WorkspaceFigures:
         """Return service-bound figure artifact helpers."""
         return WorkspaceFigures(workspace_root=self.workspace_root)
@@ -521,6 +527,7 @@ __all__ = [
     "WorkspaceImports",
     "WorkspaceLayout",
     "WorkspaceInspection",
+    "WorkspaceArtifacts",
     "WorkspaceFigures",
     "WorkspaceSegmentation",
 ]

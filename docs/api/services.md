@@ -14,8 +14,12 @@ import into, validate, pack, or unpack a workspace-first project.
   lifecycle operations.
 - Use <code>workspace.imports.*</code> when you want the supported external
   importers without dropping out of that service object.
+- Use <code>workspace.artifacts.*</code> when you want to register figures,
+  tables, analyses, reports, stats, or other output files with portable
+  manifests and a workspace-wide index.
 - Use <code>workspace.figures.*</code> when you want to save figure outputs
-  with portable provenance manifests.
+  with portable provenance manifests. This is a convenience layer over the
+  generic artifact registry.
 - Use <code>workspace.segmentation.*</code> when you want to save or load
   frame-level segmentation masks without manually rebuilding a
   <code>Labels</code> object.
@@ -62,6 +66,11 @@ object:
 - `workspace.validate()`
 - `workspace.load_labels()`
 - `workspace.save_labels(...)`
+- `workspace.artifacts.register(...)`
+- `workspace.artifacts.load(...)`
+- `workspace.artifacts.list(...)`
+- `workspace.artifacts.index(...)`
+- `workspace.artifacts.validate(...)`
 - `workspace.figures.save(...)`
 - `workspace.figures.load(...)`
 - `workspace.figures.list(...)`
@@ -92,6 +101,51 @@ Each service-bound importer mirrors a public
 
 The service-bound methods are the preferred path for new project-facing code.
 The free functions remain public for explicit function-level integrations.
+
+## Generic Artifact Registry
+
+`workspace.artifacts` is the first-class output registry for scientific
+packages that build on xpkg. It records files and lineage; it does not decide
+what a table means, which statistical model is correct, or how a figure should
+look.
+
+```python
+from xpkg.services import WorkspaceService
+
+workspace = WorkspaceService.open("./My Project")
+
+table = workspace.artifacts.register(
+    artifact_id="session_001_summary",
+    artifact_type="table",
+    title="Session 001 summary table",
+    namespace="analysis-app",
+    outputs={"summary.csv": "results/session_001_summary.csv"},
+    inputs=[".xpkg/analysis-app/events/session_001/final_events.csv"],
+    producer={
+        "package": "analysis-app",
+        "command": "analysis-app make-tables session_001",
+        "git_commit": "...",
+    },
+    metadata={"unit_of_analysis": "event"},
+)
+
+workspace.artifacts.validate(table.artifact_id, kind="table", namespace="analysis-app")
+```
+
+Generic artifacts are stored under `.xpkg/artifacts/<kind>/<artifact_id>/`.
+Namespaced artifacts are stored under
+`.xpkg/<namespace>/<kind>/<artifact_id>/`. The workspace-wide index lives at
+`.xpkg/artifacts/index.json` and can be rebuilt from manifests at any time.
+
+Common artifact kinds map to readable directory names:
+
+| Artifact type | Directory |
+| --- | --- |
+| `figure` | `figures` |
+| `table` | `tables` |
+| `analysis` | `analyses` |
+| `report` | `reports` |
+| `stats-report` | `stats-reports` |
 
 ## Figure Artifacts
 

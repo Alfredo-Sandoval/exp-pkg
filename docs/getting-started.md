@@ -84,9 +84,28 @@ portable artifact. The dedicated guide for that surface lives in
 
 ## Save figure artifacts
 
-Use `workspace.figures` after your domain package or plotting script has
-created the actual figure files. `xpkg` copies the files into the workspace and
-records the portable lineage manifest:
+Use `workspace.artifacts` when you want the generic registry for tables,
+analyses, reports, stats, figures, or other output files. Your domain package
+creates the scientific output; `xpkg` stores the files, records portable
+lineage, and keeps a workspace-wide index.
+
+```python
+from xpkg.services import WorkspaceService
+
+workspace = WorkspaceService.open("./My Project")
+
+workspace.artifacts.register(
+    artifact_id="session_001_summary",
+    artifact_type="table",
+    namespace="analysis-app",
+    outputs={"summary.csv": "output/session_001_summary.csv"},
+    inputs=[".xpkg/analysis-app/events/session_001/final_events.csv"],
+    producer={"package": "analysis-app"},
+)
+```
+
+Use `workspace.figures` as the figure-specific convenience layer after your
+domain package or plotting script has created the actual figure files:
 
 ```python
 from xpkg.services import WorkspaceService
@@ -138,6 +157,7 @@ Pick the surface by intent:
 | Task | Preferred entrypoint |
 | --- | --- |
 | Workspace lifecycle and service-bound imports | `xpkg.services.WorkspaceService` |
+| Register tables, figures, analyses, reports, or stats | `workspace.artifacts.*` |
 | Save/load figure outputs with lineage | `workspace.figures.*` |
 | Save/load frame segmentation masks | `workspace.segmentation.*` |
 | Function-level workspace imports | `xpkg.formats.import_*_workspace(...)` |

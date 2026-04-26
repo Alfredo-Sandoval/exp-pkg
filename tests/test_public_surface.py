@@ -15,6 +15,9 @@ from xpkg.codecs import (
     vicon_recording_to_json_payload,
 )
 from xpkg.formats import (
+    ARTIFACT_INDEX_FILENAME,
+    ARTIFACT_MANIFEST_FILENAME,
+    ARTIFACT_SCHEMA_VERSION,
     ARTIFACTS_DIRNAME,
     EXPKG_SUFFIX,
     FIGURE_ARTIFACT_SCHEMA_VERSION,
@@ -22,10 +25,15 @@ from xpkg.formats import (
     FIGURE_MANIFEST_FILENAME,
     FIGURES_DIRNAME,
     PROJECT_DESCRIPTOR_FILENAME,
+    ArtifactFile,
+    ArtifactIndexEntry,
+    ArtifactManifest,
+    ArtifactOutputSpec,
     FigureArtifact,
     ProjectDescriptor,
     SegmentationFrame,
     WorkspaceInspection,
+    artifact_kind_dir,
     clear_workspace_segmentation_masks,
     current_project_snapshot_path,
     current_project_state_path,
@@ -45,8 +53,11 @@ from xpkg.formats import (
     init_project,
     inspect_workspace,
     is_workspace_root,
+    list_workspace_artifact_index,
+    list_workspace_artifacts,
     list_workspace_figures,
     load_project_descriptor,
+    load_workspace_artifact,
     load_workspace_figure,
     load_workspace_metadata,
     load_workspace_metadata_field,
@@ -58,7 +69,9 @@ from xpkg.formats import (
     pack_project,
     project_descriptor_path,
     read_labels_json_payload,
+    rebuild_workspace_artifact_index,
     resolve_workspace_root,
+    save_workspace_artifact,
     save_workspace_figure,
     save_workspace_labels,
     save_workspace_metadata,
@@ -68,8 +81,13 @@ from xpkg.formats import (
     validate_artifact,
     validate_expkg,
     validate_workspace,
+    validate_workspace_artifact,
+    validate_workspace_artifacts,
     validate_workspace_figure,
     validate_workspace_figures,
+    workspace_artifact_index_path,
+    workspace_artifact_root,
+    workspace_artifact_type_root,
     workspace_artifacts_root,
     workspace_figure_root,
     workspace_figures_root,
@@ -104,6 +122,7 @@ from xpkg.model import (
     load_skeleton_xpkg_json,
 )
 from xpkg.services import (
+    WorkspaceArtifacts,
     WorkspaceFigures,
     WorkspaceImports,
     WorkspaceLayout,
@@ -136,12 +155,19 @@ def test_root_namespace_is_curated_to_workspace_first_modules() -> None:
 
 def test_public_exports_are_callable() -> None:
     assert ARTIFACTS_DIRNAME == "artifacts"
+    assert ARTIFACT_INDEX_FILENAME == "index.json"
+    assert ARTIFACT_MANIFEST_FILENAME == "manifest.json"
+    assert ARTIFACT_SCHEMA_VERSION == "1.0.0"
     assert EXPKG_SUFFIX == ".expkg"
     assert FIGURE_ARTIFACT_SCHEMA_VERSION == "1.0.0"
     assert FIGURE_ARTIFACT_TYPE == "figure"
     assert FIGURE_MANIFEST_FILENAME == "manifest.json"
     assert FIGURES_DIRNAME == "figures"
     assert PROJECT_DESCRIPTOR_FILENAME == "PROJECT.json"
+    assert ArtifactFile is not None
+    assert ArtifactIndexEntry is not None
+    assert ArtifactManifest is not None
+    assert ArtifactOutputSpec is not None
     assert FigureArtifact is not None
     assert ProjectDescriptor is not None
     assert SegmentationFrame is not None
@@ -165,7 +191,11 @@ def test_public_exports_are_callable() -> None:
     assert callable(init_project)
     assert callable(inspect_workspace)
     assert callable(is_workspace_root)
+    assert callable(artifact_kind_dir)
+    assert callable(list_workspace_artifact_index)
+    assert callable(list_workspace_artifacts)
     assert callable(list_workspace_figures)
+    assert callable(load_workspace_artifact)
     assert callable(load_workspace_figure)
     assert callable(load_project_descriptor)
     assert callable(load_workspace_metadata)
@@ -179,6 +209,8 @@ def test_public_exports_are_callable() -> None:
     assert callable(project_descriptor_path)
     assert callable(read_labels_json_payload)
     assert callable(resolve_workspace_root)
+    assert callable(rebuild_workspace_artifact_index)
+    assert callable(save_workspace_artifact)
     assert callable(save_workspace_figure)
     assert callable(save_workspace_metadata)
     assert callable(save_workspace_labels)
@@ -187,10 +219,15 @@ def test_public_exports_are_callable() -> None:
     assert callable(unpack_project)
     assert callable(validate_artifact)
     assert callable(validate_expkg)
+    assert callable(validate_workspace_artifact)
+    assert callable(validate_workspace_artifacts)
     assert callable(validate_workspace_figure)
     assert callable(validate_workspace_figures)
     assert callable(validate_workspace)
     assert callable(workspace_artifacts_root)
+    assert callable(workspace_artifact_index_path)
+    assert callable(workspace_artifact_root)
+    assert callable(workspace_artifact_type_root)
     assert callable(workspace_figure_root)
     assert callable(workspace_figures_root)
     assert callable(write_labels_json)
@@ -203,6 +240,7 @@ def test_public_exports_are_callable() -> None:
     assert callable(vicon_recording_from_json_payload)
     assert callable(vicon_recording_to_json_payload)
     assert WorkspaceImports is not None
+    assert WorkspaceArtifacts is not None
     assert WorkspaceFigures is not None
     assert ServiceWorkspaceInspection is not None
     assert WorkspaceLayout is not None
@@ -216,6 +254,7 @@ def test_services_surface_lists_workspace_service_first() -> None:
         "WorkspaceImports",
         "WorkspaceLayout",
         "WorkspaceInspection",
+        "WorkspaceArtifacts",
         "WorkspaceFigures",
         "WorkspaceSegmentation",
     ]

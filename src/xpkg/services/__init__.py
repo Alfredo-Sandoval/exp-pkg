@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from xpkg.services.artifacts import WorkspaceArtifacts
 from xpkg.services.figures import WorkspaceFigures
 from xpkg.services.workspace import (
     WorkspaceImports,
@@ -16,6 +17,7 @@ __all__ = [
     "WorkspaceImports",
     "WorkspaceLayout",
     "WorkspaceInspection",
+    "WorkspaceArtifacts",
     "WorkspaceFigures",
     "WorkspaceSegmentation",
 ]

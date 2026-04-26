@@ -111,14 +111,18 @@ preserves room to evolve journals, commits, objects, caches, and indexes
 without freezing every internal subdirectory forever.
 
 Current xpkg workspaces also use `.xpkg/artifacts/` for registered scientific
-outputs such as figures. These artifact entries are still private workspace
-state, but their manifests are portable JSON records that connect outputs back
-to inputs, producer commands, stats reports, and source data.
+outputs such as figures, tables, analyses, reports, stats reports, and source
+data. These artifact entries are still private workspace state, but their
+manifests are portable JSON records that connect outputs back to inputs,
+producer commands, stats reports, source data, and checksum-bearing file
+records. The compact discovery index lives at `.xpkg/artifacts/index.json` and
+can be rebuilt from individual manifests.
 
 Domain packages may also keep derived outputs under caller-owned namespaces
-such as `.xpkg/analysis-app/figures/`. The same figure manifest contract
-applies; the namespace only controls where the files live inside the workspace.
-`xpkg` does not reserve or hard-code downstream package names.
+such as `.xpkg/analysis-app/figures/` or
+`.xpkg/analysis-app/tables/`. The same artifact manifest contract applies; the
+namespace only controls where the files live inside the workspace. `xpkg` does
+not reserve or hard-code downstream package names.
 
 ### `Media/`
 

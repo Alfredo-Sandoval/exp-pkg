@@ -13,23 +13,33 @@ The split is:
   validation rules, event semantics, model choices, plotting code, and
   interpretation.
 
-## Generic and Namespaced Figures
+## Generic and Namespaced Artifacts
 
-Without a namespace, figures are stored in the generic artifact registry:
-
-```text
-.xpkg/artifacts/figures/<figure_id>/
-  manifest.json
-  figure.svg
-```
-
-With a namespace, figures are stored under the caller's namespace:
+Without a namespace, artifacts are stored in the generic artifact registry:
 
 ```text
-.xpkg/<namespace>/figures/<figure_id>/
+.xpkg/artifacts/<kind>/<artifact_id>/
   manifest.json
-  figure.svg
+  output-file.ext
 ```
+
+With a namespace, artifacts are stored under the caller's namespace:
+
+```text
+.xpkg/<namespace>/<kind>/<artifact_id>/
+  manifest.json
+  output-file.ext
+```
+
+Common kinds use readable plural directories:
+
+| Artifact type | Directory |
+| --- | --- |
+| `figure` | `figures` |
+| `table` | `tables` |
+| `analysis` | `analyses` |
+| `report` | `reports` |
+| `stats-report` | `stats-reports` |
 
 For example:
 
@@ -38,8 +48,9 @@ from xpkg.services import WorkspaceService
 
 workspace = WorkspaceService.open("./Experiment Workspace")
 
-workspace.figures.save(
-    figure_id="validation_figure_3",
+workspace.artifacts.register(
+    artifact_id="validation_figure_3",
+    artifact_type="figure",
     namespace="analysis-app",
     outputs={"figure.svg": "results/validation_figure_3.svg"},
     inputs=[".xpkg/analysis-app/analysis/source_data.csv"],
@@ -59,6 +70,16 @@ That writes:
   figure.svg
 ```
 
+For figures, the convenience API is equivalent:
+
+```python
+workspace.figures.save(
+    figure_id="validation_figure_3",
+    namespace="analysis-app",
+    outputs={"figure.svg": "results/validation_figure_3.svg"},
+)
+```
+
 ## Namespace Rules
 
 Namespace values are normalized into path-safe slugs. A caller may choose names
@@ -68,10 +89,10 @@ Rules:
 
 - Namespaces are optional.
 - Namespaces only affect artifact placement inside `.xpkg/`.
-- Namespaces do not change the figure manifest schema.
+- Namespaces do not change the artifact manifest schema.
 - Namespaces are not hard-coded, reserved, discovered, or interpreted by xpkg.
-- If the same `figure_id` exists in multiple namespaces, callers must pass
-  `namespace=...` when loading or validating that figure.
+- If the same artifact id exists in multiple namespaces or kinds, callers must
+  pass `namespace=...` and/or `kind=...` when loading or validating it.
 
 ## Output-Type Contract
 
@@ -88,9 +109,9 @@ Use this rule of thumb when wiring downstream packages into xpkg:
 - Reports/manuscripts/export bundles: xpkg packages and validates lineage; the
   downstream package owns narrative and interpretation.
 
-## Minimal Figure Manifest
+## Minimal Artifact Manifest
 
-Every saved figure artifact should answer:
+Every saved artifact should answer:
 
 - What is the stable figure id?
 - Which output files are part of the artifact?
@@ -101,3 +122,18 @@ Every saved figure artifact should answer:
 
 That contract lets independent packages share one workspace while keeping xpkg
 as a portable artifact system rather than a domain-specific analysis library.
+
+## Workspace Index
+
+xpkg maintains a compact index at:
+
+```text
+.xpkg/artifacts/index.json
+```
+
+The index is for discovery and CLI listing. The individual `manifest.json`
+files remain authoritative, so the index can be rebuilt:
+
+```bash
+xpkg artifacts rebuild-index "./Experiment Workspace"
+```

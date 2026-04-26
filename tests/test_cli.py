@@ -826,3 +826,56 @@ def test_cli_routes_pack_unpack_and_validate(monkeypatch, capsys) -> None:
     assert "Packed My Project" in stdout
     assert "Unpacked My Project.expkg" in stdout
     assert "Valid My Project.expkg" in stdout
+
+
+def test_cli_artifacts_list_inspect_validate_and_rebuild(tmp_path: Path, capsys) -> None:
+    from xpkg.cli import main
+    from xpkg.services import WorkspaceService
+
+    workspace = WorkspaceService.create(tmp_path / "Artifact CLI")
+    source = tmp_path / "summary.csv"
+    source.write_text("x\n1\n", encoding="utf-8")
+    workspace.artifacts.register(
+        artifact_id="summary",
+        artifact_type="table",
+        outputs=[source],
+    )
+
+    assert main(["artifacts", "list", str(workspace.workspace_root), "--kind", "table"]) == 0
+    stdout = capsys.readouterr().out
+    assert "table\t-\tsummary\t.xpkg/artifacts/tables/summary/manifest.json" in stdout
+
+    assert (
+        main(
+            [
+                "artifacts",
+                "inspect",
+                str(workspace.workspace_root),
+                "summary",
+                "--kind",
+                "table",
+            ]
+        )
+        == 0
+    )
+    stdout = capsys.readouterr().out
+    assert '"artifact_type": "table"' in stdout
+    assert '"artifact_id": "summary"' in stdout
+
+    assert (
+        main(
+            [
+                "artifacts",
+                "validate",
+                str(workspace.workspace_root),
+                "summary",
+                "--kind",
+                "table",
+            ]
+        )
+        == 0
+    )
+    assert "Valid artifact summary" in capsys.readouterr().out
+
+    assert main(["artifacts", "rebuild-index", str(workspace.workspace_root)]) == 0
+    assert "Indexed artifacts 1" in capsys.readouterr().out

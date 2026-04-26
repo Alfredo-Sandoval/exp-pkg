@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 
 from xpkg.formats import (
+    list_workspace_artifact_index,
     list_workspace_figures,
     load_workspace_figure,
     pack_project,
@@ -69,6 +70,7 @@ def test_workspace_figures_save_manifest_and_outputs(tmp_path: Path) -> None:
     assert artifact.stats == (
         ".xpkg/analysis/stats/session_001/stats_report.json",
     )
+    assert {file.role for file in artifact.files} == {"input", "output", "stat"}
     assert artifact.manifest_path.is_file()
     assert (artifact.artifact_root / "figure.svg").read_text(encoding="utf-8") == "<svg></svg>\n"
 
@@ -78,6 +80,10 @@ def test_workspace_figures_save_manifest_and_outputs(tmp_path: Path) -> None:
     assert workspace.figures.validate("validation-figure-3").artifact_id == (
         artifact.artifact_id
     )
+    assert list_workspace_artifact_index(
+        workspace.workspace_root,
+        artifact_type="figure",
+    )[0].artifact_id == artifact.artifact_id
 
 
 def test_workspace_figure_free_functions_and_pack_include_artifacts(

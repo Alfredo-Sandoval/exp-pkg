@@ -8,6 +8,9 @@ import xpkg.api as api
 def test_xpkg_api_exposes_workspace_first_contract() -> None:
     expected = {
         "Labels",
+        "ArtifactFile",
+        "ArtifactIndexEntry",
+        "ArtifactManifest",
         "FigureArtifact",
         "ProjectDescriptor",
         "PoseTrack",
@@ -16,6 +19,7 @@ def test_xpkg_api_exposes_workspace_first_contract() -> None:
         "ViconRecording",
         "ViconEvent",
         "WorkspaceImports",
+        "WorkspaceArtifacts",
         "WorkspaceFigures",
         "WorkspaceInspection",
         "WorkspaceLayout",
@@ -38,12 +42,15 @@ def test_xpkg_api_exposes_workspace_first_contract() -> None:
         "import_sleap_h5_workspace",
         "import_sleap_package_workspace",
         "inspect_workspace",
+        "list_workspace_artifact_index",
+        "list_workspace_artifacts",
         "list_workspace_figures",
         "labels_from_json_payload",
         "labels_numpy",
         "labels_to_dataframe",
         "labels_to_json_payload",
         "load_workspace_figure",
+        "load_workspace_artifact",
         "load_workspace_metadata",
         "load_workspace_metadata_field",
         "load_workspace_payload",
@@ -59,6 +66,8 @@ def test_xpkg_api_exposes_workspace_first_contract() -> None:
         "read_vicon_recording",
         "read_vicon_json_payload",
         "resolve_pose_node_indices",
+        "rebuild_workspace_artifact_index",
+        "save_workspace_artifact",
         "save_workspace_figure",
         "save_workspace_metadata",
         "save_workspace_labels",
@@ -66,6 +75,8 @@ def test_xpkg_api_exposes_workspace_first_contract() -> None:
         "save_workspace_segmentation_masks",
         "clear_workspace_segmentation_masks",
         "unpack_project",
+        "validate_workspace_artifact",
+        "validate_workspace_artifacts",
         "validate_workspace_figure",
         "validate_workspace_figures",
         "validate_workspace",
@@ -85,6 +96,9 @@ def test_xpkg_api_exposes_workspace_first_contract() -> None:
     assert "read_sleap_track" not in api.__all__
     assert "resolve_sleap_node_indices" not in api.__all__
     assert api.Labels.__name__ == "Labels"
+    assert api.ArtifactFile.__name__ == "ArtifactFile"
+    assert api.ArtifactIndexEntry.__name__ == "ArtifactIndexEntry"
+    assert api.ArtifactManifest.__name__ == "ArtifactManifest"
     assert api.FigureArtifact.__name__ == "FigureArtifact"
     assert api.ProjectDescriptor.__name__ == "ProjectDescriptor"
     assert api.PoseTrack.__name__ == "PoseTrack"
@@ -92,6 +106,7 @@ def test_xpkg_api_exposes_workspace_first_contract() -> None:
     assert api.ViconEvent.__name__ == "ViconEvent"
     assert api.ViconRecording.__name__ == "ViconRecording"
     assert api.WorkspaceImports.__name__ == "WorkspaceImports"
+    assert api.WorkspaceArtifacts.__name__ == "WorkspaceArtifacts"
     assert api.WorkspaceFigures.__name__ == "WorkspaceFigures"
     assert api.WorkspaceInspection.__name__ == "WorkspaceInspection"
     assert api.WorkspaceSegmentation.__name__ == "WorkspaceSegmentation"
@@ -99,6 +114,8 @@ def test_xpkg_api_exposes_workspace_first_contract() -> None:
     assert api.SegmentationFrame.__name__ == "SegmentationFrame"
     assert callable(api.build_prediction_stub)
     assert callable(api.inspect_workspace)
+    assert callable(api.list_workspace_artifact_index)
+    assert callable(api.list_workspace_artifacts)
     assert callable(api.list_workspace_figures)
     assert callable(api.labels_from_json_payload)
     assert callable(api.labels_numpy)
@@ -107,6 +124,7 @@ def test_xpkg_api_exposes_workspace_first_contract() -> None:
     assert callable(api.load_workspace_metadata)
     assert callable(api.load_workspace_metadata_field)
     assert callable(api.load_workspace_payload)
+    assert callable(api.load_workspace_artifact)
     assert callable(api.load_workspace_figure)
     assert callable(api.load_workspace_segmentation_frames)
     assert callable(api.load_workspace_segmentation_masks)
@@ -119,11 +137,15 @@ def test_xpkg_api_exposes_workspace_first_contract() -> None:
     assert callable(api.read_vicon_json_payload)
     assert callable(api.resolve_pose_node_indices)
     assert callable(api.migrate_legacy_archive)
+    assert callable(api.rebuild_workspace_artifact_index)
+    assert callable(api.save_workspace_artifact)
     assert callable(api.save_workspace_figure)
     assert callable(api.save_workspace_metadata)
     assert callable(api.save_workspace_metadata_field)
     assert callable(api.save_workspace_segmentation_masks)
     assert callable(api.clear_workspace_segmentation_masks)
+    assert callable(api.validate_workspace_artifact)
+    assert callable(api.validate_workspace_artifacts)
     assert callable(api.validate_workspace_figure)
     assert callable(api.validate_workspace_figures)
     assert callable(api.vicon_recording_from_json_payload)

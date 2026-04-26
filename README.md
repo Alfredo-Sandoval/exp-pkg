@@ -64,6 +64,7 @@ Choose the public surface by job:
 | --- | --- |
 | Create, open, import into, validate, pack, or unpack a project | `xpkg.services.WorkspaceService` |
 | Import foreign pose data into a project you already manage through the service | `workspace.imports.*` from `xpkg.services.WorkspaceService` |
+| Register figures, tables, analyses, reports, or other output artifacts | `workspace.artifacts.*` from `xpkg.services.WorkspaceService` |
 | Save figure outputs and their lineage manifests | `workspace.figures.*` from `xpkg.services.WorkspaceService` |
 | Save or load frame-level segmentation masks | `workspace.segmentation.*` from `xpkg.services.WorkspaceService` |
 | Import foreign pose data through explicit free functions | `xpkg.formats.import_*_workspace(...)` |
@@ -72,11 +73,13 @@ Choose the public surface by job:
 The explicit `xpkg.formats.import_*_workspace(...)` helpers remain public when
 you want a function-level API or need to import before reopening a workspace.
 
-Figure artifacts can use a generic registry under `.xpkg/artifacts/figures/`.
-Callers may also choose their own app namespace, such as
+Artifacts use a generic registry under `.xpkg/artifacts/<kind>/`, with common
+kind directories such as `figures`, `tables`, `analyses`, `reports`, and
+`stats-reports`. Callers may also choose their own app namespace, such as
 `.xpkg/analysis-app/figures/`, by passing `namespace="analysis-app"` to
-`workspace.figures.save(...)`. `xpkg` treats namespaces as caller-owned strings;
-it does not reserve or hard-code downstream package names.
+`workspace.artifacts.register(...)` or `workspace.figures.save(...)`. `xpkg`
+treats namespaces as caller-owned strings; it does not reserve or hard-code
+downstream package names.
 
 The shipped workspace import surface currently covers:
 
@@ -94,7 +97,8 @@ The shipped workspace import surface currently covers:
 - Defines a stable project contract: workspace folder + private `.xpkg/` + `.expkg`
 - Manages workspace lifecycle: create, open, validate, pack, unpack
 - Carries canonical containers such as `Labels`, `Skeleton`, `Instance`, and `Video`
-- Registers figure outputs with portable manifests for inputs, producer metadata, stats, and source data
+- Registers output artifacts with portable manifests for inputs, producer metadata, stats, checksums, and source data
+- Provides figure convenience helpers on top of the generic artifact registry
 - Saves and loads frame-level segmentation masks through `workspace.segmentation`
 - Exposes a clean in-memory codec layer through `xpkg.codecs`
 - Handles media-aware packaging and workspace-relative project state
@@ -224,6 +228,9 @@ xpkg pack "./My Project"
 xpkg unpack "./My Project.expkg" --out "./My Project"
 xpkg validate "./My Project"
 xpkg migrate "./legacy.xpkg" --out "./My Project"
+xpkg artifacts list "./My Project" --kind figure
+xpkg artifacts inspect "./My Project" validation-figure-3 --kind figure
+xpkg artifacts validate "./My Project" --kind figure
 ```
 
 The same `xpkg import` command also ships source-specific workspace imports for

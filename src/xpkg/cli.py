@@ -7,6 +7,7 @@ import sys
 from collections.abc import Callable, Sequence
 from pathlib import Path
 
+from xpkg.core.json_utils import dump_json
 from xpkg.formats import (
     import_detectron2_coco_workspace,
     import_dlc_csv_workspace,
@@ -21,10 +22,15 @@ from xpkg.formats import (
     import_vicon_csv_workspace,
     import_vicon_workspace,
     init_project,
+    list_workspace_artifact_index,
+    load_workspace_artifact,
     migrate_legacy_archive,
     pack_project,
+    rebuild_workspace_artifact_index,
     unpack_project,
     validate_artifact,
+    validate_workspace_artifact,
+    validate_workspace_artifacts,
 )
 from xpkg.io.archive_format.shared import CANONICAL_ARCHIVE_SUFFIX
 from xpkg.version import __version__
@@ -344,6 +350,44 @@ def _add_workspace_parsers(parent: argparse._SubParsersAction[argparse.ArgumentP
     validate.set_defaults(func=_cmd_validate)
 
 
+def _add_artifacts_parser(parent: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
+    artifacts = parent.add_parser(
+        "artifacts",
+        help="Inspect and validate workspace artifact manifests.",
+    )
+    artifact_subparsers = artifacts.add_subparsers(dest="artifact_command", required=True)
+
+    list_parser = artifact_subparsers.add_parser("list", help="List registered artifacts.")
+    list_parser.add_argument("workspace", help="Workspace directory to inspect.")
+    list_parser.add_argument("--kind", help="Optional artifact kind filter, such as figure.")
+    list_parser.add_argument("--namespace", help="Optional caller-owned namespace filter.")
+    list_parser.set_defaults(func=_cmd_artifacts_list)
+
+    inspect = artifact_subparsers.add_parser("inspect", help="Print one artifact manifest.")
+    inspect.add_argument("workspace", help="Workspace directory to inspect.")
+    inspect.add_argument("artifact_id", help="Artifact id to inspect.")
+    inspect.add_argument("--kind", help="Optional artifact kind, such as figure.")
+    inspect.add_argument("--namespace", help="Optional caller-owned namespace.")
+    inspect.set_defaults(func=_cmd_artifacts_inspect)
+
+    validate = artifact_subparsers.add_parser(
+        "validate",
+        help="Validate one artifact or every matching artifact.",
+    )
+    validate.add_argument("workspace", help="Workspace directory to validate.")
+    validate.add_argument("artifact_id", nargs="?", help="Optional artifact id to validate.")
+    validate.add_argument("--kind", help="Optional artifact kind, such as figure.")
+    validate.add_argument("--namespace", help="Optional caller-owned namespace filter.")
+    validate.set_defaults(func=_cmd_artifacts_validate)
+
+    rebuild = artifact_subparsers.add_parser(
+        "rebuild-index",
+        help="Rebuild the workspace artifact index from manifests.",
+    )
+    rebuild.add_argument("workspace", help="Workspace directory to index.")
+    rebuild.set_defaults(func=_cmd_artifacts_rebuild_index)
+
+
 def _build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="xpkg", description="xpkg CLI tools")
     parser.add_argument(
@@ -354,6 +398,7 @@ def _build_arg_parser() -> argparse.ArgumentParser:
 
     subparsers = parser.add_subparsers(dest="command", required=True)
     _add_workspace_parsers(subparsers)
+    _add_artifacts_parser(subparsers)
     _add_import_parser(subparsers)
     return parser
 
@@ -409,6 +454,58 @@ def _cmd_unpack(args: argparse.Namespace) -> int:
 def _cmd_validate(args: argparse.Namespace) -> int:
     validate_artifact(args.path)
     sys.stdout.write(f"Valid {args.path}\n")
+    return 0
+
+
+def _cmd_artifacts_list(args: argparse.Namespace) -> int:
+    entries = list_workspace_artifact_index(
+        args.workspace,
+        artifact_type=args.kind,
+        namespace=args.namespace,
+    )
+    for entry in entries:
+        namespace = entry.namespace or "-"
+        sys.stdout.write(
+            f"{entry.artifact_type}\t{namespace}\t{entry.artifact_id}\t{entry.manifest_path}\n"
+        )
+    if not entries:
+        sys.stdout.write("No artifacts\n")
+    return 0
+
+
+def _cmd_artifacts_inspect(args: argparse.Namespace) -> int:
+    artifact = load_workspace_artifact(
+        args.workspace,
+        args.artifact_id,
+        artifact_type=args.kind,
+        namespace=args.namespace,
+    )
+    sys.stdout.write(dump_json(artifact.to_dict(), indent=2, sort_keys=False) + "\n")
+    return 0
+
+
+def _cmd_artifacts_validate(args: argparse.Namespace) -> int:
+    if args.artifact_id:
+        artifact = validate_workspace_artifact(
+            args.workspace,
+            args.artifact_id,
+            artifact_type=args.kind,
+            namespace=args.namespace,
+        )
+        sys.stdout.write(f"Valid artifact {artifact.artifact_id}\n")
+        return 0
+    artifacts = validate_workspace_artifacts(
+        args.workspace,
+        artifact_type=args.kind,
+        namespace=args.namespace,
+    )
+    sys.stdout.write(f"Valid artifacts {len(artifacts)}\n")
+    return 0
+
+
+def _cmd_artifacts_rebuild_index(args: argparse.Namespace) -> int:
+    entries = rebuild_workspace_artifact_index(args.workspace)
+    sys.stdout.write(f"Indexed artifacts {len(entries)}\n")
     return 0
 
 
