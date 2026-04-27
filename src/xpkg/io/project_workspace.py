@@ -1970,6 +1970,28 @@ def _build_dlc_csv_import_archive(
     return staged_archive
 
 
+def _build_lightning_pose_csv_import_archive(
+    tmp_dir: Path,
+    *,
+    csv_path: str | Path,
+    video_path: str | Path,
+    skeleton_name: str,
+    likelihood_threshold: float,
+    progress_callback: Any | None,
+    convert_lightning_pose_csv: Callable[..., Any],
+) -> Path:
+    staged_archive = tmp_dir / f"lightning_pose_csv{CANONICAL_ARCHIVE_SUFFIX}"
+    convert_lightning_pose_csv(
+        csv_path,
+        video_path,
+        staged_archive,
+        skeleton_name=skeleton_name,
+        likelihood_threshold=likelihood_threshold,
+        progress_callback=progress_callback,
+    )
+    return staged_archive
+
+
 def _build_dlc_h5_import_archive(
     tmp_dir: Path,
     *,
@@ -2005,28 +2027,6 @@ def _build_sleap_h5_import_archive(
     staged_archive = tmp_dir / f"sleap_h5{CANONICAL_ARCHIVE_SUFFIX}"
     convert_sleap_h5(
         h5_path,
-        video_path,
-        staged_archive,
-        skeleton_name=skeleton_name,
-        likelihood_threshold=likelihood_threshold,
-        progress_callback=progress_callback,
-    )
-    return staged_archive
-
-
-def _build_openpose_json_import_archive(
-    tmp_dir: Path,
-    *,
-    json_dir: str | Path,
-    video_path: str | Path,
-    skeleton_name: str,
-    likelihood_threshold: float,
-    progress_callback: Any | None,
-    convert_openpose_json: Callable[..., Any],
-) -> Path:
-    staged_archive = tmp_dir / f"openpose_json{CANONICAL_ARCHIVE_SUFFIX}"
-    convert_openpose_json(
-        json_dir,
         video_path,
         staged_archive,
         skeleton_name=skeleton_name,
@@ -2076,32 +2076,6 @@ def _build_mmpose_topdown_json_import_archive(
         staged_archive,
         skeleton_name=skeleton_name,
         instance_index=int(instance_index),
-        likelihood_threshold=likelihood_threshold,
-        progress_callback=progress_callback,
-    )
-    return staged_archive
-
-
-def _build_detectron2_coco_import_archive(
-    tmp_dir: Path,
-    *,
-    predictions_path: str | Path,
-    dataset_json_path: str | Path,
-    image_root: str | Path,
-    category_id: int | None,
-    skeleton_name: str | None,
-    likelihood_threshold: float,
-    progress_callback: Any | None,
-    convert_detectron2_coco: Callable[..., Any],
-) -> Path:
-    staged_archive = tmp_dir / f"detectron2_coco{CANONICAL_ARCHIVE_SUFFIX}"
-    convert_detectron2_coco(
-        predictions_path,
-        dataset_json_path,
-        image_root,
-        staged_archive,
-        category_id=category_id,
-        skeleton_name=skeleton_name,
         likelihood_threshold=likelihood_threshold,
         progress_callback=progress_callback,
     )
@@ -2244,6 +2218,37 @@ def import_dlc_csv_workspace(
             likelihood_threshold=likelihood_threshold,
             progress_callback=progress_callback,
             convert_dlc_csv=convert_dlc_csv,
+        ),
+    )
+
+
+def import_lightning_pose_csv_workspace(
+    csv_path: str | Path,
+    video_path: str | Path,
+    workspace: str | Path,
+    *,
+    skeleton_name: str = "imported",
+    likelihood_threshold: float = 0.0,
+    default_pack_mode: PackMode = "portable",
+    force: bool = False,
+    progress_callback: Any | None = None,
+) -> Path:
+    """Import a Lightning Pose prediction CSV plus video into a workspace."""
+    from xpkg.io.converters.dlc_import import convert_lightning_pose_csv
+
+    return _import_workspace_from_staged_archive(
+        workspace,
+        default_pack_mode=default_pack_mode,
+        force=force,
+        reason="workspace.import.lightning_pose_csv",
+        build_staged_archive=lambda tmp_dir: _build_lightning_pose_csv_import_archive(
+            tmp_dir,
+            csv_path=csv_path,
+            video_path=video_path,
+            skeleton_name=skeleton_name,
+            likelihood_threshold=likelihood_threshold,
+            progress_callback=progress_callback,
+            convert_lightning_pose_csv=convert_lightning_pose_csv,
         ),
     )
 
@@ -2470,37 +2475,6 @@ def import_mmpose_topdown_json_workspace(
     )
 
 
-def import_openpose_json_workspace(
-    json_dir: str | Path,
-    video_path: str | Path,
-    workspace: str | Path,
-    *,
-    skeleton_name: str = "imported",
-    likelihood_threshold: float = 0.0,
-    default_pack_mode: PackMode = "portable",
-    force: bool = False,
-    progress_callback: Any | None = None,
-) -> Path:
-    """Import an OpenPose JSON directory plus video into a workspace."""
-    from xpkg.io.converters.openpose_import import convert_openpose_json
-
-    return _import_workspace_from_staged_archive(
-        workspace,
-        default_pack_mode=default_pack_mode,
-        force=force,
-        reason="workspace.import.openpose_json",
-        build_staged_archive=lambda tmp_dir: _build_openpose_json_import_archive(
-            tmp_dir,
-            json_dir=json_dir,
-            video_path=video_path,
-            skeleton_name=skeleton_name,
-            likelihood_threshold=likelihood_threshold,
-            progress_callback=progress_callback,
-            convert_openpose_json=convert_openpose_json,
-        ),
-    )
-
-
 def import_mediapipe_pose_landmarks_json_workspace(
     json_path: str | Path,
     video_path: str | Path,
@@ -2528,41 +2502,6 @@ def import_mediapipe_pose_landmarks_json_workspace(
             likelihood_threshold=likelihood_threshold,
             progress_callback=progress_callback,
             convert_mediapipe_pose_landmarks_json=convert_mediapipe_pose_landmarks_json,
-        ),
-    )
-
-
-def import_detectron2_coco_workspace(
-    predictions_path: str | Path,
-    dataset_json_path: str | Path,
-    image_root: str | Path,
-    workspace: str | Path,
-    *,
-    category_id: int | None = None,
-    skeleton_name: str | None = None,
-    likelihood_threshold: float = 0.0,
-    default_pack_mode: PackMode = "portable",
-    force: bool = False,
-    progress_callback: Any | None = None,
-) -> Path:
-    """Import Detectron2 COCO keypoint results plus image metadata into a workspace."""
-    from xpkg.io.converters.detectron2_import import convert_detectron2_coco
-
-    return _import_workspace_from_staged_archive(
-        workspace,
-        default_pack_mode=default_pack_mode,
-        force=force,
-        reason="workspace.import.detectron2_coco",
-        build_staged_archive=lambda tmp_dir: _build_detectron2_coco_import_archive(
-            tmp_dir,
-            predictions_path=predictions_path,
-            dataset_json_path=dataset_json_path,
-            image_root=image_root,
-            category_id=category_id,
-            skeleton_name=skeleton_name,
-            likelihood_threshold=likelihood_threshold,
-            progress_callback=progress_callback,
-            convert_detectron2_coco=convert_detectron2_coco,
         ),
     )
 
@@ -2659,10 +2598,9 @@ __all__ = [
     "import_dlc_csv_workspace",
     "import_dlc_h5_workspace",
     "import_dlc_project_workspace",
-    "import_detectron2_coco_workspace",
+    "import_lightning_pose_csv_workspace",
     "import_mediapipe_pose_landmarks_json_workspace",
     "import_mmpose_topdown_json_workspace",
-    "import_openpose_json_workspace",
     "import_sleap_h5_workspace",
     "import_sleap_package_workspace",
     "MEDIA_DIRNAME",

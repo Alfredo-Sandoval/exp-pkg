@@ -468,6 +468,31 @@ def convert_dlc_csv(
     )
 
 
+def convert_lightning_pose_csv(
+    csv_path: Path | str,
+    video_path: Path | str,
+    out_path: Path | str,
+    *,
+    skeleton_name: str = "imported",
+    likelihood_threshold: float = 0.0,
+    progress_callback: ProgressCallback | None = None,
+) -> ConversionResult:
+    """Convert a Lightning Pose prediction CSV and matching video into a native archive."""
+
+    return _convert_dlc_tracking(
+        csv_path,
+        video_path,
+        out_path,
+        read_tracking=_read_dlc_csv,
+        source_label="lightning_pose_csv_import",
+        source_metadata_key="source_csv",
+        read_step_label="Lightning Pose CSV",
+        skeleton_name=skeleton_name,
+        likelihood_threshold=likelihood_threshold,
+        progress_callback=progress_callback,
+    )
+
+
 def convert_dlc_h5(
     h5_path: Path | str,
     video_path: Path | str,
@@ -602,4 +627,5 @@ __all__ = [
     "convert_dlc_h5",
     "convert_dlc_h5_project",
     "convert_dlc_project",
+    "convert_lightning_pose_csv",
 ]

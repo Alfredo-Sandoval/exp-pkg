@@ -6,7 +6,7 @@
 defines the public artifact contract around workspaces, private
 <code>.xpkg/</code> state, portable <code>.expkg</code> artifacts, and the
 workspace-first import APIs for DeepLabCut, SLEAP, MMPose, MediaPipe,
-OpenPose, and Detectron2.
+and Lightning Pose.
 If you are starting a new downstream integration, read
 <a href="../services/"><code>xpkg.services</code></a> first and use this module
 when you want the explicit function-level form.
@@ -135,6 +135,11 @@ Import a DeepLabCut H5 into a workspace.
 Import a whole DeepLabCut project into one workspace, skipping incomplete
 project entries and preserving all imported items in the same managed state.
 
+### `import_lightning_pose_csv_workspace(...)`
+
+Import a Lightning Pose prediction CSV plus its matching video into a
+workspace.
+
 ### `import_sleap_h5_workspace(...)`
 
 Import a SLEAP analysis H5 export into a workspace.
@@ -152,17 +157,6 @@ into a workspace.
 
 Import the supported MediaPipe pose-landmarks JSON contract plus its matching
 video into a workspace.
-
-### `import_openpose_json_workspace(...)`
-
-Import an OpenPose `--write_json` BODY_25 directory plus its matching video
-into a workspace.
-
-### `import_detectron2_coco_workspace(...)`
-
-Import Detectron2 COCO keypoint predictions
-(`coco_instances_results.json`) plus the paired dataset JSON and `image_root`
-into a workspace.
 
 ## Legacy Migration
 

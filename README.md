@@ -85,11 +85,10 @@ The shipped workspace import surface currently covers:
 
 - Vicon CSV and C3D recordings
 - DeepLabCut CSV, H5, and project imports
+- Lightning Pose prediction CSV (DLC-style MultiIndex)
 - SLEAP analysis H5 and `.pkg.slp`
 - MMPose top-down demo JSON (`--save-predictions`)
 - MediaPipe pose-landmarks JSON
-- OpenPose BODY_25 `--write_json` directories
-- Detectron2 COCO keypoint results plus dataset/image metadata
 
 ## What It Does
 
@@ -131,12 +130,11 @@ Mission direction:
 | DeepLabCut | CSV | Supported |
 | DeepLabCut | H5 | Supported |
 | DeepLabCut | Project | Supported |
+| Lightning Pose | Prediction CSV (DLC-style MultiIndex) | Supported |
 | SLEAP | Analysis H5 | Supported |
 | SLEAP | `.pkg.slp` | Supported |
 | MMPose | Top-down demo JSON (`--save-predictions`) | Supported |
 | MediaPipe | Pose landmarks JSON | Supported |
-| OpenPose | BODY_25 `--write_json` directory | Supported |
-| Detectron2 | COCO keypoint results JSON + dataset bundle | Supported |
 
 ## Install
 
@@ -163,6 +161,65 @@ Then use the local quality gates:
 make qa
 make ci-local
 ```
+
+Before a PyPI/TestPyPI cut, run the local release gate against real lab data:
+
+```bash
+make release-check REAL_DATA_ROOT=/path/to/xpkg-real-data
+```
+
+There is intentionally no hosted CI requirement for this repo. The local
+release gate runs linting, type checking, synthetic tests, package build/check,
+strict docs build, and the opt-in real-data suite.
+
+## Real Data Tests
+
+The normal test suite uses deterministic synthetic fixtures. Production
+readiness requires a private real-data corpus supplied through
+`XPKG_REAL_DATA_ROOT` or `REAL_DATA_ROOT=...` when invoking `make`.
+
+Create a manifest named `xpkg-real-data.json` at the corpus root, or point
+`XPKG_REAL_DATA_MANIFEST` at a manifest file:
+
+```json
+{
+  "schema_version": 1,
+  "cases": [
+    {
+      "id": "dlc-session-001",
+      "kind": "dlc",
+      "tracking": "dlc/session_001/tracking.csv",
+      "video": "dlc/session_001/video.mp4",
+      "skeleton_name": "mouse",
+      "expect": {
+        "state": "labels",
+        "videos": 1,
+        "skeletons": 1,
+        "min_labeled_frames": 1
+      }
+    },
+    {
+      "id": "vicon-trial-001",
+      "kind": "vicon",
+      "recording": "vicon/trial_001.c3d",
+      "expect": {
+        "state": "vicon"
+      }
+    }
+  ]
+}
+```
+
+Supported real-data `kind` values are `vicon`, `dlc`, `lightning_pose`,
+`sleap`, `mmpose`, and `mediapipe`. Use `kind: "vicon"` for both CSV and C3D
+recordings; use `kind: "dlc"` with either `tracking` plus `video` for a single
+CSV/H5 tracking file, or `project` for a full DLC project folder; use
+`kind: "lightning_pose"` with `tracking` plus `video` for a Lightning Pose
+prediction CSV produced by `litpose predict`; use
+`kind: "sleap"` with a `labels` file ending in `.slp`, `.pkg.slp`, `.h5`, or
+`.hdf5`. SLEAP analysis H5 cases also need a matching `video`. Each case
+imports into a fresh workspace, validates, packs to `.expkg`, unpacks, and
+validates again unless `"skip_pack": true` is set.
 
 ## Documentation
 
@@ -224,6 +281,7 @@ The primary workspace-first CLI surface is:
 ```bash
 xpkg init "./My Project"
 xpkg import dlc csv --csv tracking.csv --video video.mp4 --out "./My Project"
+xpkg import lightning-pose --csv predictions.csv --video video.mp4 --out "./My Project"
 xpkg pack "./My Project"
 xpkg unpack "./My Project.expkg" --out "./My Project"
 xpkg validate "./My Project"
@@ -234,8 +292,7 @@ xpkg artifacts validate "./My Project" --kind figure
 ```
 
 The same `xpkg import` command also ships source-specific workspace imports for
-Vicon recordings, SLEAP, MMPose JSON, MediaPipe JSON, OpenPose JSON, and
-Detectron2 COCO input.
+Vicon recordings, Lightning Pose CSV, SLEAP, MMPose JSON, and MediaPipe JSON.
 
 ## Vicon Recording API
 
@@ -285,15 +342,16 @@ xpkg import vicon --csv trial.csv --out "./Vicon Project"
 xpkg import vicon --c3d trial.c3d --out "./Vicon Project"
 ```
 
-## Contributing
+## Development
 
-Contributions are welcome! If you'd like to add an importer for a new
-pose-estimation framework or improve existing functionality:
+If you want to add an importer for a new pose-estimation framework or improve
+existing functionality:
 
-1. Open an issue describing the change you'd like to make.
-2. Fork the repo and create a feature branch.
-3. Run `make qa` for the fast gate, and `make ci-local` before you hand off a larger change.
-4. Submit a pull request.
+1. Open an issue or local task describing the change.
+2. Create a focused feature branch.
+3. Run `make qa` for the fast gate.
+4. Run `make release-check REAL_DATA_ROOT=/path/to/xpkg-real-data` before a
+   package handoff or PyPI/TestPyPI cut.
 
 Please follow the existing code style (enforced by [Ruff](https://docs.astral.sh/ruff/) with the settings in `pyproject.toml`).
 

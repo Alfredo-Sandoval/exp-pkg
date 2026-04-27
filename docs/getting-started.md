@@ -28,6 +28,13 @@ make qa
 make ci-local
 ```
 
+Before a package handoff or PyPI/TestPyPI cut, run the release gate against a
+private real-data corpus:
+
+```bash
+make release-check REAL_DATA_ROOT=/path/to/xpkg-real-data
+```
+
 ## Preview the docs locally
 
 ```bash
@@ -181,11 +188,10 @@ packing, and reopen flows on the same public contract.
 The same workspace-first pattern is available for:
 
 - `import_dlc_h5_workspace(...)` and `import_dlc_project_workspace(...)`
+- `import_lightning_pose_csv_workspace(...)`
 - `import_sleap_h5_workspace(...)` and `import_sleap_package_workspace(...)`
 - `import_mmpose_topdown_json_workspace(...)`
 - `import_mediapipe_pose_landmarks_json_workspace(...)`
-- `import_openpose_json_workspace(...)`
-- `import_detectron2_coco_workspace(...)`
 
 Use those workspace helpers as the primary integration surface for new code.
 The underlying `xpkg.formats.import_*_workspace(...)` functions remain public

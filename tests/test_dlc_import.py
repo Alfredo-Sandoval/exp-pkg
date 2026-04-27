@@ -203,6 +203,41 @@ def test_import_dlc_project_workspace_imports_supported_items_into_one_workspace
         assert Path(str(video.filename)).resolve().parent == media_root
 
 
+def test_import_lightning_pose_csv_workspace_uses_dlc_style_predictions(
+    tmp_path: Path,
+) -> None:
+    from xpkg.formats import current_project_snapshot_path, import_lightning_pose_csv_workspace
+    from xpkg.io.workspace_snapshot_backend import read_workspace_snapshot_payload
+    from xpkg.model import Labels
+
+    csv_path = tmp_path / "video_preds" / "session0.csv"
+    csv_path.parent.mkdir()
+    _write_sample_dlc_csv(csv_path)
+    video_path = tmp_path / "session0.avi"
+    _write_dummy_video(video_path)
+    workspace = tmp_path / "Imported Lightning Pose"
+    progress: list[str] = []
+
+    snapshot_path = import_lightning_pose_csv_workspace(
+        csv_path,
+        video_path,
+        workspace,
+        skeleton_name="lp",
+        likelihood_threshold=0.5,
+        progress_callback=progress.append,
+    )
+
+    assert snapshot_path == current_project_snapshot_path(workspace)
+    assert "IMPORT: Reading Lightning Pose CSV session0.csv" in progress
+    payload = read_workspace_snapshot_payload(snapshot_path)
+    assert payload["metadata"]["source"] == "lightning_pose_csv_import"
+    assert payload["metadata"]["source_csv"] == csv_path.as_posix()
+    loaded = Labels.load_file(workspace.as_posix())
+    assert len(loaded.skeletons) == 1
+    assert loaded.skeletons[0].keypoint_names == ["nose", "tail"]
+    assert len(loaded.labeled_frames) == 2
+
+
 def test_import_dlc_project_workspace_requires_supported_items(tmp_path: Path) -> None:
     from xpkg.formats import import_dlc_project_workspace
 

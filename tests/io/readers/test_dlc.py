@@ -153,7 +153,7 @@ def test_read_track_requires_dlc_likelihood_columns(
         read_track(path, file_type=file_type, track_index=0)
 
 
-def test_generic_pose_reader_dispatches_to_dlc_and_sleap(tmp_path: Path) -> None:
+def test_generic_pose_reader_dispatches_to_dlc_lightning_pose_and_sleap(tmp_path: Path) -> None:
     from tests.io.readers.test_sleap_analysis_h5 import _write_sleap_analysis_h5
 
     sleap_path = tmp_path / "analysis.h5"
@@ -173,10 +173,21 @@ def test_generic_pose_reader_dispatches_to_dlc_and_sleap(tmp_path: Path) -> None
         file_type="csv",
         track_index=0,
     )
+    lightning_pose_track = read_pose_track(
+        dlc_path,
+        software="LightningPose",
+        file_type="csv",
+        track_index=0,
+    )
 
     assert sleap_track.coords.shape == (10, 4, 2)
     assert dlc_track.coords.shape == (3, 2, 2)
+    assert lightning_pose_track.coords.shape == (3, 2, 2)
     assert read_pose_node_names(dlc_path, software="DLC", file_type="csv") == ["HIP", "KNEE"]
+    assert read_pose_node_names(dlc_path, software="lightning-pose", file_type="csv") == [
+        "HIP",
+        "KNEE",
+    ]
     assert resolve_pose_node_indices(
         sleap_path,
         software="SLEAP",
@@ -191,3 +202,6 @@ def test_generic_pose_reader_rejects_unsupported_software_file_type_combo(tmp_pa
 
     with pytest.raises(ValueError, match="Unsupported SLEAP file_type"):
         read_pose_track(path, software="SLEAP", file_type="csv")
+
+    with pytest.raises(ValueError, match="Unsupported Lightning Pose file_type"):
+        read_pose_track(path, software="LightningPose", file_type="h5")

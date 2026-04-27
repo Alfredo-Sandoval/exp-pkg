@@ -9,13 +9,12 @@ from pathlib import Path
 
 from xpkg.core.json_utils import dump_json
 from xpkg.formats import (
-    import_detectron2_coco_workspace,
     import_dlc_csv_workspace,
     import_dlc_h5_workspace,
     import_dlc_project_workspace,
+    import_lightning_pose_csv_workspace,
     import_mediapipe_pose_landmarks_json_workspace,
     import_mmpose_topdown_json_workspace,
-    import_openpose_json_workspace,
     import_sleap_h5_workspace,
     import_sleap_package_workspace,
     import_vicon_c3d_workspace,
@@ -157,6 +156,20 @@ def _add_import_parser(parent: argparse._SubParsersAction[argparse.ArgumentParse
     )
     project_parser.set_defaults(func=_cmd_import_dlc_project)
 
+    lightning_pose = import_subparsers.add_parser(
+        "lightning-pose",
+        aliases=["lightning_pose"],
+        help="Import Lightning Pose CSV predictions into a workspace.",
+    )
+    _add_workspace_tracking_parser(
+        lightning_pose,
+        data_flag="--csv",
+        data_help="Path to a Lightning Pose prediction CSV.",
+        skeleton_default="imported",
+        skeleton_help="Skeleton name to store in the imported workspace.",
+        command=_cmd_import_lightning_pose_csv,
+    )
+
     sleap = import_subparsers.add_parser("sleap", help="Import SLEAP package or analysis H5 data.")
     source_group = sleap.add_mutually_exclusive_group(required=True)
     source_group.add_argument("--slp", help="Path to the input .pkg.slp archive.")
@@ -226,56 +239,6 @@ def _add_import_parser(parent: argparse._SubParsersAction[argparse.ArgumentParse
         skeleton_help="Skeleton name to store in the imported workspace.",
         command=_cmd_import_mediapipe,
     )
-
-    openpose = import_subparsers.add_parser(
-        "openpose",
-        help="Import OpenPose BODY_25 JSON directories into a workspace.",
-    )
-    _add_workspace_tracking_parser(
-        openpose,
-        data_flag="--json",
-        data_help="Path to an OpenPose --write_json directory.",
-        skeleton_default="imported",
-        skeleton_help="Skeleton name to store in the imported workspace.",
-        command=_cmd_import_openpose,
-    )
-
-    detectron2 = import_subparsers.add_parser(
-        "detectron2",
-        help="Import Detectron2 COCO keypoint predictions into a workspace.",
-    )
-    detectron2.add_argument(
-        "--predictions",
-        required=True,
-        help="Path to Detectron2 COCOEvaluator coco_instances_results.json.",
-    )
-    detectron2.add_argument(
-        "--dataset-json",
-        required=True,
-        help="Path to the registered COCO dataset JSON.",
-    )
-    detectron2.add_argument(
-        "--image-root",
-        required=True,
-        help="Image root paired with the COCO dataset JSON.",
-    )
-    detectron2.add_argument("--out", required=True, help="Output workspace directory.")
-    detectron2.add_argument(
-        "--category-id",
-        type=int,
-        help="COCO keypoint category id to import when multiple keypoint categories exist.",
-    )
-    detectron2.add_argument(
-        "--skeleton-name",
-        help="Optional skeleton name override for the imported keypoints.",
-    )
-    detectron2.add_argument(
-        "--threshold",
-        type=_likelihood_threshold,
-        default=0.0,
-        help="Likelihood threshold for including keypoints (0 to 1).",
-    )
-    detectron2.set_defaults(func=_cmd_import_detectron2)
 
 
 def _add_workspace_parsers(parent: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
@@ -580,6 +543,20 @@ def _cmd_import_dlc_project(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_import_lightning_pose_csv(args: argparse.Namespace) -> int:
+    path = import_lightning_pose_csv_workspace(
+        args.csv,
+        args.video,
+        args.out,
+        skeleton_name=args.skeleton_name,
+        likelihood_threshold=args.threshold,
+        progress_callback=_emit_progress,
+    )
+    sys.stdout.write(f"Imported Lightning Pose CSV into {args.out}\n")
+    _write_path(path)
+    return 0
+
+
 def _cmd_import_sleap(args: argparse.Namespace) -> int:
     if args.h5:
         if not args.video:
@@ -633,36 +610,6 @@ def _cmd_import_mediapipe(args: argparse.Namespace) -> int:
         progress_callback=_emit_progress,
     )
     sys.stdout.write(f"Imported MediaPipe JSON into {args.out}\n")
-    _write_path(path)
-    return 0
-
-
-def _cmd_import_openpose(args: argparse.Namespace) -> int:
-    path = import_openpose_json_workspace(
-        args.json,
-        args.video,
-        args.out,
-        skeleton_name=args.skeleton_name,
-        likelihood_threshold=args.threshold,
-        progress_callback=_emit_progress,
-    )
-    sys.stdout.write(f"Imported OpenPose JSON into {args.out}\n")
-    _write_path(path)
-    return 0
-
-
-def _cmd_import_detectron2(args: argparse.Namespace) -> int:
-    path = import_detectron2_coco_workspace(
-        args.predictions,
-        args.dataset_json,
-        args.image_root,
-        args.out,
-        category_id=args.category_id,
-        skeleton_name=args.skeleton_name,
-        likelihood_threshold=args.threshold,
-        progress_callback=_emit_progress,
-    )
-    sys.stdout.write(f"Imported Detectron2 COCO into {args.out}\n")
     _write_path(path)
     return 0
 

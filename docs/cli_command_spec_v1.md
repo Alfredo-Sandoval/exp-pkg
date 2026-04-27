@@ -68,12 +68,11 @@ Import supported external data into a workspace.
 xpkg import dlc csv --csv tracking.csv --video video.mp4 --out "./My Project"
 xpkg import dlc h5 --h5 tracking.h5 --video video.mp4 --out "./My Project"
 xpkg import dlc project --project dlc_project --out "./My Project"
+xpkg import lightning-pose --csv predictions.csv --video video.mp4 --out "./My Project"
 xpkg import sleap --slp labels.pkg.slp --out "./My Project"
 xpkg import sleap --h5 analysis.h5 --video video.mp4 --out "./My Project"
 xpkg import mmpose --json results.json --video video.mp4 --out "./My Project"
 xpkg import mediapipe --json pose_landmarks.json --video video.mp4 --out "./My Project"
-xpkg import openpose --json openpose_json --video video.mp4 --out "./My Project"
-xpkg import detectron2 --predictions coco_instances_results.json --dataset-json dataset.json --image-root images --out "./My Project"
 ```
 
 ### Supported families today
@@ -81,12 +80,11 @@ xpkg import detectron2 --predictions coco_instances_results.json --dataset-json 
 - `xpkg import dlc csv`
 - `xpkg import dlc h5`
 - `xpkg import dlc project`
+- `xpkg import lightning-pose`
 - `xpkg import sleap --slp`
 - `xpkg import sleap --h5`
 - `xpkg import mmpose`
 - `xpkg import mediapipe`
-- `xpkg import openpose`
-- `xpkg import detectron2`
 
 ### Required behavior
 

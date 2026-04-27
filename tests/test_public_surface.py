@@ -38,13 +38,12 @@ from xpkg.formats import (
     current_project_snapshot_path,
     current_project_state_path,
     default_expkg_path,
-    import_detectron2_coco_workspace,
     import_dlc_csv_workspace,
     import_dlc_h5_workspace,
     import_dlc_project_workspace,
+    import_lightning_pose_csv_workspace,
     import_mediapipe_pose_landmarks_json_workspace,
     import_mmpose_topdown_json_workspace,
-    import_openpose_json_workspace,
     import_sleap_h5_workspace,
     import_sleap_package_workspace,
     import_vicon_c3d_workspace,
@@ -179,13 +178,12 @@ def test_public_exports_are_callable() -> None:
     assert callable(import_vicon_c3d_workspace)
     assert callable(import_vicon_csv_workspace)
     assert callable(import_vicon_workspace)
-    assert callable(import_detectron2_coco_workspace)
     assert callable(import_dlc_csv_workspace)
     assert callable(import_dlc_h5_workspace)
     assert callable(import_dlc_project_workspace)
+    assert callable(import_lightning_pose_csv_workspace)
     assert callable(import_mediapipe_pose_landmarks_json_workspace)
     assert callable(import_mmpose_topdown_json_workspace)
-    assert callable(import_openpose_json_workspace)
     assert callable(import_sleap_h5_workspace)
     assert callable(import_sleap_package_workspace)
     assert callable(init_project)
@@ -262,13 +260,12 @@ def test_services_surface_lists_workspace_service_first() -> None:
 
 def test_workspace_imports_surface_covers_supported_workspace_importers() -> None:
     expected = {
-        "detectron2_coco",
         "dlc_csv",
         "dlc_h5",
         "dlc_project",
+        "lightning_pose_csv",
         "mediapipe_pose_landmarks_json",
         "mmpose_topdown_json",
-        "openpose_json",
         "sleap_h5",
         "sleap_package",
         "vicon",
@@ -320,6 +317,7 @@ def test_formats_surface_is_workspace_first_only() -> None:
     assert "pack_project" in xpkg.formats.__all__
     assert "export_workspace_archive" not in xpkg.formats.__all__
     assert "import_dlc_project_workspace" in xpkg.formats.__all__
+    assert "import_lightning_pose_csv_workspace" in xpkg.formats.__all__
     assert "inspect_workspace" in xpkg.formats.__all__
     assert "load_workspace_payload" in xpkg.formats.__all__
     assert "list_workspace_figures" in xpkg.formats.__all__
@@ -333,6 +331,8 @@ def test_formats_surface_is_workspace_first_only() -> None:
     assert "save_workspace_metadata_field" in xpkg.formats.__all__
     assert "save_workspace_segmentation_masks" in xpkg.formats.__all__
     assert "load_workspace_segmentation_masks" in xpkg.formats.__all__
+    assert "import_detectron2_coco_workspace" not in xpkg.formats.__all__
+    assert "import_openpose_json_workspace" not in xpkg.formats.__all__
 
     with pytest.raises(AttributeError):
         xpkg.formats.__getattribute__("read_archive")

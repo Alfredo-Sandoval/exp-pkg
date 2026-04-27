@@ -76,10 +76,13 @@ _WORKSPACE_EXPORTS: dict[str, tuple[str, str]] = {
     "import_vicon_workspace": (".formats.project", "import_vicon_workspace"),
     "import_vicon_csv_workspace": (".formats.project", "import_vicon_csv_workspace"),
     "import_vicon_c3d_workspace": (".formats.project", "import_vicon_c3d_workspace"),
-    "import_detectron2_coco_workspace": (".formats.project", "import_detectron2_coco_workspace"),
     "import_dlc_csv_workspace": (".formats.project", "import_dlc_csv_workspace"),
     "import_dlc_h5_workspace": (".formats.project", "import_dlc_h5_workspace"),
     "import_dlc_project_workspace": (".formats.project", "import_dlc_project_workspace"),
+    "import_lightning_pose_csv_workspace": (
+        ".formats.project",
+        "import_lightning_pose_csv_workspace",
+    ),
     "import_mediapipe_pose_landmarks_json_workspace": (
         ".formats.project",
         "import_mediapipe_pose_landmarks_json_workspace",
@@ -88,7 +91,6 @@ _WORKSPACE_EXPORTS: dict[str, tuple[str, str]] = {
         ".formats.project",
         "import_mmpose_topdown_json_workspace",
     ),
-    "import_openpose_json_workspace": (".formats.project", "import_openpose_json_workspace"),
     "import_sleap_h5_workspace": (".formats.project", "import_sleap_h5_workspace"),
     "import_sleap_package_workspace": (".formats.project", "import_sleap_package_workspace"),
     "migrate_legacy_archive": (".formats.project", "migrate_legacy_archive"),

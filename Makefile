@@ -1,9 +1,11 @@
-.PHONY: env setup bootstrap env-macos env-linux env-windows loc lint typecheck test qa ci-local build package-check docs-build docs-serve clean
+.PHONY: env setup bootstrap env-macos env-linux env-windows loc lint typecheck test require-real-data test-real qa ci-local release-check build package-check docs-build docs-serve clean
 
 ENV_ARGS ?=
 PYTHON ?= python
 SOURCE_DIRS ?= src
 DOCS_ADDR ?= 127.0.0.1:8123
+REAL_DATA_ROOT ?=
+REAL_DATA_MANIFEST ?=
 RUN_IN_ENV := bash environment/run-in-env.sh
 EXCLUDE_PATHS ?= .git .venv venv env node_modules .next .turbo out __pycache__ *.egg-info .eggs .pytest_cache .ruff_cache .mypy_cache .cache build dist htmlcov coverage .coverage site results data external
 LOC_PRUNE_NAMES := $(foreach p,$(EXCLUDE_PATHS),-name '$(p)' -o ) -false
@@ -39,9 +41,27 @@ typecheck:
 test:
 	$(RUN_IN_ENV) pytest
 
+require-real-data:
+	@root="$${XPKG_REAL_DATA_ROOT:-$(REAL_DATA_ROOT)}"; \
+	test -n "$$root" || { \
+		echo "Set XPKG_REAL_DATA_ROOT or pass REAL_DATA_ROOT=/path/to/real-data"; \
+		exit 1; \
+	}; \
+	test -d "$$root" || { \
+		echo "Real data root does not exist: $$root"; \
+		exit 1; \
+	}
+
+test-real: require-real-data
+	XPKG_REAL_DATA_ROOT="$${XPKG_REAL_DATA_ROOT:-$(REAL_DATA_ROOT)}" \
+	XPKG_REAL_DATA_MANIFEST="$${XPKG_REAL_DATA_MANIFEST:-$(REAL_DATA_MANIFEST)}" \
+	$(RUN_IN_ENV) pytest -m realdata tests/real_data
+
 qa: lint typecheck test
 
 ci-local: lint typecheck test package-check docs-build
+
+release-check: require-real-data qa package-check docs-build test-real
 
 build:
 	$(RUN_IN_ENV) env UV_CACHE_DIR="$${UV_CACHE_DIR:-/tmp/uv-cache}" uv build --out-dir dist --clear

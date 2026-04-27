@@ -35,7 +35,7 @@ The repo and distribution name are <code>exp-pkg</code>; the Python import and C
 | Output artifact registry | `workspace.artifacts.*` and `.xpkg/artifacts/index.json` |
 | Function-level workspace imports | `xpkg.formats.import_*_workspace(...)` |
 | Legacy migration seam | `xpkg migrate` or `xpkg.formats.migrate_legacy_archive(...)` |
-| External import ecosystems | DeepLabCut, SLEAP, MMPose, MediaPipe, OpenPose, Detectron2 |
+| External import ecosystems | DeepLabCut, Lightning Pose, SLEAP, MMPose, MediaPipe |
 | Core objects | `xpkg.model` |
 | In-memory codecs | `xpkg.codecs` |
 </div>
@@ -46,7 +46,7 @@ The repo and distribution name are <code>exp-pkg</code>; the Python import and C
 - Use `xpkg.services.WorkspaceService` when you need to create, open, import
   into, validate, pack, or unpack a project.
 - Use `workspace.imports.*` for the normal workspace-first import flow from
-  DeepLabCut, SLEAP, MMPose, MediaPipe, OpenPose, or Detectron2.
+  DeepLabCut, Lightning Pose, SLEAP, MMPose, or MediaPipe.
 - Use `workspace.artifacts.*` to register figures, tables, analyses, reports,
   stats, and other output files with provenance and checksums.
 - Use `xpkg.formats.import_*_workspace(...)` when you want the same
@@ -96,10 +96,9 @@ The repo and distribution name are <code>exp-pkg</code>; the Python import and C
 - `init_project`, `pack_project`, `unpack_project`
 - `validate_workspace`
 - `import_dlc_*_workspace`, `import_sleap_*_workspace`
+- `import_lightning_pose_csv_workspace`
 - `import_mmpose_topdown_json_workspace`
 - `import_mediapipe_pose_landmarks_json_workspace`
-- `import_openpose_json_workspace`
-- `import_detectron2_coco_workspace`
 </div>
 
 <div class="spec-panel" markdown="1">

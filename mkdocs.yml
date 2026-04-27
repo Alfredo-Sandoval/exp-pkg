@@ -86,7 +86,7 @@ nav:
       - Storage Direction: architecture/storage-direction.md
       - Experimental Durable Store: architecture/experimental-store.md
   - Development:
-      - Local CI: development/local-ci.md
+      - Local Quality Gates: development/local-ci.md
   - API Guide:
       - Model: api/model.md
       - Codecs: api/codecs.md

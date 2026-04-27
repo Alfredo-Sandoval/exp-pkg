@@ -18,13 +18,12 @@ from xpkg.formats.project import (
     ProjectDescriptor,
     WorkspaceInspection,
     current_project_state_path,
-    import_detectron2_coco_workspace,
     import_dlc_csv_workspace,
     import_dlc_h5_workspace,
     import_dlc_project_workspace,
+    import_lightning_pose_csv_workspace,
     import_mediapipe_pose_landmarks_json_workspace,
     import_mmpose_topdown_json_workspace,
-    import_openpose_json_workspace,
     import_sleap_h5_workspace,
     import_sleap_package_workspace,
     import_vicon_c3d_workspace,
@@ -188,6 +187,29 @@ class WorkspaceImports:
             progress_callback=progress_callback,
         )
 
+    def lightning_pose_csv(
+        self,
+        csv_path: str | Path,
+        video_path: str | Path,
+        *,
+        skeleton_name: str = "imported",
+        likelihood_threshold: float = 0.0,
+        default_pack_mode: PackMode = "portable",
+        force: bool = False,
+        progress_callback: Any | None = None,
+    ) -> Path:
+        """Import a Lightning Pose prediction CSV plus video into this workspace."""
+        return self._import(
+            import_lightning_pose_csv_workspace,
+            csv_path,
+            video_path,
+            skeleton_name=skeleton_name,
+            likelihood_threshold=likelihood_threshold,
+            default_pack_mode=default_pack_mode,
+            force=force,
+            progress_callback=progress_callback,
+        )
+
     def sleap_h5(
         self,
         h5_path: str | Path,
@@ -273,56 +295,6 @@ class WorkspaceImports:
             import_mediapipe_pose_landmarks_json_workspace,
             json_path,
             video_path,
-            skeleton_name=skeleton_name,
-            likelihood_threshold=likelihood_threshold,
-            default_pack_mode=default_pack_mode,
-            force=force,
-            progress_callback=progress_callback,
-        )
-
-    def openpose_json(
-        self,
-        json_dir: str | Path,
-        video_path: str | Path,
-        *,
-        skeleton_name: str = "imported",
-        likelihood_threshold: float = 0.0,
-        default_pack_mode: PackMode = "portable",
-        force: bool = False,
-        progress_callback: Any | None = None,
-    ) -> Path:
-        """Import an OpenPose JSON directory plus video into this workspace."""
-        return self._import(
-            import_openpose_json_workspace,
-            json_dir,
-            video_path,
-            skeleton_name=skeleton_name,
-            likelihood_threshold=likelihood_threshold,
-            default_pack_mode=default_pack_mode,
-            force=force,
-            progress_callback=progress_callback,
-        )
-
-    def detectron2_coco(
-        self,
-        predictions_path: str | Path,
-        dataset_json_path: str | Path,
-        image_root: str | Path,
-        *,
-        category_id: int | None = None,
-        skeleton_name: str | None = None,
-        likelihood_threshold: float = 0.0,
-        default_pack_mode: PackMode = "portable",
-        force: bool = False,
-        progress_callback: Any | None = None,
-    ) -> Path:
-        """Import Detectron2 COCO keypoint results into this workspace."""
-        return self._import(
-            import_detectron2_coco_workspace,
-            predictions_path,
-            dataset_json_path,
-            image_root,
-            category_id=category_id,
             skeleton_name=skeleton_name,
             likelihood_threshold=likelihood_threshold,
             default_pack_mode=default_pack_mode,

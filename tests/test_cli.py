@@ -18,6 +18,12 @@ def test_cli_rejects_removed_compat_commands() -> None:
     with pytest.raises(SystemExit):
         main(["import", "legacy", "--file", "tracking.xpkg", "--out", "My Project"])
 
+    with pytest.raises(SystemExit):
+        main(["import", "detectron2", "--predictions", "coco_instances_results.json"])
+
+    with pytest.raises(SystemExit):
+        main(["import", "openpose", "--json", "openpose_json", "--out", "My Project"])
+
 
 def test_cli_routes_init_workspace(monkeypatch, capsys) -> None:
     from xpkg.cli import main
@@ -619,13 +625,13 @@ def test_cli_routes_import_mediapipe_workspace(monkeypatch, capsys) -> None:
     assert ".xpkg/state/current.json" in stdout
 
 
-def test_cli_routes_import_openpose_workspace(monkeypatch, capsys) -> None:
+def test_cli_routes_import_lightning_pose_workspace(monkeypatch, capsys) -> None:
     from xpkg.cli import main
 
     captured: dict[str, object] = {}
 
-    def fake_import_openpose_json_workspace(
-        json_dir: str,
+    def fake_import_lightning_pose_csv_workspace(
+        csv_path: str,
         video_path: str,
         workspace: str,
         *,
@@ -635,123 +641,49 @@ def test_cli_routes_import_openpose_workspace(monkeypatch, capsys) -> None:
         force: bool = False,
         progress_callback,
     ) -> Path:
-        captured["json_dir"] = json_dir
+        captured["csv_path"] = csv_path
         captured["video_path"] = video_path
         captured["workspace"] = workspace
         captured["skeleton_name"] = skeleton_name
         captured["likelihood_threshold"] = likelihood_threshold
         captured["default_pack_mode"] = default_pack_mode
         captured["force"] = force
-        progress_callback("openpose-import-progress")
+        progress_callback("lightning-pose-import-progress")
         return _workspace_state_path(workspace)
 
     monkeypatch.setattr(
-        "xpkg.cli.import_openpose_json_workspace",
-        fake_import_openpose_json_workspace,
+        "xpkg.cli.import_lightning_pose_csv_workspace",
+        fake_import_lightning_pose_csv_workspace,
     )
 
     code = main(
         [
             "import",
-            "openpose",
-            "--json",
-            "openpose_json",
+            "lightning-pose",
+            "--csv",
+            "video_preds/session0.csv",
             "--video",
             "clip.mp4",
             "--out",
             "My Project",
             "--threshold",
-            "0.2",
+            "0.4",
         ]
     )
 
     assert code == 0
     assert captured == {
-        "json_dir": "openpose_json",
+        "csv_path": "video_preds/session0.csv",
         "video_path": "clip.mp4",
         "workspace": "My Project",
         "skeleton_name": "imported",
-        "likelihood_threshold": 0.2,
+        "likelihood_threshold": 0.4,
         "default_pack_mode": "portable",
         "force": False,
     }
     stdout = capsys.readouterr().out
-    assert "openpose-import-progress" in stdout
-    assert "Imported OpenPose JSON into My Project" in stdout
-    assert ".xpkg/state/current.json" in stdout
-
-
-def test_cli_routes_import_detectron2_workspace(monkeypatch, capsys) -> None:
-    from xpkg.cli import main
-
-    captured: dict[str, object] = {}
-
-    def fake_import_detectron2_coco_workspace(
-        predictions_path: str,
-        dataset_json_path: str,
-        image_root: str,
-        workspace: str,
-        *,
-        category_id: int | None,
-        skeleton_name: str | None,
-        likelihood_threshold: float,
-        default_pack_mode: str = "portable",
-        force: bool = False,
-        progress_callback,
-    ) -> Path:
-        captured["predictions_path"] = predictions_path
-        captured["dataset_json_path"] = dataset_json_path
-        captured["image_root"] = image_root
-        captured["workspace"] = workspace
-        captured["category_id"] = category_id
-        captured["skeleton_name"] = skeleton_name
-        captured["likelihood_threshold"] = likelihood_threshold
-        captured["default_pack_mode"] = default_pack_mode
-        captured["force"] = force
-        progress_callback("detectron2-import-progress")
-        return _workspace_state_path(workspace)
-
-    monkeypatch.setattr(
-        "xpkg.cli.import_detectron2_coco_workspace",
-        fake_import_detectron2_coco_workspace,
-    )
-
-    code = main(
-        [
-            "import",
-            "detectron2",
-            "--predictions",
-            "coco_instances_results.json",
-            "--dataset-json",
-            "dataset.json",
-            "--image-root",
-            "images",
-            "--out",
-            "My Project",
-            "--category-id",
-            "7",
-            "--skeleton-name",
-            "mouse",
-            "--threshold",
-            "0.6",
-        ]
-    )
-
-    assert code == 0
-    assert captured == {
-        "predictions_path": "coco_instances_results.json",
-        "dataset_json_path": "dataset.json",
-        "image_root": "images",
-        "workspace": "My Project",
-        "category_id": 7,
-        "skeleton_name": "mouse",
-        "likelihood_threshold": 0.6,
-        "default_pack_mode": "portable",
-        "force": False,
-    }
-    stdout = capsys.readouterr().out
-    assert "detectron2-import-progress" in stdout
-    assert "Imported Detectron2 COCO into My Project" in stdout
+    assert "lightning-pose-import-progress" in stdout
+    assert "Imported Lightning Pose CSV into My Project" in stdout
     assert ".xpkg/state/current.json" in stdout
 
 

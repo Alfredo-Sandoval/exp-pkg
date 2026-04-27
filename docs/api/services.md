@@ -92,12 +92,11 @@ Each service-bound importer mirrors a public
 | `workspace.imports.dlc_csv(...)` | `xpkg.formats.import_dlc_csv_workspace(...)` |
 | `workspace.imports.dlc_h5(...)` | `xpkg.formats.import_dlc_h5_workspace(...)` |
 | `workspace.imports.dlc_project(...)` | `xpkg.formats.import_dlc_project_workspace(...)` |
+| `workspace.imports.lightning_pose_csv(...)` | `xpkg.formats.import_lightning_pose_csv_workspace(...)` |
 | `workspace.imports.sleap_h5(...)` | `xpkg.formats.import_sleap_h5_workspace(...)` |
 | `workspace.imports.sleap_package(...)` | `xpkg.formats.import_sleap_package_workspace(...)` |
 | `workspace.imports.mmpose_topdown_json(...)` | `xpkg.formats.import_mmpose_topdown_json_workspace(...)` |
 | `workspace.imports.mediapipe_pose_landmarks_json(...)` | `xpkg.formats.import_mediapipe_pose_landmarks_json_workspace(...)` |
-| `workspace.imports.openpose_json(...)` | `xpkg.formats.import_openpose_json_workspace(...)` |
-| `workspace.imports.detectron2_coco(...)` | `xpkg.formats.import_detectron2_coco_workspace(...)` |
 
 The service-bound methods are the preferred path for new project-facing code.
 The free functions remain public for explicit function-level integrations.

@@ -32,13 +32,12 @@ def test_xpkg_api_exposes_workspace_first_contract() -> None:
         "import_vicon_c3d_workspace",
         "import_vicon_csv_workspace",
         "import_vicon_workspace",
-        "import_detectron2_coco_workspace",
         "import_dlc_csv_workspace",
         "import_dlc_h5_workspace",
         "import_dlc_project_workspace",
+        "import_lightning_pose_csv_workspace",
         "import_mediapipe_pose_landmarks_json_workspace",
         "import_mmpose_topdown_json_workspace",
-        "import_openpose_json_workspace",
         "import_sleap_h5_workspace",
         "import_sleap_package_workspace",
         "inspect_workspace",
@@ -91,6 +90,8 @@ def test_xpkg_api_exposes_workspace_first_contract() -> None:
     assert "export_workspace_archive" not in api.__all__
     assert "export_project_archive" not in api.__all__
     assert "import_legacy_archive" not in api.__all__
+    assert "import_detectron2_coco_workspace" not in api.__all__
+    assert "import_openpose_json_workspace" not in api.__all__
     assert "SleapTrack" not in api.__all__
     assert "read_sleap_node_names" not in api.__all__
     assert "read_sleap_track" not in api.__all__
