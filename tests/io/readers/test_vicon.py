@@ -76,7 +76,16 @@ def test_read_vicon_c3d_preserves_events_analog_and_additional_points(tmp_path: 
     assert recording.events[2].subject_label == "Subject-2"
     assert recording.has_analog
     assert recording.analog is not None
-    assert recording.analog.channel_names == ("Fx", "Fy", "Fz")
+    assert recording.analog.channel_names == ("Fx", "Fy", "Voltage.RTA")
+    assert recording.analog.channel_units == ("N", "N", "V")
+    assert recording.analog.channel_descriptions == (
+        "Force X",
+        "Force Y",
+        "Right tibialis anterior",
+    )
+    assert recording.analog.channel_indices_by_unit("N") == (0, 1)
+    assert recording.analog.candidate_emg_channel_indices == (2,)
+    assert recording.analog.candidate_emg_channel_names == ("Voltage.RTA",)
     assert recording.analog.samples_per_frame == 2
     assert recording.analog.values.shape == (4, 3)
     np.testing.assert_allclose(
@@ -141,6 +150,7 @@ def test_vicon_lookup_requires_namespaced_query_when_suffix_is_ambiguous() -> No
             fps=1000,
             samples_per_frame=1,
             channel_names=("FP1:Fz", "FP2:Fz"),
+            channel_units=("N", "N"),
             values=np.zeros((1, 2), dtype=np.float64),
         ),
     )

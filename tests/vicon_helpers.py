@@ -108,9 +108,19 @@ def write_sample_vicon_c3d(path: Path) -> None:
     writer = c3d.Writer(point_rate=100.0, analog_rate=200.0)
     writer.set_start_frame(11)
     writer.set_point_labels(["Mouse:center", "Mouse:R_foot", "Model:HipMoment"])
-    writer.set_analog_labels(["Fx", "Fy", "Fz"])
+    writer.set_analog_labels(["Fx", "Fy", "Voltage.RTA"])
     writer.set_analog_scales([1.0, 1.0, 1.0])
     writer.set_analog_offsets([0, 0, 0])
+    writer.analog_group.add_str("UNITS", "Analog units.", "NNV", 1, 3)
+    analog_descriptions = ("Force X", "Force Y", "Right tibialis anterior")
+    analog_description_width = max(len(value) for value in analog_descriptions)
+    writer.analog_group.add_str(
+        "DESCRIPTIONS",
+        "Analog descriptions.",
+        "".join(value.ljust(analog_description_width) for value in analog_descriptions),
+        analog_description_width,
+        len(analog_descriptions),
+    )
 
     for frame_idx in range(2):
         points = np.zeros((3, 5), dtype=np.float32)

@@ -299,8 +299,8 @@ Vicon recordings, Lightning Pose CSV, SLEAP, MMPose JSON, and MediaPipe JSON.
 Vicon support is intentionally narrow and mocap-native: it preserves marker
 names, source labels, `(frames, markers, 3)` positions, validity/gaps, fps,
 frame offsets, optional raw C3D `EVENT` metadata, optional analog channels,
-optional additional point channels, and sibling `.xcp` / `.vsk` sidecars when
-present.
+analog units/descriptions, optional additional point channels, and sibling
+`.xcp` / `.vsk` sidecars when present.
 
 Use the low-level reader when another repo just needs to load a recording:
 
@@ -312,6 +312,7 @@ print(recording.marker_names)
 print(recording.positions.shape)
 print([(event.side, event.event_type, event.source_frame) for event in recording.gait_events])
 print(recording.analog.channel_names if recording.analog is not None else ())
+print(recording.analog.candidate_emg_channel_names if recording.analog is not None else ())
 ```
 
 Use the workspace service when another repo wants an imported, portable project:

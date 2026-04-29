@@ -19,6 +19,12 @@ Canonical identity lives in `repo_profile.yaml`.
 - `repo.preset`: `base`
 - `repo.support_matrix`: `macos`, `linux`
 
+## Instruction Routing
+
+`repo_profile.yaml` intentionally does not define a `skills` routing block.
+Use this `AGENTS.md`, explicit user requests, and the current task context as
+the repository instruction source.
+
 ## Environment Policy
 
 - Canonical setup entrypoint: `make env`

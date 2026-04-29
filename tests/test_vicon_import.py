@@ -76,6 +76,9 @@ def test_import_vicon_workspace_roundtrips_through_workspace_and_expkg(tmp_path:
     assert restored.analog.fps == recording.analog.fps
     assert restored.analog.samples_per_frame == recording.analog.samples_per_frame
     assert restored.analog.channel_names == recording.analog.channel_names
+    assert restored.analog.channel_units == recording.analog.channel_units
+    assert restored.analog.channel_descriptions == recording.analog.channel_descriptions
+    assert restored.analog.candidate_emg_channel_names == ("Voltage.RTA",)
     np.testing.assert_allclose(
         restored.analog.values,
         recording.analog.values,

@@ -545,6 +545,27 @@ def _read_analog_labels(reader: Any) -> tuple[str, ...]:
     )
 
 
+def _read_analog_string_metadata(
+    reader: Any,
+    key: str,
+    *,
+    n_channels: int,
+) -> tuple[str, ...]:
+    if n_channels == 0:
+        return ()
+    try:
+        group = reader.get("ANALOG")
+    except KeyError:
+        return ("",) * n_channels
+    param = group.get(key)
+    if param is None:
+        return ("",) * n_channels
+    values = tuple(str(value).strip() for value in np.asarray(param.string_array).reshape(-1))
+    if len(values) < n_channels:
+        return values + ("",) * (n_channels - len(values))
+    return values[:n_channels]
+
+
 def _c3d_event_group(reader: Any) -> Any | None:
     try:
         return reader.get("EVENT")
@@ -753,6 +774,16 @@ def read_vicon_c3d(path: str | Path) -> ViconRecording:
         additional_indices = [idx for idx, _label in additional_pairs]
         additional_labels = tuple(label for _idx, label in additional_pairs)
         analog_labels = _read_analog_labels(reader)
+        analog_units = _read_analog_string_metadata(
+            reader,
+            "UNITS",
+            n_channels=len(analog_labels),
+        )
+        analog_descriptions = _read_analog_string_metadata(
+            reader,
+            "DESCRIPTIONS",
+            n_channels=len(analog_labels),
+        )
 
         positions_by_frame: list[np.ndarray] = []
         valid_by_frame: list[np.ndarray] = []
@@ -802,6 +833,8 @@ def read_vicon_c3d(path: str | Path) -> ViconRecording:
             samples_per_frame=int(reader.analog_per_frame),
             channel_names=analog_labels,
             values=np.concatenate(analog_by_frame, axis=0),
+            channel_units=analog_units,
+            channel_descriptions=analog_descriptions,
         )
     additional_points = None
     if additional_by_frame:

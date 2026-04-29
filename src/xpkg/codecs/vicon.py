@@ -20,7 +20,7 @@ from xpkg.model.vicon import (
 )
 
 XPKG_VICON_JSON_FORMAT = "xpkg.vicon-recording-json"
-XPKG_VICON_JSON_VERSION = "1.1.0"
+XPKG_VICON_JSON_VERSION = "1.2.0"
 
 
 def _serialize_path(path: str | Path | None, *, source_root: Path | None = None) -> str | None:
@@ -177,6 +177,8 @@ def _analog_to_payload(analog: ViconAnalogData | None) -> dict[str, Any] | None:
         "fps": int(analog.fps),
         "samples_per_frame": int(analog.samples_per_frame),
         "channel_names": list(analog.channel_names),
+        "channel_units": list(analog.channel_units),
+        "channel_descriptions": list(analog.channel_descriptions),
         "values": _encode_array(analog.values),
     }
 
@@ -190,6 +192,10 @@ def _analog_from_payload(payload: Any) -> ViconAnalogData | None:
         fps=int(payload.get("fps", 0)),
         samples_per_frame=int(payload.get("samples_per_frame", 0)),
         channel_names=tuple(str(item) for item in payload.get("channel_names") or []),
+        channel_units=tuple(str(item) for item in payload.get("channel_units") or []),
+        channel_descriptions=tuple(
+            str(item) for item in payload.get("channel_descriptions") or []
+        ),
         values=_decode_array(payload.get("values"), name="analog.values"),
     )
 

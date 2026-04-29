@@ -89,12 +89,16 @@ class ViconAnalogData:
     samples_per_frame: int
     channel_names: tuple[str, ...]
     values: np.ndarray  # (samples, channels) float64
+    channel_units: tuple[str, ...] = ()
+    channel_descriptions: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         fps = int(self.fps)
         samples_per_frame = int(self.samples_per_frame)
         channel_names = _tuple_str(self.channel_names)
         values = _float_array(self.values, name="analog.values")
+        channel_units = _tuple_str(self.channel_units)
+        channel_descriptions = _tuple_str(self.channel_descriptions)
 
         if fps <= 0:
             raise ValueError(f"analog.fps must be positive, got {fps}.")
@@ -113,6 +117,16 @@ class ViconAnalogData:
                 "analog.channel_names length does not match values.shape[1]: "
                 f"{len(channel_names)} vs {values.shape[1]}."
             )
+        if channel_units and len(channel_units) != len(channel_names):
+            raise ValueError(
+                "analog.channel_units length does not match channel_names: "
+                f"{len(channel_units)} vs {len(channel_names)}."
+            )
+        if channel_descriptions and len(channel_descriptions) != len(channel_names):
+            raise ValueError(
+                "analog.channel_descriptions length does not match channel_names: "
+                f"{len(channel_descriptions)} vs {len(channel_names)}."
+            )
         if values.shape[0] % samples_per_frame != 0:
             raise ValueError(
                 "analog.values sample count must be divisible by samples_per_frame, "
@@ -123,6 +137,16 @@ class ViconAnalogData:
         object.__setattr__(self, "samples_per_frame", samples_per_frame)
         object.__setattr__(self, "channel_names", channel_names)
         object.__setattr__(self, "values", values)
+        object.__setattr__(
+            self,
+            "channel_units",
+            channel_units or ("",) * len(channel_names),
+        )
+        object.__setattr__(
+            self,
+            "channel_descriptions",
+            channel_descriptions or ("",) * len(channel_names),
+        )
 
     @property
     def n_samples(self) -> int:
@@ -138,6 +162,32 @@ class ViconAnalogData:
 
     def channel_index(self, name: str) -> int:
         return _lookup_unique_index(self.channel_names, name, kind="Analog channel")
+
+    def channel_indices_by_unit(self, unit: str) -> tuple[int, ...]:
+        normalized_unit = str(unit).strip().lower()
+        return tuple(
+            index
+            for index, channel_unit in enumerate(self.channel_units)
+            if str(channel_unit).strip().lower() == normalized_unit
+        )
+
+    @property
+    def candidate_emg_channel_indices(self) -> tuple[int, ...]:
+        voltage_units = {"v", "volt", "volts", "mv", "millivolt", "millivolts"}
+        return tuple(
+            index
+            for index, (name, unit) in enumerate(
+                zip(self.channel_names, self.channel_units, strict=True)
+            )
+            if str(unit).strip().lower() in voltage_units
+            or _normalize_label_name(name).startswith(("emg", "voltage"))
+        )
+
+    @property
+    def candidate_emg_channel_names(self) -> tuple[str, ...]:
+        return tuple(
+            self.channel_names[index] for index in self.candidate_emg_channel_indices
+        )
 
 
 @dataclass(frozen=True, slots=True)
