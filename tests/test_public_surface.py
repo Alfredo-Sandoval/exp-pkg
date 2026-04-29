@@ -94,6 +94,7 @@ from xpkg.formats import (
     write_project_descriptor,
 )
 from xpkg.model import (
+    EMGSignalData,
     Instance,
     Keypoint,
     KPFlag,
@@ -292,6 +293,7 @@ def test_model_exports_are_available() -> None:
     assert PredictedPointArray is not None
     assert Video is not None
     assert VideoStub is not None
+    assert EMGSignalData is not None
     assert ViconRecording is not None
     assert ViconEvent is not None
     assert KPFlag is not None

@@ -19,6 +19,10 @@ from xpkg.io.readers.vicon import (
     read_vicon_csv,
     read_vicon_recording,
 )
+from xpkg.io.readers.vicon_emg import (
+    candidate_vicon_emg_channels,
+    extract_vicon_emg,
+)
 
 __all__ = [
     "PoseTrack",
@@ -28,6 +32,8 @@ __all__ = [
     "ViconEvent",
     "ViconMarkerModel",
     "ViconRecording",
+    "candidate_vicon_emg_channels",
+    "extract_vicon_emg",
     "read_pose_node_names",
     "read_pose_track",
     "read_vicon_c3d",

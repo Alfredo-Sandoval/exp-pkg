@@ -97,6 +97,7 @@ _WORKSPACE_EXPORTS: dict[str, tuple[str, str]] = {
 }
 
 _MODEL_EXPORTS: dict[str, tuple[str, str]] = {
+    "EMGSignalData": (".model", "EMGSignalData"),
     "Instance": (".model", "Instance"),
     "Keypoint": (".model", "Keypoint"),
     "LabeledFrame": (".model", "LabeledFrame"),
@@ -118,6 +119,8 @@ _MODEL_EXPORTS: dict[str, tuple[str, str]] = {
 _CODEC_AND_READER_EXPORTS: dict[str, tuple[str, str]] = {
     "PoseTrack": (".io.readers", "PoseTrack"),
     "build_prediction_stub": (".model", "build_prediction_stub"),
+    "candidate_vicon_emg_channels": (".io.readers", "candidate_vicon_emg_channels"),
+    "extract_vicon_emg": (".io.readers", "extract_vicon_emg"),
     "labels_from_json_payload": (".codecs", "labels_from_json_payload"),
     "labels_numpy": (".codecs", "labels_numpy"),
     "labels_to_dataframe": (".codecs", "labels_to_dataframe"),

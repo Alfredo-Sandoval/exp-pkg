@@ -31,6 +31,7 @@ from xpkg.io.skeleton_loaders import (
     load_skeleton_xpkg_json,
 )
 from xpkg.io.video import Video
+from xpkg.model.emg import EMGSignalData
 from xpkg.model.stubs import VideoStub, build_prediction_stub
 from xpkg.model.vicon import (
     ViconAdditionalPointData,
@@ -43,6 +44,7 @@ from xpkg.model.vicon import (
 
 __all__ = [
     "build_keypoint_skeleton",
+    "EMGSignalData",
     "Instance",
     "KPFlag",
     "Keypoint",

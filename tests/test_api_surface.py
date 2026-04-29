@@ -11,6 +11,7 @@ def test_xpkg_api_exposes_workspace_first_contract() -> None:
         "ArtifactFile",
         "ArtifactIndexEntry",
         "ArtifactManifest",
+        "EMGSignalData",
         "FigureArtifact",
         "ProjectDescriptor",
         "PoseTrack",
@@ -26,9 +27,11 @@ def test_xpkg_api_exposes_workspace_first_contract() -> None:
         "WorkspaceSegmentation",
         "WorkspaceService",
         "build_prediction_stub",
+        "candidate_vicon_emg_channels",
         "current_project_snapshot_path",
         "current_project_state_path",
         "default_expkg_path",
+        "extract_vicon_emg",
         "import_vicon_c3d_workspace",
         "import_vicon_csv_workspace",
         "import_vicon_workspace",
@@ -100,6 +103,7 @@ def test_xpkg_api_exposes_workspace_first_contract() -> None:
     assert api.ArtifactFile.__name__ == "ArtifactFile"
     assert api.ArtifactIndexEntry.__name__ == "ArtifactIndexEntry"
     assert api.ArtifactManifest.__name__ == "ArtifactManifest"
+    assert api.EMGSignalData.__name__ == "EMGSignalData"
     assert api.FigureArtifact.__name__ == "FigureArtifact"
     assert api.ProjectDescriptor.__name__ == "ProjectDescriptor"
     assert api.PoseTrack.__name__ == "PoseTrack"
@@ -114,7 +118,9 @@ def test_xpkg_api_exposes_workspace_first_contract() -> None:
     assert api.WorkspaceService.__name__ == "WorkspaceService"
     assert api.SegmentationFrame.__name__ == "SegmentationFrame"
     assert callable(api.build_prediction_stub)
+    assert callable(api.candidate_vicon_emg_channels)
     assert callable(api.inspect_workspace)
+    assert callable(api.extract_vicon_emg)
     assert callable(api.list_workspace_artifact_index)
     assert callable(api.list_workspace_artifacts)
     assert callable(api.list_workspace_figures)
