@@ -12,6 +12,7 @@ def test_xpkg_api_exposes_workspace_first_contract() -> None:
         "ArtifactIndexEntry",
         "ArtifactManifest",
         "EMGSignalData",
+        "ForcePlateData",
         "FigureArtifact",
         "ProjectDescriptor",
         "PoseTrack",
@@ -19,6 +20,7 @@ def test_xpkg_api_exposes_workspace_first_contract() -> None:
         "VideoStub",
         "ViconRecording",
         "ViconEvent",
+        "ViconForcePlatformMetadata",
         "WorkspaceImports",
         "WorkspaceArtifacts",
         "WorkspaceFigures",
@@ -26,6 +28,7 @@ def test_xpkg_api_exposes_workspace_first_contract() -> None:
         "WorkspaceLayout",
         "WorkspaceSegmentation",
         "WorkspaceService",
+        "build_force_plate_data_from_vicon_recording",
         "build_prediction_stub",
         "candidate_vicon_emg_channels",
         "current_project_snapshot_path",
@@ -104,11 +107,13 @@ def test_xpkg_api_exposes_workspace_first_contract() -> None:
     assert api.ArtifactIndexEntry.__name__ == "ArtifactIndexEntry"
     assert api.ArtifactManifest.__name__ == "ArtifactManifest"
     assert api.EMGSignalData.__name__ == "EMGSignalData"
+    assert api.ForcePlateData.__name__ == "ForcePlateData"
     assert api.FigureArtifact.__name__ == "FigureArtifact"
     assert api.ProjectDescriptor.__name__ == "ProjectDescriptor"
     assert api.PoseTrack.__name__ == "PoseTrack"
     assert api.VideoStub.__name__ == "VideoStub"
     assert api.ViconEvent.__name__ == "ViconEvent"
+    assert api.ViconForcePlatformMetadata.__name__ == "ViconForcePlatformMetadata"
     assert api.ViconRecording.__name__ == "ViconRecording"
     assert api.WorkspaceImports.__name__ == "WorkspaceImports"
     assert api.WorkspaceArtifacts.__name__ == "WorkspaceArtifacts"
@@ -118,6 +123,7 @@ def test_xpkg_api_exposes_workspace_first_contract() -> None:
     assert api.WorkspaceService.__name__ == "WorkspaceService"
     assert api.SegmentationFrame.__name__ == "SegmentationFrame"
     assert callable(api.build_prediction_stub)
+    assert callable(api.build_force_plate_data_from_vicon_recording)
     assert callable(api.candidate_vicon_emg_channels)
     assert callable(api.inspect_workspace)
     assert callable(api.extract_vicon_emg)

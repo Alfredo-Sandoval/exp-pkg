@@ -95,6 +95,7 @@ from xpkg.formats import (
 )
 from xpkg.model import (
     EMGSignalData,
+    ForcePlateData,
     Instance,
     Keypoint,
     KPFlag,
@@ -109,6 +110,7 @@ from xpkg.model import (
     SuggestionFrame,
     Track,
     ViconEvent,
+    ViconForcePlatformMetadata,
     ViconRecording,
     Video,
     VideoStub,
@@ -294,8 +296,10 @@ def test_model_exports_are_available() -> None:
     assert Video is not None
     assert VideoStub is not None
     assert EMGSignalData is not None
+    assert ForcePlateData is not None
     assert ViconRecording is not None
     assert ViconEvent is not None
+    assert ViconForcePlatformMetadata is not None
     assert KPFlag is not None
     assert callable(build_prediction_stub)
     assert callable(build_keypoint_skeleton)

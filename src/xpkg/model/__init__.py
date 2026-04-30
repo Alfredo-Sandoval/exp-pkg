@@ -32,12 +32,14 @@ from xpkg.io.skeleton_loaders import (
 )
 from xpkg.io.video import Video
 from xpkg.model.emg import EMGSignalData
+from xpkg.model.force import ForcePlateData
 from xpkg.model.stubs import VideoStub, build_prediction_stub
 from xpkg.model.vicon import (
     ViconAdditionalPointData,
     ViconAnalogData,
     ViconCamera,
     ViconEvent,
+    ViconForcePlatformMetadata,
     ViconMarkerModel,
     ViconRecording,
 )
@@ -45,6 +47,7 @@ from xpkg.model.vicon import (
 __all__ = [
     "build_keypoint_skeleton",
     "EMGSignalData",
+    "ForcePlateData",
     "Instance",
     "KPFlag",
     "Keypoint",
@@ -69,6 +72,7 @@ __all__ = [
     "ViconAnalogData",
     "ViconCamera",
     "ViconEvent",
+    "ViconForcePlatformMetadata",
     "ViconMarkerModel",
     "ViconRecording",
     "build_prediction_stub",

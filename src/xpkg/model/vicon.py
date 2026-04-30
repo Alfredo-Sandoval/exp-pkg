@@ -244,6 +244,60 @@ class ViconAdditionalPointData:
 
 
 @dataclass(frozen=True, slots=True)
+class ViconForcePlatformMetadata:
+    """Typed C3D FORCE_PLATFORM metadata needed for force-plate mapping."""
+
+    used: int
+    plate_types: tuple[int, ...]
+    channels: np.ndarray  # (plates, 6) 1-based analog channel numbers
+    corners: np.ndarray  # (plates, 4, 3) C3D FORCE_PLATFORM.CORNERS values
+    origins: np.ndarray  # (plates, 3) C3D FORCE_PLATFORM.ORIGIN values
+    provenance: tuple[tuple[str, str], ...]
+
+    def __post_init__(self) -> None:
+        used = int(self.used)
+        plate_types = tuple(int(value) for value in self.plate_types)
+        channels = np.asarray(self.channels, dtype=np.int64)
+        corners = _float_array(self.corners, name="force_platform.corners")
+        origins = _float_array(self.origins, name="force_platform.origins")
+        provenance = tuple((str(key), str(value)) for key, value in self.provenance)
+
+        if used <= 0:
+            raise ValueError(f"force_platform.used must be positive, got {used}.")
+        if len(plate_types) != used:
+            raise ValueError(
+                "force_platform.plate_types length must match used: "
+                f"{len(plate_types)} vs {used}."
+            )
+        if channels.shape != (used, 6):
+            raise ValueError(
+                "force_platform.channels must have shape (plates, 6), "
+                f"got {channels.shape} for used={used}."
+            )
+        if np.any(channels <= 0):
+            raise ValueError("force_platform.channels must use positive 1-based indices.")
+        if corners.shape != (used, 4, 3):
+            raise ValueError(
+                "force_platform.corners must have shape (plates, 4, 3), "
+                f"got {corners.shape} for used={used}."
+            )
+        if origins.shape != (used, 3):
+            raise ValueError(
+                "force_platform.origins must have shape (plates, 3), "
+                f"got {origins.shape} for used={used}."
+            )
+        if any(not key for key, _value in provenance):
+            raise ValueError("force_platform.provenance keys cannot be empty.")
+
+        object.__setattr__(self, "used", used)
+        object.__setattr__(self, "plate_types", plate_types)
+        object.__setattr__(self, "channels", channels)
+        object.__setattr__(self, "corners", corners)
+        object.__setattr__(self, "origins", origins)
+        object.__setattr__(self, "provenance", provenance)
+
+
+@dataclass(frozen=True, slots=True)
 class ViconCamera:
     """A single Vicon camera parsed from a sibling XCP file."""
 
@@ -407,6 +461,7 @@ class ViconRecording:
     additional_points: ViconAdditionalPointData | None = None
     cameras: tuple[ViconCamera, ...] = ()
     model: ViconMarkerModel | None = None
+    force_platform: ViconForcePlatformMetadata | None = None
     xcp_path: Path | None = None
     vsk_path: Path | None = None
 
@@ -420,6 +475,7 @@ class ViconRecording:
         marker_valid = _bool_array(self.marker_valid, name="recording.marker_valid")
         events = tuple(self.events)
         cameras = tuple(self.cameras)
+        force_platform = self.force_platform
         xcp_path = _coerce_path(self.xcp_path)
         vsk_path = _coerce_path(self.vsk_path)
 
@@ -490,6 +546,15 @@ class ViconRecording:
                     "recording.model references markers missing from recording: "
                     f"{missing_model_markers}."
                 )
+        if force_platform is not None and not isinstance(
+            force_platform,
+            ViconForcePlatformMetadata,
+        ):
+            raise TypeError(
+                "recording.force_platform must be ViconForcePlatformMetadata or None."
+            )
+        if force_platform is not None and source_type != "c3d":
+            raise ValueError("recording.force_platform is only supported for 'c3d' source_type.")
 
         object.__setattr__(self, "path", path)
         object.__setattr__(self, "source_type", source_type)
@@ -501,6 +566,7 @@ class ViconRecording:
         object.__setattr__(self, "frame_offset", int(self.frame_offset))
         object.__setattr__(self, "events", events)
         object.__setattr__(self, "cameras", cameras)
+        object.__setattr__(self, "force_platform", force_platform)
         object.__setattr__(self, "xcp_path", xcp_path)
         object.__setattr__(self, "vsk_path", vsk_path)
 
@@ -557,6 +623,7 @@ __all__ = [
     "ViconAnalogData",
     "ViconCamera",
     "ViconEvent",
+    "ViconForcePlatformMetadata",
     "ViconMarkerModel",
     "ViconRecording",
 ]

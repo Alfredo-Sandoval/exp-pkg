@@ -16,6 +16,7 @@ from xpkg.model.vicon import (
     ViconAnalogData,
     ViconCamera,
     ViconEvent,
+    ViconForcePlatformMetadata,
     ViconMarkerModel,
     ViconRecording,
 )
@@ -566,11 +567,120 @@ def _read_analog_string_metadata(
     return values[:n_channels]
 
 
-def _c3d_event_group(reader: Any) -> Any | None:
+def _c3d_group(reader: Any, name: str) -> Any | None:
     try:
-        return reader.get("EVENT")
+        return reader.get(name)
     except KeyError:
         return None
+
+
+def _required_c3d_param(group: Any, key: str, *, group_name: str) -> Any:
+    param = group.get(key)
+    if param is None:
+        raise ValueError(f"C3D {group_name} group is missing {key}.")
+    return param
+
+
+def _c3d_int_array(group: Any, key: str, *, group_name: str) -> np.ndarray:
+    param = _required_c3d_param(group, key, group_name=group_name)
+    return np.asarray(param.int16_array, dtype=np.int64)
+
+
+def _c3d_float_array(group: Any, key: str, *, group_name: str) -> np.ndarray:
+    param = _required_c3d_param(group, key, group_name=group_name)
+    return np.asarray(param.float_array, dtype=np.float64)
+
+
+def _normalize_force_platform_channels(values: np.ndarray, *, used: int) -> np.ndarray:
+    array = np.asarray(values, dtype=np.int64)
+    if array.shape == (6, used):
+        return array.T.copy()
+    if array.shape == (used, 6):
+        return array.copy()
+    raise ValueError(
+        "Expected FORCE_PLATFORM:CHANNEL to have shape (6, USED) or (USED, 6), "
+        f"got {array.shape} for USED={used}."
+    )
+
+
+def _normalize_force_platform_corners(values: np.ndarray, *, used: int) -> np.ndarray:
+    array = np.asarray(values, dtype=np.float64)
+    if array.shape == (3, 4, used):
+        return np.moveaxis(array, 2, 0).transpose(0, 2, 1).copy()
+    if array.shape == (used, 4, 3):
+        return array.copy()
+    raise ValueError(
+        "Expected FORCE_PLATFORM:CORNERS to have shape (3, 4, USED) or (USED, 4, 3), "
+        f"got {array.shape} for USED={used}."
+    )
+
+
+def _normalize_force_platform_origins(values: np.ndarray, *, used: int) -> np.ndarray:
+    array = np.asarray(values, dtype=np.float64)
+    if array.shape == (3, used):
+        return array.T.copy()
+    if array.shape == (used, 3):
+        return array.copy()
+    raise ValueError(
+        "Expected FORCE_PLATFORM:ORIGIN to have shape (3, USED) or (USED, 3), "
+        f"got {array.shape} for USED={used}."
+    )
+
+
+def _read_force_platform_metadata(
+    reader: Any,
+    *,
+    path: Path,
+    reader_version: str,
+) -> ViconForcePlatformMetadata | None:
+    group = _c3d_group(reader, "FORCE_PLATFORM")
+    if group is None:
+        return None
+
+    used_param = _required_c3d_param(group, "USED", group_name="FORCE_PLATFORM")
+    used = int(used_param.int16_value)
+    if used < 0:
+        raise ValueError(f"Recording {path} has invalid FORCE_PLATFORM:USED={used}.")
+    if used == 0:
+        return None
+
+    plate_types = tuple(
+        int(value)
+        for value in _c3d_int_array(
+            group,
+            "TYPE",
+            group_name="FORCE_PLATFORM",
+        ).reshape(-1)[:used]
+    )
+    channels = _normalize_force_platform_channels(
+        _c3d_int_array(group, "CHANNEL", group_name="FORCE_PLATFORM"),
+        used=used,
+    )
+    corners = _normalize_force_platform_corners(
+        _c3d_float_array(group, "CORNERS", group_name="FORCE_PLATFORM"),
+        used=used,
+    )
+    origins = _normalize_force_platform_origins(
+        _c3d_float_array(group, "ORIGIN", group_name="FORCE_PLATFORM"),
+        used=used,
+    )
+    return ViconForcePlatformMetadata(
+        used=used,
+        plate_types=plate_types,
+        channels=channels,
+        corners=corners,
+        origins=origins,
+        provenance=(
+            ("source_path", path.as_posix()),
+            ("source_group", "FORCE_PLATFORM"),
+            ("reader", "xpkg.io.readers.vicon.read_vicon_c3d"),
+            ("reader_version", reader_version),
+        ),
+    )
+
+
+def _c3d_event_group(reader: Any) -> Any | None:
+    return _c3d_group(reader, "EVENT")
 
 
 def _c3d_event_string_values(group: Any, key: str, *, used: int) -> tuple[str, ...]:
@@ -784,6 +894,11 @@ def read_vicon_c3d(path: str | Path) -> ViconRecording:
             "DESCRIPTIONS",
             n_channels=len(analog_labels),
         )
+        force_platform = _read_force_platform_metadata(
+            reader,
+            path=path,
+            reader_version=f"c3d {getattr(c3d, '__version__', 'unknown')}",
+        )
 
         positions_by_frame: list[np.ndarray] = []
         valid_by_frame: list[np.ndarray] = []
@@ -865,6 +980,7 @@ def read_vicon_c3d(path: str | Path) -> ViconRecording:
         additional_points=additional_points,
         cameras=cameras,
         model=model,
+        force_platform=force_platform,
         xcp_path=xcp_path,
         vsk_path=vsk_path,
     )
@@ -887,6 +1003,7 @@ __all__ = [
     "ViconAnalogData",
     "ViconCamera",
     "ViconEvent",
+    "ViconForcePlatformMetadata",
     "ViconMarkerModel",
     "ViconRecording",
     "canonical_marker_label",

@@ -98,6 +98,7 @@ _WORKSPACE_EXPORTS: dict[str, tuple[str, str]] = {
 
 _MODEL_EXPORTS: dict[str, tuple[str, str]] = {
     "EMGSignalData": (".model", "EMGSignalData"),
+    "ForcePlateData": (".model", "ForcePlateData"),
     "Instance": (".model", "Instance"),
     "Keypoint": (".model", "Keypoint"),
     "LabeledFrame": (".model", "LabeledFrame"),
@@ -112,12 +113,17 @@ _MODEL_EXPORTS: dict[str, tuple[str, str]] = {
     "ViconAnalogData": (".model", "ViconAnalogData"),
     "ViconCamera": (".model", "ViconCamera"),
     "ViconEvent": (".model", "ViconEvent"),
+    "ViconForcePlatformMetadata": (".model", "ViconForcePlatformMetadata"),
     "ViconMarkerModel": (".model", "ViconMarkerModel"),
     "ViconRecording": (".model", "ViconRecording"),
 }
 
 _CODEC_AND_READER_EXPORTS: dict[str, tuple[str, str]] = {
     "PoseTrack": (".io.readers", "PoseTrack"),
+    "build_force_plate_data_from_vicon_recording": (
+        ".io.readers",
+        "build_force_plate_data_from_vicon_recording",
+    ),
     "build_prediction_stub": (".model", "build_prediction_stub"),
     "candidate_vicon_emg_channels": (".io.readers", "candidate_vicon_emg_channels"),
     "extract_vicon_emg": (".io.readers", "extract_vicon_emg"),

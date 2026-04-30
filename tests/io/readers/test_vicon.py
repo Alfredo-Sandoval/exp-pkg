@@ -13,6 +13,42 @@ from tests.vicon_helpers import (
 )
 
 
+class _FakeParam:
+    def __init__(self, value: object) -> None:
+        self._value = value
+
+    @property
+    def int16_value(self) -> int:
+        return int(self._value)
+
+    @property
+    def int16_array(self) -> np.ndarray:
+        return np.asarray(self._value, dtype=np.int16)
+
+    @property
+    def float_array(self) -> np.ndarray:
+        return np.asarray(self._value, dtype=np.float32)
+
+
+class _FakeGroup:
+    def __init__(self, params: dict[str, object]) -> None:
+        self._params = {key: _FakeParam(value) for key, value in params.items()}
+
+    def get(self, key: str) -> _FakeParam | None:
+        return self._params.get(key)
+
+
+class _FakeReader:
+    def __init__(self, groups: dict[str, _FakeGroup]) -> None:
+        self._groups = groups
+
+    def get(self, key: str) -> _FakeGroup:
+        try:
+            return self._groups[key]
+        except KeyError as exc:
+            raise KeyError(key) from exc
+
+
 def test_read_vicon_csv_preserves_marker_labels_gaps_and_sidecars(tmp_path: Path) -> None:
     from xpkg.io.readers import read_vicon_csv
 
@@ -109,6 +145,87 @@ def test_read_vicon_c3d_preserves_events_analog_and_additional_points(tmp_path: 
     assert recording.model.edges == (("center", "R_foot"),)
     assert recording.model.source == "vsk"
     assert [camera.user_id for camera in recording.cameras] == [1, 2]
+
+
+def test_read_force_platform_metadata_from_minimal_c3d_reader_shape() -> None:
+    from xpkg.io.readers.vicon import _read_force_platform_metadata
+
+    reader = _FakeReader(
+        {
+            "FORCE_PLATFORM": _FakeGroup(
+                {
+                    "USED": 2,
+                    "TYPE": np.array([2, 2], dtype=np.int16),
+                    "CHANNEL": np.array(
+                        [
+                            [1, 7],
+                            [2, 8],
+                            [3, 9],
+                            [4, 10],
+                            [5, 11],
+                            [6, 12],
+                        ],
+                        dtype=np.int16,
+                    ),
+                    "CORNERS": np.arange(24, dtype=np.float32).reshape(3, 4, 2),
+                    "ORIGIN": np.array(
+                        [
+                            [0.0, 100.0],
+                            [1.0, 101.0],
+                            [2.0, 102.0],
+                        ],
+                        dtype=np.float32,
+                    ),
+                }
+            )
+        }
+    )
+
+    metadata = _read_force_platform_metadata(
+        reader,
+        path=Path("trial.c3d"),
+        reader_version="c3d test",
+    )
+
+    assert metadata is not None
+    assert metadata.used == 2
+    assert metadata.plate_types == (2, 2)
+    assert metadata.channels.tolist() == [[1, 2, 3, 4, 5, 6], [7, 8, 9, 10, 11, 12]]
+    assert metadata.corners.shape == (2, 4, 3)
+    assert metadata.origins.tolist() == [[0.0, 1.0, 2.0], [100.0, 101.0, 102.0]]
+    assert ("source_path", "trial.c3d") in metadata.provenance
+    assert ("reader_version", "c3d test") in metadata.provenance
+
+
+def test_vicon_json_round_trips_force_platform_metadata() -> None:
+    from xpkg.codecs import vicon_recording_from_json_payload, vicon_recording_to_json_payload
+    from xpkg.model import ViconForcePlatformMetadata, ViconRecording
+
+    recording = ViconRecording(
+        path=Path("trial.c3d"),
+        source_type="c3d",
+        fps=100,
+        marker_names=("LASI",),
+        source_marker_labels=("LASI",),
+        positions=np.zeros((1, 1, 3), dtype=np.float64),
+        marker_valid=np.ones((1, 1), dtype=bool),
+        frame_offset=1,
+        force_platform=ViconForcePlatformMetadata(
+            used=1,
+            plate_types=(2,),
+            channels=np.array([[1, 2, 3, 4, 5, 6]], dtype=np.int64),
+            corners=np.zeros((1, 4, 3), dtype=np.float64),
+            origins=np.zeros((1, 3), dtype=np.float64),
+            provenance=(("source_path", "trial.c3d"),),
+        ),
+    )
+
+    hydrated = vicon_recording_from_json_payload(vicon_recording_to_json_payload(recording))
+
+    assert hydrated.force_platform is not None
+    assert hydrated.force_platform.plate_types == (2,)
+    assert hydrated.force_platform.channels.tolist() == [[1, 2, 3, 4, 5, 6]]
+    assert ("source_path", "trial.c3d") in hydrated.force_platform.provenance
 
 
 def test_read_vicon_recording_dispatches_from_suffix(tmp_path: Path) -> None:

@@ -13,6 +13,7 @@ from xpkg.io.readers.vicon import (
     ViconAnalogData,
     ViconCamera,
     ViconEvent,
+    ViconForcePlatformMetadata,
     ViconMarkerModel,
     ViconRecording,
     read_vicon_c3d,
@@ -23,6 +24,7 @@ from xpkg.io.readers.vicon_emg import (
     candidate_vicon_emg_channels,
     extract_vicon_emg,
 )
+from xpkg.io.readers.vicon_force import build_force_plate_data_from_vicon_recording
 
 __all__ = [
     "PoseTrack",
@@ -30,8 +32,10 @@ __all__ = [
     "ViconAnalogData",
     "ViconCamera",
     "ViconEvent",
+    "ViconForcePlatformMetadata",
     "ViconMarkerModel",
     "ViconRecording",
+    "build_force_plate_data_from_vicon_recording",
     "candidate_vicon_emg_channels",
     "extract_vicon_emg",
     "read_pose_node_names",

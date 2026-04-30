@@ -15,12 +15,13 @@ from xpkg.model.vicon import (
     ViconAnalogData,
     ViconCamera,
     ViconEvent,
+    ViconForcePlatformMetadata,
     ViconMarkerModel,
     ViconRecording,
 )
 
 XPKG_VICON_JSON_FORMAT = "xpkg.vicon-recording-json"
-XPKG_VICON_JSON_VERSION = "1.2.0"
+XPKG_VICON_JSON_VERSION = "1.3.0"
 
 
 def _serialize_path(path: str | Path | None, *, source_root: Path | None = None) -> str | None:
@@ -222,6 +223,38 @@ def _additional_points_from_payload(payload: Any) -> ViconAdditionalPointData | 
     )
 
 
+def _force_platform_to_payload(
+    force_platform: ViconForcePlatformMetadata | None,
+) -> dict[str, Any] | None:
+    if force_platform is None:
+        return None
+    return {
+        "used": int(force_platform.used),
+        "plate_types": list(force_platform.plate_types),
+        "channels": _encode_array(force_platform.channels),
+        "corners": _encode_array(force_platform.corners),
+        "origins": _encode_array(force_platform.origins),
+        "provenance": [list(pair) for pair in force_platform.provenance],
+    }
+
+
+def _force_platform_from_payload(payload: Any) -> ViconForcePlatformMetadata | None:
+    if payload is None:
+        return None
+    if not isinstance(payload, dict):
+        raise TypeError("force_platform payload must be a mapping.")
+    return ViconForcePlatformMetadata(
+        used=int(payload.get("used", 0)),
+        plate_types=tuple(int(item) for item in payload.get("plate_types") or []),
+        channels=_decode_array(payload.get("channels"), name="force_platform.channels"),
+        corners=_decode_array(payload.get("corners"), name="force_platform.corners"),
+        origins=_decode_array(payload.get("origins"), name="force_platform.origins"),
+        provenance=tuple(
+            (str(pair[0]), str(pair[1])) for pair in payload.get("provenance") or []
+        ),
+    )
+
+
 def vicon_recording_to_json_payload(
     recording: ViconRecording,
     *,
@@ -244,6 +277,7 @@ def vicon_recording_to_json_payload(
         "additional_points": _additional_points_to_payload(recording.additional_points),
         "cameras": [_camera_to_payload(camera) for camera in recording.cameras],
         "model": _model_to_payload(recording.model),
+        "force_platform": _force_platform_to_payload(recording.force_platform),
         "xcp_path": _serialize_path(recording.xcp_path, source_root=source_root),
         "vsk_path": _serialize_path(recording.vsk_path, source_root=source_root),
         "metadata": dict(metadata or {}),
@@ -312,6 +346,7 @@ def vicon_recording_from_json_payload(
         additional_points=_additional_points_from_payload(payload.get("additional_points")),
         cameras=tuple(_camera_from_payload(item) for item in raw_cameras),
         model=_model_from_payload(payload.get("model")),
+        force_platform=_force_platform_from_payload(payload.get("force_platform")),
         xcp_path=_deserialize_path(payload.get("xcp_path"), source_root=source_root),
         vsk_path=_deserialize_path(payload.get("vsk_path"), source_root=source_root),
     )
