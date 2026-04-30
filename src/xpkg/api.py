@@ -140,6 +140,11 @@ _CODEC_AND_READER_EXPORTS: dict[str, tuple[str, str]] = {
     "read_vicon_csv": (".io.readers", "read_vicon_csv"),
     "read_vicon_recording": (".io.readers", "read_vicon_recording"),
     "resolve_pose_node_indices": (".io.readers", "resolve_pose_node_indices"),
+    "decode_hdf5_string": (".io.archive_format.tables_hdf5", "decode_hdf5_string"),
+    "read_hdf5_table": (".io.archive_format.tables_hdf5", "read_hdf5_table"),
+    "read_hdf5_table_group": (".io.archive_format.tables_hdf5", "read_hdf5_table_group"),
+    "write_hdf5_table": (".io.archive_format.tables_hdf5", "write_hdf5_table"),
+    "write_hdf5_table_group": (".io.archive_format.tables_hdf5", "write_hdf5_table_group"),
 }
 
 _LAZY_EXPORTS: dict[str, tuple[str, str]] = {
