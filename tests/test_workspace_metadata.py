@@ -5,7 +5,8 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-from xpkg.formats import (
+from xpkg.io.workspace_snapshot_backend import read_workspace_snapshot_payload
+from xpkg.workspace import (
     current_project_snapshot_path,
     init_project,
     load_workspace_metadata,
@@ -13,12 +14,11 @@ from xpkg.formats import (
     save_workspace_labels,
     save_workspace_metadata,
 )
-from xpkg.io.workspace_snapshot_backend import read_workspace_snapshot_payload
 
 
 def _make_labels(tmp_path: Path):
-    from xpkg.core.annotations import Instance, LabeledFrame, Point
     from xpkg.model import Labels, Video, build_keypoint_skeleton
+    from xpkg.pose.annotations import Instance, LabeledFrame, Point
 
     frame_path = tmp_path / "frame.png"
     ok = cv2.imwrite(frame_path.as_posix(), np.full((12, 16, 3), 128, dtype=np.uint8))

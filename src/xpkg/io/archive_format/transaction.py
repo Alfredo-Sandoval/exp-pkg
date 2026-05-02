@@ -14,8 +14,8 @@ from typing import Any
 
 import h5py
 
-from xpkg.core.json_utils import dump_json, parse_json_dict
-from xpkg.core.logging_utils import get_logger
+from xpkg._core.json_utils import dump_json, parse_json_dict
+from xpkg._core.logging_utils import get_logger
 from xpkg.io.archive_format.shared import (
     _DEFAULT_PROVENANCE_MAX_BYTES,
     _JOURNAL_SCHEMA_VERSION,

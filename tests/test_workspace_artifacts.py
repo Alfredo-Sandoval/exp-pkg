@@ -5,7 +5,8 @@ from pathlib import Path
 
 import pytest
 
-from xpkg.formats import (
+from xpkg.services import WorkspaceService
+from xpkg.workspace import (
     list_workspace_artifact_index,
     list_workspace_artifacts,
     load_workspace_artifact,
@@ -14,7 +15,6 @@ from xpkg.formats import (
     save_workspace_artifact,
     validate_workspace_artifact,
 )
-from xpkg.services import WorkspaceService
 
 
 def _write_text(path: Path, text: str) -> Path:

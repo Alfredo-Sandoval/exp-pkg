@@ -11,18 +11,18 @@ from typing import Any, Protocol, cast, overload, runtime_checkable
 
 import numpy as np
 
-from xpkg.core.annotations import (
+from xpkg._core.logging_utils import get_logger
+from xpkg.io.archive_format.shared import CANONICAL_ARCHIVE_SUFFIX
+from xpkg.pose.annotations import (
     Instance,
     LabeledFrame,
     PredictedInstance,
     Track,
 )
-from xpkg.core.logging_utils import get_logger
-from xpkg.core.skeleton import (
+from xpkg.pose.skeleton import (
     Keypoint,
     Skeleton,
 )
-from xpkg.io.archive_format.shared import CANONICAL_ARCHIVE_SUFFIX
 
 from . import export_ops, serialization
 from .cache import LabelsDataCache

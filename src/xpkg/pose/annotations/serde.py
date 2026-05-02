@@ -8,9 +8,9 @@ from typing import Any
 import cattrs as cattr
 import numpy as np
 
-from xpkg.core.annotations.frames import InstancesList
-from xpkg.core.annotations.instances import Instance, PredictedInstance
-from xpkg.core.annotations.points import Point, PointArray, PredictedPoint, PredictedPointArray
+from xpkg.pose.annotations.frames import InstancesList
+from xpkg.pose.annotations.instances import Instance, PredictedInstance
+from xpkg.pose.annotations.points import Point, PointArray, PredictedPoint, PredictedPointArray
 
 
 def make_instance_cattr() -> cattr.Converter:

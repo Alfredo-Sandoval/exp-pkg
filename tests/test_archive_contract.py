@@ -25,8 +25,8 @@ def _make_single_frame_video(tmp_path: Path):
 
 
 def _make_labels(tmp_path: Path, *, x: float, y: float, visible: bool = True, frame_idx: int = 0):
-    from xpkg.core.annotations import Instance, LabeledFrame, Point
     from xpkg.model import Labels, build_keypoint_skeleton
+    from xpkg.pose.annotations import Instance, LabeledFrame, Point
 
     _, video = _make_single_frame_video(tmp_path)
     skeleton = build_keypoint_skeleton(["nose"], name="subject")

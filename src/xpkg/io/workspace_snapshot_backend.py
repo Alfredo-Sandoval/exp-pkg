@@ -8,8 +8,8 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
-from xpkg.core.json_utils import load_json_dict, parse_json_dict, write_json
-from xpkg.core.path_registry import ensure_dir, resolve_path
+from xpkg._core.json_utils import load_json_dict, parse_json_dict, write_json
+from xpkg._core.path_registry import ensure_dir, resolve_path
 from xpkg.io.archive_format.prediction_coerce import (
     PredictionLabelsView,
     coerce_predictions_from_labels,

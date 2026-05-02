@@ -23,7 +23,7 @@ import into, validate, pack, or unpack a workspace-first project.
 - Use <code>workspace.segmentation.*</code> when you want to save or load
   frame-level segmentation masks without manually rebuilding a
   <code>Labels</code> object.
-- Use <code>xpkg.formats.import_*_workspace(...)</code> when you explicitly
+- Use <code>xpkg.workspace.import_*_workspace(...)</code> when you explicitly
   want the same importers as free functions.
 
 ## Recommended Flow
@@ -82,18 +82,18 @@ paths and descriptor for the workspace.
 ## Service-Bound Import Surface
 
 Each service-bound importer mirrors a public
-<code>xpkg.formats.import_*_workspace(...)</code> helper:
+<code>xpkg.workspace.import_*_workspace(...)</code> helper:
 
 | Service method | Matching free function |
 | --- | --- |
-| `workspace.imports.dlc_csv(...)` | `xpkg.formats.import_dlc_csv_workspace(...)` |
-| `workspace.imports.dlc_h5(...)` | `xpkg.formats.import_dlc_h5_workspace(...)` |
-| `workspace.imports.dlc_project(...)` | `xpkg.formats.import_dlc_project_workspace(...)` |
-| `workspace.imports.lightning_pose_csv(...)` | `xpkg.formats.import_lightning_pose_csv_workspace(...)` |
-| `workspace.imports.sleap_h5(...)` | `xpkg.formats.import_sleap_h5_workspace(...)` |
-| `workspace.imports.sleap_package(...)` | `xpkg.formats.import_sleap_package_workspace(...)` |
-| `workspace.imports.mmpose_topdown_json(...)` | `xpkg.formats.import_mmpose_topdown_json_workspace(...)` |
-| `workspace.imports.mediapipe_pose_landmarks_json(...)` | `xpkg.formats.import_mediapipe_pose_landmarks_json_workspace(...)` |
+| `workspace.imports.dlc_csv(...)` | `xpkg.workspace.import_dlc_csv_workspace(...)` |
+| `workspace.imports.dlc_h5(...)` | `xpkg.workspace.import_dlc_h5_workspace(...)` |
+| `workspace.imports.dlc_project(...)` | `xpkg.workspace.import_dlc_project_workspace(...)` |
+| `workspace.imports.lightning_pose_csv(...)` | `xpkg.workspace.import_lightning_pose_csv_workspace(...)` |
+| `workspace.imports.sleap_h5(...)` | `xpkg.workspace.import_sleap_h5_workspace(...)` |
+| `workspace.imports.sleap_package(...)` | `xpkg.workspace.import_sleap_package_workspace(...)` |
+| `workspace.imports.mmpose_topdown_json(...)` | `xpkg.workspace.import_mmpose_topdown_json_workspace(...)` |
+| `workspace.imports.mediapipe_pose_landmarks_json(...)` | `xpkg.workspace.import_mediapipe_pose_landmarks_json_workspace(...)` |
 
 The service-bound methods are the preferred path for new project-facing code.
 The free functions remain public for explicit function-level integrations.
@@ -267,5 +267,5 @@ that currently has segmentation masks, with optional filters such as
 
 ## Secondary Public Surfaces
 
-- Use [Formats](formats.md) when you want the same workspace-first behavior as
+- Use [Workspace](workspace.md) when you want the same workspace-first behavior as
   explicit free functions.

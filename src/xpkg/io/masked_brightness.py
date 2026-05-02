@@ -8,7 +8,7 @@ from typing import Protocol
 import cv2
 import numpy as np
 
-from xpkg.core.colors import bgr_to_gray
+from xpkg._core.colors import bgr_to_gray
 
 
 class VideoLike(Protocol):

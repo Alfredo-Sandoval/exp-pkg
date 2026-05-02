@@ -8,13 +8,13 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
-from xpkg.core.json_utils import load_json_dict, write_json
-from xpkg.core.path_registry import ensure_dir, make_path_id
+from xpkg._core.json_utils import load_json_dict, write_json
+from xpkg._core.path_registry import ensure_dir, make_path_id
 
 if TYPE_CHECKING:
-    from xpkg.core.annotations import Instance
     from xpkg.io.labels.model import Labels, SuggestionFrame
     from xpkg.io.labels.video_types import VideoProtocol
+    from xpkg.pose.annotations import Instance
 
 XPKG_LABELS_JSON_FORMAT = "xpkg.labels-json"
 XPKG_LABELS_JSON_VERSION = "2.0.0"

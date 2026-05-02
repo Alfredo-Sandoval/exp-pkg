@@ -5,10 +5,10 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
-from xpkg.core.annotations import LabeledFrame, Track
-from xpkg.core.skeleton import Skeleton
 from xpkg.io.labels.video_types import VideoProtocol
 from xpkg.io.video import Video
+from xpkg.pose.annotations import LabeledFrame, Track
+from xpkg.pose.skeleton import Skeleton
 
 if TYPE_CHECKING:
     from xpkg.io.labels.model import Labels
@@ -160,7 +160,7 @@ def merge_container_dicts(dict_a: dict, dict_b: dict) -> None:
     for key in dict_b.keys():
         if key in dict_a:
             dict_a[key].extend(dict_b[key])
-            from xpkg.core.path_registry import uniquify as _uniq
+            from xpkg._core.path_registry import uniquify as _uniq
 
             dict_a[key][:] = _uniq(dict_a[key])
         else:

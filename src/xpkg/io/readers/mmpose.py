@@ -10,7 +10,7 @@ from typing import Any
 
 import numpy as np
 
-from xpkg.core.json_utils import load_json_dict
+from xpkg._core.json_utils import load_json_dict
 from xpkg.io.readers._common import (
     PoseTrack,
     build_pose_track,

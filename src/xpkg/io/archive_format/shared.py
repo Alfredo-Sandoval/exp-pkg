@@ -11,7 +11,7 @@ from typing import Any
 import h5py
 import numpy as np
 
-from xpkg.core.json_utils import dump_json
+from xpkg._core.json_utils import dump_json
 
 _PROVENANCE_SCHEMA_VERSION = 1
 _PROVENANCE_SENTINEL_OPERATION = "(truncated)"

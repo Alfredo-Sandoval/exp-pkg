@@ -30,7 +30,7 @@ import h5py
 import numpy as np
 import pandas as pd
 
-from xpkg.core.logging_utils import get_logger
+from xpkg._core.logging_utils import get_logger
 
 logger = get_logger(__name__)
 

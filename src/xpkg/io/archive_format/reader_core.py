@@ -17,8 +17,8 @@ from typing import Any
 import h5py
 import numpy as np
 
-from xpkg.core.json_utils import parse_json
-from xpkg.core.path_registry import make_path_id
+from xpkg._core.json_utils import parse_json
+from xpkg._core.path_registry import make_path_id
 from xpkg.io.archive_format.shared import (
     _DEFAULT_PROVENANCE_MAX_BYTES,
     _PROVENANCE_SCHEMA_VERSION,

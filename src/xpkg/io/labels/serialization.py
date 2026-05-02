@@ -8,18 +8,8 @@ from typing import TYPE_CHECKING, Any, Protocol, cast
 
 import numpy as np
 
-from xpkg.core.annotations import (
-    ROI,
-    Instance,
-    LabeledFrame,
-    PointArray,
-    SegmentationMask,
-    Track,
-)
-from xpkg.core.logging_utils import get_logger
-from xpkg.core.path_registry import ensure_dir
-from xpkg.core.skeleton import SCHEMA_VERSION as SKELETON_SCHEMA_VERSION
-from xpkg.core.skeleton import Keypoint, Skeleton
+from xpkg._core.logging_utils import get_logger
+from xpkg._core.path_registry import ensure_dir
 from xpkg.io.archive_format.shared import (
     CANONICAL_ARCHIVE_SUFFIX,
     LABEL_TRACK_ID_DATASET,
@@ -28,6 +18,16 @@ from xpkg.io.archive_format.shared import (
 )
 from xpkg.io.labels.video_types import VideoProtocol
 from xpkg.io.video import Video, gui_playback_backend_for_path
+from xpkg.pose.annotations import (
+    ROI,
+    Instance,
+    LabeledFrame,
+    PointArray,
+    SegmentationMask,
+    Track,
+)
+from xpkg.pose.skeleton import SCHEMA_VERSION as SKELETON_SCHEMA_VERSION
+from xpkg.pose.skeleton import Keypoint, Skeleton
 
 from .json_format import read_labels_json_payload, write_labels_json
 

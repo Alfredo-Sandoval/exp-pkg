@@ -9,7 +9,7 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
-from xpkg.core.json_utils import dump_json, parse_json_dict
+from xpkg._core.json_utils import dump_json, parse_json_dict
 from xpkg.io.archive_store.errors import LockAcquisitionError
 
 

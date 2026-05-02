@@ -11,9 +11,9 @@ from tests.vicon_helpers import (
     write_sample_vsk,
     write_sample_xcp,
 )
-from xpkg.formats import current_project_snapshot_path, current_project_state_path, validate_expkg
 from xpkg.model import Labels
 from xpkg.services import WorkspaceService
+from xpkg.workspace import current_project_snapshot_path, current_project_state_path, validate_expkg
 
 
 def _assert_sample_subject_labels(labels: Labels) -> None:

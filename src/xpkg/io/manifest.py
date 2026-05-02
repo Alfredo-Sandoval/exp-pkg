@@ -19,7 +19,7 @@ from typing import Any
 
 import h5py
 
-from xpkg.core.path_registry import PathId, normalize_separators, slugify_path_component
+from xpkg._core.path_registry import PathId, normalize_separators, slugify_path_component
 
 
 class AssetType(StrEnum):

@@ -124,15 +124,15 @@ Version a session-level manifest that can describe:
 The manifest should be plain enough for other labs and tools to depend on
 without adopting an analysis framework.
 
-### 5. Exchange Bridges
+### 5. Adapters Bridges
 
 Keep the core package dependency-light. Add optional bridges only after the core
 IO contract is stable:
 
 ```python
-xpkg.exchange.to_numpy(...)
-xpkg.exchange.to_dataframe(...)
-xpkg.exchange.to_torch_dataset(...)  # optional future extra
+xpkg.adapters.to_numpy(...)
+xpkg.adapters.to_dataframe(...)
+xpkg.adapters.to_torch_dataset(...)  # optional future extra
 ```
 
 PyTorch and NWB should remain optional downstream bridges, not required working

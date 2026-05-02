@@ -1,8 +1,8 @@
-# Formats
+# Workspace
 
 <div class="page-intro">
 <p>
-<code>xpkg.formats</code> is the core project/workspace format surface. It
+<code>xpkg.workspace</code> is the core project/workspace format surface. It
 defines the public artifact contract around workspaces, private
 <code>.xpkg/</code> state, portable <code>.expkg</code> artifacts, and the
 workspace-first import APIs for DeepLabCut, SLEAP, MMPose, MediaPipe,
@@ -14,7 +14,7 @@ when you want the explicit function-level form.
 </div>
 
 !!! note
-    <code>xpkg.formats</code> intentionally exposes the workspace contract, not
+    <code>xpkg.workspace</code> intentionally exposes the workspace contract, not
     direct archive convenience wrappers.
 
 ## Start Here
@@ -273,8 +273,8 @@ Remove all segmentation masks from one workspace video frame.
 ## JSON Label Interchange
 
 These helpers remain file-oriented interchange helpers on
-<code>xpkg.formats</code>. The pure in-memory payload conversions now live in
-<code>xpkg.exchange</code>.
+<code>xpkg.workspace</code>. The pure in-memory payload conversions now live in
+<code>xpkg.adapters</code>.
 
 ### `read_labels_json_payload(path)`
 

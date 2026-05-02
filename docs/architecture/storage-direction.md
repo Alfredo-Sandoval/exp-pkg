@@ -57,7 +57,7 @@ xpkg rebuilds it from the durable store before continuing.
 The public cleanup now matches that storage model:
 
 - `WorkspaceService` and `workspace.imports.*` are the primary downstream path
-- `xpkg.formats` keeps workspace lifecycle/import helpers
+- `xpkg.workspace` keeps workspace lifecycle/import helpers
 - package-level `xpkg.adapters` and the CLI `xpkg convert` surface were removed
 - compatibility alias maps such as `current_project_archive_path(...)` were
   removed from the public facades

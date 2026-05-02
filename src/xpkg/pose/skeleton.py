@@ -23,8 +23,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from xpkg.core.json_utils import parse_json_dict
-from xpkg.core.logging_utils import get_logger
+from xpkg._core.json_utils import parse_json_dict
+from xpkg._core.logging_utils import get_logger
 
 logger = get_logger(__name__)
 

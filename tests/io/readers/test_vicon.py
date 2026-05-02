@@ -198,7 +198,7 @@ def test_read_force_platform_metadata_from_minimal_c3d_reader_shape() -> None:
 
 
 def test_vicon_json_round_trips_force_platform_metadata() -> None:
-    from xpkg.exchange import vicon_recording_from_json_payload, vicon_recording_to_json_payload
+    from xpkg.adapters import vicon_recording_from_json_payload, vicon_recording_to_json_payload
     from xpkg.model import ViconForcePlatformMetadata, ViconRecording
 
     recording = ViconRecording(

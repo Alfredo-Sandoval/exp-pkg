@@ -13,7 +13,7 @@ from __future__ import annotations
 import cv2
 import numpy as np
 
-from xpkg.core.colors import bgr_to_rgb
+from xpkg._core.colors import bgr_to_rgb
 
 
 def _cv2_imread_bgr(path: str):

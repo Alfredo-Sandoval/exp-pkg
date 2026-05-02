@@ -6,8 +6,8 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from xpkg.core.annotations import Instance, LabeledFrame, PredictedInstance
 from xpkg.io.labels.video_types import VideoProtocol
+from xpkg.pose.annotations import Instance, LabeledFrame, PredictedInstance
 
 if TYPE_CHECKING:
     from xpkg.io.labels.model import Labels

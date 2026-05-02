@@ -215,7 +215,7 @@ Pick the surface by intent:
 | Register tables, figures, analyses, reports, or stats | `workspace.artifacts.*` |
 | Save/load figure outputs with lineage | `workspace.figures.*` |
 | Save/load frame segmentation masks | `workspace.segmentation.*` |
-| Function-level workspace imports | `xpkg.formats.import_*_workspace(...)` |
+| Function-level workspace imports | `xpkg.workspace.import_*_workspace(...)` |
 
 ## Lifecycle-only example
 
@@ -241,7 +241,7 @@ The same workspace-first pattern is available for:
 - `import_mediapipe_pose_landmarks_json_workspace(...)`
 
 Use those workspace helpers as the primary integration surface for new code.
-The underlying `xpkg.formats.import_*_workspace(...)` functions remain public
+The underlying `xpkg.workspace.import_*_workspace(...)` functions remain public
 when you want the explicit function form.
 
 Photometry and event-table CSV readers are available as direct reader APIs.
@@ -249,10 +249,10 @@ They are not workspace imports yet. Sync CSV and the workspace import methods
 are the next planned modality work on top of the timing/events/signals model
 layer.
 
-## In-memory Exchange API
+## In-memory Adapters API
 
 ```python
-from xpkg.exchange import labels_from_json_payload, labels_to_json_payload
+from xpkg.adapters import labels_from_json_payload, labels_to_json_payload
 from xpkg.model import Labels
 
 labels = Labels()
@@ -260,5 +260,5 @@ payload = labels_to_json_payload(labels)
 roundtripped = labels_from_json_payload(payload)
 ```
 
-Use `xpkg.exchange` when another repo needs an in-memory handoff boundary rather
+Use `xpkg.adapters` when another repo needs an in-memory handoff boundary rather
 than a workspace path.

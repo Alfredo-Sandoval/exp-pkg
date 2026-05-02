@@ -10,7 +10,7 @@ import zipfile
 from pathlib import Path, PurePosixPath
 from typing import Any
 
-from xpkg.core.path_registry import resolve_path
+from xpkg._core.path_registry import resolve_path
 from xpkg.io.archive_format import read_archive
 from xpkg.io.project_layout import (
     CANONICAL_ARCHIVE_SUFFIX,

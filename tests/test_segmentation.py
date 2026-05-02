@@ -10,7 +10,7 @@ import h5py
 import numpy as np
 import pytest
 
-from xpkg.core.annotations.regions import (
+from xpkg.pose.annotations.regions import (
     ROI,
     MaskType,
     PromptType,
@@ -228,7 +228,7 @@ class TestLabeledFrameIntegration:
         return _VideoStub()
 
     def test_masks_and_rois_on_frame(self):
-        from xpkg.core.annotations.frames import LabeledFrame
+        from xpkg.pose.annotations.frames import LabeledFrame
 
         video = self._make_video_stub()
         mask = SegmentationMask.from_polygon(
@@ -242,7 +242,7 @@ class TestLabeledFrameIntegration:
         assert len(lf.rois) == 1
 
     def test_default_empty(self):
-        from xpkg.core.annotations.frames import LabeledFrame
+        from xpkg.pose.annotations.frames import LabeledFrame
 
         video = self._make_video_stub()
         lf = LabeledFrame(video=video, frame_idx=0)
@@ -252,7 +252,7 @@ class TestLabeledFrameIntegration:
         assert lf.rois == []
 
     def test_copy_preserves_masks(self):
-        from xpkg.core.annotations.frames import LabeledFrame
+        from xpkg.pose.annotations.frames import LabeledFrame
 
         video = self._make_video_stub()
         mask = SegmentationMask.from_binary_mask(
@@ -270,7 +270,7 @@ class TestLabeledFrameIntegration:
         assert clone.rois[0] is not roi
 
     def test_user_vs_predicted_masks(self):
-        from xpkg.core.annotations.frames import LabeledFrame
+        from xpkg.pose.annotations.frames import LabeledFrame
 
         video = self._make_video_stub()
         user_mask = SegmentationMask.from_polygon(
@@ -488,7 +488,7 @@ class TestPublicAPISurface:
         assert SegmentationPrompt.__name__ == "SegmentationPrompt"
 
     def test_annotations_exports(self):
-        from xpkg.core.annotations import (
+        from xpkg.pose.annotations import (
             ROI,
             MaskType,
             PromptType,

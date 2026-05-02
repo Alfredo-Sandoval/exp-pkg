@@ -13,7 +13,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from xpkg.core.path_registry import resolve_path
+from xpkg._core.path_registry import resolve_path
 
 
 def parse_json(text: str | bytes | bytearray) -> object:

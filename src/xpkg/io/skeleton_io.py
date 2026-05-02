@@ -5,10 +5,10 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from xpkg.core.json_utils import load_json_dict, write_json
+from xpkg._core.json_utils import load_json_dict, write_json
 
 if TYPE_CHECKING:
-    from xpkg.core.skeleton import Skeleton
+    from xpkg.pose.skeleton import Skeleton
 
 
 def dump_skeleton(
@@ -31,7 +31,7 @@ def load_skeleton(src: Path, **kwargs: Any) -> Skeleton:
     """Load a Skeleton from a supported on-disk representation."""
     if src.suffix.lower() in {".yaml", ".yml"}:
         raise ValueError("YAML skeletons are no longer supported; use JSON.")
-    from xpkg.core.skeleton import Skeleton
+    from xpkg.pose.skeleton import Skeleton
 
     return Skeleton.from_dict(load_json_dict(src), **kwargs)
 

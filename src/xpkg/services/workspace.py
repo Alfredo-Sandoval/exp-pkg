@@ -3,7 +3,7 @@
 ``WorkspaceService`` is the stable consumer-facing boundary for downstream
 integrations that need to create, open, import into, validate, pack, or unpack
 an xpkg workspace. ``WorkspaceImports`` mirrors the public
-``xpkg.formats.import_*_workspace(...)`` helpers on a workspace-bound object so
+``xpkg.workspace.import_*_workspace(...)`` helpers on a workspace-bound object so
 new code can stay on the same service path end to end.
 """
 
@@ -14,7 +14,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
 
-from xpkg.formats.project import (
+from xpkg.io.project_workspace import ensure_current_workspace_snapshot_cache
+from xpkg.io.workspace_state import workspace_state_kind
+from xpkg.services.artifacts import WorkspaceArtifacts
+from xpkg.services.figures import WorkspaceFigures
+from xpkg.services.segmentation import WorkspaceSegmentation
+from xpkg.workspace.project import (
     ProjectDescriptor,
     WorkspaceInspection,
     current_project_state_path,
@@ -48,11 +53,6 @@ from xpkg.formats.project import (
     workspace_state_root,
     workspace_store_root,
 )
-from xpkg.io.project_workspace import ensure_current_workspace_snapshot_cache
-from xpkg.io.workspace_state import workspace_state_kind
-from xpkg.services.artifacts import WorkspaceArtifacts
-from xpkg.services.figures import WorkspaceFigures
-from xpkg.services.segmentation import WorkspaceSegmentation
 
 if TYPE_CHECKING:
     from xpkg.model import Labels, ViconRecording
@@ -62,7 +62,7 @@ PackMode = Literal["portable", "snapshot"]
 
 @dataclass(frozen=True, slots=True)
 class WorkspaceImports:
-    """Workspace-bound mirror of the public ``xpkg.formats`` import helpers."""
+    """Workspace-bound mirror of the public ``xpkg.workspace`` import helpers."""
 
     workspace_root: Path
 

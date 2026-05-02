@@ -12,15 +12,15 @@ from typing import TYPE_CHECKING, Any, Protocol
 
 import numpy as np
 
-from xpkg.core.logging_utils import get_logger
-from xpkg.core.path_registry import ensure_dir
-from xpkg.core.video_contract import video_total_frames
+from xpkg._core.logging_utils import get_logger
+from xpkg._core.path_registry import ensure_dir
+from xpkg._core.video_contract import video_total_frames
 from xpkg.io.video import Video, available_video_exts, write_video
 
 if TYPE_CHECKING:
-    from xpkg.core.annotations import Point
-    from xpkg.core.skeleton import Keypoint
     from xpkg.model import Labels as _Labels
+    from xpkg.pose.annotations import Point
+    from xpkg.pose.skeleton import Keypoint
 
 CliRunner = Callable[[argparse.Namespace, argparse.ArgumentParser], int]
 ProgressCallback = Callable[[str], None]
@@ -71,7 +71,7 @@ def points_from_coords_scores(
 ) -> dict[str | Keypoint, Point]:
     """Build visible point objects from parallel keypoint coordinate and score arrays."""
 
-    from xpkg.core.annotations import Point
+    from xpkg.pose.annotations import Point
 
     coords_array = np.asarray(coords, dtype=np.float64)
     scores_array = np.asarray(scores, dtype=np.float64)

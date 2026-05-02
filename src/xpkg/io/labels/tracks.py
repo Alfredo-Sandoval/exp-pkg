@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from typing import Any as _Any
 
-from xpkg.core.annotations import Instance, LabeledFrame, Track
 from xpkg.io.labels.video_types import VideoProtocol
+from xpkg.pose.annotations import Instance, LabeledFrame, Track
 
 
 def get_track_occupancy(labels: _Any, video: VideoProtocol) -> dict[Track | None, set[int]]:

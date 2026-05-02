@@ -9,8 +9,7 @@ from typing import TYPE_CHECKING, Any
 
 import pandas as pd
 
-from xpkg.core.path_registry import ensure_dir, resolve_path
-from xpkg.core.skeleton import build_keypoint_skeleton
+from xpkg._core.path_registry import ensure_dir, resolve_path
 from xpkg.io.archive_format import write_archive
 from xpkg.io.archive_format.shared import CANONICAL_ARCHIVE_SUFFIX
 from xpkg.io.converters.converter_helpers import (
@@ -21,11 +20,12 @@ from xpkg.io.converters.converter_helpers import (
 )
 from xpkg.io.readers.dlc import read_dlc_csv_table, read_dlc_h5_table
 from xpkg.io.video import Video, available_video_exts
+from xpkg.pose.skeleton import build_keypoint_skeleton
 
 if TYPE_CHECKING:
-    from xpkg.core.skeleton import Keypoint
-    from xpkg.core.skeleton import Skeleton as _Skeleton
     from xpkg.model import Labels as _Labels
+    from xpkg.pose.skeleton import Keypoint
+    from xpkg.pose.skeleton import Skeleton as _Skeleton
 
 DlcReader = Callable[[Path], tuple[pd.DataFrame, list[str]]]
 
@@ -235,7 +235,7 @@ def _row_points(
 
 
 def _instance_points(points: dict[str, tuple[float, float]]) -> dict[str | Keypoint, Any]:
-    from xpkg.core.annotations import Point
+    from xpkg.pose.annotations import Point
 
     return {
         keypoint: Point(x, y, visible=True, complete=True)
@@ -254,8 +254,8 @@ def _labels_from_tracking_df(
 ) -> _Labels:
     """Convert a tracking table into the canonical `xpkg.model.Labels` object."""
 
-    from xpkg.core.annotations import Instance, LabeledFrame, Point
     from xpkg.model import Labels
+    from xpkg.pose.annotations import Instance, LabeledFrame, Point
 
     video = Video.from_filename(str(video_path))
     if stored_video_filename is not None:
@@ -306,8 +306,8 @@ def _labels_from_tracking_df_project(
     skeleton_name: str,
     likelihood_threshold: float,
 ) -> _Labels:
-    from xpkg.core.annotations import Instance, LabeledFrame
     from xpkg.model import Labels
+    from xpkg.pose.annotations import Instance, LabeledFrame
 
     skeleton = build_keypoint_skeleton(list(keypoints), name=skeleton_name)
     labels = Labels(skeletons=[skeleton], videos=list(videos))

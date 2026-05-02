@@ -7,7 +7,7 @@ from typing import Any
 import h5py
 import numpy as np
 
-from xpkg.core.annotations.regions import (
+from xpkg.pose.annotations.regions import (
     ROI,
     MaskType,
     PromptType,

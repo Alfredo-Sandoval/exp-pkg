@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Iterable, Mapping
 from typing import Any
 
-from xpkg.core.annotations.points import (
+from xpkg.pose.annotations.points import (
     CanonicalPoint,
     NormalizedPoint,
     Point,

@@ -13,9 +13,9 @@ import imageio.v2 as iio
 import numpy as np
 from cattrs import Converter
 
-from xpkg.core.colors import bgr_to_gray, bgr_to_rgb, ensure_bgr, ensure_three_channels
-from xpkg.core.logging_utils import get_logger
-from xpkg.core.path_registry import ensure_dir, resolve_path
+from xpkg._core.colors import bgr_to_gray, bgr_to_rgb, ensure_bgr, ensure_three_channels
+from xpkg._core.logging_utils import get_logger
+from xpkg._core.path_registry import ensure_dir, resolve_path
 from xpkg.io.images import read_bgr
 
 logger = get_logger(__name__)

@@ -31,10 +31,10 @@ The repo and distribution name are <code>exp-pkg</code>; the Python import and C
 | Primary lifecycle API | `xpkg.services.WorkspaceService` |
 | Service-bound workspace imports | `workspace.imports.*` from `xpkg.services.WorkspaceService` |
 | Output artifact registry | `workspace.artifacts.*` and `.xpkg/artifacts/index.json` |
-| Function-level workspace imports | `xpkg.formats.import_*_workspace(...)` |
+| Function-level workspace imports | `xpkg.workspace.import_*_workspace(...)` |
 | External import ecosystems | Vicon, DeepLabCut, Lightning Pose, SLEAP, MMPose, MediaPipe |
 | Core objects | `xpkg.model` |
-| In-memory exchange | `xpkg.exchange` |
+| In-memory exchange | `xpkg.adapters` |
 </div>
 
 <div class="spec-panel" markdown="1">
@@ -46,10 +46,10 @@ The repo and distribution name are <code>exp-pkg</code>; the Python import and C
   DeepLabCut, Lightning Pose, SLEAP, MMPose, or MediaPipe.
 - Use `workspace.artifacts.*` to register figures, tables, analyses, reports,
   stats, and other output files with provenance and checksums.
-- Use `xpkg.formats.import_*_workspace(...)` when you want the same
+- Use `xpkg.workspace.import_*_workspace(...)` when you want the same
   workspace-first importers as explicit free functions.
 - Use `xpkg.model` when you need `Labels`, `Skeleton`, `Instance`, or `Video`.
-- Use `xpkg.exchange` when you need arrays, tables, or JSON payloads without
+- Use `xpkg.adapters` when you need arrays, tables, or JSON payloads without
   touching workspace internals.
 - Read [Artifact Contract v1](artifact_contract_v1.md) for the public workspace
   and `.expkg` contract.
@@ -132,11 +132,11 @@ single converter output.
   rationale around `.xpkg/` and `.expkg`.
 - Read [Experimental Durable Store](architecture/experimental-store.md) for the commit-oriented recovery workflow.
 - Read [Model](api/model.md) for the pose object graph.
-- Read [Exchange](api/exchange.md) for in-memory JSON / dataframe / numpy
+- Read [Adapters](api/adapters.md) for in-memory JSON / dataframe / numpy
   conversions.
 - Read [Services](api/services.md) for the primary consumer-facing workspace
   API.
-- Read [Formats](api/formats.md) for workspace-first lifecycle and import APIs.
+- Read [Workspace](api/workspace.md) for workspace-first lifecycle and import APIs.
 - Use the reference pages when you need exact signatures and docstrings.
 
 </div>

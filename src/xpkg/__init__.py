@@ -9,9 +9,9 @@ from xpkg.version import __version__
 __all__ = [
     "__version__",
     "api",
-    "exchange",
-    "formats",
+    "adapters",
     "model",
+    "pose",
     "read_doric_photometry",
     "read_events_csv",
     "read_neurophotometrics_csv",
@@ -24,11 +24,12 @@ __all__ = [
     "read_tdt_photometry_block",
     "read_teleopto_h5",
     "services",
+    "workspace",
 ]
 
 
 def __getattr__(name: str):
-    if name in {"api", "exchange", "formats", "model", "services"}:
+    if name in {"api", "adapters", "model", "pose", "services", "workspace"}:
         module = importlib.import_module(f"xpkg.{name}")
         globals()[name] = module
         return module

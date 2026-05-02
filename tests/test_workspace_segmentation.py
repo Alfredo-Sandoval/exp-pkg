@@ -6,13 +6,13 @@ import cv2
 import numpy as np
 import pytest
 
-from xpkg.formats import (
+from xpkg.model import SegmentationMask, Track
+from xpkg.services import WorkspaceService
+from xpkg.workspace import (
     current_project_snapshot_path,
     load_workspace_segmentation_masks,
     save_workspace_segmentation_masks,
 )
-from xpkg.model import SegmentationMask, Track
-from xpkg.services import WorkspaceService
 
 
 def _write_test_frame(path: Path, value: int = 24) -> None:

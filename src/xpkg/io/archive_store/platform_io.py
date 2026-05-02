@@ -5,7 +5,7 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
-from xpkg.core.json_utils import dump_json
+from xpkg._core.json_utils import dump_json
 
 
 def _fsync_file(path: Path) -> None:

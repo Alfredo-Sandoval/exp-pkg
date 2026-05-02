@@ -8,7 +8,7 @@ from typing import Any
 import h5py
 import numpy as np
 
-from xpkg.core.annotations.instances import Track
+from xpkg.pose.annotations.instances import Track
 
 TRACKS_SCHEMA_VERSION = "1.0.0"
 

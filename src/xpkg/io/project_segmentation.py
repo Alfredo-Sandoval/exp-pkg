@@ -7,13 +7,13 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, cast
 
-from xpkg.core.annotations import LabeledFrame, SegmentationMask
-from xpkg.core.path_registry import resolve_path
-from xpkg.core.skeleton import build_keypoint_skeleton
+from xpkg._core.path_registry import resolve_path
 from xpkg.io.labels.model import Labels
 from xpkg.io.project_layout import resolve_workspace_root
 from xpkg.io.project_workspace import save_workspace_labels
 from xpkg.io.video import Video
+from xpkg.pose.annotations import LabeledFrame, SegmentationMask
+from xpkg.pose.skeleton import build_keypoint_skeleton
 
 if TYPE_CHECKING:
     from xpkg.io.labels.video_types import VideoProtocol

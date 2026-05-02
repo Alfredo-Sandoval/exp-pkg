@@ -95,7 +95,7 @@ workspace.validate()
 
 Low-level store helpers still exist for tests, recovery work, and private
 workspace storage flows. They are intentionally outside the workspace-first
-public contract and do not appear in `xpkg.api`, `xpkg.formats`, or the CLI:
+public contract and do not appear in `xpkg.api`, `xpkg.workspace`, or the CLI:
 
 - `ArchiveStore.create_from_archive(store_root, initial_xpkg)`
 - `ArchiveStore.open(store_root)`

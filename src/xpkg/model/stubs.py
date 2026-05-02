@@ -7,9 +7,9 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
-from xpkg.core.skeleton import Keypoint, Skeleton
 from xpkg.io.labels.model import Labels
 from xpkg.io.labels.video_types import VideoProtocol
+from xpkg.pose.skeleton import Keypoint, Skeleton
 
 
 @dataclass(frozen=True, slots=True)

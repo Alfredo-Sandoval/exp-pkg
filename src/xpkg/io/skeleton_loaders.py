@@ -1,7 +1,7 @@
 """Unified skeleton loader supporting multiple external formats.
 
 Imports skeletons from DeepLabCut, SLEAP, Ultralytics/YOLO, and xpkg archive
-JSON. Returns xpkg.core.skeleton.Skeleton instances directly.
+JSON. Returns xpkg.pose.skeleton.Skeleton instances directly.
 """
 
 from __future__ import annotations
@@ -12,10 +12,10 @@ from typing import Any, Literal
 
 import h5py
 
-from xpkg.core.json_utils import parse_json_dict
-from xpkg.core.logging_utils import get_logger
-from xpkg.core.path_registry import resolve_path
-from xpkg.core.skeleton import Skeleton
+from xpkg._core.json_utils import parse_json_dict
+from xpkg._core.logging_utils import get_logger
+from xpkg._core.path_registry import resolve_path
+from xpkg.pose.skeleton import Skeleton
 
 logger = get_logger(__name__)
 
@@ -59,7 +59,7 @@ def build_sleap_skeleton(
 
     Returns:
         dict: Dictionary with ``name``, ``keypoints`` and ``links`` entries suitable
-            for ``xpkg.core.skeleton.Skeleton.from_dict``. Symmetry edges are
+            for ``xpkg.pose.skeleton.Skeleton.from_dict``. Symmetry edges are
             dropped, edge types resolved via ``py/reduce`` or ``py/id`` payloads,
             and missing/invalid edge-type payloads fall back to BODY links.
     """
@@ -232,7 +232,7 @@ def detect_skeleton_format(path: str | Path) -> SkeletonFormat:
 
 
 def load_skeleton(path: str | Path) -> Skeleton:
-    """Auto-detect format and load skeleton into xpkg.core.skeleton.Skeleton.
+    """Auto-detect format and load skeleton into xpkg.pose.skeleton.Skeleton.
 
     Supports:
     - .json: xpkg archive JSON format

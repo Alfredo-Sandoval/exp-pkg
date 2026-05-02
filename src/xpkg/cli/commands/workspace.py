@@ -9,8 +9,8 @@ from typing import Annotated
 import typer
 
 from xpkg.cli.shared import JsonOption, PackMode, run_command, write_path
-from xpkg.formats import init_project, pack_project, unpack_project
-from xpkg.formats import validate_artifact as validate_artifact_target
+from xpkg.workspace import init_project, pack_project, unpack_project
+from xpkg.workspace import validate_artifact as validate_artifact_target
 
 
 def register(app: typer.Typer) -> None:

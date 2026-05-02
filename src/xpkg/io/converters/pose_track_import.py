@@ -5,13 +5,13 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import TYPE_CHECKING, Any
 
-from xpkg.core.skeleton import build_keypoint_skeleton
 from xpkg.io.converters.converter_helpers import points_from_coords_scores
 from xpkg.io.readers._common import PoseTrack
+from xpkg.pose.skeleton import build_keypoint_skeleton
 
 if TYPE_CHECKING:
-    from xpkg.core.skeleton import Skeleton as _Skeleton
     from xpkg.model import Labels as _Labels
+    from xpkg.pose.skeleton import Skeleton as _Skeleton
 
 
 def build_pose_track_skeleton(
@@ -99,8 +99,8 @@ def labels_from_pose_tracks(
 ) -> _Labels:
     """Convert PoseTrack arrays into the canonical `xpkg.model.Labels` object."""
 
-    from xpkg.core.annotations import Instance, LabeledFrame, Track
     from xpkg.model import Labels
+    from xpkg.pose.annotations import Instance, LabeledFrame, Track
 
     frame_count, node_names = validate_pose_tracks_consistency(
         tracks,

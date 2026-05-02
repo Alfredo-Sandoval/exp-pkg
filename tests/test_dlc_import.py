@@ -144,13 +144,13 @@ def test_convert_dlc_project_skips_incomplete_entries(tmp_path: Path) -> None:
 def test_import_dlc_project_workspace_imports_supported_items_into_one_workspace(
     tmp_path: Path,
 ) -> None:
-    from xpkg.formats import (
+    from xpkg.io.workspace_snapshot_backend import read_workspace_snapshot_payload
+    from xpkg.model import Labels
+    from xpkg.workspace import (
         current_project_snapshot_path,
         import_dlc_project_workspace,
         workspace_media_root,
     )
-    from xpkg.io.workspace_snapshot_backend import read_workspace_snapshot_payload
-    from xpkg.model import Labels
 
     project_root = _make_dlc_project_fixture(tmp_path)
     workspace = tmp_path / "Imported DLC Project"
@@ -206,9 +206,9 @@ def test_import_dlc_project_workspace_imports_supported_items_into_one_workspace
 def test_import_lightning_pose_csv_workspace_uses_dlc_style_predictions(
     tmp_path: Path,
 ) -> None:
-    from xpkg.formats import current_project_snapshot_path, import_lightning_pose_csv_workspace
     from xpkg.io.workspace_snapshot_backend import read_workspace_snapshot_payload
     from xpkg.model import Labels
+    from xpkg.workspace import current_project_snapshot_path, import_lightning_pose_csv_workspace
 
     csv_path = tmp_path / "video_preds" / "session0.csv"
     csv_path.parent.mkdir()
@@ -239,7 +239,7 @@ def test_import_lightning_pose_csv_workspace_uses_dlc_style_predictions(
 
 
 def test_import_dlc_project_workspace_requires_supported_items(tmp_path: Path) -> None:
-    from xpkg.formats import import_dlc_project_workspace
+    from xpkg.workspace import import_dlc_project_workspace
 
     project_root = tmp_path / "empty-project"
     (project_root / "labeled-data" / "session-no-data").mkdir(parents=True)

@@ -13,10 +13,9 @@ import h5py
 import numpy as np
 import pandas as pd
 
-from xpkg.core.json_utils import parse_json
-from xpkg.core.logging_utils import get_logger
-from xpkg.core.path_registry import ensure_dir, make_path_id
-from xpkg.core.skeleton import Keypoint
+from xpkg._core.json_utils import parse_json
+from xpkg._core.logging_utils import get_logger
+from xpkg._core.path_registry import ensure_dir, make_path_id
 from xpkg.io.archive_format.manifest_policy import (
     load_manifest_from_metadata,
     register_archive,
@@ -69,6 +68,7 @@ from xpkg.io.archive_format.transaction import (
 )
 from xpkg.io.labels.model import Labels as LabelsModel
 from xpkg.io.manifest import ProjectManifest, coerce_manifest, resolve_project_path
+from xpkg.pose.skeleton import Keypoint
 from xpkg.version import __version__ as package_version
 
 logger = get_logger(__name__)
@@ -83,7 +83,7 @@ def _write_preferences_attr(meta_group: h5py.Group, preferences: Mapping[str, An
 
 def _write_segmentation_from_labels(h5file: h5py.File, labels) -> None:
     """Collect masks and ROIs from labeled frames and write to HDF5."""
-    from xpkg.core.annotations.regions import ROI, SegmentationMask
+    from xpkg.pose.annotations.regions import ROI, SegmentationMask
 
     masks_by_frame: list[tuple[int, int, list[SegmentationMask]]] = []
     rois_by_frame: list[tuple[int, int, list[ROI]]] = []
@@ -1013,7 +1013,7 @@ def write_labels_group(
     max_inst: int | None = None,
 ) -> None:
     """Write labels data to the `/labels` group in a native archive."""
-    from xpkg.core.annotations import KPFlag
+    from xpkg.pose.annotations import KPFlag
 
     frames_data = []
     detected_max_inst = 0

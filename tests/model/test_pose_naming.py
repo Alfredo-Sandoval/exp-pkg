@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from xpkg.model.pose_naming import (
+from xpkg.pose.naming import (
     lookup_unique_label_or_marker,
     normalize_event_side,
     normalize_event_type,

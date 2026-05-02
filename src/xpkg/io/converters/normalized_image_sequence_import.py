@@ -9,15 +9,15 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, cast
 
-from xpkg.core.annotations import Instance, LabeledFrame, Point
-from xpkg.core.json_utils import load_json_dict
-from xpkg.core.path_registry import ensure_dir, resolve_path
-from xpkg.core.skeleton import Keypoint, Skeleton
+from xpkg._core.json_utils import load_json_dict
+from xpkg._core.path_registry import ensure_dir, resolve_path
 from xpkg.io.archive_format import write_archive
 from xpkg.io.archive_format.shared import CANONICAL_ARCHIVE_SUFFIX
 from xpkg.io.converters.converter_helpers import ConversionResult, project_archive_path
 from xpkg.io.labels.model import Labels
 from xpkg.io.video import Video
+from xpkg.pose.annotations import Instance, LabeledFrame, Point
+from xpkg.pose.skeleton import Keypoint, Skeleton
 
 ArchiveWriter = Callable[[Path, Labels], None]
 

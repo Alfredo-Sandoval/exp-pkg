@@ -15,8 +15,8 @@ from tests.vicon_helpers import (
 
 
 def test_import_vicon_workspace_roundtrips_through_workspace_and_expkg(tmp_path: Path) -> None:
-    from xpkg.exchange import read_vicon_json_payload
-    from xpkg.formats import (
+    from xpkg.adapters import read_vicon_json_payload
+    from xpkg.workspace import (
         current_project_snapshot_path,
         import_vicon_workspace,
         load_workspace_vicon_recording,
@@ -101,7 +101,7 @@ def test_import_vicon_workspace_roundtrips_through_workspace_and_expkg(tmp_path:
 
 
 def test_import_vicon_csv_workspace_loads_workspace_native_recording(tmp_path: Path) -> None:
-    from xpkg.formats import (
+    from xpkg.workspace import (
         current_project_snapshot_path,
         import_vicon_csv_workspace,
         load_workspace_vicon_recording,
@@ -125,7 +125,7 @@ def test_import_vicon_csv_workspace_loads_workspace_native_recording(tmp_path: P
 
 
 def test_load_workspace_vicon_recording_rebuilds_tampered_snapshot_cache(tmp_path: Path) -> None:
-    from xpkg.formats import import_vicon_workspace, load_workspace_vicon_recording
+    from xpkg.workspace import import_vicon_workspace, load_workspace_vicon_recording
 
     c3d_path = tmp_path / "trial.c3d"
     write_sample_vicon_c3d(c3d_path)
@@ -154,7 +154,7 @@ def test_load_workspace_vicon_recording_rebuilds_tampered_snapshot_cache(tmp_pat
 
 
 def test_validate_workspace_rebuilds_missing_vicon_snapshot_cache(tmp_path: Path) -> None:
-    from xpkg.formats import import_vicon_workspace, validate_workspace
+    from xpkg.workspace import import_vicon_workspace, validate_workspace
 
     c3d_path = tmp_path / "trial.c3d"
     write_sample_vicon_c3d(c3d_path)
@@ -169,7 +169,7 @@ def test_validate_workspace_rebuilds_missing_vicon_snapshot_cache(tmp_path: Path
 
 
 def test_validate_workspace_rejects_missing_vicon_bundle_files(tmp_path: Path) -> None:
-    from xpkg.formats import import_vicon_workspace, validate_workspace
+    from xpkg.workspace import import_vicon_workspace, validate_workspace
 
     c3d_path = tmp_path / "trial.c3d"
     write_sample_vicon_c3d(c3d_path)

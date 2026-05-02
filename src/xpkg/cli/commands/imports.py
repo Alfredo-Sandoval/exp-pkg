@@ -17,7 +17,7 @@ from xpkg.cli.shared import (
     run_command,
     write_path,
 )
-from xpkg.formats import (
+from xpkg.workspace import (
     import_dlc_csv_workspace,
     import_dlc_h5_workspace,
     import_dlc_project_workspace,

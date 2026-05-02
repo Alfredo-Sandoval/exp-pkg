@@ -123,8 +123,8 @@ def _is_within(path: Path, root: Path) -> bool:
 
 
 def _make_labels(tmp_path: Path, *, x: float, y: float):
-    from xpkg.core.annotations import Instance, LabeledFrame, Point
     from xpkg.model import Labels, build_keypoint_skeleton
+    from xpkg.pose.annotations import Instance, LabeledFrame, Point
 
     _, video = _make_single_frame_video(tmp_path)
     skeleton = build_keypoint_skeleton(["nose"], name="subject")
@@ -144,8 +144,8 @@ def _make_labels(tmp_path: Path, *, x: float, y: float):
 
 
 def _make_media_labels(video_path: Path, *, x: float, y: float):
-    from xpkg.core.annotations import Instance, LabeledFrame, Point
     from xpkg.model import Labels, Video, build_keypoint_skeleton
+    from xpkg.pose.annotations import Instance, LabeledFrame, Point
 
     video = Video.from_filename(video_path.as_posix())
     skeleton = build_keypoint_skeleton(["nose"], name="subject")
@@ -174,8 +174,8 @@ def _make_predicted_labels(
     track_id: int = 7,
     heatmaps: np.ndarray | None = None,
 ):
-    from xpkg.core.annotations import LabeledFrame, PredictedInstance, PredictedPoint, Track
     from xpkg.model import Labels, build_keypoint_skeleton
+    from xpkg.pose.annotations import LabeledFrame, PredictedInstance, PredictedPoint, Track
 
     _, video = _make_single_frame_video(tmp_path)
     skeleton = build_keypoint_skeleton(["nose"], name="subject")
@@ -204,8 +204,8 @@ def _make_predicted_labels(
 
 
 def _make_unconfigured_labels():
-    from xpkg.core.skeleton import Skeleton
     from xpkg.model import Labels
+    from xpkg.pose.skeleton import Skeleton
 
     return Labels(
         skeletons=[Skeleton(name="unconfigured", keypoints=[], links_ids=[])],
@@ -214,13 +214,13 @@ def _make_unconfigured_labels():
 
 
 def test_init_project_writes_workspace_contract(tmp_path: Path) -> None:
-    from xpkg.formats import (
+    from xpkg.model import Labels
+    from xpkg.workspace import (
         current_project_state_path,
         init_project,
         is_workspace_root,
         load_project_descriptor,
     )
-    from xpkg.model import Labels
 
     workspace = tmp_path / "My Project"
     descriptor = init_project(workspace, title="My Project")
@@ -239,7 +239,7 @@ def test_init_project_writes_workspace_contract(tmp_path: Path) -> None:
 
 
 def test_workspace_metadata_helpers_roundtrip_without_existing_labels(tmp_path: Path) -> None:
-    from xpkg.formats import (
+    from xpkg.workspace import (
         init_project,
         load_workspace_metadata,
         load_workspace_payload,
@@ -299,7 +299,7 @@ def test_save_workspace_metadata_commits_snapshot_without_labels_recommit(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     import xpkg.io.project_workspace as project_workspace
-    from xpkg.formats import (
+    from xpkg.workspace import (
         init_project,
         load_workspace_metadata,
         save_workspace_labels,
@@ -326,12 +326,12 @@ def test_save_workspace_metadata_commits_snapshot_without_labels_recommit(
 
 
 def test_empty_placeholder_workspace_loads(tmp_path: Path) -> None:
-    from xpkg.formats import (
+    from xpkg.model import Labels
+    from xpkg.workspace import (
         init_project,
         load_workspace_payload,
         save_workspace_labels,
     )
-    from xpkg.model import Labels
 
     workspace = tmp_path / "Placeholder Project"
     init_project(workspace, title="Placeholder Project")
@@ -353,8 +353,8 @@ def test_empty_placeholder_workspace_loads(tmp_path: Path) -> None:
 
 
 def test_load_workspace_payload_keeps_predictions_out_of_labels_bundle(tmp_path: Path) -> None:
-    from xpkg.formats import init_project, load_workspace_payload
     from xpkg.model import Labels
+    from xpkg.workspace import init_project, load_workspace_payload
 
     workspace = tmp_path / "Prediction Project"
     init_project(workspace, title="Prediction Project")
@@ -383,8 +383,8 @@ def test_load_workspace_payload_uses_snapshot_without_archive_export(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     import xpkg.io.project_workspace as project_workspace
-    from xpkg.formats import init_project, load_workspace_payload
     from xpkg.model import Labels
+    from xpkg.workspace import init_project, load_workspace_payload
 
     workspace = tmp_path / "Direct Payload Project"
     init_project(workspace, title="Direct Payload Project")
@@ -403,14 +403,14 @@ def test_load_workspace_payload_uses_snapshot_without_archive_export(
 
 
 def test_pack_snapshot_and_unpack_roundtrip_workspace(tmp_path: Path) -> None:
-    from xpkg.formats import (
+    from xpkg.model import Labels
+    from xpkg.workspace import (
         current_project_snapshot_path,
         init_project,
         pack_project,
         unpack_project,
         validate_artifact,
     )
-    from xpkg.model import Labels
 
     labels = _make_labels(tmp_path, x=5.0, y=6.0)
 
@@ -437,14 +437,14 @@ def test_pack_snapshot_and_unpack_roundtrip_workspace(tmp_path: Path) -> None:
 
 
 def test_pack_portable_and_unpack_uses_managed_media_after_source_removal(tmp_path: Path) -> None:
-    from xpkg.formats import (
+    from xpkg.model import Labels
+    from xpkg.workspace import (
         init_project,
         pack_project,
         unpack_project,
         validate_artifact,
         workspace_media_root,
     )
-    from xpkg.model import Labels
 
     source_root = tmp_path / "source"
     source_root.mkdir()
@@ -484,13 +484,13 @@ def test_pack_portable_and_unpack_uses_managed_media_after_source_removal(tmp_pa
 
 
 def test_labels_save_file_to_workspace_creates_first_committed_state(tmp_path: Path) -> None:
-    from xpkg.formats import (
+    from xpkg.io.archive_store import ArchiveStore
+    from xpkg.model import Labels
+    from xpkg.workspace import (
         current_project_snapshot_path,
         init_project,
         workspace_store_root,
     )
-    from xpkg.io.archive_store import ArchiveStore
-    from xpkg.model import Labels
 
     source_root = tmp_path / "source"
     source_root.mkdir()
@@ -516,12 +516,12 @@ def test_labels_save_file_to_workspace_creates_first_committed_state(tmp_path: P
 
 
 def test_labels_save_file_to_workspace_preserves_predictions(tmp_path: Path) -> None:
-    from xpkg.formats import (
+    from xpkg.io.workspace_snapshot_backend import read_workspace_snapshot_payload
+    from xpkg.model import Labels
+    from xpkg.workspace import (
         current_project_snapshot_path,
         init_project,
     )
-    from xpkg.io.workspace_snapshot_backend import read_workspace_snapshot_payload
-    from xpkg.model import Labels
 
     source_root = tmp_path / "source"
     source_root.mkdir()
@@ -559,9 +559,9 @@ def test_labels_save_file_to_workspace_preserves_predictions(tmp_path: Path) -> 
 def test_labels_save_file_to_workspace_seeds_predictions_from_labels_when_current_is_empty(
     tmp_path: Path,
 ) -> None:
-    from xpkg.formats import current_project_snapshot_path, init_project
     from xpkg.io.workspace_snapshot_backend import read_workspace_snapshot_payload
     from xpkg.model import Labels
+    from xpkg.workspace import current_project_snapshot_path, init_project
 
     source_root = tmp_path / "source"
     source_root.mkdir()
@@ -624,8 +624,8 @@ def test_predictions_payload_from_labels_uses_frame_predicted_instances_view() -
 def test_workspace_load_rebuilds_tampered_snapshot_cache_when_commit_id_matches_head(
     tmp_path: Path,
 ) -> None:
-    from xpkg.formats import current_project_snapshot_path, init_project
     from xpkg.model import Labels
+    from xpkg.workspace import current_project_snapshot_path, init_project
 
     source_root = tmp_path / "source"
     source_root.mkdir()
@@ -652,8 +652,8 @@ def test_workspace_load_rebuilds_tampered_snapshot_cache_when_commit_id_matches_
 
 
 def test_workspace_load_rebuilds_missing_snapshot_from_committed_state(tmp_path: Path) -> None:
-    from xpkg.formats import current_project_snapshot_path, init_project
     from xpkg.model import Labels
+    from xpkg.workspace import current_project_snapshot_path, init_project
 
     source_root = tmp_path / "source"
     source_root.mkdir()
@@ -674,8 +674,8 @@ def test_workspace_load_rebuilds_missing_snapshot_from_committed_state(tmp_path:
 
 
 def test_workspace_load_ignores_stale_snapshot_when_commit_id_mismatches(tmp_path: Path) -> None:
-    from xpkg.formats import current_project_snapshot_path, init_project
     from xpkg.model import Labels
+    from xpkg.workspace import current_project_snapshot_path, init_project
 
     source_root = tmp_path / "source"
     source_root.mkdir()
@@ -698,10 +698,10 @@ def test_workspace_load_ignores_stale_snapshot_when_commit_id_mismatches(tmp_pat
 
 
 def test_summarize_project_and_validate_project_read_labels_video_group(tmp_path: Path) -> None:
-    from xpkg.formats import current_project_snapshot_path, init_project
     from xpkg.io.archive_format import summarize_project, validate_project
     from xpkg.io.project_workspace import export_project_archive
     from xpkg.model import Labels
+    from xpkg.workspace import current_project_snapshot_path, init_project
 
     source_video = tmp_path / "source.avi"
     _write_test_video(source_video)
@@ -727,7 +727,7 @@ def test_summarize_project_and_validate_project_read_labels_video_group(tmp_path
 
 
 def test_workspace_metadata_field_helpers_roundtrip_current_head(tmp_path: Path) -> None:
-    from xpkg.formats import (
+    from xpkg.workspace import (
         init_project,
         load_workspace_metadata,
         load_workspace_metadata_field,
@@ -752,13 +752,13 @@ def test_workspace_metadata_field_helpers_roundtrip_current_head(tmp_path: Path)
 
 
 def test_inspect_workspace_reports_current_head_summary_and_metadata(tmp_path: Path) -> None:
-    from xpkg.formats import (
+    from xpkg.services import WorkspaceService
+    from xpkg.workspace import (
         WorkspaceInspection,
         init_project,
         inspect_workspace,
         save_workspace_labels,
     )
-    from xpkg.services import WorkspaceService
 
     workspace = tmp_path / "Inspection Project"
     training_state = {

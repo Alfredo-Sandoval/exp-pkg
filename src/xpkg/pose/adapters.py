@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from xpkg.core.skeleton import Keypoint, Skeleton, infer_side
-from xpkg.model.pose_naming import normalize_marker_name
 from xpkg.model.vicon import ViconMarkerModel
+from xpkg.pose.naming import normalize_marker_name
+from xpkg.pose.skeleton import Keypoint, Skeleton, infer_side
 
 
 def vicon_marker_model_to_skeleton(model: ViconMarkerModel) -> Skeleton:

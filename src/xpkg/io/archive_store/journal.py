@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from xpkg.core.json_utils import load_json_dict
+from xpkg._core.json_utils import load_json_dict
 from xpkg.io.archive_store.platform_io import atomic_write_json
 
 

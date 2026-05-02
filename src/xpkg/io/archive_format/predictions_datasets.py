@@ -8,7 +8,7 @@ from typing import Any, TypedDict
 import h5py
 import numpy as np
 
-from xpkg.core.annotations import PredictedInstance, PredictedPoint
+from xpkg.pose.annotations import PredictedInstance, PredictedPoint
 
 _PREDICTED_INSTANCE_TYPES: tuple[type, ...] = (PredictedInstance,)
 _PREDICTED_POINT_TYPES: tuple[type, ...] = (PredictedPoint,)

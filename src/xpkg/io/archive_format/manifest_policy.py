@@ -9,8 +9,8 @@ from typing import Any
 import h5py
 import numpy as np
 
-from xpkg.core.json_utils import parse_json
-from xpkg.core.path_registry import resolve_path
+from xpkg._core.json_utils import parse_json
+from xpkg._core.path_registry import resolve_path
 from xpkg.io.archive_format.shared import _mapping_to_str_key_dict
 from xpkg.io.manifest import AssetType, ProjectManifest, resolve_project_path
 

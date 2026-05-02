@@ -73,9 +73,9 @@ Choose the public surface by job:
 | Register figures, tables, analyses, reports, or other output artifacts | `workspace.artifacts.*` from `xpkg.services.WorkspaceService` |
 | Save figure outputs and their lineage manifests | `workspace.figures.*` from `xpkg.services.WorkspaceService` |
 | Save or load frame-level segmentation masks | `workspace.segmentation.*` from `xpkg.services.WorkspaceService` |
-| Import foreign pose data through explicit free functions | `xpkg.formats.import_*_workspace(...)` |
+| Import foreign pose data through explicit free functions | `xpkg.workspace.import_*_workspace(...)` |
 
-The explicit `xpkg.formats.import_*_workspace(...)` helpers remain public when
+The explicit `xpkg.workspace.import_*_workspace(...)` helpers remain public when
 you want a function-level API or need to import before reopening a workspace.
 
 Artifacts use a generic registry under `.xpkg/artifacts/<kind>/`, with common
@@ -112,7 +112,7 @@ The shipped workspace import surface currently covers:
 - Registers output artifacts with portable manifests for inputs, producer metadata, stats, checksums, and source data
 - Provides figure convenience helpers on top of the generic artifact registry
 - Saves and loads frame-level segmentation masks through `workspace.segmentation`
-- Exposes a clean in-memory exchange layer through `xpkg.exchange`
+- Exposes a clean in-memory adapter layer through `xpkg.adapters`
 - Handles media-aware packaging and workspace-relative project state
 
 ## Current Scope vs Direction
@@ -134,7 +134,7 @@ Mission direction:
   their own project formats
 - keep direct archive handling narrow and clearly secondary to workspace flows
 
-## Supported Formats
+## Supported Workspace
 
 | Source | Format | Status |
 |--------|--------|--------|

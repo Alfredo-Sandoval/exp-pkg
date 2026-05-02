@@ -4,7 +4,7 @@ import hashlib
 from pathlib import Path
 from typing import Any
 
-from xpkg.core.json_utils import dump_json
+from xpkg._core.json_utils import dump_json
 
 
 def sha256_bytes(data: bytes) -> str:

@@ -9,18 +9,18 @@ from typing import TYPE_CHECKING, Any, TypeGuard, cast, overload
 
 import numpy as np
 
-from xpkg.core.annotations.points import (
+from xpkg.pose.annotations.points import (
     Point,
     PointArray,
     PointCtor,
     PredictedPoint,
     PredictedPointArray,
 )
-from xpkg.core.skeleton import Keypoint, Skeleton
+from xpkg.pose.skeleton import Keypoint, Skeleton
 
 if TYPE_CHECKING:
-    from xpkg.core.annotations.frames import LabeledFrame
     from xpkg.io.video import Video
+    from xpkg.pose.annotations.frames import LabeledFrame
 else:
     from typing import Any as LabeledFrame
     from typing import Any as Video

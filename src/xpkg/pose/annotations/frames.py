@@ -11,17 +11,17 @@ from typing import TYPE_CHECKING, Any, Protocol, SupportsIndex
 
 import numpy as np
 
-from xpkg.core.annotations.instances import (
+from xpkg._core.logging_utils import get_logger
+from xpkg.pose.annotations.instances import (
     Instance,
     InstanceLike,
     PredictedInstance,
     Track,
     is_predicted_instance,
 )
-from xpkg.core.annotations.regions import ROI, SegmentationMask
-from xpkg.core.logging_utils import get_logger
+from xpkg.pose.annotations.regions import ROI, SegmentationMask
 
-logger = get_logger("xpkg.core.annotations")
+logger = get_logger("xpkg.pose.annotations")
 
 if TYPE_CHECKING:
     from xpkg.io.video import Video
@@ -311,7 +311,7 @@ class LabeledFrame:
         Returns:
             LabeledFrame: A new LabeledFrame instance with copied data.
         """
-        from xpkg.core.annotations.serde import make_instance_cattr
+        from xpkg.pose.annotations.serde import make_instance_cattr
 
         converter = make_instance_cattr()
         instances_payload = converter.unstructure(self._instances)

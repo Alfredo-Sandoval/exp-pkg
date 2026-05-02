@@ -5,7 +5,7 @@ import importlib
 import pytest
 
 import xpkg
-from xpkg.exchange import (
+from xpkg.adapters import (
     labels_from_json_payload,
     labels_numpy,
     labels_to_dataframe,
@@ -14,7 +14,72 @@ from xpkg.exchange import (
     vicon_recording_from_json_payload,
     vicon_recording_to_json_payload,
 )
-from xpkg.formats import (
+from xpkg.io.readers import (
+    read_doric_photometry,
+    read_events_csv,
+    read_neurophotometrics_csv,
+    read_photometry_csv,
+    read_pmat_events_csv,
+    read_pmat_photometry_csv,
+    read_pyphotometry_csv,
+    read_pyphotometry_ppd,
+    read_rwd_ofrs_session,
+    read_tdt_photometry_block,
+    read_teleopto_h5,
+)
+from xpkg.model import (
+    EMGSignalData,
+    Event,
+    EventTable,
+    ForcePlateData,
+    Instance,
+    Keypoint,
+    KPFlag,
+    LabeledFrame,
+    Labels,
+    PhotometryChannel,
+    PhotometryRecording,
+    Point,
+    PointArray,
+    PredictedInstance,
+    PredictedPoint,
+    PredictedPointArray,
+    RecordingSession,
+    SignalChannel,
+    Skeleton,
+    SuggestionFrame,
+    SyncEvent,
+    Timebase,
+    Timeline,
+    TimeRange,
+    TimeSeries,
+    Track,
+    ViconEvent,
+    ViconForcePlatformMetadata,
+    ViconRecording,
+    Video,
+    VideoStub,
+    build_keypoint_skeleton,
+    build_prediction_stub,
+    is_predicted_instance,
+    load_skeleton,
+    load_skeleton_dlc,
+    load_skeleton_sleap,
+    load_skeleton_ultralytics,
+    load_skeleton_xpkg_json,
+)
+from xpkg.services import (
+    WorkspaceArtifacts,
+    WorkspaceFigures,
+    WorkspaceImports,
+    WorkspaceLayout,
+    WorkspaceSegmentation,
+    WorkspaceService,
+)
+from xpkg.services import (
+    WorkspaceInspection as ServiceWorkspaceInspection,
+)
+from xpkg.workspace import (
     ARTIFACT_INDEX_FILENAME,
     ARTIFACT_MANIFEST_FILENAME,
     ARTIFACT_SCHEMA_VERSION,
@@ -92,85 +157,22 @@ from xpkg.formats import (
     write_labels_json,
     write_project_descriptor,
 )
-from xpkg.io.readers import (
-    read_doric_photometry,
-    read_events_csv,
-    read_neurophotometrics_csv,
-    read_photometry_csv,
-    read_pmat_events_csv,
-    read_pmat_photometry_csv,
-    read_pyphotometry_csv,
-    read_pyphotometry_ppd,
-    read_rwd_ofrs_session,
-    read_tdt_photometry_block,
-    read_teleopto_h5,
-)
-from xpkg.model import (
-    EMGSignalData,
-    Event,
-    EventTable,
-    ForcePlateData,
-    Instance,
-    Keypoint,
-    KPFlag,
-    LabeledFrame,
-    Labels,
-    PhotometryChannel,
-    PhotometryRecording,
-    Point,
-    PointArray,
-    PredictedInstance,
-    PredictedPoint,
-    PredictedPointArray,
-    RecordingSession,
-    SignalChannel,
-    Skeleton,
-    SuggestionFrame,
-    SyncEvent,
-    Timebase,
-    Timeline,
-    TimeRange,
-    TimeSeries,
-    Track,
-    ViconEvent,
-    ViconForcePlatformMetadata,
-    ViconRecording,
-    Video,
-    VideoStub,
-    build_keypoint_skeleton,
-    build_prediction_stub,
-    is_predicted_instance,
-    load_skeleton,
-    load_skeleton_dlc,
-    load_skeleton_sleap,
-    load_skeleton_ultralytics,
-    load_skeleton_xpkg_json,
-)
-from xpkg.services import (
-    WorkspaceArtifacts,
-    WorkspaceFigures,
-    WorkspaceImports,
-    WorkspaceLayout,
-    WorkspaceSegmentation,
-    WorkspaceService,
-)
-from xpkg.services import (
-    WorkspaceInspection as ServiceWorkspaceInspection,
-)
 
 
 def test_root_namespace_is_curated_to_workspace_first_modules() -> None:
     reloaded = importlib.reload(xpkg)
     reloaded.__dict__.pop("compat", None)
     reloaded.__dict__.pop("adapters", None)
+    reloaded.__dict__.pop("pose", None)
+    reloaded.__dict__.pop("workspace", None)
 
     assert reloaded.__version__
     assert reloaded.__all__ == [
         "__version__",
         "api",
-        "exchange",
-        "formats",
+        "adapters",
         "model",
+        "pose",
         "read_doric_photometry",
         "read_events_csv",
         "read_neurophotometrics_csv",
@@ -183,10 +185,12 @@ def test_root_namespace_is_curated_to_workspace_first_modules() -> None:
         "read_tdt_photometry_block",
         "read_teleopto_h5",
         "services",
+        "workspace",
     ]
-    assert reloaded.exchange is not None
-    assert reloaded.formats is not None
+    assert reloaded.adapters is not None
+    assert reloaded.workspace is not None
     assert reloaded.model is not None
+    assert reloaded.pose is not None
     assert callable(reloaded.read_doric_photometry)
     assert callable(reloaded.read_events_csv)
     assert callable(reloaded.read_neurophotometrics_csv)
@@ -204,8 +208,10 @@ def test_root_namespace_is_curated_to_workspace_first_modules() -> None:
         reloaded.__getattribute__("compat")
 
     with pytest.raises(AttributeError):
-        reloaded.__getattribute__("adapters")
+        reloaded.__getattribute__("exchange")
 
+    with pytest.raises(AttributeError):
+        reloaded.__getattribute__("formats")
 
 def test_public_exports_are_callable() -> None:
     assert ARTIFACTS_DIRNAME == "artifacts"
@@ -384,37 +390,37 @@ def test_model_exports_are_available() -> None:
     assert "load_skeleton_archive_json" not in xpkg.model.__all__
 
 
-def test_formats_surface_is_workspace_first_only() -> None:
-    assert "read_archive" not in xpkg.formats.__all__
-    assert "write_archive" not in xpkg.formats.__all__
-    assert "read_xpkg" not in xpkg.formats.__all__
-    assert "write_xpkg" not in xpkg.formats.__all__
-    assert "export_project_archive" not in xpkg.formats.__all__
-    assert "current_project_archive_path" not in xpkg.formats.__all__
-    assert "pack_project" in xpkg.formats.__all__
-    assert "export_workspace_archive" not in xpkg.formats.__all__
-    assert "import_dlc_project_workspace" in xpkg.formats.__all__
-    assert "import_lightning_pose_csv_workspace" in xpkg.formats.__all__
-    assert "inspect_workspace" in xpkg.formats.__all__
-    assert "load_workspace_payload" in xpkg.formats.__all__
-    assert "list_workspace_figures" in xpkg.formats.__all__
-    assert "save_workspace_figure" in xpkg.formats.__all__
-    assert "workspace_artifacts_root" in xpkg.formats.__all__
-    assert "load_workspace_metadata" in xpkg.formats.__all__
-    assert "load_workspace_metadata_field" in xpkg.formats.__all__
-    assert "import_vicon_workspace" in xpkg.formats.__all__
-    assert "save_workspace_metadata" in xpkg.formats.__all__
-    assert "save_workspace_metadata_field" in xpkg.formats.__all__
-    assert "save_workspace_segmentation_masks" in xpkg.formats.__all__
-    assert "load_workspace_segmentation_masks" in xpkg.formats.__all__
-    assert "import_detectron2_coco_workspace" not in xpkg.formats.__all__
-    assert "import_openpose_json_workspace" not in xpkg.formats.__all__
+def test_workspace_surface_is_workspace_first_only() -> None:
+    assert "read_archive" not in xpkg.workspace.__all__
+    assert "write_archive" not in xpkg.workspace.__all__
+    assert "read_xpkg" not in xpkg.workspace.__all__
+    assert "write_xpkg" not in xpkg.workspace.__all__
+    assert "export_project_archive" not in xpkg.workspace.__all__
+    assert "current_project_archive_path" not in xpkg.workspace.__all__
+    assert "pack_project" in xpkg.workspace.__all__
+    assert "export_workspace_archive" not in xpkg.workspace.__all__
+    assert "import_dlc_project_workspace" in xpkg.workspace.__all__
+    assert "import_lightning_pose_csv_workspace" in xpkg.workspace.__all__
+    assert "inspect_workspace" in xpkg.workspace.__all__
+    assert "load_workspace_payload" in xpkg.workspace.__all__
+    assert "list_workspace_figures" in xpkg.workspace.__all__
+    assert "save_workspace_figure" in xpkg.workspace.__all__
+    assert "workspace_artifacts_root" in xpkg.workspace.__all__
+    assert "load_workspace_metadata" in xpkg.workspace.__all__
+    assert "load_workspace_metadata_field" in xpkg.workspace.__all__
+    assert "import_vicon_workspace" in xpkg.workspace.__all__
+    assert "save_workspace_metadata" in xpkg.workspace.__all__
+    assert "save_workspace_metadata_field" in xpkg.workspace.__all__
+    assert "save_workspace_segmentation_masks" in xpkg.workspace.__all__
+    assert "load_workspace_segmentation_masks" in xpkg.workspace.__all__
+    assert "import_detectron2_coco_workspace" not in xpkg.workspace.__all__
+    assert "import_openpose_json_workspace" not in xpkg.workspace.__all__
 
     with pytest.raises(AttributeError):
-        xpkg.formats.__getattribute__("read_archive")
+        xpkg.workspace.__getattribute__("read_archive")
 
     with pytest.raises(AttributeError):
-        xpkg.formats.__getattribute__("create_store_from_archive")
+        xpkg.workspace.__getattribute__("create_store_from_archive")
 
 
 def test_direct_compat_module_is_removed() -> None:
@@ -422,8 +428,8 @@ def test_direct_compat_module_is_removed() -> None:
         importlib.import_module("xpkg.compat")
 
 
-def test_exchange_surface_is_curated() -> None:
-    assert sorted(xpkg.exchange.__all__) == [
+def test_adapters_surface_is_curated() -> None:
+    assert sorted(xpkg.adapters.__all__) == [
         "labels_from_json_payload",
         "labels_numpy",
         "labels_to_dataframe",

@@ -10,8 +10,8 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 import pandas as pd
 
-from xpkg.core.json_utils import parse_json_dict
-from xpkg.core.path_registry import ensure_dir, resolve_path
+from xpkg._core.json_utils import parse_json_dict
+from xpkg._core.path_registry import ensure_dir, resolve_path
 from xpkg.io.archive_format import write_archive
 from xpkg.io.archive_format.shared import CANONICAL_ARCHIVE_SUFFIX
 from xpkg.io.converters.converter_helpers import (
@@ -52,9 +52,9 @@ from xpkg.io.skeleton_loaders import build_sleap_skeleton
 from xpkg.io.video import Video
 
 if TYPE_CHECKING:
-    from xpkg.core.skeleton import Keypoint
-    from xpkg.core.skeleton import Skeleton as _Skeleton
     from xpkg.model import Labels as _Labels
+    from xpkg.pose.skeleton import Keypoint
+    from xpkg.pose.skeleton import Skeleton as _Skeleton
 
 _NAT_SORT_RE = re.compile(r"(\d+)")
 
@@ -111,11 +111,11 @@ def _labels_from_step4_table(
     labeled_root: Path,
     skeleton: _Skeleton,
 ) -> _Labels:
-    from xpkg.core.annotations import Instance as _Instance
-    from xpkg.core.annotations import LabeledFrame as _LabeledFrame
-    from xpkg.core.annotations import Point as _Point
     from xpkg.io.video import Video as _Video
     from xpkg.model import Labels as _Labels
+    from xpkg.pose.annotations import Instance as _Instance
+    from xpkg.pose.annotations import LabeledFrame as _LabeledFrame
+    from xpkg.pose.annotations import Point as _Point
 
     labels = _Labels()
 
@@ -189,7 +189,7 @@ def _sleap_h5_points_for_frame(
     *,
     likelihood_threshold: float,
 ) -> dict[str | Keypoint, Any]:
-    from xpkg.core.annotations import Point
+    from xpkg.pose.annotations import Point
 
     points: dict[str | Keypoint, Any] = {}
     for node_idx, node_name in enumerate(node_names):
@@ -323,7 +323,7 @@ def convert_sleap_package(
 
     import h5py as _h5
 
-    from xpkg.core.skeleton import Skeleton as _Skeleton
+    from xpkg.pose.skeleton import Skeleton as _Skeleton
 
     with _h5.File(slp_path.as_posix(), "r") as hdf_for_skeleton:
         metadata = parse_json_dict(hdf_for_skeleton["metadata"].attrs.get("json", "{}"))

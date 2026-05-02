@@ -6,22 +6,23 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from xpkg.core.annotations.frames import InstancesList, LabeledFrame
-from xpkg.core.annotations.instances import (
+from xpkg._core.logging_utils import get_logger
+from xpkg.pose.annotations.frames import InstancesList, LabeledFrame
+from xpkg.pose.annotations.instances import (
     Instance,
     PredictedInstance,
     Track,
     is_predicted_instance,
 )
-from xpkg.core.annotations.normalize import normalize_point_like, normalize_points_sequence
-from xpkg.core.annotations.points import (
+from xpkg.pose.annotations.normalize import normalize_point_like, normalize_points_sequence
+from xpkg.pose.annotations.points import (
     KPFlag,
     Point,
     PointArray,
     PredictedPoint,
     PredictedPointArray,
 )
-from xpkg.core.annotations.regions import (
+from xpkg.pose.annotations.regions import (
     ROI,
     MaskType,
     PromptType,
@@ -30,9 +31,8 @@ from xpkg.core.annotations.regions import (
     rle_decode,
     rle_encode,
 )
-from xpkg.core.annotations.serde import make_instance_cattr
-from xpkg.core.logging_utils import get_logger
-from xpkg.core.skeleton import Keypoint, Skeleton
+from xpkg.pose.annotations.serde import make_instance_cattr
+from xpkg.pose.skeleton import Keypoint, Skeleton
 
 logger = get_logger(__name__)
 

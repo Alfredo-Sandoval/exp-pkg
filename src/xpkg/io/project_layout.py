@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any, Literal
 from uuid import uuid4
 
-from xpkg.core.path_registry import ensure_dir, resolve_path
+from xpkg._core.path_registry import ensure_dir, resolve_path
 from xpkg.io.archive_format.shared import CANONICAL_ARCHIVE_SUFFIX
 
 PROJECT_DESCRIPTOR_FILENAME = "PROJECT.json"

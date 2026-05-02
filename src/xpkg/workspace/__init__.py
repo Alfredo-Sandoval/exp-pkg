@@ -8,7 +8,8 @@ public for explicit function-level callers.
 
 from __future__ import annotations
 
-from xpkg.formats.project import (
+from xpkg.io.labels.json_format import read_labels_json_payload, write_labels_json
+from xpkg.workspace.project import (
     ARTIFACT_INDEX_FILENAME,
     ARTIFACT_MANIFEST_FILENAME,
     ARTIFACT_SCHEMA_VERSION,
@@ -88,7 +89,6 @@ from xpkg.formats.project import (
     workspace_store_root,
     write_project_descriptor,
 )
-from xpkg.io.labels.json_format import read_labels_json_payload, write_labels_json
 
 __all__ = [
     "ARTIFACTS_DIRNAME",

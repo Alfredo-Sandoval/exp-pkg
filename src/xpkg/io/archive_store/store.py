@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
 
-from xpkg.core.json_utils import load_json_dict
+from xpkg._core.json_utils import load_json_dict
 from xpkg.io.archive_format.shared import CANONICAL_ARCHIVE_SUFFIX
 from xpkg.io.archive_store.errors import (
     ChecksumError,

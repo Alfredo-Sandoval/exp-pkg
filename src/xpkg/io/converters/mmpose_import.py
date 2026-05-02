@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from xpkg.core.path_registry import resolve_path
+from xpkg._core.path_registry import resolve_path
 from xpkg.io.archive_format.shared import CANONICAL_ARCHIVE_SUFFIX
 from xpkg.io.converters.converter_helpers import (
     ConversionResult,

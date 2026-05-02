@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 if TYPE_CHECKING:
-    from xpkg.core.annotations.instances import Track
+    from xpkg.pose.annotations.instances import Track
 
 
 class MaskType(enum.IntEnum):

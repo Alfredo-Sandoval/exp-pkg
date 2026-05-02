@@ -9,8 +9,8 @@ from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Any, cast
 
-from xpkg.core.json_utils import load_json_dict, write_json
-from xpkg.core.path_registry import ensure_dir, resolve_path, slugify_path_component
+from xpkg._core.json_utils import load_json_dict, write_json
+from xpkg._core.path_registry import ensure_dir, resolve_path, slugify_path_component
 from xpkg.io.project_layout import (
     _now_utc_iso,
     resolve_workspace_root,

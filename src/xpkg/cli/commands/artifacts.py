@@ -7,9 +7,9 @@ from typing import Annotated, Any
 
 import typer
 
+from xpkg._core.json_utils import dump_json
 from xpkg.cli.shared import JsonOption, run_command
-from xpkg.core.json_utils import dump_json
-from xpkg.formats import (
+from xpkg.workspace import (
     list_workspace_artifact_index,
     load_workspace_artifact,
     rebuild_workspace_artifact_index,

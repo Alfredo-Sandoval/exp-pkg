@@ -5,7 +5,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from xpkg.core.json_utils import write_json
+from xpkg._core.json_utils import write_json
 from xpkg.io.readers import read_pose_node_names, read_pose_track, resolve_pose_node_indices
 from xpkg.io.readers.mmpose import read_node_names, read_track, resolve_node_indices
 

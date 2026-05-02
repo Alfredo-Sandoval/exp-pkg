@@ -11,15 +11,6 @@ from typing import Any
 
 import numpy as np
 
-from xpkg.model.pose_naming import (
-    normalize_event_side,
-    normalize_event_type,
-    normalize_source_label,
-    strip_subject_prefix,
-)
-from xpkg.model.pose_naming import (
-    normalize_marker_name as _normalize_marker_name,
-)
 from xpkg.model.vicon import (
     ViconAdditionalPointData,
     ViconAnalogData,
@@ -28,6 +19,15 @@ from xpkg.model.vicon import (
     ViconForcePlatformMetadata,
     ViconMarkerModel,
     ViconRecording,
+)
+from xpkg.pose.naming import (
+    normalize_event_side,
+    normalize_event_type,
+    normalize_source_label,
+    strip_subject_prefix,
+)
+from xpkg.pose.naming import (
+    normalize_marker_name as _normalize_marker_name,
 )
 
 
