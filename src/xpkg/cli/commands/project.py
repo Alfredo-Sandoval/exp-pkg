@@ -172,7 +172,7 @@ def pack(
 @app.command("unpack")
 def unpack(
     artifact: Annotated[str, typer.Argument(help="Path to the .expkg artifact.")],
-    out: Annotated[str, typer.Option("--out", help="Destination project directory.")] = ...,
+    out: Annotated[str, typer.Option("--out", help="Destination project directory.")],
     force: Annotated[
         bool,
         typer.Option("--force", help="Allow unpacking into an existing empty directory."),

@@ -313,7 +313,7 @@ def test_project_metadata_helpers_roundtrip_without_existing_labels(tmp_path: Pa
     assert resolved_path.exists()
 
 
-def test_save_project_metadata_commits_snapshot_without_labels_recommit(
+def test_save_project_metadata_commits_state_without_labels_recommit(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -397,7 +397,7 @@ def test_load_project_payload_keeps_predictions_out_of_labels_bundle(tmp_path: P
     assert int(prediction_track_ids[0, 0]) == 7
 
 
-def test_load_project_payload_uses_snapshot_payload(tmp_path: Path) -> None:
+def test_load_project_payload_uses_state_payload(tmp_path: Path) -> None:
     from xpkg.model import Labels
     from xpkg.project import init_project, load_project_payload
 
@@ -415,7 +415,7 @@ def test_load_project_payload_uses_snapshot_payload(tmp_path: Path) -> None:
 def test_pack_and_unpack_roundtrip_project(tmp_path: Path) -> None:
     from xpkg.model import Labels
     from xpkg.project import (
-        current_project_snapshot_path,
+        current_project_state_path,
         init_project,
         pack_project,
         unpack_project,
@@ -427,11 +427,11 @@ def test_pack_and_unpack_roundtrip_project(tmp_path: Path) -> None:
     project = tmp_path / "Roundtrip Project"
     init_project(project, title="Roundtrip Project")
     Labels.save_file(labels, project.as_posix())
-    snapshot_path = current_project_snapshot_path(project)
-    snapshot_doc = json.loads(snapshot_path.read_text(encoding="utf-8"))
-    snapshot_doc["payload"]["data"]["keypoints"][0][0][0][0] = 51.0
-    snapshot_doc["payload"]["data"]["keypoints"][0][0][0][1] = 61.0
-    snapshot_path.write_text(json.dumps(snapshot_doc, indent=2) + "\n", encoding="utf-8")
+    state_path = current_project_state_path(project)
+    state_doc = json.loads(state_path.read_text(encoding="utf-8"))
+    state_doc["payload"]["data"]["keypoints"][0][0][0][0] = 51.0
+    state_doc["payload"]["data"]["keypoints"][0][0][0][1] = 61.0
+    state_path.write_text(json.dumps(state_doc, indent=2) + "\n", encoding="utf-8")
 
     artifact = pack_project(project)
     validate_artifact(artifact)
@@ -600,7 +600,7 @@ def test_validate_expkg_rejects_tampered_member_payload(tmp_path: Path) -> None:
 def test_labels_save_file_to_project_creates_first_committed_state(tmp_path: Path) -> None:
     from xpkg.model import Labels
     from xpkg.project import (
-        current_project_snapshot_path,
+        current_project_state_path,
         init_project,
         project_store_root,
     )
@@ -614,12 +614,12 @@ def test_labels_save_file_to_project_creates_first_committed_state(tmp_path: Pat
     init_project(project, title="Saved Project")
 
     saved_target = Labels.save_file(labels, project.as_posix())
-    current_snapshot = current_project_snapshot_path(project)
+    current_state = current_project_state_path(project)
 
     assert saved_target == project.as_posix()
-    assert current_snapshot.exists()
+    assert current_state.exists()
     store = ArchiveStore.open(project_store_root(project))
-    assert store.has_current_root("snapshot")
+    assert store.has_current_root("state")
     assert not store.has_current_root("archive")
     assert labels.path == project
 
@@ -632,10 +632,10 @@ def test_labels_save_file_to_project_creates_first_committed_state(tmp_path: Pat
 def test_labels_save_file_to_project_preserves_predictions(tmp_path: Path) -> None:
     from xpkg.model import Labels
     from xpkg.project import (
-        current_project_snapshot_path,
+        current_project_state_path,
         init_project,
     )
-    from xpkg.project.snapshot_backend import read_project_snapshot_payload
+    from xpkg.project.state_io import read_project_state_payload
 
     source_root = tmp_path / "source"
     source_root.mkdir()
@@ -654,7 +654,7 @@ def test_labels_save_file_to_project_preserves_predictions(tmp_path: Path) -> No
     Labels.save_file(initial_labels, project.as_posix())
 
     saved_target = Labels.save_file(updated_labels, project.as_posix())
-    payload = read_project_snapshot_payload(current_project_snapshot_path(project))
+    payload = read_project_state_payload(current_project_state_path(project))
 
     assert saved_target == project.as_posix()
     label_keypoints = np.asarray(payload["data"]["keypoints"], dtype=np.float32)
@@ -674,8 +674,8 @@ def test_labels_save_file_to_project_seeds_predictions_from_labels_when_current_
     tmp_path: Path,
 ) -> None:
     from xpkg.model import Labels
-    from xpkg.project import current_project_snapshot_path, init_project
-    from xpkg.project.snapshot_backend import read_project_snapshot_payload
+    from xpkg.project import current_project_state_path, init_project
+    from xpkg.project.state_io import read_project_state_payload
 
     source_root = tmp_path / "source"
     source_root.mkdir()
@@ -691,7 +691,7 @@ def test_labels_save_file_to_project_seeds_predictions_from_labels_when_current_
     init_project(project, title="Project Save")
     Labels.save_file(labels_without_predictions, project.as_posix())
     Labels.save_file(labels_with_predictions, project.as_posix())
-    payload = read_project_snapshot_payload(current_project_snapshot_path(project))
+    payload = read_project_state_payload(current_project_state_path(project))
 
     assert int(payload["predictions"]["attrs"]["committed_length"]) == 1
     prediction_track_ids = np.asarray(payload["predictions"]["data"]["track_id"], dtype=np.int32)
@@ -699,7 +699,7 @@ def test_labels_save_file_to_project_seeds_predictions_from_labels_when_current_
 
 
 def test_predictions_payload_from_labels_uses_frame_predicted_instances_view() -> None:
-    from xpkg.project.snapshot_backend import predictions_payload_from_labels
+    from xpkg.project.state_io import predictions_payload_from_labels
 
     video = object()
     predicted = _ForeignPredictedInstance(
@@ -735,75 +735,75 @@ def test_predictions_payload_from_labels_uses_frame_predicted_instances_view() -
     assert heatmaps.shape == (1, 1, 2, 2)
 
 
-def test_project_load_rebuilds_tampered_snapshot_cache_when_commit_id_matches_head(
+def test_project_load_rebuilds_tampered_state_cache_when_commit_id_matches_head(
     tmp_path: Path,
 ) -> None:
     from xpkg.model import Labels
-    from xpkg.project import current_project_snapshot_path, init_project
+    from xpkg.project import current_project_state_path, init_project
 
     source_root = tmp_path / "source"
     source_root.mkdir()
     labels = _make_labels(source_root, x=11.0, y=12.0)
-    project = tmp_path / "Snapshot Preferred"
-    init_project(project, title="Snapshot Preferred")
+    project = tmp_path / "State Preferred"
+    init_project(project, title="State Preferred")
 
     Labels.save_file(labels, project.as_posix())
-    snapshot_path = current_project_snapshot_path(project)
-    snapshot_doc = json.loads(snapshot_path.read_text(encoding="utf-8"))
-    keypoints = snapshot_doc["payload"]["data"]["keypoints"]
+    state_path = current_project_state_path(project)
+    state_doc = json.loads(state_path.read_text(encoding="utf-8"))
+    keypoints = state_doc["payload"]["data"]["keypoints"]
     keypoints[0][0][0][0] = 101.0
     keypoints[0][0][0][1] = 102.0
-    snapshot_path.write_text(json.dumps(snapshot_doc, indent=2) + "\n", encoding="utf-8")
+    state_path.write_text(json.dumps(state_doc, indent=2) + "\n", encoding="utf-8")
 
     loaded = Labels.load_file(project.as_posix())
     pts = loaded.labeled_frames[0].instances[0].get_points_array(copy=False, full=True)
-    repaired_snapshot = json.loads(snapshot_path.read_text(encoding="utf-8"))
+    repaired_state = json.loads(state_path.read_text(encoding="utf-8"))
 
     assert float(pts["x"][0]) == 11.0
     assert float(pts["y"][0]) == 12.0
-    assert float(repaired_snapshot["payload"]["data"]["keypoints"][0][0][0][0]) == 11.0
-    assert float(repaired_snapshot["payload"]["data"]["keypoints"][0][0][0][1]) == 12.0
+    assert float(repaired_state["payload"]["data"]["keypoints"][0][0][0][0]) == 11.0
+    assert float(repaired_state["payload"]["data"]["keypoints"][0][0][0][1]) == 12.0
 
 
-def test_project_load_rebuilds_missing_snapshot_from_committed_state(tmp_path: Path) -> None:
+def test_project_load_rebuilds_missing_state_from_committed_state(tmp_path: Path) -> None:
     from xpkg.model import Labels
-    from xpkg.project import current_project_snapshot_path, init_project
+    from xpkg.project import current_project_state_path, init_project
 
     source_root = tmp_path / "source"
     source_root.mkdir()
     labels = _make_labels(source_root, x=21.0, y=22.0)
-    project = tmp_path / "Rebuild Missing Snapshot"
-    init_project(project, title="Rebuild Missing Snapshot")
+    project = tmp_path / "Rebuild Missing State"
+    init_project(project, title="Rebuild Missing State")
 
     Labels.save_file(labels, project.as_posix())
-    snapshot_path = current_project_snapshot_path(project)
-    snapshot_path.unlink()
+    state_path = current_project_state_path(project)
+    state_path.unlink()
 
     loaded = Labels.load_file(project.as_posix())
     pts = loaded.labeled_frames[0].instances[0].get_points_array(copy=False, full=True)
 
     assert float(pts["x"][0]) == 21.0
     assert float(pts["y"][0]) == 22.0
-    assert snapshot_path.exists()
+    assert state_path.exists()
 
 
-def test_project_load_ignores_stale_snapshot_when_commit_id_mismatches(tmp_path: Path) -> None:
+def test_project_load_ignores_stale_state_when_commit_id_mismatches(tmp_path: Path) -> None:
     from xpkg.model import Labels
-    from xpkg.project import current_project_snapshot_path, init_project
+    from xpkg.project import current_project_state_path, init_project
 
     source_root = tmp_path / "source"
     source_root.mkdir()
     initial_labels = _make_labels(source_root, x=11.0, y=12.0)
     updated_labels = _make_labels(source_root, x=31.0, y=32.0)
-    project = tmp_path / "Stale Snapshot"
-    init_project(project, title="Stale Snapshot")
+    project = tmp_path / "Stale State"
+    init_project(project, title="Stale State")
 
     Labels.save_file(initial_labels, project.as_posix())
-    snapshot_path = current_project_snapshot_path(project)
-    stale_snapshot = json.loads(snapshot_path.read_text(encoding="utf-8"))
+    state_path = current_project_state_path(project)
+    stale_state = json.loads(state_path.read_text(encoding="utf-8"))
 
     Labels.save_file(updated_labels, project.as_posix())
-    snapshot_path.write_text(json.dumps(stale_snapshot, indent=2) + "\n", encoding="utf-8")
+    state_path.write_text(json.dumps(stale_state, indent=2) + "\n", encoding="utf-8")
 
     loaded = Labels.load_file(project.as_posix())
     pts = loaded.labeled_frames[0].instances[0].get_points_array(copy=False, full=True)
@@ -815,7 +815,7 @@ def test_summarize_loaded_project_and_validate_loaded_project_read_labels_video_
     tmp_path: Path,
 ) -> None:
     from xpkg.model import Labels
-    from xpkg.project import current_project_snapshot_path, init_project, load_project_payload
+    from xpkg.project import current_project_state_path, init_project, load_project_payload
     from xpkg.project.validation import summarize_loaded_project, validate_loaded_project
 
     source_video = tmp_path / "source.avi"
@@ -825,12 +825,12 @@ def test_summarize_loaded_project_and_validate_loaded_project_read_labels_video_
     init_project(project, title="Summary Project")
 
     saved_target = Labels.save_file(labels, project.as_posix())
-    snapshot = current_project_snapshot_path(project)
+    state = current_project_state_path(project)
     payload = load_project_payload(project)
-    summary = summarize_loaded_project(payload, path=snapshot)
+    summary = summarize_loaded_project(payload, path=state)
 
     assert saved_target == project.as_posix()
-    assert snapshot.exists()
+    assert state.exists()
     validate_loaded_project(payload)
     assert summary.n_videos == 1
     assert len(summary.video_filenames) == 1

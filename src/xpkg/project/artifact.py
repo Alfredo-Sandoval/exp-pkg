@@ -747,14 +747,14 @@ def validate_project(project: str | Path) -> None:
     from xpkg.project.state import project_state_kind
     from xpkg.project.store import (
         current_project_state_path,
-        ensure_current_project_snapshot_cache,
+        ensure_current_project_state_cache,
         load_project_vicon_recording,
     )
 
     validate_project_artifacts(root)
 
-    snapshot_path = ensure_current_project_snapshot_cache(root)
-    state_path = snapshot_path if snapshot_path is not None else current_project_state_path(root)
+    state_path = ensure_current_project_state_cache(root)
+    state_path = state_path if state_path is not None else current_project_state_path(root)
     if not state_path.exists():
         return
     if state_path.suffix.lower() == ".json":

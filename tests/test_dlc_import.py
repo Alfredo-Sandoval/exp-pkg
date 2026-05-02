@@ -152,27 +152,27 @@ def test_import_dlc_project_directory_imports_supported_items_into_one_project(
 ) -> None:
     from xpkg.model import Labels
     from xpkg.project import (
-        current_project_snapshot_path,
+        current_project_state_path,
         import_dlc_project_directory,
         project_media_root,
     )
-    from xpkg.project.snapshot_backend import read_project_snapshot_payload
+    from xpkg.project.state_io import read_project_state_payload
 
     project_root = _make_dlc_project_fixture(tmp_path)
     project = tmp_path / "Imported DLC Project"
     progress: list[str] = []
 
-    snapshot_path = import_dlc_project_directory(
+    state_path = import_dlc_project_directory(
         project_root,
         project,
         progress_callback=progress.append,
     )
 
-    assert snapshot_path == current_project_snapshot_path(project)
+    assert state_path == current_project_state_path(project)
     assert "IMPORT: Skipping session-missing-video (no video found)" in progress
     assert "IMPORT: Skipping session-no-data (no data file)" in progress
 
-    payload = read_project_snapshot_payload(snapshot_path)
+    payload = read_project_state_payload(state_path)
     assert payload["metadata"]["source"] == "dlc_project_import"
     assert payload["metadata"]["project_name"] == "dlc-project"
     assert payload["metadata"]["source_items"] == [
@@ -213,8 +213,8 @@ def test_import_lightning_pose_csv_project_uses_dlc_style_predictions(
     tmp_path: Path,
 ) -> None:
     from xpkg.model import Labels
-    from xpkg.project import current_project_snapshot_path, import_lightning_pose_csv_project
-    from xpkg.project.snapshot_backend import read_project_snapshot_payload
+    from xpkg.project import current_project_state_path, import_lightning_pose_csv_project
+    from xpkg.project.state_io import read_project_state_payload
 
     csv_path = tmp_path / "video_preds" / "session0.csv"
     csv_path.parent.mkdir()
@@ -224,7 +224,7 @@ def test_import_lightning_pose_csv_project_uses_dlc_style_predictions(
     project = tmp_path / "Imported Lightning Pose"
     progress: list[str] = []
 
-    snapshot_path = import_lightning_pose_csv_project(
+    state_path = import_lightning_pose_csv_project(
         csv_path,
         video_path,
         project,
@@ -233,9 +233,9 @@ def test_import_lightning_pose_csv_project_uses_dlc_style_predictions(
         progress_callback=progress.append,
     )
 
-    assert snapshot_path == current_project_snapshot_path(project)
+    assert state_path == current_project_state_path(project)
     assert "IMPORT: Reading Lightning Pose CSV session0.csv" in progress
-    payload = read_project_snapshot_payload(snapshot_path)
+    payload = read_project_state_payload(state_path)
     assert payload["metadata"]["source"] == "lightning_pose_csv_import"
     assert payload["metadata"]["source_csv"] == csv_path.as_posix()
     loaded = Labels.load_file(project.as_posix())

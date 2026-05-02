@@ -8,7 +8,7 @@ import pytest
 
 from xpkg.model import SegmentationMask, Track
 from xpkg.project import (
-    current_project_snapshot_path,
+    current_project_state_path,
     load_project_segmentation_masks,
     save_project_segmentation_masks,
 )
@@ -48,7 +48,7 @@ def test_project_segmentation_service_saves_masks_into_empty_project(
         masks=[mask],
     )
 
-    assert state_path == current_project_snapshot_path(project.project_root)
+    assert state_path == current_project_state_path(project.project_root)
     loaded_masks = project.segmentation.load_masks(frame_index=0)
     assert len(loaded_masks) == 1
     assert loaded_masks[0].class_name == "cell"

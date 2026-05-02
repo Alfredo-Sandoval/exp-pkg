@@ -1,6 +1,6 @@
 """Project-private crash-safe durability helpers.
 
-This module backs committed project snapshot state under ``.xpkg/``. Normal
+This module backs committed project state under ``.xpkg/``. Normal
 callers should go through project APIs rather than treating this as a
 standalone storage subsystem.
 """
@@ -716,7 +716,7 @@ def _commit_root_entries(
 
 
 class ProjectDurableStore:
-    """Crash-safe committed snapshot store for a project's private ``.xpkg`` root."""
+    """Crash-safe committed state store for a project's private ``.xpkg`` root."""
 
     def __init__(self, root: Path) -> None:
         self.paths = StorePaths(root=Path(root))

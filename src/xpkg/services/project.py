@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from xpkg.project.core import (
+from xpkg.project import (
     ProjectDescriptor,
     ProjectInspection,
     current_project_state_path,
@@ -51,7 +51,7 @@ from xpkg.project.core import (
     validate_project,
 )
 from xpkg.project.state import project_state_kind
-from xpkg.project.store import ensure_current_project_snapshot_cache
+from xpkg.project.store import ensure_current_project_state_cache
 from xpkg.services.artifacts import ProjectArtifacts
 from xpkg.services.figures import ProjectFigures
 from xpkg.services.segmentation import ProjectSegmentation
@@ -401,7 +401,7 @@ class ProjectService:
         """Load the current project labels through the public project root."""
         from xpkg.model import Labels
 
-        state_path = ensure_current_project_snapshot_cache(self.project_root)
+        state_path = ensure_current_project_state_cache(self.project_root)
         if state_path is None:
             state_path = current_project_state_path(self.project_root)
         if state_path.exists() and state_path.suffix.lower() == ".json":

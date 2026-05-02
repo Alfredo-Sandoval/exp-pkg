@@ -12,16 +12,18 @@ to project or archive internals.
 
 from __future__ import annotations
 
-from xpkg.adapters.labels import (
-    labels_from_json_payload,
-    labels_numpy,
-    labels_to_dataframe,
-    labels_to_json_payload,
-)
 from xpkg.adapters.vicon import (
     read_vicon_json_payload,
     vicon_recording_from_json_payload,
     vicon_recording_to_json_payload,
+)
+from xpkg.io.labels.export_ops import (
+    labels_numpy,
+    labels_to_dataframe,
+)
+from xpkg.io.labels.json_format import (
+    labels_from_json_payload,
+    labels_to_json_payload,
 )
 
 __all__ = [

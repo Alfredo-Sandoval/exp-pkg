@@ -1,4 +1,4 @@
-"""Project-native JSON snapshot helpers."""
+"""Project-native JSON state helpers."""
 
 from __future__ import annotations
 
@@ -23,7 +23,7 @@ from xpkg.io.predictions import (
     coerce_predictions_from_labels,
 )
 from xpkg.project.layout import (
-    CURRENT_SNAPSHOT_FILENAME,
+    CURRENT_STATE_FILENAME,
     project_media_root,
     project_state_root,
 )
@@ -36,23 +36,23 @@ PROJECT_COMMIT_ID_KEY = "xpkg_commit_id"
 PROJECT_CACHE_DIGEST_KEY = "sha256"
 
 
-def current_project_snapshot_path(path: str | Path) -> Path:
-    """Return the canonical project snapshot path."""
-    return project_state_root(path) / CURRENT_SNAPSHOT_FILENAME
+def current_project_state_path(path: str | Path) -> Path:
+    """Return the canonical project state path."""
+    return project_state_root(path) / CURRENT_STATE_FILENAME
 
 
-def project_snapshot_cache_digest_path(path: str | Path) -> Path:
-    """Return the private digest sidecar path for a project snapshot cache."""
+def project_state_cache_digest_path(path: str | Path) -> Path:
+    """Return the private digest sidecar path for a project state cache."""
 
     target = resolve_path(path)
     return target.with_name(f"{target.name}.sha256")
 
 
-def write_project_snapshot_cache_digest(path: str | Path, *, commit_id: str) -> Path:
-    """Write the digest sidecar used to trust a current snapshot cache quickly."""
+def write_project_state_cache_digest(path: str | Path, *, commit_id: str) -> Path:
+    """Write the digest sidecar used to trust a current state cache quickly."""
 
     target = resolve_path(path)
-    digest_path = project_snapshot_cache_digest_path(target)
+    digest_path = project_state_cache_digest_path(target)
     write_json(
         digest_path,
         {
@@ -66,11 +66,11 @@ def write_project_snapshot_cache_digest(path: str | Path, *, commit_id: str) -> 
     return digest_path
 
 
-def project_snapshot_cache_digest_matches(path: str | Path, *, commit_id: str) -> bool:
-    """Return whether the snapshot cache matches its private digest sidecar."""
+def project_state_cache_digest_matches(path: str | Path, *, commit_id: str) -> bool:
+    """Return whether the state cache matches its private digest sidecar."""
 
     target = resolve_path(path)
-    digest_path = project_snapshot_cache_digest_path(target)
+    digest_path = project_state_cache_digest_path(target)
     if not digest_path.is_file():
         return False
     try:
@@ -244,7 +244,7 @@ def normalize_predictions_payload(predictions: dict[str, Any] | None) -> dict[st
     return normalized
 
 
-def _normalized_snapshot_metadata(
+def _normalized_state_metadata(
     metadata: dict[str, Any] | None,
     *,
     project_root: Path,
@@ -261,7 +261,7 @@ def _normalized_snapshot_metadata(
     return normalized_metadata
 
 
-def build_project_snapshot_payload(
+def build_project_state_payload(
     *,
     labels: Labels,
     project_root: Path,
@@ -269,7 +269,7 @@ def build_project_snapshot_payload(
     predictions: dict[str, Any] | None = None,
     commit_id: str | None = None,
 ) -> dict[str, Any]:
-    normalized_metadata = _normalized_snapshot_metadata(
+    normalized_metadata = _normalized_state_metadata(
         metadata,
         project_root=project_root,
         commit_id=commit_id,
@@ -284,7 +284,7 @@ def build_project_snapshot_payload(
     return payload
 
 
-def _snapshot_payload_document(payload: dict[str, Any]) -> dict[str, Any]:
+def _state_payload_document(payload: dict[str, Any]) -> dict[str, Any]:
     return {
         "format": XPKG_LABELS_JSON_FORMAT,
         "version": XPKG_LABELS_JSON_VERSION,
@@ -292,7 +292,7 @@ def _snapshot_payload_document(payload: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def write_project_snapshot_payload(
+def write_project_state_payload(
     path: str | Path,
     payload: Mapping[str, Any],
     *,
@@ -302,7 +302,7 @@ def write_project_snapshot_payload(
     ensure_dir(target.parent)
     normalized_payload = _materialize_json_value(payload)
     if not isinstance(normalized_payload, dict):
-        raise TypeError("Project snapshot payload must normalize to a mapping")
+        raise TypeError("Project state payload must normalize to a mapping")
 
     metadata = normalized_payload.get("metadata")
     normalized_metadata = dict(metadata) if isinstance(metadata, dict) else {}
@@ -313,17 +313,17 @@ def write_project_snapshot_payload(
     normalized_payload["metadata"] = normalized_metadata
     write_json(
         target,
-        _snapshot_payload_document(normalized_payload),
+        _state_payload_document(normalized_payload),
         indent=None,
         sort_keys=False,
         ensure_ascii=True,
         compact=True,
     )
-    digest_path = project_snapshot_cache_digest_path(target)
+    digest_path = project_state_cache_digest_path(target)
     if commit_id is None:
         digest_path.unlink(missing_ok=True)
     else:
-        write_project_snapshot_cache_digest(target, commit_id=str(commit_id))
+        write_project_state_cache_digest(target, commit_id=str(commit_id))
     return target
 
 
@@ -431,7 +431,7 @@ def predictions_payload_from_labels(labels: PredictionLabelsView) -> dict[str, A
     return _prediction_payload_from_items(prediction_items, keypoint_count=keypoint_count)
 
 
-def write_project_snapshot(
+def write_project_state(
     path: str | Path,
     *,
     labels: Labels,
@@ -440,26 +440,26 @@ def write_project_snapshot(
     predictions: dict[str, Any] | None = None,
     commit_id: str | None = None,
 ) -> Path:
-    payload = build_project_snapshot_payload(
+    payload = build_project_state_payload(
         labels=labels,
         project_root=project_root,
         metadata=metadata,
         predictions=predictions,
         commit_id=commit_id,
     )
-    return write_project_snapshot_payload(path, payload, commit_id=commit_id)
+    return write_project_state_payload(path, payload, commit_id=commit_id)
 
 
-def read_project_snapshot(path: str | Path) -> dict[str, Any]:
+def read_project_state(path: str | Path) -> dict[str, Any]:
     return read_labels_json_payload(path)
 
 
-def read_project_snapshot_payload(path: str | Path) -> dict[str, Any]:
-    """Alias for the canonical project snapshot payload reader."""
-    return read_project_snapshot(path)
+def read_project_state_payload(path: str | Path) -> dict[str, Any]:
+    """Alias for the canonical project state payload reader."""
+    return read_project_state(path)
 
 
-def snapshot_commit_id(payload: Mapping[str, Any]) -> str | None:
+def state_commit_id(payload: Mapping[str, Any]) -> str | None:
     metadata = payload.get("metadata")
     if not isinstance(metadata, Mapping):
         return None
@@ -471,18 +471,18 @@ def snapshot_commit_id(payload: Mapping[str, Any]) -> str | None:
 
 
 __all__ = [
-    "build_project_snapshot_payload",
-    "current_project_snapshot_path",
+    "build_project_state_payload",
+    "current_project_state_path",
     "normalize_predictions_payload",
     "predictions_payload_from_labels",
-    "read_project_snapshot",
-    "read_project_snapshot_payload",
+    "read_project_state",
+    "read_project_state_payload",
     "rewrite_project_metadata_paths",
-    "snapshot_commit_id",
+    "state_commit_id",
     "PROJECT_COMMIT_ID_KEY",
-    "project_snapshot_cache_digest_matches",
-    "project_snapshot_cache_digest_path",
-    "write_project_snapshot_cache_digest",
-    "write_project_snapshot",
-    "write_project_snapshot_payload",
+    "project_state_cache_digest_matches",
+    "project_state_cache_digest_path",
+    "write_project_state_cache_digest",
+    "write_project_state",
+    "write_project_state_payload",
 ]

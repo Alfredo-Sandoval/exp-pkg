@@ -17,7 +17,7 @@ from tests.vicon_helpers import (
 def test_import_vicon_project_roundtrips_through_project_and_expkg(tmp_path: Path) -> None:
     from xpkg.adapters import read_vicon_json_payload
     from xpkg.project import (
-        current_project_snapshot_path,
+        current_project_state_path,
         import_vicon_project,
         load_project_vicon_recording,
         pack_project,
@@ -31,10 +31,10 @@ def test_import_vicon_project_roundtrips_through_project_and_expkg(tmp_path: Pat
     write_sample_xcp(c3d_path.with_suffix(".xcp"))
     project = tmp_path / "Imported Vicon Project"
 
-    snapshot_path = import_vicon_project(c3d_path, project)
+    state_path = import_vicon_project(c3d_path, project)
 
-    assert snapshot_path == current_project_snapshot_path(project)
-    payload = read_vicon_json_payload(snapshot_path)
+    assert state_path == current_project_state_path(project)
+    payload = read_vicon_json_payload(state_path)
     assert payload["metadata"]["source"] == "vicon_import"
     assert payload["metadata"]["source_recording"] == c3d_path.resolve().as_posix()
 
@@ -102,7 +102,7 @@ def test_import_vicon_project_roundtrips_through_project_and_expkg(tmp_path: Pat
 
 def test_import_vicon_csv_project_loads_project_native_recording(tmp_path: Path) -> None:
     from xpkg.project import (
-        current_project_snapshot_path,
+        current_project_state_path,
         import_vicon_csv_project,
         load_project_vicon_recording,
     )
@@ -113,9 +113,9 @@ def test_import_vicon_csv_project_loads_project_native_recording(tmp_path: Path)
     write_sample_xcp(csv_path.with_suffix(".xcp"))
     project = tmp_path / "Imported CSV Project"
 
-    snapshot_path = import_vicon_csv_project(csv_path, project)
+    state_path = import_vicon_csv_project(csv_path, project)
 
-    assert snapshot_path == current_project_snapshot_path(project)
+    assert state_path == current_project_state_path(project)
     recording = load_project_vicon_recording(project)
     assert recording.source_type == "csv"
     assert recording.path.is_file()
@@ -124,7 +124,7 @@ def test_import_vicon_csv_project_loads_project_native_recording(tmp_path: Path)
     assert recording.xcp_path is not None and recording.xcp_path.is_file()
 
 
-def test_load_project_vicon_recording_rebuilds_tampered_snapshot_cache(tmp_path: Path) -> None:
+def test_load_project_vicon_recording_rebuilds_tampered_state_cache(tmp_path: Path) -> None:
     from xpkg.project import import_vicon_project, load_project_vicon_recording
 
     c3d_path = tmp_path / "trial.c3d"
@@ -133,18 +133,18 @@ def test_load_project_vicon_recording_rebuilds_tampered_snapshot_cache(tmp_path:
     write_sample_xcp(c3d_path.with_suffix(".xcp"))
     project = tmp_path / "Tampered Vicon Project"
 
-    snapshot_path = import_vicon_project(c3d_path, project)
-    document = json.loads(snapshot_path.read_text(encoding="utf-8"))
+    state_path = import_vicon_project(c3d_path, project)
+    document = json.loads(state_path.read_text(encoding="utf-8"))
     payload = document["payload"]
     payload["path"] = "broken/trial.c3d"
-    snapshot_path.write_text(json.dumps(document, indent=2), encoding="utf-8")
+    state_path.write_text(json.dumps(document, indent=2), encoding="utf-8")
 
     recording = load_project_vicon_recording(project)
 
     assert recording.path.is_file()
     assert recording.path.name == "trial.c3d"
     assert [event.label for event in recording.events] == ["Foot Strike", "Start", "Foot Off"]
-    rebuilt_document = json.loads(snapshot_path.read_text(encoding="utf-8"))
+    rebuilt_document = json.loads(state_path.read_text(encoding="utf-8"))
     assert rebuilt_document["payload"]["path"] != "broken/trial.c3d"
     assert [event["label"] for event in rebuilt_document["payload"]["events"]] == [
         "Foot Strike",
@@ -153,19 +153,19 @@ def test_load_project_vicon_recording_rebuilds_tampered_snapshot_cache(tmp_path:
     ]
 
 
-def test_validate_project_rebuilds_missing_vicon_snapshot_cache(tmp_path: Path) -> None:
+def test_validate_project_rebuilds_missing_vicon_state_cache(tmp_path: Path) -> None:
     from xpkg.project import import_vicon_project, validate_project
 
     c3d_path = tmp_path / "trial.c3d"
     write_sample_vicon_c3d(c3d_path)
-    project = tmp_path / "Missing Snapshot Project"
+    project = tmp_path / "Missing State Project"
 
-    snapshot_path = import_vicon_project(c3d_path, project)
-    snapshot_path.unlink()
+    state_path = import_vicon_project(c3d_path, project)
+    state_path.unlink()
 
     validate_project(project)
 
-    assert snapshot_path.is_file()
+    assert state_path.is_file()
 
 
 def test_validate_project_rejects_missing_vicon_bundle_files(tmp_path: Path) -> None:

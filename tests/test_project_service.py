@@ -13,7 +13,7 @@ from tests.vicon_helpers import (
     write_sample_xcp,
 )
 from xpkg.model import Labels
-from xpkg.project import current_project_snapshot_path, current_project_state_path, validate_expkg
+from xpkg.project import current_project_state_path, validate_expkg
 from xpkg.services import ProjectService
 
 
@@ -54,14 +54,14 @@ def test_readme_recommended_project_service_flow_roundtrips_imported_artifact(
     _write_dummy_video(video_path)
 
     project = ProjectService.create(tmp_path / "Imported Project", title="Imported Project")
-    snapshot_path = project.imports.dlc_csv(
+    state_path = project.imports.dlc_csv(
         csv_path,
         video_path,
         skeleton_name="subject",
     )
 
     layout = project.validate()
-    assert snapshot_path == current_project_snapshot_path(project.project_root)
+    assert state_path == current_project_state_path(project.project_root)
     assert layout.current_state_path == current_project_state_path(project.project_root)
     assert layout.current_state_path.suffix == ".json"
     assert layout.has_current_state
@@ -98,9 +98,9 @@ def test_project_service_imports_and_loads_vicon_recording(tmp_path: Path) -> No
     write_sample_xcp(c3d_path.with_suffix(".xcp"))
 
     project = ProjectService.create(tmp_path / "Vicon Project", title="Vicon Project")
-    snapshot_path = project.imports.vicon(c3d_path)
+    state_path = project.imports.vicon(c3d_path)
 
-    assert snapshot_path == current_project_snapshot_path(project.project_root)
+    assert state_path == current_project_state_path(project.project_root)
     loaded = project.load_vicon_recording()
     assert loaded.source_type == "c3d"
     assert loaded.marker_names == ("center", "R_foot")
@@ -114,16 +114,16 @@ def test_project_service_imports_vicon_csv_recording(tmp_path: Path) -> None:
     write_sample_xcp(csv_path.with_suffix(".xcp"))
 
     project = ProjectService.create(tmp_path / "Vicon CSV Project", title="Vicon CSV Project")
-    snapshot_path = project.imports.vicon_csv(csv_path)
+    state_path = project.imports.vicon_csv(csv_path)
 
-    assert snapshot_path == current_project_snapshot_path(project.project_root)
+    assert state_path == current_project_state_path(project.project_root)
     loaded = project.load_vicon_recording()
     assert loaded.source_type == "csv"
     assert loaded.path.is_file()
     assert project.project_root in loaded.path.parents
 
 
-def test_project_service_load_labels_guides_to_vicon_loader_when_snapshot_cache_rebuilds(
+def test_project_service_load_labels_guides_to_vicon_loader_when_state_cache_rebuilds(
     tmp_path: Path,
 ) -> None:
     c3d_path = tmp_path / "trial.c3d"
@@ -133,8 +133,8 @@ def test_project_service_load_labels_guides_to_vicon_loader_when_snapshot_cache_
         tmp_path / "Guided Vicon Project",
         title="Guided Vicon Project",
     )
-    snapshot_path = project.imports.vicon(c3d_path)
-    snapshot_path.unlink()
+    state_path = project.imports.vicon(c3d_path)
+    state_path.unlink()
 
     with pytest.raises(ValueError, match="load_vicon_recording"):
         project.load_labels()

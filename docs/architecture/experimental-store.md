@@ -5,7 +5,7 @@
 xpkg now has an <strong>experimental</strong> project durability layer for
 crash-safe, commit-oriented project state. In the locked v1 artifact contract
 this belongs under the project-owned <code>.xpkg/</code> directory. Normal
-project commits now store project-native snapshot roots in that private
+project commits now store project-native state roots in that private
 store.
 </p>
 </div>
@@ -75,7 +75,7 @@ dies mid-save.
 ## Recommended Experimental Workflow
 
 Normal project-facing code should not call the durability layer directly. Use the
-project APIs; they commit snapshot roots into `.xpkg/` and refresh
+project APIs; they commit state roots into `.xpkg/` and refresh
 `.xpkg/state/current.json` as a rebuildable cache.
 
 Example:
@@ -98,9 +98,9 @@ project storage flows. They are intentionally outside the project-first
 public contract and do not appear in `xpkg.api`, `xpkg.project`, or the CLI:
 
 - `ProjectDurableStore.open(store_root)`
-- `ProjectDurableStore.create_from_roots(store_root, {"snapshot": snapshot_path})`
-- `ProjectDurableStore.current_root_path("snapshot")`
-- `ProjectDurableStore.commit_new_roots({"snapshot": snapshot_path}, ...)`
+- `ProjectDurableStore.create_from_roots(store_root, {"state": state_path})`
+- `ProjectDurableStore.current_root_path("state")`
+- `ProjectDurableStore.commit_new_roots({"state": state_path}, ...)`
 
 ## Recovery Model
 
@@ -130,7 +130,7 @@ Experimental today:
 - private `.xpkg/` project durability machinery
 - commit-oriented autosave flow
 - superblock/journal durability layer
-- generic committed roots for project-native snapshot payloads
+- generic committed roots for project-native state payloads
 
 If you are building the public project contract, think in terms of project +
 `.expkg`. If you are prototyping crash-safe editing or autosave behavior,

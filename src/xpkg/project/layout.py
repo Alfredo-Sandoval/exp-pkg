@@ -16,7 +16,7 @@ EXPKG_SUFFIX = ".expkg"
 STORE_DIRNAME = ".xpkg"
 STORE_STATE_DIRNAME = "state"
 ARTIFACTS_DIRNAME = "artifacts"
-CURRENT_SNAPSHOT_FILENAME = "current.json"
+CURRENT_STATE_FILENAME = "current.json"
 MEDIA_DIRNAME = "Media"
 EXPORTS_DIRNAME = "Exports"
 
@@ -193,8 +193,8 @@ def project_artifacts_root(path: str | Path) -> Path:
     return project_store_root(path) / ARTIFACTS_DIRNAME
 
 
-def project_current_snapshot_path(path: str | Path) -> Path:
-    return project_state_root(path) / CURRENT_SNAPSHOT_FILENAME
+def project_current_state_path(path: str | Path) -> Path:
+    return project_state_root(path) / CURRENT_STATE_FILENAME
 
 
 def project_media_root(path: str | Path) -> Path:
@@ -224,7 +224,7 @@ def default_expkg_path(path: str | Path) -> Path:
 
 __all__ = [
     "ARTIFACTS_DIRNAME",
-    "CURRENT_SNAPSHOT_FILENAME",
+    "CURRENT_STATE_FILENAME",
     "EXPORTS_DIRNAME",
     "EXPKG_SUFFIX",
     "MEDIA_DIRNAME",
@@ -239,7 +239,7 @@ __all__ = [
     "load_project_descriptor",
     "project_descriptor_path",
     "resolve_project_root",
-    "project_current_snapshot_path",
+    "project_current_state_path",
     "project_artifacts_root",
     "project_exports_root",
     "project_media_root",

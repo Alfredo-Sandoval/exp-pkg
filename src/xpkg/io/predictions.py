@@ -1,4 +1,4 @@
-"""Prediction payload helpers for project snapshots."""
+"""Prediction payload helpers for project state documents."""
 
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ class PredictionLabelsView(Protocol):
 
 
 class PredictionAppendItem:
-    """Linear prediction row used by project snapshot serialization."""
+    """Linear prediction row used by project state-document serialization."""
 
     __slots__ = ("frame_index", "heatmaps", "instances", "video_index")
 

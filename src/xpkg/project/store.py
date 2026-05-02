@@ -22,7 +22,7 @@ from xpkg.adapters.vicon import (
 )
 from xpkg.project.artifact import validate_project
 from xpkg.project.layout import (
-    CURRENT_SNAPSHOT_FILENAME,
+    CURRENT_STATE_FILENAME,
     EXPORTS_DIRNAME,
     MEDIA_DIRNAME,
     PROJECT_DESCRIPTOR_FILENAME,
@@ -32,29 +32,29 @@ from xpkg.project.layout import (
     _candidate_project_root,
     _now_utc_iso,
     load_project_descriptor,
-    project_current_snapshot_path,
+    project_current_state_path,
     project_exports_root,
     project_media_root,
     project_store_root,
     resolve_project_root,
     write_project_descriptor,
 )
-from xpkg.project.snapshot_backend import (
-    PROJECT_COMMIT_ID_KEY,
-    normalize_predictions_payload,
-    predictions_payload_from_labels,
-    project_snapshot_cache_digest_matches,
-    read_project_snapshot,
-    rewrite_project_metadata_paths,
-    write_project_snapshot,
-    write_project_snapshot_cache_digest,
-    write_project_snapshot_payload,
-)
 from xpkg.project.state import (
     project_state_commit_id_from_document,
     project_state_kind,
     project_state_payload_from_document,
     read_project_state_document,
+)
+from xpkg.project.state_io import (
+    PROJECT_COMMIT_ID_KEY,
+    normalize_predictions_payload,
+    predictions_payload_from_labels,
+    project_state_cache_digest_matches,
+    read_project_state,
+    rewrite_project_metadata_paths,
+    write_project_state,
+    write_project_state_cache_digest,
+    write_project_state_payload,
 )
 
 if TYPE_CHECKING:
@@ -70,12 +70,12 @@ def load_project_payload(path: str | Path) -> dict[str, Any]:
     if state is None:
         return {"metadata": {}}
     payload, source_kind = state
-    metadata = _snapshot_metadata_from_state_payload(payload) or {}
-    if source_kind == "snapshot_labels":
-        public_payload = _public_payload_from_snapshot_labels(payload, metadata=metadata)
+    metadata = _state_metadata_from_state_payload(payload) or {}
+    if source_kind == "state_labels":
+        public_payload = _public_payload_from_state_labels(payload, metadata=metadata)
         rebase_project_payload_videos(public_payload, root)
         return public_payload
-    if source_kind == "snapshot_vicon":
+    if source_kind == "state_vicon":
         return {
             "recording": deepcopy(payload),
             "metadata": metadata,
@@ -83,27 +83,27 @@ def load_project_payload(path: str | Path) -> dict[str, Any]:
     raise ValueError(f"Unsupported project state source: {source_kind!r}")
 
 
-def current_project_snapshot_path(path: str | Path) -> Path:
-    """Return the project snapshot cache path under `.xpkg/state/current.json`."""
+def current_project_state_path(path: str | Path) -> Path:
+    """Return the project state cache path under `.xpkg/state/current.json`."""
 
-    return project_current_snapshot_path(path)
+    return project_current_state_path(path)
 
 
 def current_project_commit_id(path: str | Path) -> str | None:
     return _project_store(path).current_commit_id()
 
 
-def _public_payload_from_snapshot_labels(
-    snapshot_payload: dict[str, Any],
+def _public_payload_from_state_labels(
+    state_payload: dict[str, Any],
     *,
     metadata: dict[str, Any],
 ) -> dict[str, Any]:
-    labels_payload = _public_labels_payload_from_snapshot(snapshot_payload, metadata=metadata)
+    labels_payload = _public_labels_payload_from_state(state_payload, metadata=metadata)
     keypoint_count = int(labels_payload["metadata"]["num_keypoints"])
     return {
         "labels": labels_payload,
-        "predictions": _public_predictions_payload_from_snapshot(
-            snapshot_payload,
+        "predictions": _public_predictions_payload_from_state(
+            state_payload,
             keypoint_count=keypoint_count,
         ),
         "metrics": {
@@ -111,27 +111,27 @@ def _public_payload_from_snapshot_labels(
             "tables": {},
             "metadata": {},
         },
-        "suggestions": _public_suggestions_payload_from_snapshot(snapshot_payload),
+        "suggestions": _public_suggestions_payload_from_state(state_payload),
         "runs": _empty_runs_payload(),
         "metadata": dict(metadata),
-        "provenance": deepcopy(snapshot_payload.get("provenance") or {"events": []}),
-        "session": _public_session_payload_from_snapshot(snapshot_payload, metadata=metadata),
-        "segmentation": _public_segmentation_payload_from_snapshot(snapshot_payload),
+        "provenance": deepcopy(state_payload.get("provenance") or {"events": []}),
+        "session": _public_session_payload_from_state(state_payload, metadata=metadata),
+        "segmentation": _public_segmentation_payload_from_state(state_payload),
     }
 
 
-def _public_labels_payload_from_snapshot(
-    snapshot_payload: dict[str, Any],
+def _public_labels_payload_from_state(
+    state_payload: dict[str, Any],
     *,
     metadata: dict[str, Any],
 ) -> dict[str, Any]:
-    labels_snapshot = _strip_prediction_instances_from_snapshot_payload(snapshot_payload)
-    frames_info = labels_snapshot.get("frames")
-    data_info = labels_snapshot.get("data")
+    labels_state = _strip_prediction_instances_from_state_payload(state_payload)
+    frames_info = labels_state.get("frames")
+    data_info = labels_state.get("data")
     if not isinstance(frames_info, dict) or not isinstance(data_info, dict):
-        raise TypeError("Project snapshot labels payload must contain frames/data mappings")
+        raise TypeError("Project state labels payload must contain frames/data mappings")
 
-    skeleton_info = deepcopy(labels_snapshot.get("skeleton") or {})
+    skeleton_info = deepcopy(labels_state.get("skeleton") or {})
     skeleton_names = list(skeleton_info.get("names") or [])
     video_index = np.asarray(frames_info.get("video_index", []), dtype=np.int32)
     frame_index = np.asarray(frames_info.get("frame_index", []), dtype=np.int32)
@@ -220,9 +220,9 @@ def _public_labels_payload_from_snapshot(
             "preferences": dict(metadata.get("preferences") or {}),
         },
         "skeleton": skeleton_info,
-        "videos": _public_videos_payload_from_snapshot(labels_snapshot),
-        "tracks": deepcopy(labels_snapshot.get("tracks") or {}),
-        "provenance": deepcopy(labels_snapshot.get("provenance") or {"events": []}),
+        "videos": _public_videos_payload_from_state(labels_state),
+        "tracks": deepcopy(labels_state.get("tracks") or {}),
+        "provenance": deepcopy(labels_state.get("provenance") or {"events": []}),
     }
 
 
@@ -251,8 +251,8 @@ def _public_visibility_array(
     return (np.isfinite(keypoints[..., 0]) & np.isfinite(keypoints[..., 1])).astype(np.uint8)
 
 
-def _public_videos_payload_from_snapshot(snapshot_payload: dict[str, Any]) -> dict[str, Any]:
-    videos_info = deepcopy(snapshot_payload.get("videos") or {})
+def _public_videos_payload_from_state(state_payload: dict[str, Any]) -> dict[str, Any]:
+    videos_info = deepcopy(state_payload.get("videos") or {})
     shapes = np.asarray(videos_info.get("shapes", []), dtype=np.int32)
     video_count = max(
         len(videos_info.get("filenames") or []),
@@ -273,13 +273,13 @@ def _public_videos_payload_from_snapshot(snapshot_payload: dict[str, Any]) -> di
     return videos_info
 
 
-def _public_predictions_payload_from_snapshot(
-    snapshot_payload: dict[str, Any],
+def _public_predictions_payload_from_state(
+    state_payload: dict[str, Any],
     *,
     keypoint_count: int,
 ) -> dict[str, Any]:
     predictions = normalize_predictions_payload(
-        _predictions_payload_from_state_payload(snapshot_payload)
+        _predictions_payload_from_state_payload(state_payload)
     )
     metadata = dict(predictions.get("metadata") or {})
     attrs = dict(predictions.get("attrs") or {})
@@ -359,8 +359,8 @@ def _public_predictions_payload_from_snapshot(
     }
 
 
-def _public_suggestions_payload_from_snapshot(snapshot_payload: dict[str, Any]) -> dict[str, Any]:
-    suggestions = snapshot_payload.get("suggestions")
+def _public_suggestions_payload_from_state(state_payload: dict[str, Any]) -> dict[str, Any]:
+    suggestions = state_payload.get("suggestions")
     if not isinstance(suggestions, dict):
         return {
             "video_indices": np.zeros((0,), dtype=np.int32),
@@ -397,30 +397,23 @@ def _empty_runs_payload() -> dict[str, Any]:
     }
 
 
-def _public_session_payload_from_snapshot(
-    snapshot_payload: dict[str, Any],
+def _public_session_payload_from_state(
+    state_payload: dict[str, Any],
     *,
     metadata: dict[str, Any],
 ) -> dict[str, Any]:
     session_json = metadata.get("session_json")
     if isinstance(session_json, dict):
         return deepcopy(session_json)
-    session_payload = snapshot_payload.get("session")
+    session_payload = state_payload.get("session")
     return deepcopy(session_payload) if isinstance(session_payload, dict) else {}
 
 
-def _public_segmentation_payload_from_snapshot(snapshot_payload: dict[str, Any]) -> dict[str, Any]:
-    segmentation = snapshot_payload.get("segmentation")
+def _public_segmentation_payload_from_state(state_payload: dict[str, Any]) -> dict[str, Any]:
+    segmentation = state_payload.get("segmentation")
     if isinstance(segmentation, dict):
         return deepcopy(segmentation)
     return {"masks": [], "rois": [], "schema_version": ""}
-
-
-def current_project_state_path(path: str | Path) -> Path:
-    """Return the current project snapshot cache path."""
-
-    snapshot_path = current_project_snapshot_path(path)
-    return snapshot_path
 
 
 @dataclass(slots=True)
@@ -442,10 +435,10 @@ class ProjectStore:
             self.store_root / "superblock.b.json"
         ).exists()
 
-    def has_current_snapshot(self) -> bool:
+    def has_current_state(self) -> bool:
         if not self.has_durable_store():
             return False
-        return self.open().has_current_root("snapshot")
+        return self.open().has_current_root("state")
 
     def current_commit_id(self) -> str | None:
         if not self.has_durable_store():
@@ -457,36 +450,36 @@ class ProjectStore:
 
         return ProjectDurableStore.open(self.store_root)
 
-    def current_snapshot_path(self) -> Path:
+    def current_state_path(self) -> Path:
         if not self.has_durable_store():
-            raise FileNotFoundError(f"Project has no durable snapshot root: {self.store_root}")
-        return self.open().current_root_path("snapshot")
+            raise FileNotFoundError(f"Project has no durable state root: {self.store_root}")
+        return self.open().current_root_path("state")
 
-    def commit_snapshot(
+    def commit_state(
         self,
-        snapshot_path: str | Path,
+        state_path: str | Path,
         *,
         reason: str,
         created_by: dict[str, Any] | None = None,
     ) -> Path:
-        candidate = resolve_path(snapshot_path)
+        candidate = resolve_path(state_path)
         if not candidate.is_file():
-            raise FileNotFoundError(f"Staged project snapshot not found: {candidate}")
+            raise FileNotFoundError(f"Staged project state not found: {candidate}")
 
         if self.has_durable_store():
             store = self.open()
-            store.commit_new_roots({"snapshot": candidate}, reason=reason, created_by=created_by)
-            return store.current_root_path("snapshot")
+            store.commit_new_roots({"state": candidate}, reason=reason, created_by=created_by)
+            return store.current_root_path("state")
 
         from xpkg.project.durable_store import ProjectDurableStore
 
         store = ProjectDurableStore.create_from_roots(
             store_root=self.store_root,
-            initial_roots={"snapshot": candidate},
+            initial_roots={"state": candidate},
             created_by=created_by,
             reason=reason,
         )
-        return store.current_root_path("snapshot")
+        return store.current_root_path("state")
 
 
 def _project_store(path: str | Path) -> ProjectStore:
@@ -531,7 +524,7 @@ def _stage_project_parent(project_root: Path) -> Path:
     return ensure_dir(_project_store(project_root).staging_root)
 
 
-def _snapshot_metadata_from_state_payload(
+def _state_metadata_from_state_payload(
     state_payload: dict[str, Any],
 ) -> dict[str, Any] | None:
     metadata = state_payload.get("metadata")
@@ -617,11 +610,11 @@ def _prediction_instance_signatures(
     return grouped
 
 
-def _strip_prediction_instances_from_snapshot_payload(
-    snapshot_payload: dict[str, Any],
+def _strip_prediction_instances_from_state_payload(
+    state_payload: dict[str, Any],
 ) -> dict[str, Any]:
-    stripped_payload = deepcopy(snapshot_payload)
-    predictions_payload = _predictions_payload_from_state_payload(snapshot_payload)
+    stripped_payload = deepcopy(state_payload)
+    predictions_payload = _predictions_payload_from_state_payload(state_payload)
     prediction_map = _prediction_instance_signatures(predictions_payload)
     if not prediction_map:
         return stripped_payload
@@ -629,7 +622,7 @@ def _strip_prediction_instances_from_snapshot_payload(
     frames_info = stripped_payload.get("frames")
     data_info = stripped_payload.get("data")
     if not isinstance(frames_info, dict) or not isinstance(data_info, dict):
-        raise TypeError("Project snapshot labels payload must contain frames/data mappings")
+        raise TypeError("Project state labels payload must contain frames/data mappings")
 
     frame_index = np.asarray(frames_info.get("frame_index", []), dtype=np.int32)
     video_index = np.asarray(frames_info.get("video_index", []), dtype=np.int32)
@@ -672,7 +665,7 @@ def _strip_prediction_instances_from_snapshot_payload(
                     break
             if matched_idx is None:
                 raise ValueError(
-                    "Project snapshot labels/predictions are inconsistent for "
+                    "Project state labels/predictions are inconsistent for "
                     f"video_index={key[0]}, frame_index={key[1]}"
                 )
             matched_indices.add(matched_idx)
@@ -734,30 +727,30 @@ def _normalized_project_metadata(
     return normalized
 
 
-def _project_snapshot_cache_matches_committed_head(
+def _project_state_cache_matches_committed_head(
     project_root: Path,
-    snapshot_path: Path,
+    state_path: Path,
 ) -> bool:
     from xpkg.project.durable_store import ProjectDurableStore
 
     store = ProjectDurableStore.open(project_store_root(project_root))
     commit = store.load_current_commit()
-    if not commit.has_root("snapshot"):
+    if not commit.has_root("state"):
         return False
-    if project_snapshot_cache_digest_matches(snapshot_path, commit_id=commit.commit_id):
+    if project_state_cache_digest_matches(state_path, commit_id=commit.commit_id):
         return True
-    root_entry = commit.root_entry("snapshot")
-    committed_snapshot_path = store.paths.object_path(root_entry.object_id, ext=root_entry.ext)
-    if not committed_snapshot_path.exists():
+    root_entry = commit.root_entry("state")
+    committed_state_path = store.paths.object_path(root_entry.object_id, ext=root_entry.ext)
+    if not committed_state_path.exists():
         return False
-    if f"obj_{sha256_file(snapshot_path)}" == root_entry.object_id:
-        write_project_snapshot_cache_digest(snapshot_path, commit_id=commit.commit_id)
+    if f"obj_{sha256_file(state_path)}" == root_entry.object_id:
+        write_project_state_cache_digest(state_path, commit_id=commit.commit_id)
         return True
 
-    cache_document = read_project_state_document(snapshot_path)
-    committed_document = read_project_state_document(committed_snapshot_path)
+    cache_document = read_project_state_document(state_path)
+    committed_document = read_project_state_document(committed_state_path)
     if _project_state_documents_match_cache(cache_document, committed_document):
-        write_project_snapshot_cache_digest(snapshot_path, commit_id=commit.commit_id)
+        write_project_state_cache_digest(state_path, commit_id=commit.commit_id)
         return True
     return False
 
@@ -819,29 +812,29 @@ def _project_state_documents_match_cache(
     return _project_payload_matches_cache(cache_document, committed_document)
 
 
-def ensure_current_project_snapshot_cache(project_root: Path) -> Path | None:
-    """Materialize the current project snapshot cache from the committed head when needed."""
+def ensure_current_project_state_cache(project_root: Path) -> Path | None:
+    """Materialize the current project state cache from the committed head when needed."""
 
-    snapshot_path = project_current_snapshot_path(project_root)
-    if snapshot_path.exists():
+    state_path = project_current_state_path(project_root)
+    if state_path.exists():
         current_head = current_project_commit_id(project_root)
         if current_head is None:
-            return snapshot_path
-        snapshot_document = read_project_state_document(snapshot_path)
-        snapshot_head = project_state_commit_id_from_document(snapshot_document)
+            return state_path
+        state_document = read_project_state_document(state_path)
+        state_head = project_state_commit_id_from_document(state_document)
         if (
-            snapshot_head == current_head
-            and _project_snapshot_cache_matches_committed_head(
+            state_head == current_head
+            and _project_state_cache_matches_committed_head(
                 project_root,
-                snapshot_path,
+                state_path,
             )
         ):
-            return snapshot_path
+            return state_path
 
     state = _current_project_state_payload(project_root)
     if state is None:
         return None
-    return rebuild_project_snapshot_cache(project_root)
+    return rebuild_project_state_cache(project_root)
 
 
 def _current_project_state_payload(
@@ -850,12 +843,12 @@ def _current_project_state_payload(
     store = _project_store(project_root)
     if store.has_durable_store():
         mounted = store.open()
-        if mounted.has_current_root("snapshot"):
-            snapshot_path = mounted.current_root_path("snapshot")
-            snapshot_kind = project_state_kind(snapshot_path)
-            if snapshot_kind == "labels":
-                return read_project_snapshot(snapshot_path), "snapshot_labels"
-            return read_vicon_json_payload(snapshot_path), "snapshot_vicon"
+        if mounted.has_current_root("state"):
+            state_path = mounted.current_root_path("state")
+            state_kind = project_state_kind(state_path)
+            if state_kind == "labels":
+                return read_project_state(state_path), "state_labels"
+            return read_vicon_json_payload(state_path), "state_vicon"
 
     return None
 
@@ -865,13 +858,13 @@ def _project_state_components(
     *,
     source_kind: str,
 ) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
-    if source_kind in {"snapshot_labels", "snapshot_vicon"}:
-        metadata = _snapshot_metadata_from_state_payload(state_payload)
+    if source_kind in {"state_labels", "state_vicon"}:
+        metadata = _state_metadata_from_state_payload(state_payload)
     else:
         raise ValueError(f"Unsupported project state source: {source_kind!r}")
     predictions = (
         _predictions_payload_from_state_payload(state_payload)
-        if source_kind == "snapshot_labels"
+        if source_kind == "state_labels"
         else None
     )
     return metadata, predictions
@@ -886,8 +879,8 @@ def _write_project_state(
     commit_id: str | None = None,
 ) -> Path:
     _manage_labels_media(labels, project_root)
-    return write_project_snapshot(
-        project_current_snapshot_path(project_root),
+    return write_project_state(
+        project_current_state_path(project_root),
         labels=labels,
         project_root=project_root,
         metadata=metadata,
@@ -912,7 +905,7 @@ def _write_vicon_project_state(
         ),
         source_root=project_root,
     )
-    target = project_current_snapshot_path(project_root)
+    target = project_current_state_path(project_root)
     ensure_dir(target.parent)
     write_json(
         target,
@@ -923,7 +916,7 @@ def _write_vicon_project_state(
         compact=True,
     )
     if commit_id is not None:
-        write_project_snapshot_cache_digest(target, commit_id=str(commit_id))
+        write_project_state_cache_digest(target, commit_id=str(commit_id))
     return target
 
 
@@ -951,16 +944,16 @@ def _commit_labels_to_project(
         prefix=".project_commit_",
         dir=str(stage_parent),
     ) as tmp_dir:
-        staged_snapshot = Path(tmp_dir) / CURRENT_SNAPSHOT_FILENAME
-        write_project_snapshot(
-            staged_snapshot,
+        staged_state = Path(tmp_dir) / CURRENT_STATE_FILENAME
+        write_project_state(
+            staged_state,
             labels=labels,
             project_root=project_root,
             metadata=normalized_metadata,
             predictions=normalized_predictions,
         )
         store = _project_store(project_root)
-        store.commit_snapshot(staged_snapshot, reason=reason)
+        store.commit_state(staged_state, reason=reason)
         commit_id = store.current_commit_id()
 
     return _write_project_state(
@@ -972,7 +965,7 @@ def _commit_labels_to_project(
     )
 
 
-def _commit_snapshot_metadata_to_project(
+def _commit_state_metadata_to_project(
     project_root: Path,
     *,
     state_payload: dict[str, Any],
@@ -1003,16 +996,16 @@ def _commit_snapshot_metadata_to_project(
         prefix=".project_commit_",
         dir=str(stage_parent),
     ) as tmp_dir:
-        staged_snapshot = Path(tmp_dir) / CURRENT_SNAPSHOT_FILENAME
-        write_project_snapshot_payload(staged_snapshot, staged_payload)
+        staged_state = Path(tmp_dir) / CURRENT_STATE_FILENAME
+        write_project_state_payload(staged_state, staged_payload)
         store = _project_store(project_root)
-        store.commit_snapshot(staged_snapshot, reason=reason)
+        store.commit_state(staged_state, reason=reason)
         commit_id = store.current_commit_id()
 
     current_payload = deepcopy(state_payload)
     current_payload["metadata"] = normalized_metadata
-    return write_project_snapshot_payload(
-        project_current_snapshot_path(project_root),
+    return write_project_state_payload(
+        project_current_state_path(project_root),
         current_payload,
         commit_id=commit_id,
     )
@@ -1035,7 +1028,7 @@ def _commit_vicon_to_project(
         prefix=".project_commit_",
         dir=str(stage_parent),
     ) as tmp_dir:
-        staged_snapshot = Path(tmp_dir) / CURRENT_SNAPSHOT_FILENAME
+        staged_state = Path(tmp_dir) / CURRENT_STATE_FILENAME
         document = vicon_recording_to_json_payload(
             recording,
             metadata=_normalized_project_metadata(
@@ -1046,7 +1039,7 @@ def _commit_vicon_to_project(
             source_root=project_root,
         )
         write_json(
-            staged_snapshot,
+            staged_state,
             document,
             indent=None,
             sort_keys=False,
@@ -1054,7 +1047,7 @@ def _commit_vicon_to_project(
             compact=True,
         )
         store = _project_store(project_root)
-        store.commit_snapshot(staged_snapshot, reason=reason)
+        store.commit_state(staged_state, reason=reason)
         commit_id = store.current_commit_id()
 
     return _write_vicon_project_state(
@@ -1082,14 +1075,14 @@ def _import_project_from_conversion(
         dir=str(stage_parent),
     ) as tmp_dir:
         result = convert(Path(tmp_dir))
-        snapshot_path = _commit_labels_to_project(
+        state_path = _commit_labels_to_project(
             root,
             labels=result.labels,
             metadata=result.metadata,
             reason=reason,
         )
     _touch_descriptor(root)
-    return snapshot_path
+    return state_path
 
 
 def _unify_matching_skeletons(base_labels: Labels, new_labels: Labels) -> None:
@@ -1137,25 +1130,25 @@ def _merge_labels_for_import(
     return merged_labels
 
 
-def rebuild_project_snapshot_cache(project_root: Path) -> Path:
+def rebuild_project_state_cache(project_root: Path) -> Path:
     state = _current_project_state_payload(project_root)
     if state is None:
         raise FileNotFoundError(f"Project has no committed state: {project_root}")
 
     state_payload, source_kind = state
     commit_id = _project_store(project_root).current_commit_id()
-    if source_kind == "snapshot_labels":
-        return write_project_snapshot_payload(
-            project_current_snapshot_path(project_root),
+    if source_kind == "state_labels":
+        return write_project_state_payload(
+            project_current_state_path(project_root),
             state_payload,
             commit_id=commit_id,
         )
-    if source_kind == "snapshot_vicon":
+    if source_kind == "state_vicon":
         recording = vicon_recording_from_json_payload(state_payload, source_root=project_root)
         return _write_vicon_project_state(
             project_root,
             recording=recording,
-            metadata=_snapshot_metadata_from_state_payload(state_payload),
+            metadata=_state_metadata_from_state_payload(state_payload),
             commit_id=commit_id,
         )
 
@@ -1163,19 +1156,19 @@ def rebuild_project_snapshot_cache(project_root: Path) -> Path:
 
 
 def load_project_vicon_recording(project: str | Path) -> ViconRecording:
-    """Load the current Vicon recording from a project-managed state snapshot."""
+    """Load the current Vicon recording from project-managed state."""
 
     root = resolve_project_root(project)
     if root is None:
         raise FileNotFoundError(f"Not an xpkg project: {project}")
 
-    state_path = ensure_current_project_snapshot_cache(root)
+    state_path = ensure_current_project_state_cache(root)
     if state_path is None:
         raise FileNotFoundError(f"Project has no committed state: {root}")
     if state_path.suffix.lower() != ".json":
         raise ValueError(
-            "Project current state is not a Vicon JSON snapshot; "
-            "only project-native snapshots can be loaded as Vicon recordings."
+            "Project current state is not a Vicon JSON state; "
+            "only project-native state documents can be loaded as Vicon recordings."
         )
     if project_state_kind(state_path) != "vicon":
         raise ValueError(
@@ -1234,8 +1227,8 @@ def save_project_metadata(
         project_root=root,
     )
     state_payload, source_kind = current_state
-    if source_kind == "snapshot_labels":
-        state_path = _commit_snapshot_metadata_to_project(
+    if source_kind == "state_labels":
+        state_path = _commit_state_metadata_to_project(
             root,
             state_payload=state_payload,
             metadata=normalized_metadata,
@@ -1244,7 +1237,7 @@ def save_project_metadata(
         _touch_descriptor(root)
         return state_path
 
-    if source_kind == "snapshot_vicon":
+    if source_kind == "state_vicon":
         state_path = _commit_vicon_to_project(
             root,
             recording=load_project_vicon_recording(root),
@@ -1255,15 +1248,6 @@ def save_project_metadata(
         return state_path
 
     raise ValueError(f"Unsupported project state source: {source_kind!r}")
-
-
-def _is_within(path: Path, parent: Path) -> bool:
-    try:
-        path.resolve().relative_to(parent.resolve())
-        return True
-    except ValueError:
-        return False
-
 
 def _is_within_resolved(path: Path, resolved_parent: Path) -> bool:
     try:
@@ -1523,14 +1507,14 @@ def _import_vicon_project_recording(
         metadata["source_xcp"] = resolve_path(recording.xcp_path).as_posix()
     if recording.vsk_path is not None:
         metadata["source_vsk"] = resolve_path(recording.vsk_path).as_posix()
-    snapshot_path = _commit_vicon_to_project(
+    state_path = _commit_vicon_to_project(
         root,
         recording=managed_recording,
         metadata=metadata,
         reason=reason,
     )
     _touch_descriptor(root)
-    return snapshot_path
+    return state_path
 
 
 def import_vicon_csv_project(
@@ -1900,17 +1884,17 @@ def save_project_labels(
     ensure_dir(project_media_root(root))
     ensure_dir(project_exports_root(root))
 
-    snapshot_path = current_project_snapshot_path(root)
+    state_path = current_project_state_path(root)
     current_state = _current_project_state_payload(root)
-    has_snapshot_cache = snapshot_path.exists()
+    has_state_cache = state_path.exists()
     has_committed_state = current_state is not None
-    if metadata is not None and (has_snapshot_cache or has_committed_state):
+    if metadata is not None and (has_state_cache or has_committed_state):
         raise ValueError(
             "Project saves with existing history do not accept metadata overrides. "
             "Update project metadata through a dedicated metadata API."
         )
 
-    if not has_snapshot_cache and not has_committed_state:
+    if not has_state_cache and not has_committed_state:
         initial_metadata = rewrite_project_metadata_paths(
             metadata,
             project_root=root,
@@ -1935,10 +1919,10 @@ def save_project_labels(
             state_payload,
             source_kind=source_kind,
         )
-    elif has_snapshot_cache:
-        snapshot_payload = read_project_snapshot(snapshot_path)
-        state_metadata = _snapshot_metadata_from_state_payload(snapshot_payload)
-        predictions = _predictions_payload_from_state_payload(snapshot_payload)
+    elif has_state_cache:
+        state_payload = read_project_state(state_path)
+        state_metadata = _state_metadata_from_state_payload(state_payload)
+        predictions = _predictions_payload_from_state_payload(state_payload)
 
     candidate_predictions = predictions_payload_from_labels(labels)
     if regenerate_predictions:
@@ -1962,7 +1946,7 @@ def save_project_labels(
 
 
 __all__ = [
-    "CURRENT_SNAPSHOT_FILENAME",
+    "CURRENT_STATE_FILENAME",
     "EXPORTS_DIRNAME",
     "import_vicon_c3d_project",
     "import_vicon_csv_project",
@@ -1980,7 +1964,6 @@ __all__ = [
     "ProjectDescriptor",
     "STORE_DIRNAME",
     "STORE_STATE_DIRNAME",
-    "current_project_snapshot_path",
     "current_project_state_path",
     "init_project",
     "load_project_metadata",

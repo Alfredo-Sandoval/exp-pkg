@@ -168,7 +168,7 @@ video into a project.
 ### `save_project_labels(...)`
 
 Persist the current `Labels` state into a project and refresh the managed
-project state. The committed durable snapshot head remains authoritative;
+project state. The committed durable state head remains authoritative;
 `.xpkg/state/current.json` is refreshed as a rebuildable cache.
 
 ## Generic Artifact Registry

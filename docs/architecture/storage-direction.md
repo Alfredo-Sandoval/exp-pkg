@@ -11,7 +11,7 @@ write path. The editable contract is project folder + private
 !!! info
     Status: current implementation notes. Today the committed source of truth is
     the durable store head under <code>.xpkg/</code>. Normal project commits
-    store a native snapshot root, while <code>.xpkg/state/current.json</code>
+    store a native state root, while <code>.xpkg/state/current.json</code>
     remains a rebuildable cache keyed by the durable commit id.
 
 ## Current Truth
@@ -23,7 +23,7 @@ Today xpkg has three storage ideas in play:
 - `.expkg` as the portable packed artifact
 
 Normal project save and import flows do not commit archive blobs first. They
-commit a project-native snapshot into the durable store, then materialize
+commit a project-native state into the durable store, then materialize
 `.xpkg/state/current.json` as the local cache for fast reopening.
 
 ## Durable Store Contract
@@ -38,18 +38,18 @@ The durable store already had the right high-level shape:
 The missing cutover was runtime behavior. The store now uses that generic
 `roots` capability for normal project heads:
 
-- project-native commits store `roots["snapshot"]`
+- project-native commits store `roots["state"]`
 - commit roots now hydrate through typed `RootEntry` values instead of raw
   root dictionaries
 - the embedded `xpkg_commit_id` in `.xpkg/state/current.json` must match the
-  durable head before the snapshot cache is trusted
+  durable head before the state cache is trusted
 
 That means the durable head stays authoritative while the cache stays cheap to
 rebuild.
 
 Project load/pack/validate flows now also reject a tampered
 `.xpkg/state/current.json` cache even when its embedded `xpkg_commit_id`
-matches the head. If the cache diverges from the committed snapshot payload,
+matches the head. If the cache diverges from the committed state payload,
 xpkg rebuilds it from the durable store before continuing.
 
 ## Public Cutover Status
@@ -66,7 +66,7 @@ The public cleanup now matches that storage model:
 
 The legacy single-file HDF5 archive engine has been removed from the active IO
 surface. Project importers now build project-native labels and metadata
-directly, then commit snapshot roots into the private durable store.
+directly, then commit state roots into the private durable store.
 
 Vendor HDF5 readers remain where the source format itself is HDF5, such as DLC
 H5, SLEAP analysis H5, Doric containers, and Teleopto H5 exports. Those are
@@ -79,7 +79,7 @@ project artifacts.
 
 That means:
 
-- route new project features through project-native snapshot state
+- route new project features through project-native state
 - keep `.xpkg/` as a private directory, not a single-file project format
 - keep the public storage story centered on project + `.xpkg/` + `.expkg`
 - keep vendor HDF5 support scoped to input readers

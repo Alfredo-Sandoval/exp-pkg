@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, overload
 
-from xpkg.project.figures import (
+from xpkg.project.artifacts import (
     FigureArtifact,
     FigureOutputSpec,
     list_project_figures,

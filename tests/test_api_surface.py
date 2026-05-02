@@ -42,7 +42,6 @@ def test_xpkg_api_exposes_project_first_contract() -> None:
         "build_force_plate_data_from_vicon_recording",
         "build_prediction_stub",
         "candidate_vicon_emg_channels",
-        "current_project_snapshot_path",
         "current_project_state_path",
         "default_expkg_path",
         "extract_vicon_emg",

@@ -47,28 +47,28 @@ def test_store_roundtrip_preserves_payload_root_suffix(tmp_path: Path) -> None:
     assert reopened.current_root_path("payload").read_bytes() == b"second"
 
 
-def test_store_roundtrip_preserves_snapshot_root_suffix(tmp_path: Path) -> None:
-    initial_snapshot = tmp_path / "initial.json"
-    initial_snapshot.write_text('{"version": 1}', encoding="utf-8")
+def test_store_roundtrip_preserves_state_root_suffix(tmp_path: Path) -> None:
+    initial_state = tmp_path / "initial.json"
+    initial_state.write_text('{"version": 1}', encoding="utf-8")
 
     store = ProjectDurableStore.create_from_roots(
         tmp_path / "project.xpkg",
-        {"snapshot": initial_snapshot},
+        {"state": initial_state},
     )
-    current_entry = store.current_root_entry("snapshot")
-    current = store.current_root_path("snapshot")
+    current_entry = store.current_root_entry("state")
+    current = store.current_root_path("state")
     assert current_entry.ext == ".json"
     assert current_entry.object_id.startswith("obj_")
     assert current.suffix == ".json"
     assert current.read_text(encoding="utf-8") == '{"version": 1}'
 
-    updated_snapshot = tmp_path / "updated.json"
-    updated_snapshot.write_text('{"version": 2}', encoding="utf-8")
-    commit_id = store.commit_new_roots({"snapshot": updated_snapshot}, reason="update")
+    updated_state = tmp_path / "updated.json"
+    updated_state.write_text('{"version": 2}', encoding="utf-8")
+    commit_id = store.commit_new_roots({"state": updated_state}, reason="update")
     assert commit_id.startswith("c_")
 
     reopened = ProjectDurableStore.open(tmp_path / "project.xpkg")
-    assert reopened.has_current_root("snapshot")
+    assert reopened.has_current_root("state")
     assert not reopened.has_current_root("archive")
-    assert reopened.current_root_path("snapshot").suffix == ".json"
-    assert reopened.current_root_path("snapshot").read_text(encoding="utf-8") == '{"version": 2}'
+    assert reopened.current_root_path("state").suffix == ".json"
+    assert reopened.current_root_path("state").read_text(encoding="utf-8") == '{"version": 2}'

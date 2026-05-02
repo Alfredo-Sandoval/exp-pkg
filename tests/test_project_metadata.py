@@ -6,14 +6,14 @@ import cv2
 import numpy as np
 
 from xpkg.project import (
-    current_project_snapshot_path,
+    current_project_state_path,
     init_project,
     load_project_metadata,
     load_project_payload,
     save_project_labels,
     save_project_metadata,
 )
-from xpkg.project.snapshot_backend import read_project_snapshot_payload
+from xpkg.project.state_io import read_project_state_payload
 
 
 def _make_labels(tmp_path: Path):
@@ -64,7 +64,7 @@ def test_project_metadata_roundtrips_on_project_head(tmp_path: Path) -> None:
 
     state_path = save_project_metadata(project, metadata)
 
-    assert state_path == current_project_snapshot_path(project)
+    assert state_path == current_project_state_path(project)
     loaded_metadata = load_project_metadata(project)
     assert loaded_metadata is not None
     assert loaded_metadata["session_json"] == metadata["session_json"]
@@ -72,10 +72,10 @@ def test_project_metadata_roundtrips_on_project_head(tmp_path: Path) -> None:
     assert loaded_metadata["manifest_json"] == metadata["manifest_json"]
     assert loaded_metadata["preferences"] == {}
 
-    snapshot_payload = read_project_snapshot_payload(state_path)
-    assert snapshot_payload["metadata"]["session_json"] == metadata["session_json"]
-    assert snapshot_payload["metadata"]["training_state_json"] == metadata["training_state_json"]
-    assert snapshot_payload["metadata"]["manifest_json"] == metadata["manifest_json"]
+    state_payload = read_project_state_payload(state_path)
+    assert state_payload["metadata"]["session_json"] == metadata["session_json"]
+    assert state_payload["metadata"]["training_state_json"] == metadata["training_state_json"]
+    assert state_payload["metadata"]["manifest_json"] == metadata["manifest_json"]
 
 
 def test_project_metadata_load_returns_empty_before_first_commit(tmp_path: Path) -> None:

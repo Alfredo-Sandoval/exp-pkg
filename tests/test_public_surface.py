@@ -90,7 +90,6 @@ from xpkg.project import (
     SegmentationFrame,
     artifact_kind_dir,
     clear_project_segmentation_masks,
-    current_project_snapshot_path,
     current_project_state_path,
     default_expkg_path,
     import_dlc_csv_project,
@@ -235,7 +234,6 @@ def test_public_exports_are_callable() -> None:
     assert SegmentationFrame is not None
     assert ProjectInspection is not None
     assert callable(clear_project_segmentation_masks)
-    assert callable(current_project_snapshot_path)
     assert callable(current_project_state_path)
     assert callable(default_expkg_path)
     assert callable(import_vicon_c3d_project)

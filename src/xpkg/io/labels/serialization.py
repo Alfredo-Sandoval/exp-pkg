@@ -1,4 +1,4 @@
-"""Serialization helpers for `Labels` JSON snapshots and projects."""
+"""Serialization helpers for `Labels` JSON state documents and projects."""
 
 from __future__ import annotations
 
@@ -917,34 +917,34 @@ def labels_load_file(
     if path.suffix.lower() == ".expkg":
         raise ValueError("Packed .expkg artifacts must be unpacked before loading labels")
 
-    from xpkg.project.layout import project_current_snapshot_path, resolve_project_root
-    from xpkg.project.snapshot_backend import read_project_snapshot, snapshot_commit_id
+    from xpkg.project.layout import project_current_state_path, resolve_project_root
+    from xpkg.project.state_io import read_project_state, state_commit_id
     from xpkg.project.store import (
-        _project_snapshot_cache_matches_committed_head,
+        _project_state_cache_matches_committed_head,
         current_project_commit_id,
         rebase_project_payload_videos,
-        rebuild_project_snapshot_cache,
+        rebuild_project_state_cache,
     )
 
     project_root = resolve_project_root(path)
     if project_root is not None:
-        snapshot_path = project_current_snapshot_path(project_root)
-        if snapshot_path.exists():
-            snapshot_payload = read_project_snapshot(snapshot_path)
-            snapshot_head = snapshot_commit_id(snapshot_payload)
+        state_path = project_current_state_path(project_root)
+        if state_path.exists():
+            state_payload = read_project_state(state_path)
+            state_head = state_commit_id(state_payload)
             current_head = current_project_commit_id(project_root)
-            if current_head is not None and snapshot_head == current_head:
-                if not _project_snapshot_cache_matches_committed_head(
+            if current_head is not None and state_head == current_head:
+                if not _project_state_cache_matches_committed_head(
                     project_root,
-                    snapshot_path,
+                    state_path,
                 ):
-                    rebuilt_snapshot_path = rebuild_project_snapshot_cache(project_root)
-                    snapshot_payload = read_project_snapshot(rebuilt_snapshot_path)
-                rebase_project_payload_videos(snapshot_payload, project_root)
+                    rebuilt_state_path = rebuild_project_state_cache(project_root)
+                    state_payload = read_project_state(rebuilt_state_path)
+                rebase_project_payload_videos(state_payload, project_root)
                 obj = labels_from_payload(
                     cls,
-                    snapshot_payload,
-                    suggestions_payload=snapshot_payload.get("suggestions"),
+                    state_payload,
+                    suggestions_payload=state_payload.get("suggestions"),
                     video_builder=video_builder,
                     video_finalizer=video_finalizer,
                 )
@@ -953,13 +953,13 @@ def labels_load_file(
                 return obj
 
         try:
-            rebuilt_snapshot_path = rebuild_project_snapshot_cache(project_root)
+            rebuilt_state_path = rebuild_project_state_cache(project_root)
         except FileNotFoundError:
             obj = cls()
             obj.path = project_root
             return obj
 
-        rebuilt_payload = read_project_snapshot(rebuilt_snapshot_path)
+        rebuilt_payload = read_project_state(rebuilt_state_path)
         rebase_project_payload_videos(rebuilt_payload, project_root)
         obj = labels_from_payload(
             cls,

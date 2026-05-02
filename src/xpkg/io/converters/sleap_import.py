@@ -7,7 +7,6 @@ import shutil
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-import numpy as np
 import pandas as pd
 
 from xpkg._core.json_utils import parse_json_dict
@@ -177,29 +176,6 @@ def _labels_from_step4_table(
         labels.skeletons = [skeleton]
     labels.update_cache()
     return labels
-
-
-def _sleap_h5_points_for_frame(
-    coords: np.ndarray,
-    scores: np.ndarray,
-    node_names: list[str],
-    *,
-    likelihood_threshold: float,
-) -> dict[str | Keypoint, Any]:
-    from xpkg.pose.annotations import Point
-
-    points: dict[str | Keypoint, Any] = {}
-    for node_idx, node_name in enumerate(node_names):
-        x_val = float(coords[node_idx, 0])
-        y_val = float(coords[node_idx, 1])
-        score_val = float(scores[node_idx])
-        if np.isnan(x_val) or np.isnan(y_val) or np.isnan(score_val):
-            continue
-        if score_val < likelihood_threshold:
-            continue
-        points[node_name] = Point(x_val, y_val, visible=True, complete=True)
-    return points
-
 
 def _validate_sleap_tracks_consistency(
     tracks: list[Any],

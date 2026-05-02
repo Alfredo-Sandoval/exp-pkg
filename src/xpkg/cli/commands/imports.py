@@ -74,9 +74,9 @@ def _emit_import_result(payload: dict[str, Any], label: str) -> None:
 
 @dlc_app.command("csv")
 def import_dlc_csv(
-    csv: Annotated[str, typer.Option("--csv", help="Path to a DLC CSV tracking file.")] = ...,
-    video: Annotated[str, typer.Option("--video", help="Path to the matching video file.")] = ...,
-    out: Annotated[str, typer.Option("--out", help="Output project directory.")] = ...,
+    csv: Annotated[str, typer.Option("--csv", help="Path to a DLC CSV tracking file.")],
+    video: Annotated[str, typer.Option("--video", help="Path to the matching video file.")],
+    out: Annotated[str, typer.Option("--out", help="Output project directory.")],
     skeleton_name: Annotated[
         str,
         typer.Option("--skeleton-name", help="Skeleton name to store in the project."),
@@ -112,9 +112,9 @@ def import_dlc_csv(
 
 @dlc_app.command("h5")
 def import_dlc_h5(
-    h5: Annotated[str, typer.Option("--h5", help="Path to a DLC H5 tracking file.")] = ...,
-    video: Annotated[str, typer.Option("--video", help="Path to the matching video file.")] = ...,
-    out: Annotated[str, typer.Option("--out", help="Output project directory.")] = ...,
+    h5: Annotated[str, typer.Option("--h5", help="Path to a DLC H5 tracking file.")],
+    video: Annotated[str, typer.Option("--video", help="Path to the matching video file.")],
+    out: Annotated[str, typer.Option("--out", help="Output project directory.")],
     skeleton_name: Annotated[
         str,
         typer.Option("--skeleton-name", help="Skeleton name to store in the project."),
@@ -150,8 +150,8 @@ def import_dlc_h5(
 
 @dlc_app.command("project")
 def import_dlc_project(
-    project: Annotated[str, typer.Option("--project", help="Path to the DLC project root.")] = ...,
-    out: Annotated[str, typer.Option("--out", help="Output project directory.")] = ...,
+    project: Annotated[str, typer.Option("--project", help="Path to the DLC project root.")],
+    out: Annotated[str, typer.Option("--out", help="Output project directory.")],
     threshold: Annotated[
         float,
         typer.Option("--threshold", callback=require_likelihood_threshold),
@@ -183,9 +183,9 @@ def import_lightning_pose(
     csv: Annotated[
         str,
         typer.Option("--csv", help="Path to a Lightning Pose prediction CSV."),
-    ] = ...,
-    video: Annotated[str, typer.Option("--video", help="Path to the matching video file.")] = ...,
-    out: Annotated[str, typer.Option("--out", help="Output project directory.")] = ...,
+    ],
+    video: Annotated[str, typer.Option("--video", help="Path to the matching video file.")],
+    out: Annotated[str, typer.Option("--out", help="Output project directory.")],
     skeleton_name: Annotated[
         str,
         typer.Option("--skeleton-name", help="Skeleton name to store in the project."),
@@ -224,9 +224,9 @@ def import_mediapipe(
     json_path: Annotated[
         str,
         typer.Option("--input-json", help="Path to MediaPipe pose-landmarks JSON."),
-    ] = ...,
-    video: Annotated[str, typer.Option("--video", help="Path to the matching video file.")] = ...,
-    out: Annotated[str, typer.Option("--out", help="Output project directory.")] = ...,
+    ],
+    video: Annotated[str, typer.Option("--video", help="Path to the matching video file.")],
+    out: Annotated[str, typer.Option("--out", help="Output project directory.")],
     skeleton_name: Annotated[
         str,
         typer.Option("--skeleton-name", help="Skeleton name to store in the project."),
@@ -265,9 +265,9 @@ def import_mmpose(
     json_path: Annotated[
         str,
         typer.Option("--input-json", help="Path to an MMPose JSON export."),
-    ] = ...,
-    video: Annotated[str, typer.Option("--video", help="Path to the matching video file.")] = ...,
-    out: Annotated[str, typer.Option("--out", help="Output project directory.")] = ...,
+    ],
+    video: Annotated[str, typer.Option("--video", help="Path to the matching video file.")],
+    out: Annotated[str, typer.Option("--out", help="Output project directory.")],
     skeleton_name: Annotated[
         str,
         typer.Option("--skeleton-name", help="Skeleton name to store in the project."),
@@ -308,15 +308,15 @@ def import_mmpose(
 
 @sleap_app.command("h5")
 def import_sleap_h5(
-    out: Annotated[str, typer.Option("--out", help="Output project directory.")] = ...,
+    out: Annotated[str, typer.Option("--out", help="Output project directory.")],
     h5: Annotated[
         str,
         typer.Option("--h5", help="Path to the SLEAP analysis H5 export."),
-    ] = ...,
+    ],
     video: Annotated[
         str,
         typer.Option("--video", help="Path to the matching video file."),
-    ] = ...,
+    ],
     skeleton_name: Annotated[
         str,
         typer.Option("--skeleton-name", help="Skeleton name to store in the project."),
@@ -352,11 +352,11 @@ def import_sleap_h5(
 
 @sleap_app.command("package")
 def import_sleap_package(
-    out: Annotated[str, typer.Option("--out", help="Output project directory.")] = ...,
+    out: Annotated[str, typer.Option("--out", help="Output project directory.")],
     slp: Annotated[
         str,
         typer.Option("--slp", help="Path to the input .pkg.slp archive."),
-    ] = ...,
+    ],
     fps: Annotated[int, typer.Option("--fps", callback=require_positive_int)] = 30,
     encode_videos: Annotated[
         bool,
@@ -387,11 +387,11 @@ def import_sleap_package(
 
 @vicon_app.command("c3d")
 def import_vicon_c3d(
-    out: Annotated[str, typer.Option("--out", help="Output project directory.")] = ...,
+    out: Annotated[str, typer.Option("--out", help="Output project directory.")],
     c3d: Annotated[
         str,
         typer.Option("--c3d", help="Path to a Vicon C3D recording."),
-    ] = ...,
+    ],
     json_output: JsonOption = False,
 ) -> None:
     """Import a Vicon C3D recording into a project."""
@@ -415,11 +415,11 @@ def import_vicon_c3d(
 
 @vicon_app.command("csv")
 def import_vicon_csv(
-    out: Annotated[str, typer.Option("--out", help="Output project directory.")] = ...,
+    out: Annotated[str, typer.Option("--out", help="Output project directory.")],
     csv: Annotated[
         str,
         typer.Option("--csv", help="Path to a Vicon Nexus CSV export."),
-    ] = ...,
+    ],
     json_output: JsonOption = False,
 ) -> None:
     """Import a Vicon Nexus CSV recording into a project."""
@@ -443,11 +443,11 @@ def import_vicon_csv(
 
 @vicon_app.command("recording")
 def import_vicon_recording(
-    out: Annotated[str, typer.Option("--out", help="Output project directory.")] = ...,
+    out: Annotated[str, typer.Option("--out", help="Output project directory.")],
     recording: Annotated[
         str,
         typer.Option("--recording", help="Path to a Vicon recording (.csv or .c3d)."),
-    ] = ...,
+    ],
     json_output: JsonOption = False,
 ) -> None:
     """Import an auto-detected Vicon recording into a project."""

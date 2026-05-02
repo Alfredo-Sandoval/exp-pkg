@@ -102,9 +102,9 @@ def test_import_mediapipe_pose_landmarks_json_project_imports_sequence_into_proj
     tmp_path: Path,
 ) -> None:
     from xpkg.model import Labels
-    from xpkg.project.snapshot_backend import read_project_snapshot_payload
+    from xpkg.project.state_io import read_project_state_payload
     from xpkg.project.store import (
-        current_project_snapshot_path,
+        current_project_state_path,
         import_mediapipe_pose_landmarks_json_project,
     )
 
@@ -118,14 +118,14 @@ def test_import_mediapipe_pose_landmarks_json_project_imports_sequence_into_proj
     _write_dummy_video(video_path, frame_count=2)
     project = tmp_path / "Imported MediaPipe Project"
 
-    snapshot_path = import_mediapipe_pose_landmarks_json_project(
+    state_path = import_mediapipe_pose_landmarks_json_project(
         json_path,
         video_path,
         project,
     )
 
-    assert snapshot_path == current_project_snapshot_path(project)
-    payload = read_project_snapshot_payload(snapshot_path)
+    assert state_path == current_project_state_path(project)
+    payload = read_project_state_payload(state_path)
     assert payload["metadata"]["source"] == "mediapipe_pose_landmarks_json_import"
     assert payload["metadata"]["source_json"] == json_path.as_posix()
 

@@ -223,7 +223,7 @@ The locked command surface is documented in `docs/cli_command_spec_v1.md`.
 
 ## Media Policy
 
-`.expkg` is the only packed project artifact. There is no separate snapshot
+`.expkg` is the only packed project artifact. There is no separate state
 artifact type and no alternate file extension.
 
 Rules:
