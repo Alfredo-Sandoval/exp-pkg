@@ -9,10 +9,10 @@ new code can stay on the same service path end to end.
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any
 
 from xpkg.io.project_workspace import ensure_current_workspace_snapshot_cache
 from xpkg.io.workspace_state import workspace_state_kind
@@ -38,6 +38,7 @@ from xpkg.workspace.project import (
     inspect_workspace,
     load_project_descriptor,
     load_workspace_metadata,
+    load_workspace_metadata_field,
     load_workspace_payload,
     load_workspace_vicon_recording,
     pack_project,
@@ -45,6 +46,7 @@ from xpkg.workspace.project import (
     resolve_workspace_root,
     save_workspace_labels,
     save_workspace_metadata,
+    save_workspace_metadata_field,
     unpack_project,
     validate_workspace,
     workspace_artifacts_root,
@@ -56,9 +58,6 @@ from xpkg.workspace.project import (
 
 if TYPE_CHECKING:
     from xpkg.model import Labels, ViconRecording
-
-PackMode = Literal["portable", "snapshot"]
-PackMediaPolicy = Literal["include", "manifest", "exclude"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -74,7 +73,6 @@ class WorkspaceImports:
         self,
         recording_path: str | Path,
         *,
-        default_pack_mode: PackMode = "portable",
         force: bool = False,
         progress_callback: Any | None = None,
     ) -> Path:
@@ -82,7 +80,6 @@ class WorkspaceImports:
         return self._import(
             import_vicon_workspace,
             recording_path,
-            default_pack_mode=default_pack_mode,
             force=force,
             progress_callback=progress_callback,
         )
@@ -91,7 +88,6 @@ class WorkspaceImports:
         self,
         csv_path: str | Path,
         *,
-        default_pack_mode: PackMode = "portable",
         force: bool = False,
         progress_callback: Any | None = None,
     ) -> Path:
@@ -99,7 +95,6 @@ class WorkspaceImports:
         return self._import(
             import_vicon_csv_workspace,
             csv_path,
-            default_pack_mode=default_pack_mode,
             force=force,
             progress_callback=progress_callback,
         )
@@ -108,7 +103,6 @@ class WorkspaceImports:
         self,
         c3d_path: str | Path,
         *,
-        default_pack_mode: PackMode = "portable",
         force: bool = False,
         progress_callback: Any | None = None,
     ) -> Path:
@@ -116,7 +110,6 @@ class WorkspaceImports:
         return self._import(
             import_vicon_c3d_workspace,
             c3d_path,
-            default_pack_mode=default_pack_mode,
             force=force,
             progress_callback=progress_callback,
         )
@@ -128,7 +121,6 @@ class WorkspaceImports:
         *,
         skeleton_name: str = "imported",
         likelihood_threshold: float = 0.0,
-        default_pack_mode: PackMode = "portable",
         force: bool = False,
         progress_callback: Any | None = None,
     ) -> Path:
@@ -139,7 +131,6 @@ class WorkspaceImports:
             video_path,
             skeleton_name=skeleton_name,
             likelihood_threshold=likelihood_threshold,
-            default_pack_mode=default_pack_mode,
             force=force,
             progress_callback=progress_callback,
         )
@@ -151,7 +142,6 @@ class WorkspaceImports:
         *,
         skeleton_name: str = "imported",
         likelihood_threshold: float = 0.0,
-        default_pack_mode: PackMode = "portable",
         force: bool = False,
         progress_callback: Any | None = None,
     ) -> Path:
@@ -162,7 +152,6 @@ class WorkspaceImports:
             video_path,
             skeleton_name=skeleton_name,
             likelihood_threshold=likelihood_threshold,
-            default_pack_mode=default_pack_mode,
             force=force,
             progress_callback=progress_callback,
         )
@@ -173,7 +162,6 @@ class WorkspaceImports:
         *,
         skeleton_name: str | None = None,
         likelihood_threshold: float = 0.0,
-        default_pack_mode: PackMode = "portable",
         force: bool = False,
         progress_callback: Any | None = None,
     ) -> Path:
@@ -183,7 +171,6 @@ class WorkspaceImports:
             project_dir,
             skeleton_name=skeleton_name,
             likelihood_threshold=likelihood_threshold,
-            default_pack_mode=default_pack_mode,
             force=force,
             progress_callback=progress_callback,
         )
@@ -195,7 +182,6 @@ class WorkspaceImports:
         *,
         skeleton_name: str = "imported",
         likelihood_threshold: float = 0.0,
-        default_pack_mode: PackMode = "portable",
         force: bool = False,
         progress_callback: Any | None = None,
     ) -> Path:
@@ -206,7 +192,6 @@ class WorkspaceImports:
             video_path,
             skeleton_name=skeleton_name,
             likelihood_threshold=likelihood_threshold,
-            default_pack_mode=default_pack_mode,
             force=force,
             progress_callback=progress_callback,
         )
@@ -218,7 +203,6 @@ class WorkspaceImports:
         *,
         skeleton_name: str = "imported",
         likelihood_threshold: float = 0.0,
-        default_pack_mode: PackMode = "portable",
         force: bool = False,
         progress_callback: Any | None = None,
     ) -> Path:
@@ -229,7 +213,6 @@ class WorkspaceImports:
             video_path,
             skeleton_name=skeleton_name,
             likelihood_threshold=likelihood_threshold,
-            default_pack_mode=default_pack_mode,
             force=force,
             progress_callback=progress_callback,
         )
@@ -240,7 +223,6 @@ class WorkspaceImports:
         *,
         fps: int = 30,
         encode_videos: bool | None = None,
-        default_pack_mode: PackMode = "portable",
         force: bool = False,
         progress_callback: Any | None = None,
     ) -> Path:
@@ -250,7 +232,6 @@ class WorkspaceImports:
             slp,
             fps=int(fps),
             encode_videos=encode_videos,
-            default_pack_mode=default_pack_mode,
             force=force,
             progress_callback=progress_callback,
         )
@@ -263,7 +244,6 @@ class WorkspaceImports:
         skeleton_name: str = "imported",
         instance_index: int = 0,
         likelihood_threshold: float = 0.0,
-        default_pack_mode: PackMode = "portable",
         force: bool = False,
         progress_callback: Any | None = None,
     ) -> Path:
@@ -275,7 +255,6 @@ class WorkspaceImports:
             skeleton_name=skeleton_name,
             instance_index=int(instance_index),
             likelihood_threshold=likelihood_threshold,
-            default_pack_mode=default_pack_mode,
             force=force,
             progress_callback=progress_callback,
         )
@@ -287,7 +266,6 @@ class WorkspaceImports:
         *,
         skeleton_name: str = "mediapipe_pose",
         likelihood_threshold: float = 0.0,
-        default_pack_mode: PackMode = "portable",
         force: bool = False,
         progress_callback: Any | None = None,
     ) -> Path:
@@ -298,7 +276,6 @@ class WorkspaceImports:
             video_path,
             skeleton_name=skeleton_name,
             likelihood_threshold=likelihood_threshold,
-            default_pack_mode=default_pack_mode,
             force=force,
             progress_callback=progress_callback,
         )
@@ -333,7 +310,6 @@ class WorkspaceService:
         *,
         title: str | None = None,
         project_id: str | None = None,
-        default_pack_mode: PackMode = "portable",
         force: bool = False,
     ) -> WorkspaceService:
         """Create a workspace with the canonical public layout and open it."""
@@ -341,7 +317,6 @@ class WorkspaceService:
             workspace,
             title=title,
             project_id=project_id,
-            default_pack_mode=default_pack_mode,
             force=force,
         )
         return cls.open(workspace)
@@ -445,6 +420,10 @@ class WorkspaceService:
         """Load the current workspace metadata payload."""
         return load_workspace_metadata(self.workspace_root)
 
+    def load_metadata_field(self, field: str) -> dict[str, Any] | None:
+        """Load one mapping-valued metadata field from the current workspace head."""
+        return load_workspace_metadata_field(self.workspace_root, field)
+
     def load_payload(self) -> dict[str, Any]:
         """Load the current workspace payload with workspace-relative media rebased."""
         return load_workspace_payload(self.workspace_root)
@@ -459,6 +438,21 @@ class WorkspaceService:
         return save_workspace_metadata(
             self.workspace_root,
             metadata,
+            reason=reason,
+        )
+
+    def save_metadata_field(
+        self,
+        field: str,
+        value: Mapping[str, Any],
+        *,
+        reason: str = "workspace.save.metadata_field",
+    ) -> Path:
+        """Persist one mapping-valued metadata field onto the current workspace head."""
+        return save_workspace_metadata_field(
+            self.workspace_root,
+            field,
+            value,
             reason=reason,
         )
 
@@ -483,16 +477,14 @@ class WorkspaceService:
         self,
         *,
         out: str | Path | None = None,
-        mode: PackMode | None = None,
-        media_policy: PackMediaPolicy | None = None,
+        media: str | None = None,
         overwrite: bool = False,
     ) -> Path:
         """Pack the workspace into a portable `.expkg` artifact."""
         return pack_project(
             self.workspace_root,
             out=out,
-            mode=mode,
-            media_policy=media_policy,
+            media=media,
             overwrite=overwrite,
         )
 

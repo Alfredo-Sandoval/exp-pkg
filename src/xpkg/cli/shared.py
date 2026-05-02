@@ -21,19 +21,12 @@ JsonOption = Annotated[
 ]
 
 
-class PackMode(StrEnum):
-    """Supported workspace pack modes."""
+class PackMedia(StrEnum):
+    """CLI values for packed project media scope."""
 
-    portable = "portable"
-    snapshot = "snapshot"
-
-
-class MediaPolicy(StrEnum):
-    """Supported packed artifact media policies."""
-
-    include = "include"
+    full = "full"
+    package = "package"
     manifest = "manifest"
-    exclude = "exclude"
 
 
 def write_json(payload: object, *, stderr: bool = False) -> None:

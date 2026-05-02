@@ -51,6 +51,10 @@ This is the canonical downstream path:
 - reopen with <code>WorkspaceService.open(...)</code> or
   <code>WorkspaceService.unpack(...)</code> as needed
 
+`workspace.pack()` defaults to `media="full"`. Pass `media="package"` to store
+package-sized media while manifesting video containers, or `media="manifest"`
+to record managed media without storing media bytes.
+
 ## Lifecycle Surface
 
 `WorkspaceService` keeps the normal workspace-first project lifecycle on one
@@ -62,7 +66,11 @@ object:
 - `workspace.describe()`
 - `workspace.validate()`
 - `workspace.load_labels()`
+- `workspace.load_metadata()`
+- `workspace.load_metadata_field(...)`
 - `workspace.save_labels(...)`
+- `workspace.save_metadata(...)`
+- `workspace.save_metadata_field(...)`
 - `workspace.artifacts.register(...)`
 - `workspace.artifacts.load(...)`
 - `workspace.artifacts.list(...)`
@@ -78,6 +86,22 @@ object:
 
 `workspace.validate()` returns a `WorkspaceLayout` with the normalized managed
 paths and descriptor for the workspace.
+
+For mapping-valued metadata blobs that callers update independently, prefer the
+service-bound field helpers instead of rewriting the whole metadata payload:
+
+```python
+from xpkg.services import WorkspaceService
+
+workspace = WorkspaceService.open("./My Project")
+
+workspace.save_metadata_field(
+    "session_json",
+    {"active_frame_idx": 7},
+    reason="app.save.session_state",
+)
+session_state = workspace.load_metadata_field("session_json")
+```
 
 ## Service-Bound Import Surface
 

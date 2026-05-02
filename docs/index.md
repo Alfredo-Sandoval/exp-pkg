@@ -130,7 +130,7 @@ single converter output.
   shared timing/events/signals layer.
 - Read [Storage Direction](architecture/storage-direction.md) for the current
   rationale around `.xpkg/` and `.expkg`.
-- Read [Experimental Durable Store](architecture/experimental-store.md) for the commit-oriented recovery workflow.
+- Read [Workspace Durability](architecture/experimental-store.md) for the commit-oriented recovery workflow.
 - Read [Model](api/model.md) for the pose object graph.
 - Read [Adapters](api/adapters.md) for in-memory JSON / dataframe / numpy
   conversions.

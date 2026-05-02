@@ -51,7 +51,6 @@ from xpkg.io.project_figures import (
     workspace_figure_root,
     workspace_figures_root,
 )
-from xpkg.io.project_inspection import WorkspaceInspection, inspect_workspace
 from xpkg.io.project_layout import (
     ARTIFACTS_DIRNAME,
     EXPKG_SUFFIX,
@@ -69,7 +68,6 @@ from xpkg.io.project_layout import (
     workspace_store_root,
     write_project_descriptor,
 )
-from xpkg.io.project_metadata import load_workspace_metadata_field, save_workspace_metadata_field
 from xpkg.io.project_segmentation import (
     SegmentationFrame,
     clear_workspace_segmentation_masks,
@@ -97,6 +95,11 @@ from xpkg.io.project_workspace import (
     load_workspace_vicon_recording,
     save_workspace_labels,
     save_workspace_metadata,
+)
+from xpkg.workspace.inspection import WorkspaceInspection, inspect_workspace
+from xpkg.workspace.metadata import (
+    load_workspace_metadata_field,
+    save_workspace_metadata_field,
 )
 
 __all__ = [

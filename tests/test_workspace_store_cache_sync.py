@@ -6,8 +6,8 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-from xpkg.io.archive_store import ArchiveStore
 from xpkg.io.project_workspace import current_project_commit_id
+from xpkg.io.workspace_durable_store import WorkspaceDurableStore
 from xpkg.io.workspace_snapshot_backend import (
     snapshot_commit_id,
     workspace_snapshot_cache_digest_matches,
@@ -61,7 +61,7 @@ def test_save_workspace_labels_creates_durable_head_and_snapshot_commit_id(tmp_p
 
     commit_id = current_project_commit_id(workspace)
     assert commit_id is not None
-    store = ArchiveStore.open(workspace / ".xpkg")
+    store = WorkspaceDurableStore.open(workspace / ".xpkg")
     assert store.has_current_root("snapshot")
     assert not store.has_current_root("archive")
 

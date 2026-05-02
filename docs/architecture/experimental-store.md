@@ -1,11 +1,12 @@
-# Experimental Durable Store
+# Workspace Durability
 
 <div class="page-intro">
 <p>
-xpkg now has an <strong>experimental</strong> durable store layer for crash-safe,
-commit-oriented project state. In the locked v1 artifact contract this belongs
-under the workspace-owned <code>.xpkg/</code> directory. Normal workspace
-commits now store workspace-native snapshot roots in that private store.
+xpkg now has an <strong>experimental</strong> workspace durability layer for
+crash-safe, commit-oriented project state. In the locked v1 artifact contract
+this belongs under the workspace-owned <code>.xpkg/</code> directory. Normal
+workspace commits now store workspace-native snapshot roots in that private
+store.
 </p>
 </div>
 
@@ -14,13 +15,14 @@ If you want the broader rationale for the storage cutover, read
 
 !!! warning
 This workflow is experimental private machinery. The public v1 artifact
-contract is workspace folder + <code>.expkg</code>. Use the durable store
+contract is workspace folder + <code>.expkg</code>. Use the durability layer
 when you want stronger recovery semantics inside <code>.xpkg/</code>, not
 as a public interchange layer.
 
 !!! info
 Status: current private prototype. The committed source of truth is the
-durable store head; <code>.xpkg/state/current.json</code> is only a cache.
+workspace durability head; <code>.xpkg/state/current.json</code> is only a
+cache.
 
 ## What Changed
 
@@ -49,8 +51,6 @@ My Project/.xpkg/
     000000000001/commit.json
   objects/
     ab/cd/obj_<sha256>.json
-  workspace/
-    tmp-<txn>
   state/
     current.json
 ```
@@ -61,7 +61,7 @@ version.
 
 ## Why You Would Use It
 
-Use the durable store when you want commit-style persistence around autosave or
+Use the durability layer when you want commit-style persistence around autosave or
 interactive editing boundaries:
 
 - each committed root payload is immutable
@@ -74,7 +74,7 @@ dies mid-save.
 
 ## Recommended Experimental Workflow
 
-Normal project-facing code should not call the store directly. Use the
+Normal project-facing code should not call the durability layer directly. Use the
 workspace APIs; they commit snapshot roots into `.xpkg/` and refresh
 `.xpkg/state/current.json` as a rebuildable cache.
 
@@ -93,18 +93,18 @@ workspace.validate()
 
 ## Low-Level Entry Points
 
-Low-level store helpers still exist for tests, recovery work, and private
+Low-level durability helpers still exist for tests, recovery work, and private
 workspace storage flows. They are intentionally outside the workspace-first
 public contract and do not appear in `xpkg.api`, `xpkg.workspace`, or the CLI:
 
-- `ArchiveStore.open(store_root)`
-- `ArchiveStore.create_from_roots(store_root, {"snapshot": snapshot_path})`
-- `ArchiveStore.current_root_path("snapshot")`
-- `ArchiveStore.commit_new_roots({"snapshot": snapshot_path}, ...)`
+- `WorkspaceDurableStore.open(store_root)`
+- `WorkspaceDurableStore.create_from_roots(store_root, {"snapshot": snapshot_path})`
+- `WorkspaceDurableStore.current_root_path("snapshot")`
+- `WorkspaceDurableStore.commit_new_roots({"snapshot": snapshot_path}, ...)`
 
 ## Recovery Model
 
-`ArchiveStore.open(...)` calls recovery before returning a mounted store.
+`WorkspaceDurableStore.open(...)` calls recovery before returning a mounted store.
 
 The recovery logic is intentionally narrow:
 
@@ -127,11 +127,11 @@ Stable today:
 
 Experimental today:
 
-- private `.xpkg/` durable-store machinery
+- private `.xpkg/` workspace durability machinery
 - commit-oriented autosave flow
 - superblock/journal durability layer
 - generic committed roots for workspace-native snapshot payloads
 
 If you are building the public project contract, think in terms of workspace +
 `.expkg`. If you are prototyping crash-safe editing or autosave behavior,
-the experimental store is the right private layer to evaluate.
+the workspace durability layer is the right private layer to evaluate.

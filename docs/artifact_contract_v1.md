@@ -135,11 +135,11 @@ exports.
 
 ## Portable Artifact Semantics
 
-`*.expkg` is a packed project snapshot.
+`*.expkg` is a packed project artifact.
 
 Rules:
 
-- It represents a committed, validated workspace snapshot.
+- It represents a committed, validated workspace.
 - Unpacking recreates a workspace layout with `PROJECT.json`, `.xpkg/`,
   `Media/`, and `Exports/`.
 - It is a project artifact, not a raw storage engine.
@@ -160,9 +160,9 @@ On unpack, xpkg reconstructs:
 
 For portable artifacts the result must be logically identical, not
 byte-identical. Locks, caches, temporary files, and machine-local scratch state
-are excluded. Snapshot artifacts may intentionally omit media bytes; those
-unpacked workspaces preserve project state and media references but are not
-guaranteed to load media-backed labels on another machine.
+are excluded. Artifacts packed with omitted media preserve project state and
+media references, but those unpacked workspaces are not guaranteed to load
+media-backed labels on another machine until the matching media are restored.
 
 ## Open, Pack, Unpack, Import
 
@@ -187,6 +187,14 @@ Example:
 ```bash
 xpkg workspace pack "My Project"
 # emits My Project/Exports/My Project.expkg
+```
+
+Media scope is controlled by `--media`:
+
+```bash
+xpkg workspace pack "My Project" --media full
+xpkg workspace pack "My Project" --media package
+xpkg workspace pack "My Project" --media manifest
 ```
 
 ### Unpack
@@ -215,19 +223,25 @@ The locked command surface is documented in `docs/cli_command_spec_v1.md`.
 
 ## Media Policy
 
-`.expkg` exports are portable. There is no state-only or manifest-only pack
-mode in the public artifact contract.
+`.expkg` is the only packed project artifact. There is no separate snapshot
+artifact type and no alternate file extension.
 
 Rules:
 
 - All required media must be inside `Media/` before pack.
-- If required media are external, pack fails loudly.
-- No silent omission is allowed.
-- Media under `Media/` is stored in the `.expkg`; member sizes and SHA-256
-  digests are recorded in `EXPKG.json`.
+- If required media are external to `Media/`, pack fails loudly.
+- No silent omission is allowed. Omitted media must be declared in `EXPKG.json`.
+- `--media full` stores every managed media file in the `.expkg`.
+- `--media package` stores package-sized media such as image sequences while
+  manifesting video containers without storing their bytes.
+- `--media manifest` stores no media bytes. It records managed media paths,
+  sizes, and SHA-256 digests in `EXPKG.json`.
+- `EXPKG.json` records the media mode, per-file inclusion status, sizes,
+  SHA-256 digests, and compression policy.
 
 Cloud or dataset-backed media workflows should be represented by future cloud
-sync/import/export layers, not by weakening the `.expkg` portability contract.
+sync/import/export layers on top of this manifest, not by adding absolute paths
+or hidden side channels to the `.expkg` contract.
 
 ## Path Rules
 

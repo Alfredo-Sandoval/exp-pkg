@@ -751,10 +751,12 @@ def test_cli_routes_pack_unpack_and_validate(monkeypatch, capsys) -> None:
         workspace: str,
         *,
         out: str | None,
+        media: str,
         overwrite: bool,
     ) -> Path:
         captured["pack_workspace"] = workspace
         captured["pack_out"] = out
+        captured["pack_media"] = media
         captured["pack_overwrite"] = overwrite
         return Path("My Project.expkg")
 
@@ -786,6 +788,8 @@ def test_cli_routes_pack_unpack_and_validate(monkeypatch, capsys) -> None:
             "workspace",
             "pack",
             "My Project",
+            "--media",
+            "package",
             "--overwrite",
         ]
     )
@@ -809,6 +813,7 @@ def test_cli_routes_pack_unpack_and_validate(monkeypatch, capsys) -> None:
     assert captured == {
         "pack_workspace": "My Project",
         "pack_out": None,
+        "pack_media": "package",
         "pack_overwrite": True,
         "unpack_artifact": "My Project.expkg",
         "unpack_out": "Unpacked Project",

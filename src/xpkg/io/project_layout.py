@@ -6,7 +6,7 @@ import json
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any
 from uuid import uuid4
 
 from xpkg._core.path_registry import ensure_dir, resolve_path
@@ -19,7 +19,6 @@ ARTIFACTS_DIRNAME = "artifacts"
 CURRENT_SNAPSHOT_FILENAME = "current.json"
 MEDIA_DIRNAME = "Media"
 EXPORTS_DIRNAME = "Exports"
-PackMode = Literal["portable", "snapshot"]
 
 
 def _now_utc_iso() -> str:
@@ -40,7 +39,6 @@ class ProjectDescriptor:
     store_path: str = STORE_DIRNAME
     media_root: str = MEDIA_DIRNAME
     exports_root: str = EXPORTS_DIRNAME
-    default_pack_mode: PackMode = "portable"
 
     @classmethod
     def new(
@@ -48,7 +46,6 @@ class ProjectDescriptor:
         *,
         title: str,
         project_id: str | None = None,
-        default_pack_mode: PackMode = "portable",
     ) -> ProjectDescriptor:
         timestamp = _now_utc_iso()
         return cls(
@@ -56,7 +53,6 @@ class ProjectDescriptor:
             project_id=project_id or str(uuid4()),
             created_at=timestamp,
             updated_at=timestamp,
-            default_pack_mode=default_pack_mode,
         )
 
     @classmethod
@@ -72,21 +68,10 @@ class ProjectDescriptor:
             "store_path",
             "media_root",
             "exports_root",
-            "default_pack_mode",
         }
         missing = sorted(required.difference(data))
         if missing:
             raise ValueError(f"PROJECT.json missing required field(s): {', '.join(missing)}")
-        raw_pack_mode = str(data["default_pack_mode"])
-        if raw_pack_mode == "portable":
-            default_pack_mode: PackMode = "portable"
-        elif raw_pack_mode == "snapshot":
-            default_pack_mode = "snapshot"
-        else:
-            raise ValueError(
-                "default_pack_mode must be 'portable' or 'snapshot', "
-                f"got {raw_pack_mode!r}"
-            )
         descriptor = cls(
             format=str(data["format"]),
             project_schema_version=int(data["project_schema_version"]),
@@ -98,7 +83,6 @@ class ProjectDescriptor:
             store_path=str(data["store_path"]),
             media_root=str(data["media_root"]),
             exports_root=str(data["exports_root"]),
-            default_pack_mode=default_pack_mode,
         )
         descriptor.validate()
         return descriptor
@@ -122,11 +106,6 @@ class ProjectDescriptor:
             raise ValueError(f"Unsupported media_root: {self.media_root!r}")
         if self.exports_root != EXPORTS_DIRNAME:
             raise ValueError(f"Unsupported exports_root: {self.exports_root!r}")
-        if self.default_pack_mode not in {"portable", "snapshot"}:
-            raise ValueError(
-                "default_pack_mode must be 'portable' or 'snapshot', "
-                f"got {self.default_pack_mode!r}"
-            )
 
     def to_dict(self) -> dict[str, Any]:
         self.validate()
@@ -141,7 +120,6 @@ class ProjectDescriptor:
             "store_path": self.store_path,
             "media_root": self.media_root,
             "exports_root": self.exports_root,
-            "default_pack_mode": self.default_pack_mode,
         }
 
 
@@ -251,7 +229,6 @@ __all__ = [
     "EXPKG_SUFFIX",
     "MEDIA_DIRNAME",
     "PROJECT_DESCRIPTOR_FILENAME",
-    "PackMode",
     "ProjectDescriptor",
     "STORE_DIRNAME",
     "STORE_STATE_DIRNAME",

@@ -26,8 +26,8 @@ xpkg workspace
 - Commands that create a project must produce a valid workspace containing
   `PROJECT.json` and `.xpkg/`.
 - Project-internal paths are stored relative to the workspace root.
-- Portable mode defaults to `portable`.
-- Pack must fail loudly if required media are missing from a portable export.
+- Pack defaults to `--media full`.
+- Pack must fail loudly if required media are external to `Media/`.
 - Every canonical command supports `--json` for machine-readable output.
 - In `--json` mode, success payloads are written to stdout as one JSON object.
 - In `--json` mode, progress text is suppressed and errors are written to
@@ -184,6 +184,8 @@ Create a portable `.expkg` artifact from a workspace.
 ```bash
 xpkg workspace pack "./My Project"
 xpkg workspace pack "./My Project" --out "./release/My Project.expkg"
+xpkg workspace pack "./My Project" --media package
+xpkg workspace pack "./My Project" --media manifest
 ```
 
 ### Required behavior
@@ -193,9 +195,15 @@ xpkg workspace pack "./My Project" --out "./release/My Project.expkg"
 - Emits a `.expkg` file.
 - Defaults output to `./My Project/Exports/My Project.expkg` when `--out` is
   omitted.
-- Fails if required media are external or unavailable.
+- Fails if required media are external to `Media/`.
+- Supports `--media full`, `--media package`, and `--media manifest`.
+- Defaults to `--media full`, storing every managed media file.
+- `--media package` stores package-sized media such as image sequences while
+  manifesting video containers without storing their bytes.
+- `--media manifest` stores no media bytes and records managed media paths,
+  sizes, and SHA-256 digests in `EXPKG.json`.
 - Writes a root `EXPKG.json` manifest declaring member paths, member sizes,
-  member SHA-256 digests, and compression policy.
+  member SHA-256 digests, media inclusion status, and compression policy.
 - Stores already-compressed media and common binary containers without
   additional zip compression.
 
@@ -214,7 +222,8 @@ xpkg workspace unpack "./My Project.expkg" --out "./My Project"
 - Accepts a `.expkg` file as input.
 - Creates a workspace folder as output.
 - Reconstructs `PROJECT.json` and `.xpkg/`.
-- Restores `Media/` from the artifact.
+- Restores included `Media/` files from the artifact.
+- Creates an empty `Media/` root when media were manifested but not stored.
 - Excludes temp files, locks, caches, and machine-local scratch state.
 - Refuses to unpack into a conflicting non-empty directory unless an explicit
   future overwrite flag is added.

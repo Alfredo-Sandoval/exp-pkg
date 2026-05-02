@@ -40,7 +40,7 @@ Always `".expkg"`.
 
 ## Workspace Lifecycle
 
-### `init_project(workspace, *, title=None, project_id=None, default_pack_mode="portable", force=False)`
+### `init_project(workspace, *, title=None, project_id=None, force=False)`
 
 Create a new workspace root with the canonical public layout.
 
@@ -92,13 +92,17 @@ Resolve the default packed artifact destination:
 
 ## Pack / Unpack / Validate
 
-### `pack_project(workspace, *, out=None, mode=None, media_policy=None, overwrite=False)`
+### `pack_project(workspace, *, out=None, media=None, overwrite=False)`
 
 Pack a workspace into a portable `.expkg` artifact.
 
-`mode` is `portable` or `snapshot`. `media_policy` is `include`, `manifest`, or
-`exclude`; when omitted, portable packs include media and snapshot packs write a
-media manifest without bundling media bytes.
+`media` accepts:
+
+- `"full"` or `None`: include every managed file under `Media/`.
+- `"package"`: include package-sized media such as image sequences, while
+  manifesting video containers without storing their bytes.
+- `"manifest"`: store no media bytes and record managed media paths, sizes,
+  and SHA-256 digests in `EXPKG.json`.
 
 ### `unpack_project(artifact, out, *, force=False, rename_title=None)`
 

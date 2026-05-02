@@ -11,8 +11,8 @@ import zipfile
 from pathlib import Path, PurePosixPath
 from typing import Any, Literal
 
+from xpkg._core.hashing import sha256_file
 from xpkg._core.path_registry import resolve_path
-from xpkg.io.archive_store.hashing import sha256_file
 from xpkg.io.project_layout import (
     EXPKG_SUFFIX,
     MEDIA_DIRNAME,
@@ -34,7 +34,8 @@ from xpkg.io.project_layout import (
 EXPKG_MANIFEST_FILENAME = "EXPKG.json"
 EXPKG_FORMAT = "xpkg-packed-project"
 EXPKG_SCHEMA_VERSION = 1
-PackMediaPolicy = Literal["include", "manifest", "exclude"]
+PackMediaMode = Literal["full", "package", "manifest"]
+PACK_MEDIA_MODES: tuple[str, ...] = ("full", "package", "manifest")
 
 _COMPRESSED_MEDIA_SUFFIXES = {
     ".avi",
@@ -59,26 +60,24 @@ _COMPRESSED_MEDIA_SUFFIXES = {
     ".zip",
 }
 
-
-def _coerce_media_policy(value: str | None, *, pack_mode: str) -> PackMediaPolicy:
-    if value is None:
-        return "include" if pack_mode == "portable" else "manifest"
-    if value == "include":
-        return "include"
-    if value == "manifest":
-        return "manifest"
-    if value == "exclude":
-        return "exclude"
-    raise ValueError(
-        "Unsupported media policy: "
-        f"{value!r}; expected 'include', 'manifest', or 'exclude'"
-    )
+_VIDEO_MEDIA_SUFFIXES = {
+    ".avi",
+    ".h264",
+    ".h265",
+    ".m4v",
+    ".mkv",
+    ".mov",
+    ".mp4",
+    ".mpeg",
+    ".mpg",
+    ".webm",
+}
 
 
 def _iter_workspace_files(
     workspace_root: Path,
     *,
-    include_media: bool,
+    include_media: bool = True,
 ) -> list[Path]:
     files: list[Path] = []
     descriptor_path = project_descriptor_path(workspace_root)
@@ -140,35 +139,44 @@ def _zip_compression_for_member(member_path: str) -> int:
     )
 
 
-def _file_manifest_entry(path: Path, *, workspace_root: Path, included: bool) -> dict[str, Any]:
+def _file_manifest_entry(path: Path, *, workspace_root: Path) -> dict[str, Any]:
     member_path = _relative_member_path(path, workspace_root)
     return {
         "path": member_path,
         "role": _member_role(member_path),
-        "included": bool(included),
         "size": int(path.stat().st_size),
         "sha256": sha256_file(path),
-        "compression": _compression_name_for_member(member_path) if included else "none",
+        "compression": _compression_name_for_member(member_path),
     }
+
+
+def _media_manifest_entry(
+    path: Path,
+    *,
+    workspace_root: Path,
+    included: bool,
+) -> dict[str, Any]:
+    entry = _file_manifest_entry(path, workspace_root=workspace_root)
+    entry["included"] = bool(included)
+    if not included:
+        entry["compression"] = "none"
+    return entry
 
 
 def _expkg_manifest_payload(
     *,
     descriptor: ProjectDescriptor,
-    pack_mode: str,
-    media_policy: PackMediaPolicy,
+    media_mode: PackMediaMode,
     member_entries: list[dict[str, Any]],
     media_entries: list[dict[str, Any]],
 ) -> dict[str, Any]:
-    included_media = [entry for entry in media_entries if entry.get("included")]
-    external_media = [entry for entry in media_entries if not entry.get("included")]
+    included_media_entries = [entry for entry in media_entries if bool(entry.get("included"))]
+    external_media_entries = [entry for entry in media_entries if not bool(entry.get("included"))]
     return {
         "format": EXPKG_FORMAT,
         "artifact_schema_version": EXPKG_SCHEMA_VERSION,
         "container": "zip",
         "created_at": _now_utc_iso(),
-        "pack_mode": pack_mode,
-        "media_policy": media_policy,
         "project": {
             "project_id": descriptor.project_id,
             "title": descriptor.title,
@@ -181,11 +189,11 @@ def _expkg_manifest_payload(
             "exports_root": descriptor.exports_root,
         },
         "media": {
-            "policy": media_policy,
-            "included_files": len(included_media),
-            "included_bytes": sum(int(entry["size"]) for entry in included_media),
-            "external_files": len(external_media),
-            "external_bytes": sum(int(entry["size"]) for entry in external_media),
+            "mode": media_mode,
+            "included_files": len(included_media_entries),
+            "included_bytes": sum(int(entry["size"]) for entry in included_media_entries),
+            "external_files": len(external_media_entries),
+            "external_bytes": sum(int(entry["size"]) for entry in external_media_entries),
             "files": media_entries,
         },
         "members": member_entries,
@@ -248,38 +256,49 @@ def _workspace_media_violations(workspace_root: Path) -> list[str]:
     return list(dict.fromkeys(violations))
 
 
+def _normalize_pack_media_mode(media: str | None) -> PackMediaMode:
+    selected = "full" if media is None else str(media).strip().lower()
+    if selected == "full":
+        return "full"
+    if selected == "package":
+        return "package"
+    if selected == "manifest":
+        return "manifest"
+    allowed = ", ".join(PACK_MEDIA_MODES)
+    raise ValueError(f"Unsupported media mode {media!r}; expected one of: {allowed}")
+
+
+def _include_media_in_pack(path: Path, *, media_mode: PackMediaMode) -> bool:
+    if media_mode == "full":
+        return True
+    if media_mode == "manifest":
+        return False
+    return path.suffix.lower() not in _VIDEO_MEDIA_SUFFIXES
+
+
 def pack_project(
     workspace: str | Path,
     *,
     out: str | Path | None = None,
-    mode: str | None = None,
-    media_policy: str | None = None,
+    media: str | None = None,
     overwrite: bool = False,
 ) -> Path:
     root = resolve_workspace_root(workspace)
     if root is None:
         raise FileNotFoundError(f"Not an xpkg workspace: {workspace}")
+    media_mode = _normalize_pack_media_mode(media)
     validate_workspace(root)
 
     descriptor = load_project_descriptor(root)
-    selected_mode = descriptor.default_pack_mode if mode is None else mode
-    if selected_mode not in {"portable", "snapshot"}:
-        raise ValueError(f"Unsupported pack mode: {selected_mode!r}")
-    selected_media_policy = _coerce_media_policy(media_policy, pack_mode=selected_mode)
-    if selected_mode == "portable" and selected_media_policy != "include":
+    violations = _workspace_media_violations(root)
+    if violations:
+        joined = ", ".join(violations[:5])
+        if len(violations) > 5:
+            joined += ", ..."
         raise ValueError(
-            "Portable pack requires media_policy='include' so the artifact is self-contained"
+            "Portable pack requires all referenced media to live under Media/. "
+            f"Found external or unmanaged references: {joined}"
         )
-    if selected_mode == "portable":
-        violations = _workspace_media_violations(root)
-        if violations:
-            joined = ", ".join(violations[:5])
-            if len(violations) > 5:
-                joined += ", ..."
-            raise ValueError(
-                "Portable pack requires all referenced media to live under Media/. "
-                f"Found external or unmanaged references: {joined}"
-            )
 
     out_path = resolve_path(out) if out is not None else default_expkg_path(root)
     if out_path.suffix.lower() != EXPKG_SUFFIX:
@@ -288,23 +307,31 @@ def pack_project(
         raise FileExistsError(f"Output artifact already exists: {out_path}")
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
-    include_media = selected_media_policy == "include"
-    members = _iter_workspace_files(root, include_media=include_media)
+    workspace_media_files = _iter_workspace_media_files(root)
+    included_media_paths = {
+        source_path
+        for source_path in workspace_media_files
+        if _include_media_in_pack(source_path, media_mode=media_mode)
+    }
+    members = [
+        *_iter_workspace_files(root, include_media=False),
+        *[path for path in workspace_media_files if path in included_media_paths],
+    ]
     member_entries = [
-        _file_manifest_entry(source_path, workspace_root=root, included=True)
+        _file_manifest_entry(source_path, workspace_root=root)
         for source_path in members
     ]
-    if selected_media_policy == "exclude":
-        media_entries: list[dict[str, Any]] = []
-    else:
-        media_entries = [
-            _file_manifest_entry(source_path, workspace_root=root, included=include_media)
-            for source_path in _iter_workspace_media_files(root)
-        ]
+    media_entries = [
+        _media_manifest_entry(
+            source_path,
+            workspace_root=root,
+            included=source_path in included_media_paths,
+        )
+        for source_path in workspace_media_files
+    ]
     manifest = _expkg_manifest_payload(
         descriptor=descriptor,
-        pack_mode=selected_mode,
-        media_policy=selected_media_policy,
+        media_mode=media_mode,
         member_entries=member_entries,
         media_entries=media_entries,
     )
@@ -412,16 +439,25 @@ def _member_entries(manifest: dict[str, Any]) -> list[dict[str, Any]]:
         if path in seen:
             raise ValueError(f"Packed manifest contains a duplicate member: {path!r}")
         seen.add(path)
-        if raw_entry.get("included") is not True:
-            raise ValueError(f"Packed manifest member must be marked included: {path!r}")
         entries.append(raw_entry)
     return entries
+
+
+def _bool_manifest_field(entry: dict[str, Any], field: str, *, path: str) -> bool:
+    value = entry.get(field)
+    if not isinstance(value, bool):
+        raise TypeError(f"Packed manifest entry {path!r} has non-boolean {field}")
+    return value
 
 
 def _media_entries(manifest: dict[str, Any]) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     media = manifest.get("media")
     if not isinstance(media, dict):
         raise TypeError(f"Packed {EXPKG_MANIFEST_FILENAME} media field must be an object")
+    mode = media.get("mode")
+    if mode not in PACK_MEDIA_MODES:
+        allowed = ", ".join(PACK_MEDIA_MODES)
+        raise ValueError(f"Packed media.mode must be one of: {allowed}")
     raw_entries = media.get("files")
     if not isinstance(raw_entries, list):
         raise TypeError(f"Packed {EXPKG_MANIFEST_FILENAME} media.files must be a list")
@@ -438,11 +474,29 @@ def _media_entries(manifest: dict[str, Any]) -> tuple[dict[str, Any], list[dict[
             raise ValueError(f"Packed media entry is outside {MEDIA_DIRNAME}/: {path!r}")
         if path in seen:
             raise ValueError(f"Packed media manifest contains a duplicate path: {path!r}")
-        if not isinstance(raw_entry.get("included"), bool):
-            raise TypeError(f"Packed media entry {path!r} has non-boolean included")
         _int_manifest_field(raw_entry, "size", path=path)
         _str_manifest_field(raw_entry, "sha256", path=path)
-        _str_manifest_field(raw_entry, "compression", path=path)
+        compression = _str_manifest_field(raw_entry, "compression", path=path)
+        included = _bool_manifest_field(raw_entry, "included", path=path)
+        if included:
+            expected_compression = _compression_name_for_member(path)
+            if compression != expected_compression:
+                raise ValueError(
+                    f"Packed media compression policy mismatch for {path!r}: "
+                    f"manifest={compression}, expected={expected_compression}"
+                )
+            if mode == "manifest":
+                raise ValueError("Manifest media mode cannot include media members")
+            if mode == "package" and PurePosixPath(path).suffix.lower() in _VIDEO_MEDIA_SUFFIXES:
+                raise ValueError(
+                    f"Package media mode cannot include video container media: {path!r}"
+                )
+        elif compression != "none":
+            raise ValueError(
+                f"Packed external media compression must be 'none' for {path!r}"
+            )
+        if mode == "full" and not included:
+            raise ValueError("Full media mode cannot declare external media")
         seen.add(path)
         entries.append(raw_entry)
     return media, entries
@@ -512,21 +566,6 @@ def _validate_expkg_artifact(artifact_path: Path) -> dict[str, Any]:
                 )
             if manifest.get("container") != "zip":
                 raise ValueError("Packed artifact container must be 'zip'")
-            pack_mode = manifest.get("pack_mode")
-            if pack_mode not in {"portable", "snapshot"}:
-                raise ValueError("Packed artifact pack_mode must be 'portable' or 'snapshot'")
-            media_policy = _coerce_media_policy(
-                manifest.get("media_policy")
-                if isinstance(manifest.get("media_policy"), str)
-                else None,
-                pack_mode=str(pack_mode),
-            )
-            if manifest.get("media_policy") != media_policy:
-                raise ValueError(
-                    "Packed artifact media_policy must be 'include', 'manifest', or 'exclude'"
-                )
-            if pack_mode == "portable" and media_policy != "include":
-                raise ValueError("Portable packed artifacts must include media")
 
             entries = _member_entries(manifest)
             member_paths = {str(entry["path"]) for entry in entries}
@@ -547,52 +586,57 @@ def _validate_expkg_artifact(artifact_path: Path) -> dict[str, Any]:
                 )
 
             media, media_files = _media_entries(manifest)
-            if media.get("policy") != media_policy:
-                raise ValueError("Packed media policy does not match artifact media_policy")
-            included_media = [entry for entry in media_files if entry.get("included")]
-            external_media = [entry for entry in media_files if not entry.get("included")]
-            if media.get("included_files") != len(included_media):
+            included_media_files = [
+                entry
+                for entry in media_files
+                if _bool_manifest_field(entry, "included", path=str(entry.get("path", "")))
+            ]
+            external_media_files = [
+                entry
+                for entry in media_files
+                if not _bool_manifest_field(entry, "included", path=str(entry.get("path", "")))
+            ]
+            if media.get("included_files") != len(included_media_files):
                 raise ValueError("Packed media included_files count does not match media.files")
-            if media.get("external_files") != len(external_media):
-                raise ValueError("Packed media external_files count does not match media.files")
-            included_bytes = sum(
+            included_media_bytes = sum(
                 _int_manifest_field(entry, "size", path=str(entry["path"]))
-                for entry in included_media
+                for entry in included_media_files
             )
-            external_bytes = sum(
-                _int_manifest_field(entry, "size", path=str(entry["path"]))
-                for entry in external_media
-            )
-            if media.get("included_bytes") != included_bytes:
+            if media.get("included_bytes") != included_media_bytes:
                 raise ValueError("Packed media included_bytes does not match media.files")
-            if media.get("external_bytes") != external_bytes:
+            if media.get("external_files") != len(external_media_files):
+                raise ValueError("Packed media external_files count does not match media.files")
+            external_media_bytes = sum(
+                _int_manifest_field(entry, "size", path=str(entry["path"]))
+                for entry in external_media_files
+            )
+            if media.get("external_bytes") != external_media_bytes:
                 raise ValueError("Packed media external_bytes does not match media.files")
-            if media_policy == "include" and external_media:
-                raise ValueError("Packed media policy include cannot list external media")
             included_media_paths = {
-                _str_manifest_field(entry, "path", path="<unknown>") for entry in included_media
+                _str_manifest_field(entry, "path", path="<unknown>") for entry in media_files
+                if _bool_manifest_field(entry, "included", path=str(entry.get("path", "")))
             }
             archived_media = {
                 path for path in member_paths if path.startswith(f"{MEDIA_DIRNAME}/")
             }
-            if media_policy == "include" and archived_media != included_media_paths:
+            if archived_media != included_media_paths:
                 raise ValueError("Packed archived media does not match media manifest")
-            if media_policy in {"manifest", "exclude"}:
-                if archived_media:
-                    raise ValueError(
-                        "Packed media policy does not allow archived media: "
-                        + ", ".join(sorted(archived_media)[:5])
-                    )
-            if media_policy == "exclude" and media_files:
-                raise ValueError("Packed media policy exclude cannot list media files")
 
             entry_by_path = {str(entry["path"]): entry for entry in entries}
-            for media_entry in included_media:
+            for media_entry in media_files:
                 media_path = _str_manifest_field(media_entry, "path", path="<unknown>")
+                included = _bool_manifest_field(media_entry, "included", path=media_path)
                 member_entry = entry_by_path.get(media_path)
+                if not included:
+                    if member_entry is not None:
+                        raise ValueError(
+                            "Packed external media entry is present in artifact "
+                            f"members: {media_path!r}"
+                        )
+                    continue
                 if member_entry is None:
                     raise ValueError(
-                        f"Packed media entry is marked included but absent: {media_path!r}"
+                        f"Packed media entry is absent from artifact members: {media_path!r}"
                     )
                 if media_entry.get("sha256") != member_entry.get("sha256"):
                     raise ValueError(
@@ -601,17 +645,6 @@ def _validate_expkg_artifact(artifact_path: Path) -> dict[str, Any]:
                 if media_entry.get("size") != member_entry.get("size"):
                     raise ValueError(
                         f"Packed media size mismatch between manifests: {media_path!r}"
-                    )
-            for media_entry in external_media:
-                media_path = _str_manifest_field(media_entry, "path", path="<unknown>")
-                if media_path in member_paths:
-                    raise ValueError(
-                        f"Packed media entry is marked external but archived: {media_path!r}"
-                    )
-                if media_entry.get("compression") != "none":
-                    raise ValueError(
-                        "Packed external media entry must use "
-                        f"compression='none': {media_path!r}"
                     )
 
             _validate_member_payloads(archive, infos, entries)
@@ -670,13 +703,22 @@ def unpack_project(
         descriptor.title = rename_title.strip()
         descriptor.updated_at = _now_utc_iso()
         write_project_descriptor(out_root, descriptor)
-    descriptor.validate()
-    if manifest.get("media_policy") == "include":
+    if _manifest_has_external_media(manifest):
+        _validate_workspace_layout(out_root)
+    else:
         validate_workspace(out_root)
     return out_root
 
 
-def validate_workspace(workspace: str | Path) -> None:
+def _manifest_has_external_media(manifest: dict[str, Any]) -> bool:
+    _, media_files = _media_entries(manifest)
+    return any(
+        not _bool_manifest_field(entry, "included", path=str(entry.get("path", "")))
+        for entry in media_files
+    )
+
+
+def _validate_workspace_layout(workspace: str | Path) -> tuple[Path, ProjectDescriptor]:
     root = resolve_workspace_root(workspace)
     if root is None:
         raise FileNotFoundError(f"Not an xpkg workspace: {workspace}")
@@ -696,6 +738,11 @@ def validate_workspace(workspace: str | Path) -> None:
     artifacts_root = workspace_artifacts_root(root)
     if artifacts_root.exists() and not artifacts_root.is_dir():
         raise ValueError(f"Workspace artifacts root is not a directory: {artifacts_root}")
+    return root, descriptor
+
+
+def validate_workspace(workspace: str | Path) -> None:
+    root, _descriptor = _validate_workspace_layout(workspace)
 
     from xpkg.io.project_artifacts import validate_workspace_artifacts
     from xpkg.io.project_workspace import (

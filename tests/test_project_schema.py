@@ -21,7 +21,6 @@ def test_project_schema_locks_required_v1_descriptor_fields() -> None:
         "store_path",
         "media_root",
         "exports_root",
-        "default_pack_mode",
     ]
 
     properties = schema["properties"]
@@ -31,4 +30,3 @@ def test_project_schema_locks_required_v1_descriptor_fields() -> None:
     assert properties["store_path"]["const"] == ".xpkg"
     assert properties["media_root"]["const"] == "Media"
     assert properties["exports_root"]["const"] == "Exports"
-    assert properties["default_pack_mode"]["enum"] == ["portable", "snapshot"]

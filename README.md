@@ -30,7 +30,10 @@ The public product contract is now intentionally narrow:
 - portable artifact = `.expkg`
 
 `.expkg` v1 is a portable zip container with a root `EXPKG.json` manifest.
-It includes managed media and records member paths, sizes, and SHA-256 hashes.
+By default it includes managed media and records member paths, sizes, and
+SHA-256 hashes. Pack commands can also emit package-media or manifest-only
+media exports when users do not want to store every managed video byte inside
+the `.expkg`.
 
 ## Positioning
 
@@ -307,6 +310,7 @@ xpkg import dlc csv --csv tracking.csv --video video.mp4 --out "./My Project"
 xpkg import lightning-pose --csv predictions.csv --video video.mp4 --out "./My Project"
 xpkg import sleap package --slp labels.pkg.slp --out "./My Project"
 xpkg workspace pack "./My Project"
+xpkg workspace pack "./My Project" --media package
 xpkg workspace unpack "./My Project.expkg" --out "./My Project"
 xpkg workspace validate "./My Project"
 xpkg workspace describe "./My Project" --json
@@ -321,6 +325,12 @@ Every canonical command supports `--json` for machine-readable output, and
 `xpkg describe --json` reports the current command contract for agents.
 Input files that are themselves JSON use `--input-json` so `--json` is reserved
 for output mode.
+
+`xpkg workspace pack` defaults to `--media full`, which stores all managed
+`Media/` files in the `.expkg`. Use `--media package` to include package-sized
+media such as image sequences while manifesting video containers without
+storing them, or `--media manifest` to record managed media paths, sizes, and
+hashes without storing media bytes.
 
 ## Vicon Recording API
 

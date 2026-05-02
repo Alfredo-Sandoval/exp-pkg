@@ -103,6 +103,11 @@ import through `workspace.imports`, validate, then pack only when you want a
 portable artifact. The dedicated guide for that surface lives in
 [Services](api/services.md).
 
+By default `workspace.pack()` includes all managed media. Use
+`workspace.pack(media="package")` or `workspace.pack(media="manifest")` when the
+project should keep video bytes outside the `.expkg` while still recording the
+managed media manifest.
+
 ## Work With The Session Model
 
 Use `xpkg.model` when you want in-memory multimodal objects without creating a

@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
+from xpkg._core.hashing import sha256_file
 from xpkg._core.json_utils import write_json
 from xpkg._core.path_registry import ensure_dir, resolve_path, slugify_path_component
 from xpkg.adapters.vicon import (
@@ -19,7 +20,6 @@ from xpkg.adapters.vicon import (
     vicon_recording_from_json_payload,
     vicon_recording_to_json_payload,
 )
-from xpkg.io.archive_store.hashing import sha256_file
 from xpkg.io.project_artifact import validate_workspace
 from xpkg.io.project_layout import (
     CURRENT_SNAPSHOT_FILENAME,
@@ -28,7 +28,6 @@ from xpkg.io.project_layout import (
     PROJECT_DESCRIPTOR_FILENAME,
     STORE_DIRNAME,
     STORE_STATE_DIRNAME,
-    PackMode,
     ProjectDescriptor,
     _candidate_workspace_root,
     _now_utc_iso,
@@ -454,9 +453,9 @@ class WorkspaceStore:
         return self.open().load_current_commit().commit_id
 
     def open(self):
-        from xpkg.io.archive_store import ArchiveStore
+        from xpkg.io.workspace_durable_store import WorkspaceDurableStore
 
-        return ArchiveStore.open(self.store_root)
+        return WorkspaceDurableStore.open(self.store_root)
 
     def current_snapshot_path(self) -> Path:
         if not self.has_durable_store():
@@ -479,9 +478,9 @@ class WorkspaceStore:
             store.commit_new_roots({"snapshot": candidate}, reason=reason, created_by=created_by)
             return store.current_root_path("snapshot")
 
-        from xpkg.io.archive_store import ArchiveStore
+        from xpkg.io.workspace_durable_store import WorkspaceDurableStore
 
-        store = ArchiveStore.create_from_roots(
+        store = WorkspaceDurableStore.create_from_roots(
             store_root=self.store_root,
             initial_roots={"snapshot": candidate},
             created_by=created_by,
@@ -500,7 +499,6 @@ def init_project(
     *,
     title: str | None = None,
     project_id: str | None = None,
-    default_pack_mode: PackMode = "portable",
     force: bool = False,
 ) -> ProjectDescriptor:
     root = _candidate_workspace_root(workspace)
@@ -520,7 +518,6 @@ def init_project(
     descriptor = ProjectDescriptor.new(
         title=(title or root.name or "exp-pkg Project").strip(),
         project_id=project_id,
-        default_pack_mode=default_pack_mode,
     )
     write_project_descriptor(root, descriptor)
     return descriptor
@@ -741,9 +738,9 @@ def _workspace_snapshot_cache_matches_committed_head(
     workspace_root: Path,
     snapshot_path: Path,
 ) -> bool:
-    from xpkg.io.archive_store import ArchiveStore
+    from xpkg.io.workspace_durable_store import WorkspaceDurableStore
 
-    store = ArchiveStore.open(workspace_store_root(workspace_root))
+    store = WorkspaceDurableStore.open(workspace_store_root(workspace_root))
     commit = store.load_current_commit()
     if not commit.has_root("snapshot"):
         return False
@@ -1071,14 +1068,12 @@ def _commit_vicon_to_workspace(
 def _import_workspace_from_conversion(
     workspace: str | Path,
     *,
-    default_pack_mode: PackMode,
     force: bool,
     reason: str,
     convert: Callable[[Path], Any],
 ) -> Path:
     root = _ensure_workspace_for_import(
         workspace,
-        default_pack_mode=default_pack_mode,
         force=force,
     )
     stage_parent = _stage_workspace_parent(root)
@@ -1480,7 +1475,6 @@ def _ensure_workspace_for_import(
     workspace: str | Path,
     *,
     title: str | None = None,
-    default_pack_mode: PackMode = "portable",
     force: bool = False,
 ) -> Path:
     root = resolve_workspace_root(workspace)
@@ -1488,7 +1482,6 @@ def _ensure_workspace_for_import(
         init_project(
             workspace,
             title=title,
-            default_pack_mode=default_pack_mode,
             force=force,
         )
         return _candidate_workspace_root(workspace)
@@ -1506,7 +1499,6 @@ def _import_vicon_workspace_recording(
     recording_path: str | Path,
     workspace: str | Path,
     *,
-    default_pack_mode: PackMode,
     force: bool,
     reason: str,
     progress_callback: Any | None,
@@ -1515,7 +1507,6 @@ def _import_vicon_workspace_recording(
 ) -> Path:
     root = _ensure_workspace_for_import(
         workspace,
-        default_pack_mode=default_pack_mode,
         force=force,
     )
     if progress_callback is not None:
@@ -1546,7 +1537,6 @@ def import_vicon_csv_workspace(
     csv_path: str | Path,
     workspace: str | Path,
     *,
-    default_pack_mode: PackMode = "portable",
     force: bool = False,
     progress_callback: Any | None = None,
 ) -> Path:
@@ -1556,7 +1546,6 @@ def import_vicon_csv_workspace(
     return _import_vicon_workspace_recording(
         csv_path,
         workspace,
-        default_pack_mode=default_pack_mode,
         force=force,
         reason="workspace.import.vicon_csv",
         progress_callback=progress_callback,
@@ -1569,7 +1558,6 @@ def import_vicon_c3d_workspace(
     c3d_path: str | Path,
     workspace: str | Path,
     *,
-    default_pack_mode: PackMode = "portable",
     force: bool = False,
     progress_callback: Any | None = None,
 ) -> Path:
@@ -1579,7 +1567,6 @@ def import_vicon_c3d_workspace(
     return _import_vicon_workspace_recording(
         c3d_path,
         workspace,
-        default_pack_mode=default_pack_mode,
         force=force,
         reason="workspace.import.vicon_c3d",
         progress_callback=progress_callback,
@@ -1592,7 +1579,6 @@ def import_vicon_workspace(
     recording_path: str | Path,
     workspace: str | Path,
     *,
-    default_pack_mode: PackMode = "portable",
     force: bool = False,
     progress_callback: Any | None = None,
 ) -> Path:
@@ -1602,7 +1588,6 @@ def import_vicon_workspace(
     return _import_vicon_workspace_recording(
         recording_path,
         workspace,
-        default_pack_mode=default_pack_mode,
         force=force,
         reason="workspace.import.vicon",
         progress_callback=progress_callback,
@@ -1618,7 +1603,6 @@ def import_dlc_csv_workspace(
     *,
     skeleton_name: str = "imported",
     likelihood_threshold: float = 0.0,
-    default_pack_mode: PackMode = "portable",
     force: bool = False,
     progress_callback: Any | None = None,
 ) -> Path:
@@ -1627,7 +1611,6 @@ def import_dlc_csv_workspace(
 
     return _import_workspace_from_conversion(
         workspace,
-        default_pack_mode=default_pack_mode,
         force=force,
         reason="workspace.import.dlc_csv",
         convert=lambda _tmp_dir: convert_dlc_csv(
@@ -1647,7 +1630,6 @@ def import_lightning_pose_csv_workspace(
     *,
     skeleton_name: str = "imported",
     likelihood_threshold: float = 0.0,
-    default_pack_mode: PackMode = "portable",
     force: bool = False,
     progress_callback: Any | None = None,
 ) -> Path:
@@ -1656,7 +1638,6 @@ def import_lightning_pose_csv_workspace(
 
     return _import_workspace_from_conversion(
         workspace,
-        default_pack_mode=default_pack_mode,
         force=force,
         reason="workspace.import.lightning_pose_csv",
         convert=lambda _tmp_dir: convert_lightning_pose_csv(
@@ -1676,7 +1657,6 @@ def import_dlc_h5_workspace(
     *,
     skeleton_name: str = "imported",
     likelihood_threshold: float = 0.0,
-    default_pack_mode: PackMode = "portable",
     force: bool = False,
     progress_callback: Any | None = None,
 ) -> Path:
@@ -1685,7 +1665,6 @@ def import_dlc_h5_workspace(
 
     return _import_workspace_from_conversion(
         workspace,
-        default_pack_mode=default_pack_mode,
         force=force,
         reason="workspace.import.dlc_h5",
         convert=lambda _tmp_dir: convert_dlc_h5(
@@ -1704,7 +1683,6 @@ def import_dlc_project_workspace(
     *,
     skeleton_name: str | None = None,
     likelihood_threshold: float = 0.0,
-    default_pack_mode: PackMode = "portable",
     force: bool = False,
     progress_callback: Any | None = None,
 ) -> Path:
@@ -1788,7 +1766,6 @@ def import_dlc_project_workspace(
 
     return _import_workspace_from_conversion(
         workspace,
-        default_pack_mode=default_pack_mode,
         force=force,
         reason="workspace.import.dlc_project",
         convert=_convert_project,
@@ -1801,7 +1778,6 @@ def import_sleap_package_workspace(
     *,
     fps: int = 30,
     encode_videos: bool | None = None,
-    default_pack_mode: PackMode = "portable",
     force: bool = False,
     progress_callback: Any | None = None,
 ) -> Path:
@@ -1810,7 +1786,6 @@ def import_sleap_package_workspace(
 
     return _import_workspace_from_conversion(
         workspace,
-        default_pack_mode=default_pack_mode,
         force=force,
         reason="workspace.import.sleap",
         convert=lambda tmp_dir: convert_sleap_package(
@@ -1830,7 +1805,6 @@ def import_sleap_h5_workspace(
     *,
     skeleton_name: str = "imported",
     likelihood_threshold: float = 0.0,
-    default_pack_mode: PackMode = "portable",
     force: bool = False,
     progress_callback: Any | None = None,
 ) -> Path:
@@ -1839,7 +1813,6 @@ def import_sleap_h5_workspace(
 
     return _import_workspace_from_conversion(
         workspace,
-        default_pack_mode=default_pack_mode,
         force=force,
         reason="workspace.import.sleap_h5",
         convert=lambda _tmp_dir: convert_sleap_h5(
@@ -1860,7 +1833,6 @@ def import_mmpose_topdown_json_workspace(
     skeleton_name: str = "imported",
     instance_index: int = 0,
     likelihood_threshold: float = 0.0,
-    default_pack_mode: PackMode = "portable",
     force: bool = False,
     progress_callback: Any | None = None,
 ) -> Path:
@@ -1869,7 +1841,6 @@ def import_mmpose_topdown_json_workspace(
 
     return _import_workspace_from_conversion(
         workspace,
-        default_pack_mode=default_pack_mode,
         force=force,
         reason="workspace.import.mmpose_topdown_json",
         convert=lambda _tmp_dir: convert_mmpose_topdown_json(
@@ -1890,7 +1861,6 @@ def import_mediapipe_pose_landmarks_json_workspace(
     *,
     skeleton_name: str = "mediapipe_pose",
     likelihood_threshold: float = 0.0,
-    default_pack_mode: PackMode = "portable",
     force: bool = False,
     progress_callback: Any | None = None,
 ) -> Path:
@@ -1899,7 +1869,6 @@ def import_mediapipe_pose_landmarks_json_workspace(
 
     return _import_workspace_from_conversion(
         workspace,
-        default_pack_mode=default_pack_mode,
         force=force,
         reason="workspace.import.mediapipe_pose_landmarks_json",
         convert=lambda _tmp_dir: convert_mediapipe_pose_landmarks_json(

@@ -2,9 +2,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from xpkg.io.archive_store import ArchiveStore
-from xpkg.io.archive_store.object_store import get_object_file, put_object_file
-from xpkg.io.archive_store.paths import StorePaths
+from xpkg.io.workspace_durable_store import (
+    StorePaths,
+    WorkspaceDurableStore,
+    get_object_file,
+    put_object_file,
+)
 
 
 def test_put_object_file_is_content_addressed(tmp_path: Path) -> None:
@@ -26,7 +29,7 @@ def test_store_roundtrip_preserves_payload_root_suffix(tmp_path: Path) -> None:
     initial_payload = tmp_path / "initial.bin"
     initial_payload.write_bytes(b"first")
 
-    store = ArchiveStore.create_from_roots(
+    store = WorkspaceDurableStore.create_from_roots(
         tmp_path / "project.xpkg",
         {"payload": initial_payload},
     )
@@ -39,7 +42,7 @@ def test_store_roundtrip_preserves_payload_root_suffix(tmp_path: Path) -> None:
     commit_id = store.commit_new_roots({"payload": updated_payload}, reason="update")
     assert commit_id.startswith("c_")
 
-    reopened = ArchiveStore.open(tmp_path / "project.xpkg")
+    reopened = WorkspaceDurableStore.open(tmp_path / "project.xpkg")
     assert reopened.current_root_path("payload").suffix == ".bin"
     assert reopened.current_root_path("payload").read_bytes() == b"second"
 
@@ -48,7 +51,7 @@ def test_store_roundtrip_preserves_snapshot_root_suffix(tmp_path: Path) -> None:
     initial_snapshot = tmp_path / "initial.json"
     initial_snapshot.write_text('{"version": 1}', encoding="utf-8")
 
-    store = ArchiveStore.create_from_roots(
+    store = WorkspaceDurableStore.create_from_roots(
         tmp_path / "project.xpkg",
         {"snapshot": initial_snapshot},
     )
@@ -64,7 +67,7 @@ def test_store_roundtrip_preserves_snapshot_root_suffix(tmp_path: Path) -> None:
     commit_id = store.commit_new_roots({"snapshot": updated_snapshot}, reason="update")
     assert commit_id.startswith("c_")
 
-    reopened = ArchiveStore.open(tmp_path / "project.xpkg")
+    reopened = WorkspaceDurableStore.open(tmp_path / "project.xpkg")
     assert reopened.has_current_root("snapshot")
     assert not reopened.has_current_root("archive")
     assert reopened.current_root_path("snapshot").suffix == ".json"

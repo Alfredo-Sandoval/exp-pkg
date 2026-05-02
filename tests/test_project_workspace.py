@@ -251,7 +251,7 @@ def test_init_project_writes_workspace_contract(tmp_path: Path) -> None:
     assert (workspace / "Exports").is_dir()
     assert not current_project_state_path(workspace).exists()
     assert load_project_descriptor(workspace).title == "My Project"
-    assert descriptor.default_pack_mode == "portable"
+    assert descriptor.to_dict()["exports_root"] == "Exports"
 
     loaded = Labels.load_file(workspace.as_posix())
     assert loaded.labeled_frames == []
@@ -412,7 +412,7 @@ def test_load_workspace_payload_uses_snapshot_payload(tmp_path: Path) -> None:
     assert payload["predictions"]["attrs"]["committed_length"] == 0
 
 
-def test_pack_snapshot_and_unpack_roundtrip_workspace(tmp_path: Path) -> None:
+def test_pack_and_unpack_roundtrip_workspace(tmp_path: Path) -> None:
     from xpkg.model import Labels
     from xpkg.workspace import (
         current_project_snapshot_path,
@@ -433,15 +433,16 @@ def test_pack_snapshot_and_unpack_roundtrip_workspace(tmp_path: Path) -> None:
     snapshot_doc["payload"]["data"]["keypoints"][0][0][0][1] = 61.0
     snapshot_path.write_text(json.dumps(snapshot_doc, indent=2) + "\n", encoding="utf-8")
 
-    artifact = pack_project(workspace, mode="snapshot", media_policy="include")
+    artifact = pack_project(workspace)
     validate_artifact(artifact)
     manifest = _read_expkg_manifest(artifact)
     with zipfile.ZipFile(artifact) as archive:
         archive_names = set(archive.namelist())
 
-    assert manifest["pack_mode"] == "snapshot"
-    assert manifest["media_policy"] == "include"
+    assert manifest["media"]["mode"] == "full"
     assert manifest["media"]["included_files"] == 1
+    assert manifest["media"]["external_files"] == 0
+    assert manifest["media"]["files"][0]["included"] is True
     assert any(name.startswith("Media/") for name in archive_names)
 
     unpacked = tmp_path / "Unpacked Project"
@@ -451,28 +452,6 @@ def test_pack_snapshot_and_unpack_roundtrip_workspace(tmp_path: Path) -> None:
     pts = loaded.labeled_frames[0].instances[0].get_points_array(copy=False, full=True)
     assert float(pts["x"][0]) == 5.0
     assert float(pts["y"][0]) == 6.0
-
-
-def test_pack_snapshot_defaults_to_manifest_media_without_bundling(tmp_path: Path) -> None:
-    from xpkg.model import Labels
-    from xpkg.workspace import init_project, pack_project, validate_artifact
-
-    labels = _make_labels(tmp_path, x=6.0, y=7.0)
-    workspace = tmp_path / "Snapshot Manifest Project"
-    init_project(workspace, title="Snapshot Manifest Project")
-    Labels.save_file(labels, workspace.as_posix())
-
-    artifact = pack_project(workspace, mode="snapshot")
-    validate_artifact(artifact)
-    manifest = _read_expkg_manifest(artifact)
-    with zipfile.ZipFile(artifact) as archive:
-        archive_names = set(archive.namelist())
-
-    assert manifest["pack_mode"] == "snapshot"
-    assert manifest["media_policy"] == "manifest"
-    assert manifest["media"]["external_files"] == 1
-    assert manifest["media"]["external_bytes"] > 0
-    assert not any(name.startswith("Media/") for name in archive_names)
 
 
 def test_pack_portable_and_unpack_uses_managed_media_after_source_removal(tmp_path: Path) -> None:
@@ -498,7 +477,7 @@ def test_pack_portable_and_unpack_uses_managed_media_after_source_removal(tmp_pa
     assert managed_files
 
     artifact = tmp_path / "Portable Project.expkg"
-    pack_project(workspace, mode="portable", out=artifact)
+    pack_project(workspace, out=artifact)
     validate_artifact(artifact)
     manifest = _read_expkg_manifest(artifact)
     with zipfile.ZipFile(artifact) as archive:
@@ -508,9 +487,10 @@ def test_pack_portable_and_unpack_uses_managed_media_after_source_removal(tmp_pa
 
     assert manifest["format"] == "xpkg-packed-project"
     assert manifest["container"] == "zip"
-    assert manifest["pack_mode"] == "portable"
-    assert manifest["media_policy"] == "include"
+    assert manifest["media"]["mode"] == "full"
     assert manifest["media"]["included_files"] == len(managed_files)
+    assert manifest["media"]["external_files"] == 0
+    assert all(entry["included"] is True for entry in manifest["media"]["files"])
     assert all(name.startswith("Media/") for name in archive_names if name.startswith("Media/"))
     assert any(name.startswith("Media/") for name in archive_names)
 
@@ -535,22 +515,64 @@ def test_pack_portable_and_unpack_uses_managed_media_after_source_removal(tmp_pa
             assert resolved.exists()
 
 
-def test_pack_portable_rejects_nonportable_media_policy(tmp_path: Path) -> None:
+def test_pack_manifest_media_mode_records_media_without_storing_bytes(tmp_path: Path) -> None:
     from xpkg.model import Labels
-    from xpkg.workspace import init_project, pack_project
+    from xpkg.workspace import init_project, pack_project, unpack_project, workspace_media_root
 
-    labels = _make_labels(tmp_path, x=9.0, y=10.0)
-    workspace = tmp_path / "Portable Policy Project"
-    init_project(workspace, title="Portable Policy Project")
+    source_root = tmp_path / "source"
+    source_root.mkdir()
+    labels = _make_labels(source_root, x=9.0, y=10.0)
+    workspace = tmp_path / "Manifest Media Project"
+    init_project(workspace, title="Manifest Media Project")
     Labels.save_file(labels, workspace.as_posix())
 
-    with pytest.raises(ValueError, match="Portable pack requires media_policy='include'"):
-        pack_project(
-            workspace,
-            mode="portable",
-            media_policy="manifest",
-            out=tmp_path / "bad.expkg",
-        )
+    artifact = pack_project(workspace, out=tmp_path / "manifest.expkg", media="manifest")
+    manifest = _read_expkg_manifest(artifact)
+    with zipfile.ZipFile(artifact) as archive:
+        archive_names = set(archive.namelist())
+
+    media_files = manifest["media"]["files"]
+    assert manifest["media"]["mode"] == "manifest"
+    assert manifest["media"]["included_files"] == 0
+    assert manifest["media"]["external_files"] == len(media_files)
+    assert all(entry["included"] is False for entry in media_files)
+    assert all(entry["compression"] == "none" for entry in media_files)
+    assert not any(name.startswith("Media/") for name in archive_names)
+
+    unpacked = tmp_path / "Unpacked Manifest Media Project"
+    unpack_project(artifact, unpacked)
+    assert list(workspace_media_root(unpacked).rglob("*")) == []
+
+
+def test_pack_package_media_mode_includes_images_and_manifests_videos(
+    tmp_path: Path,
+) -> None:
+    from xpkg.workspace import init_project, pack_project, validate_expkg, workspace_media_root
+
+    workspace = tmp_path / "Package Media Project"
+    init_project(workspace, title="Package Media Project")
+    media_root = workspace_media_root(workspace)
+    image_path = media_root / "frames" / "frame_000.png"
+    video_path = media_root / "raw" / "trial.mp4"
+    image_path.parent.mkdir(parents=True)
+    video_path.parent.mkdir(parents=True)
+    image_path.write_bytes(b"image-bytes")
+    video_path.write_bytes(b"video-bytes")
+
+    artifact = pack_project(workspace, out=tmp_path / "package.expkg", media="package")
+    validate_expkg(artifact)
+    manifest = _read_expkg_manifest(artifact)
+    with zipfile.ZipFile(artifact) as archive:
+        archive_names = set(archive.namelist())
+
+    entries = {entry["path"]: entry for entry in manifest["media"]["files"]}
+    assert manifest["media"]["mode"] == "package"
+    assert manifest["media"]["included_files"] == 1
+    assert manifest["media"]["external_files"] == 1
+    assert entries["Media/frames/frame_000.png"]["included"] is True
+    assert entries["Media/raw/trial.mp4"]["included"] is False
+    assert "Media/frames/frame_000.png" in archive_names
+    assert "Media/raw/trial.mp4" not in archive_names
 
 
 def test_validate_expkg_rejects_tampered_member_payload(tmp_path: Path) -> None:
@@ -562,7 +584,7 @@ def test_validate_expkg_rejects_tampered_member_payload(tmp_path: Path) -> None:
     init_project(workspace, title="Tamper Project")
     Labels.save_file(labels, workspace.as_posix())
 
-    artifact = pack_project(workspace, mode="portable", out=tmp_path / "good.expkg")
+    artifact = pack_project(workspace, out=tmp_path / "good.expkg")
     tampered = tmp_path / "tampered.expkg"
     with zipfile.ZipFile(artifact) as source, zipfile.ZipFile(tampered, mode="w") as dest:
         for info in source.infolist():

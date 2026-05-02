@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 
 from tests.test_dlc_import import _write_dummy_video, _write_sample_dlc_csv
+from tests.test_project_workspace import _make_labels
 from tests.vicon_helpers import (
     write_sample_vicon_c3d,
     write_sample_vicon_csv,
@@ -137,3 +138,24 @@ def test_workspace_service_load_labels_guides_to_vicon_loader_when_snapshot_cach
 
     with pytest.raises(ValueError, match="load_vicon_recording"):
         workspace.load_labels()
+
+
+def test_workspace_service_metadata_field_roundtrip_uses_current_head(tmp_path: Path) -> None:
+    workspace = WorkspaceService.create(
+        tmp_path / "Service Field Metadata Project",
+        title="Service Field Metadata Project",
+    )
+    workspace.save_labels(_make_labels(tmp_path, x=1.0, y=2.0))
+
+    saved_path = workspace.save_metadata_field(
+        "session_json",
+        {"active_frame_idx": 7},
+        reason="test.workspace_service_metadata_field",
+    )
+
+    metadata = workspace.load_metadata()
+
+    assert saved_path.is_file()
+    assert workspace.load_metadata_field("session_json") == {"active_frame_idx": 7}
+    assert metadata is not None
+    assert metadata["session_json"] == {"active_frame_idx": 7}

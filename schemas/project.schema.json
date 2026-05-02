@@ -56,15 +56,6 @@
       "type": "string",
       "const": "Exports",
       "description": "Standard relative path for exported artifacts."
-    },
-    "default_pack_mode": {
-      "type": "string",
-      "enum": [
-        "portable",
-        "snapshot"
-      ],
-      "default": "portable",
-      "description": "Default pack/export mode for the workspace."
     }
   },
   "required": [
@@ -77,8 +68,7 @@
     "updated_at",
     "store_path",
     "media_root",
-    "exports_root",
-    "default_pack_mode"
+    "exports_root"
   ],
   "examples": [
     {
@@ -91,8 +81,7 @@
       "updated_at": "2026-03-15T00:00:00Z",
       "store_path": ".xpkg",
       "media_root": "Media",
-      "exports_root": "Exports",
-      "default_pack_mode": "portable"
+      "exports_root": "Exports"
     }
   ]
 }

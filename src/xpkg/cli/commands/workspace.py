@@ -8,7 +8,7 @@ from typing import Annotated, Any
 
 import typer
 
-from xpkg.cli.shared import JsonOption, run_command, write_path
+from xpkg.cli.shared import JsonOption, PackMedia, run_command, write_path
 from xpkg.workspace import (
     current_project_state_path,
     init_project,
@@ -130,6 +130,16 @@ def pack(
         str | None,
         typer.Option("--out", help="Explicit output .expkg path."),
     ] = None,
+    media: Annotated[
+        PackMedia,
+        typer.Option(
+            "--media",
+            help=(
+                "Media scope: full includes all managed media, package omits video "
+                "containers, manifest records media without storing bytes."
+            ),
+        ),
+    ] = PackMedia.full,
     overwrite: Annotated[
         bool,
         typer.Option("--overwrite", help="Replace an existing output artifact."),
@@ -142,12 +152,14 @@ def pack(
         artifact_path = pack_project(
             workspace,
             out=out,
+            media=media.value,
             overwrite=overwrite,
         )
         return {
             "status": "packed",
             "workspace": workspace,
             "artifact": str(artifact_path),
+            "media": media.value,
         }
 
     def human_output(payload: dict[str, object]) -> None:

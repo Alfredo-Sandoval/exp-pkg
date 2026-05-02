@@ -86,7 +86,7 @@ nav:
       - Multimodal Session Model: architecture/multimodal-session.md
       - Media IO Stack: architecture/media-io.md
       - Storage Direction: architecture/storage-direction.md
-      - Experimental Durable Store: architecture/experimental-store.md
+      - Workspace Durability: architecture/experimental-store.md
   - Development:
       - Local Quality Gates: development/local-ci.md
   - API Guide:
