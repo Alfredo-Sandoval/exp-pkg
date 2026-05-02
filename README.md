@@ -188,6 +188,28 @@ Fallback if you do not want the canonical setup target:
 bash environment/setup.sh
 ```
 
+The base install keeps heavyweight media/model stacks optional. Add extras when
+you need richer media or deep-learning functionality:
+
+```bash
+uv pip install -e ".[media-rich]"  # PyAV / rich FFmpeg media handling
+uv pip install -e ".[dl]"          # PyTorch + TorchCodec + TorchVision
+uv pip install -e ".[inference]"   # ONNX Runtime
+uv pip install -e ".[vision]"      # Kornia + PyTorch
+uv pip install -e ".[media-dl]"    # Full optional media/deep-learning stack
+```
+
+Runtime code can inspect available stacks through `xpkg.media`:
+
+```python
+from xpkg.media import available_media_backends, require_media_backend
+from xpkg.media.video import Video
+
+print(available_media_backends())
+require_media_backend("pyav")
+video = Video.from_filename("session.mp4", backend="pyav")
+```
+
 Then use the local quality gates:
 
 ```bash

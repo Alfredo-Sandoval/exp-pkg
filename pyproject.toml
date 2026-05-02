@@ -77,6 +77,29 @@ docs = [
   "mkdocs-material>=9.5,<10",
   "mkdocstrings[python]>=0.24,<1",
 ]
+media-rich = [
+  "av>=16,<17",
+]
+dl = [
+  "torch>=2.11,<2.12",
+  "torchcodec>=0.11,<0.12",
+  "torchvision>=0.26,<0.27",
+]
+inference = [
+  "onnxruntime>=1.24,<2",
+]
+vision = [
+  "kornia>=0.8,<1",
+  "torch>=2.11,<2.12",
+]
+media-dl = [
+  "av>=16,<17",
+  "kornia>=0.8,<1",
+  "onnxruntime>=1.24,<2",
+  "torch>=2.11,<2.12",
+  "torchcodec>=0.11,<0.12",
+  "torchvision>=0.26,<0.27",
+]
 tdt = [
   "tdt>=0.6",
 ]

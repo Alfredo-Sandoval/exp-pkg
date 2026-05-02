@@ -145,18 +145,54 @@ explicit backend request must never silently degrade to something else.
 xpkg should expose one semantic contract with multiple backend
 implementations.
 
-### Required backends
+### Required and optional backends
 
 | Backend | Purpose | Platforms | Role |
 | --- | --- | --- | --- |
 | `images` | Image sequences and single-image videos | macOS, Linux | Reference support for still-frame workflows |
 | `opencv` | Baseline portable decode/write path | macOS, Linux | Reference backend and broad compatibility |
-| `ffmpeg-cpu` | Better codec coverage on CPU | macOS, Linux | Deterministic codec-heavy fallback |
-| `cuda` | Hardware decode/encode on NVIDIA systems | Linux first | High-throughput path for large video workloads |
-| `macos` | Apple media acceleration | macOS | Native optimized path for Apple hardware |
+| `imageio` | Baseline FFmpeg-backed writer path | macOS, Linux | Current non-AVI writer fallback |
+| `pyav` | Rich FFmpeg container, stream, codec, metadata, and filter control | macOS, Linux | Optional `media-rich` backend |
+| `torchcodec` | PyTorch-native video/audio decode and encode | macOS, Linux | Optional `dl` backend for tensor pipelines |
+| `onnxruntime` | Portable exported-model inference | macOS, Linux | Optional `inference` backend |
+| `kornia` | Differentiable computer-vision tensor operations | macOS, Linux | Optional `vision` backend |
 
-PyAV may still be used internally where appropriate, but it should be treated
-as an implementation choice, not the final architecture boundary.
+PyAV and TorchCodec should be explicit implementation backends, not hidden
+dependencies. PyAV is the better fit for FFmpeg-level media ownership and
+metadata. TorchCodec is the better fit when the next consumer is a PyTorch model
+or tensor transform. ONNX Runtime and Kornia are model-adjacent rather than
+general video readers, but they should still be discoverable through the same
+capability surface because downstream workflows need to reason about them.
+
+The package extras encode this split:
+
+| Extra | Dependencies | Use |
+| --- | --- | --- |
+| `media-rich` | `av` | Rich FFmpeg media handling |
+| `dl` | `torch`, `torchcodec`, `torchvision` | PyTorch tensor pipelines |
+| `inference` | `onnxruntime` | Exported model inference |
+| `vision` | `kornia`, `torch` | Differentiable tensor CV |
+| `media-dl` | all of the above | Full media/deep-learning stack |
+
+This choice follows the current upstream direction:
+
+- PyTorch positions TorchCodec as the video-to-tensor path for PyTorch model
+  workflows:
+  <https://pytorch.org/blog/torchcodec/>
+- TorchCodec publishes an explicit compatibility matrix tying `torchcodec 0.11`
+  to `torch 2.11`:
+  <https://github.com/meta-pytorch/torchcodec#installing-torchcodec>
+- TorchVision deprecated video decode/encode in `0.22` and removed it by
+  `0.24`, so `torchvision.io` should not be the xpkg video backend:
+  <https://docs.pytorch.org/vision/main/generated/torchvision.io.read_video.html>
+- ImageIO's PyAV plugin is the richer replacement direction for its FFmpeg
+  plugin:
+  <https://imageio.readthedocs.io/en/v2.31.4/_autosummary/imageio.plugins.pyav.html>
+- ONNX Runtime is the exported-model inference path, with CPU packages
+  appropriate for macOS and Arm hosts:
+  <https://onnxruntime.ai/docs/get-started/with-python.html>
+- Kornia is the PyTorch-native differentiable computer-vision layer:
+  <https://www.kornia.org/>
 
 ### Capability discovery
 
@@ -164,6 +200,7 @@ xpkg should add explicit capability reporting so callers can reason about the
 host instead of guessing:
 
 - which backends are available
+- which optional extra enables a missing backend
 - whether hardware decode is available
 - whether hardware encode is available
 - supported output codecs
@@ -173,6 +210,13 @@ host instead of guessing:
 The important design point is that capability discovery belongs to xpkg.
 Downstream GUI apps should not maintain their own independent truth about which
 video backends exist or how they behave.
+
+The first implementation layer is `xpkg.media.backends`, which reports installed
+core and optional backends without importing heavyweight runtime packages during
+normal package import. PyAV is also available as an explicit reader backend via
+`Video.from_filename(..., backend="pyav")` when `exp-pkg[media-rich]` is
+installed. It must remain explicit until conformance coverage proves it can join
+`auto`.
 
 ## Performance Requirements
 

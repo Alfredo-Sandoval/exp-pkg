@@ -4,6 +4,7 @@ from pathlib import Path
 
 import cv2
 import numpy as np
+import pytest
 
 
 def test_video_image_sequence_and_writer_roundtrip(tmp_path: Path) -> None:
@@ -45,3 +46,30 @@ def test_video_image_sequence_and_writer_roundtrip(tmp_path: Path) -> None:
     assert decoded.frames >= 1
     roundtrip = decoded.get_frame(0)
     assert roundtrip.shape == (12, 16, 3)
+
+
+def test_video_facade_reexports_split_media_modules() -> None:
+    from xpkg.media.readers import Video as ReaderVideo
+    from xpkg.media.transforms import resize_image
+    from xpkg.media.video import Video, VideoWriter, augment_background
+    from xpkg.media.writers import VideoWriter as WriterVideoWriter
+
+    assert Video is ReaderVideo
+    assert VideoWriter is WriterVideoWriter
+    assert callable(resize_image)
+    assert callable(augment_background)
+
+
+def test_explicit_pyav_backend_requires_optional_extra_when_missing(tmp_path: Path) -> None:
+    from xpkg.media import media_backend_status_by_name
+    from xpkg.media.video import Video
+
+    pyav_status = media_backend_status_by_name("pyav")
+    if pyav_status.available:
+        pytest.skip("pyav is installed in this environment")
+
+    video_path = tmp_path / "not-a-real-video.mp4"
+    video_path.write_bytes(b"not a real video")
+
+    with pytest.raises(ImportError, match=r"exp-pkg\[media-rich\]"):
+        Video.from_filename(video_path.as_posix(), backend="pyav")

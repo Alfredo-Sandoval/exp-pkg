@@ -28,6 +28,15 @@ from xpkg.segmentation.model import (
     SegmentationPrompt,
     rasterize_polygon,
 )
+from xpkg.segmentation.normalized_polygons import (
+    NormalizedPolygonLabel,
+    read_normalized_polygon_dataset_yaml,
+    read_normalized_polygon_labels,
+    read_normalized_polygon_rows,
+    write_normalized_polygon_dataset_yaml,
+    write_normalized_polygon_labels,
+    write_normalized_polygon_rows,
+)
 from xpkg.segmentation.rle import (
     XPKG_RLE_ENCODING,
     XPKG_RLE_ORDER,
@@ -49,6 +58,7 @@ __all__ = [
     "XPKG_RLE_ENCODING",
     "XPKG_RLE_ORDER",
     "MaskType",
+    "NormalizedPolygonLabel",
     "PromptType",
     "ROI",
     "SamSegmentationResult",
@@ -73,9 +83,15 @@ __all__ = [
     "read_binary_mask",
     "read_coco_annotations",
     "read_label_image",
+    "read_normalized_polygon_dataset_yaml",
+    "read_normalized_polygon_labels",
+    "read_normalized_polygon_rows",
     "rle_decode",
     "rle_encode",
     "segmentation_to_masks",
     "write_binary_mask",
     "write_label_image",
+    "write_normalized_polygon_dataset_yaml",
+    "write_normalized_polygon_labels",
+    "write_normalized_polygon_rows",
 ]

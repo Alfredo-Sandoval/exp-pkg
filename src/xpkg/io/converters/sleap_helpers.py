@@ -28,6 +28,10 @@ def _warn(msg: str) -> None:
         _sys.stderr.write(msg.rstrip() + "\n")
 
 
+def _column_index(column_names: list[str]) -> pd.Index:
+    return pd.Index(column_names)
+
+
 def _get_field(record: Any, field: str) -> Any:
     return record[field]
 
@@ -290,7 +294,7 @@ def extract_labels_step4(
                     rows.append([float(fidx), *best_flat])
 
                 if rows:
-                    df = pd.DataFrame(rows, columns=column_names)
+                    df = pd.DataFrame(rows, columns=_column_index(column_names))
                     df["frame"] = df["frame"].apply(
                         lambda x, _base=base: f"labeled-data/{_base}/img{int(x):08d}.png"
                     )
@@ -528,19 +532,19 @@ def extract_labels_step4(
                         continue
                     rows.append([float(fidx), *best_flat])
                 if rows:
-                    df = pd.DataFrame(rows, columns=column_names)
+                    df = pd.DataFrame(rows, columns=_column_index(column_names))
                     base = os.path.splitext(os.path.basename(_fn))[0]
                     df["frame"] = df["frame"].apply(
                         lambda x, _base=base: f"labeled-data/{_base}/img{int(x):08d}.png"
                     )
                     dfs.append(df)
         if not dfs:
-            return pd.DataFrame(columns=column_names)
+            return pd.DataFrame(columns=_column_index(column_names))
         row_blocks = [df.to_numpy(copy=False) for df in dfs if not df.empty]
         if not row_blocks:
-            return pd.DataFrame(columns=column_names)
+            return pd.DataFrame(columns=_column_index(column_names))
         out = np.concatenate(row_blocks, axis=0)
-        return pd.DataFrame(out, columns=column_names)
+        return pd.DataFrame(out, columns=_column_index(column_names))
 
 
 __all__ = [

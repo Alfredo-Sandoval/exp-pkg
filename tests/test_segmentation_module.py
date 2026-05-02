@@ -20,8 +20,13 @@ from xpkg.segmentation import (
     rasterize_polygon,
     read_binary_mask,
     read_label_image,
+    read_normalized_polygon_dataset_yaml,
+    read_normalized_polygon_labels,
+    read_normalized_polygon_rows,
     write_binary_mask,
     write_label_image,
+    write_normalized_polygon_dataset_yaml,
+    write_normalized_polygon_labels,
 )
 
 
@@ -157,3 +162,56 @@ def test_sam_arrays_and_fiesta_rle_summary_convert_to_masks_and_rois() -> None:
     assert len(fiesta.rois) == 1
     assert fiesta.masks[0].class_name == "paw"
     np.testing.assert_array_equal(fiesta.masks[0].to_binary_mask(), first)
+
+
+def test_normalized_polygon_sidecar_labels_round_trip(tmp_path) -> None:
+    label_path = tmp_path / "labels" / "frame_001.txt"
+    mask = SegmentationMask.from_polygon(
+        np.array([[64.0, 48.0], [128.0, 48.0], [128.0, 96.0]], dtype=np.float32),
+        class_name="paw",
+    )
+
+    write_normalized_polygon_labels(
+        label_path,
+        [mask],
+        image_width=640,
+        image_height=480,
+        class_name_to_id={"paw": 2},
+        precision=4,
+    )
+
+    rows = read_normalized_polygon_rows(label_path)
+    loaded = read_normalized_polygon_labels(
+        label_path,
+        image_width=640,
+        image_height=480,
+        class_names={2: "paw"},
+    )
+
+    assert label_path.read_text(encoding="utf-8") == "2 0.1 0.1 0.2 0.1 0.2 0.2\n"
+    assert len(rows) == 1
+    assert rows[0].class_index == 2
+    assert len(loaded) == 1
+    assert loaded[0].class_name == "paw"
+    assert loaded[0].polygon_vertices is not None
+    assert mask.polygon_vertices is not None
+    np.testing.assert_allclose(loaded[0].polygon_vertices[0], mask.polygon_vertices[0])
+
+
+def test_normalized_polygon_dataset_yaml_round_trip(tmp_path) -> None:
+    yaml_path = tmp_path / "dataset.yaml"
+
+    write_normalized_polygon_dataset_yaml(
+        yaml_path,
+        names={0: "body", 1: "paw"},
+        train="images/train",
+        val="images/val",
+        test="images/test",
+    )
+    payload = read_normalized_polygon_dataset_yaml(yaml_path)
+
+    assert payload["path"] == "."
+    assert payload["train"] == "images/train"
+    assert payload["val"] == "images/val"
+    assert payload["test"] == "images/test"
+    assert payload["names"] == {0: "body", 1: "paw"}

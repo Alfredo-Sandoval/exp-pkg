@@ -10,6 +10,10 @@ sequence handling, frame indexing, color policy, and media export rules.
 - Keep video and image-sequence primitives in `video.py`.
 - Treat media paths as project-relative wherever possible.
 - Keep OpenCV/imageio details behind this package boundary.
+- Keep heavy model/runtime stacks optional and discoverable through
+  `xpkg.media.backends`.
+- Keep `backend="pyav"` explicit until backend conformance tests prove it
+  should participate in `auto`.
 
 ## Near-Term Cleanup
 
@@ -32,7 +36,21 @@ sequence handling, frame indexing, color policy, and media export rules.
   state?
 - Which operations are pure media IO, and which belong to downstream analysis
   packages?
-- What optional backends should exist beyond OpenCV/imageio?
+- Should PyAV gain writer support next, or should TorchCodec tensor sampling
+  land before richer encoding?
+
+## Backend Stack Direction
+
+- Keep `opencv-python-headless`, `imageio`, and `imageio-ffmpeg` as the portable
+  baseline.
+- Use `av`/PyAV for rich FFmpeg container, stream, codec, metadata, and filter
+  control. `Video.from_filename(..., backend="pyav")` is the first explicit
+  reader path.
+- Use `torch`, `torchvision`, and `torchcodec` as the PyTorch-aligned
+  deep-learning stack, with TorchCodec handling video/audio tensors.
+- Use `onnxruntime` as the portable exported-model inference backend.
+- Use `kornia` for differentiable tensor-native computer-vision operations.
+- Do not import heavy optional stacks during `import xpkg` or `import xpkg.media`.
 
 ## Not Here
 
