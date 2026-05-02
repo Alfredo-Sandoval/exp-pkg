@@ -5,7 +5,7 @@
 <code>xpkg.adapters</code> is the in-memory conversion surface for canonical
 xpkg objects. It exists for downstream tools that need arrays, tables, or
 JSON-friendly payloads without coupling to workspace layout or archive-format
-tooling.
+storage tooling.
 </p>
 </div>
 

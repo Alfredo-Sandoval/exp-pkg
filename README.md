@@ -21,7 +21,7 @@ into an analysis platform.
 
 This repo is not an analysis platform. It is the IO layer that analysis tools,
 GUIs, and automation can build on when they need a coherent project/workspace
-surface instead of a pile of ad hoc CSV, H5, JSON, and archive files.
+surface instead of a pile of ad hoc CSV, H5, JSON, and project sidecars.
 
 The public product contract is now intentionally narrow:
 
@@ -132,7 +132,7 @@ Mission direction:
   photometry, behavior, and synchronization data
 - make downstream analysis and GUI repos depend on xpkg instead of inventing
   their own project formats
-- keep direct archive handling narrow and clearly secondary to workspace flows
+- keep project storage centered on workspaces and portable `.expkg` exports
 
 ## Supported Workspace
 

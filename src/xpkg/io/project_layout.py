@@ -10,7 +10,6 @@ from typing import Any, Literal
 from uuid import uuid4
 
 from xpkg._core.path_registry import ensure_dir, resolve_path
-from xpkg.io.archive_format.shared import CANONICAL_ARCHIVE_SUFFIX
 
 PROJECT_DESCRIPTOR_FILENAME = "PROJECT.json"
 EXPKG_SUFFIX = ".expkg"
@@ -246,7 +245,6 @@ def default_expkg_path(path: str | Path) -> Path:
 
 
 __all__ = [
-    "CANONICAL_ARCHIVE_SUFFIX",
     "ARTIFACTS_DIRNAME",
     "CURRENT_SNAPSHOT_FILENAME",
     "EXPORTS_DIRNAME",

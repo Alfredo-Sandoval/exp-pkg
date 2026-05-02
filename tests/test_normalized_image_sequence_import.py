@@ -4,7 +4,6 @@ import json
 from pathlib import Path
 
 import cv2
-import h5py
 import numpy as np
 
 
@@ -14,7 +13,7 @@ def _write_frame(path: Path, value: int) -> None:
     assert ok
 
 
-def test_convert_normalized_image_sequence_annotations_writes_archive_and_manifest(
+def test_convert_normalized_image_sequence_annotations_builds_workspace_ready_labels(
     tmp_path: Path,
 ) -> None:
     from xpkg.io.converters.normalized_image_sequence_import import (
@@ -54,37 +53,27 @@ def test_convert_normalized_image_sequence_annotations_writes_archive_and_manife
         )
     )
 
-    project_root = tmp_path / "archive"
+    project_root = tmp_path / "workspace"
     result = convert_normalized_image_sequence_annotations(
         annotations_path,
         project_root,
     )
 
-    archive_path = project_root / "archive.xpkg"
     copied_frame = project_root / "videos" / "demo_sequence" / "000000_frame_0000.png"
     assert result.project_root == project_root
-    assert result.archive_path == archive_path
+    assert result.metadata == {
+        "project_name": "demo_dataset_core_v1",
+        "source": "normalized_image_sequence_import",
+        "source_annotations": annotations_path.as_posix(),
+        "dataset_key": "demo_dataset",
+        "slice_key": "core_v1",
+    }
+    assert result.videos == [project_root / "videos" / "demo_sequence"]
     assert copied_frame.is_file()
 
-    with h5py.File(str(archive_path), "r") as handle:
-        raw = handle["project_metadata"].attrs["manifest_json"]
-        if isinstance(raw, bytes | bytearray):
-            raw = raw.decode("utf-8")
-        manifest = json.loads(str(raw))
-
-    entries = manifest["entries"]
-    expected_sequence_dir = {
-        str((project_root / "videos" / "demo_sequence").resolve()),
-        "videos/demo_sequence",
-    }
-    assert any(
-        entry.get("asset_type") == "video"
-        and entry.get("path") in expected_sequence_dir
-        and entry.get("metadata") == {
-            "backend": "images",
-            "frame_count": 1,
-            "index": 0,
-            "role": "image_sequence",
-        }
-        for entry in entries
-    )
+    labels = result.labels
+    assert len(labels.videos) == 1
+    assert labels.videos[0].image_filenames == [copied_frame.as_posix()]
+    assert len(labels.labeled_frames) == 1
+    assert labels.skeletons[0].keypoint_names == ["nose", "tail"]
+    assert labels.skeletons[0].links_ids == [(0, 1)]

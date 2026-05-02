@@ -14,7 +14,7 @@ from xpkg.io.archive_store.errors import LockAcquisitionError
 
 
 class StoreLock:
-    """Advisory hard-link lock for the archive_store directory root."""
+    """Advisory hard-link lock for the private durable-store directory root."""
 
     def __init__(
         self,

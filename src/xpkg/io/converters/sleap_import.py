@@ -1,4 +1,4 @@
-"""Convert a SLEAP `.pkg.slp` directly into native project archives."""
+"""Convert SLEAP exports into workspace-ready labels."""
 
 from __future__ import annotations
 
@@ -12,13 +12,10 @@ import pandas as pd
 
 from xpkg._core.json_utils import parse_json_dict
 from xpkg._core.path_registry import ensure_dir, resolve_path
-from xpkg.io.archive_format import write_archive
-from xpkg.io.archive_format.shared import CANONICAL_ARCHIVE_SUFFIX
 from xpkg.io.converters.converter_helpers import (
     ConversionResult,
     ProgressCallback,
     _emit,
-    project_archive_path,
     rebase_image_sequences,
     remap_labels_to_videos,
 )
@@ -28,8 +25,8 @@ from xpkg.io.converters.converter_helpers import (
 from xpkg.io.converters.dlc_import import (
     _resolve_tracking_path,
     _resolve_video_path,
+    _tracking_conversion_result,
     _validate_video_alignment,
-    _write_tracking_archive,
 )
 from xpkg.io.converters.pose_track_import import (
     labels_from_pose_tracks,
@@ -65,8 +62,8 @@ _OK_LABEL_TABLE_READY_MARKER = "XPKG_IMPORT OK: label_table_ready"
 _ASSEMBLE_LABELS_MARKER = "XPKG_IMPORT STEP: assemble_labels"
 _BUILD_VIDEO_MARKER = "XPKG_IMPORT STEP: build_video"
 _COPY_FRAMES_MARKER = "XPKG_IMPORT STEP: copy_frames"
-_WRITE_ARCHIVE_MARKER = "XPKG_IMPORT STEP: write_archive"
-_OK_ARCHIVE_WRITTEN_MARKER = "XPKG_IMPORT OK: archive_written"
+_PREPARE_RESULT_MARKER = "XPKG_IMPORT STEP: prepare_workspace_state"
+_OK_RESULT_READY_MARKER = "XPKG_IMPORT OK: workspace_state_ready"
 _CLEANUP_TEMP_MARKER = "XPKG_IMPORT STEP: cleanup_temp_folders"
 _DONE_MARKER = "XPKG_IMPORT DONE"
 
@@ -78,8 +75,8 @@ SLEAP_PACKAGE_PROGRESS_MARKERS: tuple[tuple[str, int], ...] = (
     (_ASSEMBLE_LABELS_MARKER, 55),
     (_BUILD_VIDEO_MARKER, 70),
     (_COPY_FRAMES_MARKER, 72),
-    (_WRITE_ARCHIVE_MARKER, 80),
-    (_OK_ARCHIVE_WRITTEN_MARKER, 92),
+    (_PREPARE_RESULT_MARKER, 80),
+    (_OK_RESULT_READY_MARKER, 92),
     (_CLEANUP_TEMP_MARKER, 96),
     (_DONE_MARKER, 100),
 )
@@ -87,14 +84,14 @@ SLEAP_PACKAGE_PROGRESS_MARKERS: tuple[tuple[str, int], ...] = (
 _SLEAP_H5_READ_TRACKS_MARKER = "SLEAP_H5_IMPORT STEP: read_h5"
 _SLEAP_H5_VALIDATE_VIDEO_MARKER = "SLEAP_H5_IMPORT STEP: validate_video"
 _SLEAP_H5_BUILD_LABELS_MARKER = "SLEAP_H5_IMPORT STEP: build_labels"
-_SLEAP_H5_WRITE_ARCHIVE_MARKER = "SLEAP_H5_IMPORT STEP: write_archive"
+_SLEAP_H5_PREPARE_RESULT_MARKER = "SLEAP_H5_IMPORT STEP: prepare_workspace_state"
 _SLEAP_H5_DONE_MARKER = "SLEAP_H5_IMPORT DONE"
 
 SLEAP_H5_PROGRESS_MARKERS: tuple[tuple[str, int], ...] = (
     (_SLEAP_H5_READ_TRACKS_MARKER, 10),
     (_SLEAP_H5_VALIDATE_VIDEO_MARKER, 35),
     (_SLEAP_H5_BUILD_LABELS_MARKER, 60),
-    (_SLEAP_H5_WRITE_ARCHIVE_MARKER, 80),
+    (_SLEAP_H5_PREPARE_RESULT_MARKER, 80),
     (_SLEAP_H5_DONE_MARKER, 100),
 )
 
@@ -236,18 +233,15 @@ def _labels_from_sleap_h5_tracks(
 def convert_sleap_h5(
     h5_path: Path | str,
     video_path: Path | str,
-    out_path: Path | str,
     *,
     skeleton_name: str = "imported",
     likelihood_threshold: float = 0.0,
-    archive_extension: str = CANONICAL_ARCHIVE_SUFFIX,
     progress_callback: ProgressCallback | None = None,
 ) -> ConversionResult:
-    """Convert a SLEAP analysis H5 export plus its video into a native archive."""
+    """Convert a SLEAP analysis H5 export plus its video into workspace-ready labels."""
 
     resolved_h5_path = _resolve_tracking_path(h5_path)
     resolved_video_path = _resolve_video_path(video_path)
-    resolved_out_path = resolve_path(out_path)
 
     _emit(progress_callback, _SLEAP_H5_READ_TRACKS_MARKER)
     track_count = _read_sleap_track_count(resolved_h5_path)
@@ -279,10 +273,9 @@ def convert_sleap_h5(
     )
     labels.validate()
 
-    _emit(progress_callback, _SLEAP_H5_WRITE_ARCHIVE_MARKER)
-    result = _write_tracking_archive(
+    _emit(progress_callback, _SLEAP_H5_PREPARE_RESULT_MARKER)
+    result = _tracking_conversion_result(
         labels,
-        out_path=resolved_out_path,
         data_path=resolved_h5_path,
         video_path=resolved_video_path,
         source_label="sleap_h5_import",
@@ -299,10 +292,9 @@ def convert_sleap_package(
     *,
     fps: int = 30,
     encode_videos: bool | None = None,
-    archive_extension: str = CANONICAL_ARCHIVE_SUFFIX,
     progress_callback: ProgressCallback | None = None,
 ) -> ConversionResult:
-    """Convert a SLEAP `.pkg.slp` archive into a native project archive."""
+    """Convert a SLEAP `.pkg.slp` package into workspace-ready labels."""
 
     slp_path = resolve_path(slp)
     proj_root = resolve_path(out_dir)
@@ -351,15 +343,13 @@ def convert_sleap_package(
     if videos:
         remap_labels_to_videos(labels, videos, proj_root)
 
-    archive_path = project_archive_path(proj_root, archive_extension=archive_extension)
     metadata = {
         "project_name": proj_root.name,
         "source": "sleap_pkg_import",
         "source_package": slp_path.as_posix(),
     }
-    _emit(progress_callback, _WRITE_ARCHIVE_MARKER)
-    write_archive(archive_path, labels, metadata=metadata)
-    _emit(progress_callback, _OK_ARCHIVE_WRITTEN_MARKER)
+    _emit(progress_callback, _PREPARE_RESULT_MARKER)
+    _emit(progress_callback, _OK_RESULT_READY_MARKER)
 
     _emit(progress_callback, _CLEANUP_TEMP_MARKER)
     if tmp_extract.exists():
@@ -369,7 +359,8 @@ def convert_sleap_package(
         source_dir=slp_path,
         project_root=proj_root,
         videos=videos,
-        archive_path=archive_path,
+        labels=labels,
+        metadata=metadata,
     )
 
     _emit(progress_callback, _DONE_MARKER)

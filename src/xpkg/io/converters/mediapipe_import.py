@@ -1,11 +1,9 @@
-"""Convert serialized MediaPipe pose-landmarks JSON into native archives."""
+"""Convert serialized MediaPipe pose-landmarks JSON into workspace-ready labels."""
 
 from __future__ import annotations
 
 from pathlib import Path
 
-from xpkg._core.path_registry import resolve_path
-from xpkg.io.archive_format.shared import CANONICAL_ARCHIVE_SUFFIX
 from xpkg.io.converters.converter_helpers import (
     ConversionResult,
     ProgressCallback,
@@ -14,8 +12,8 @@ from xpkg.io.converters.converter_helpers import (
 from xpkg.io.converters.dlc_import import (
     _resolve_tracking_path,
     _resolve_video_path,
+    _tracking_conversion_result,
     _validate_video_alignment,
-    _write_tracking_archive,
 )
 from xpkg.io.converters.pose_track_import import labels_from_pose_tracks
 from xpkg.io.readers.mediapipe_pose_landmarks import (
@@ -29,14 +27,14 @@ from xpkg.io.video import Video
 _MEDIAPIPE_READ_JSON_MARKER = "MEDIAPIPE_IMPORT STEP: read_json"
 _MEDIAPIPE_VALIDATE_VIDEO_MARKER = "MEDIAPIPE_IMPORT STEP: validate_video"
 _MEDIAPIPE_BUILD_LABELS_MARKER = "MEDIAPIPE_IMPORT STEP: build_labels"
-_MEDIAPIPE_WRITE_ARCHIVE_MARKER = "MEDIAPIPE_IMPORT STEP: write_archive"
+_MEDIAPIPE_PREPARE_RESULT_MARKER = "MEDIAPIPE_IMPORT STEP: prepare_workspace_state"
 _MEDIAPIPE_DONE_MARKER = "MEDIAPIPE_IMPORT DONE"
 
 MEDIAPIPE_POSE_LANDMARKS_JSON_PROGRESS_MARKERS: tuple[tuple[str, int], ...] = (
     (_MEDIAPIPE_READ_JSON_MARKER, 10),
     (_MEDIAPIPE_VALIDATE_VIDEO_MARKER, 35),
     (_MEDIAPIPE_BUILD_LABELS_MARKER, 60),
-    (_MEDIAPIPE_WRITE_ARCHIVE_MARKER, 80),
+    (_MEDIAPIPE_PREPARE_RESULT_MARKER, 80),
     (_MEDIAPIPE_DONE_MARKER, 100),
 )
 
@@ -54,23 +52,15 @@ def _mediapipe_skeleton_links() -> list[tuple[int, int]]:
 def convert_mediapipe_pose_landmarks_json(
     json_path: Path | str,
     video_path: Path | str,
-    out_path: Path | str,
     *,
     skeleton_name: str = "mediapipe_pose",
     likelihood_threshold: float = 0.0,
-    archive_extension: str = CANONICAL_ARCHIVE_SUFFIX,
     progress_callback: ProgressCallback | None = None,
 ) -> ConversionResult:
-    """Convert serialized MediaPipe pose-landmarks JSON plus a video into an archive."""
+    """Convert serialized MediaPipe pose-landmarks JSON plus a video into workspace-ready labels."""
 
     resolved_json_path = _resolve_tracking_path(json_path)
     resolved_video_path = _resolve_video_path(video_path)
-    resolved_out_path = resolve_path(out_path)
-    if archive_extension != CANONICAL_ARCHIVE_SUFFIX:
-        raise ValueError(
-            "MediaPipe pose-landmarks JSON conversion writes a single archive file; "
-            f"archive_extension must be {CANONICAL_ARCHIVE_SUFFIX!r}."
-        )
 
     _emit(progress_callback, _MEDIAPIPE_READ_JSON_MARKER)
     track = read_track(resolved_json_path, track_index=0)
@@ -102,10 +92,9 @@ def convert_mediapipe_pose_landmarks_json(
     )
     labels.validate()
 
-    _emit(progress_callback, _MEDIAPIPE_WRITE_ARCHIVE_MARKER)
-    result = _write_tracking_archive(
+    _emit(progress_callback, _MEDIAPIPE_PREPARE_RESULT_MARKER)
+    result = _tracking_conversion_result(
         labels,
-        out_path=resolved_out_path,
         data_path=resolved_json_path,
         video_path=resolved_video_path,
         source_label="mediapipe_pose_landmarks_json_import",

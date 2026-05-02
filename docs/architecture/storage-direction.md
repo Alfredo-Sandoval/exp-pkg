@@ -59,50 +59,33 @@ The public cleanup now matches that storage model:
 - `WorkspaceService` and `workspace.imports.*` are the primary downstream path
 - `xpkg.workspace` keeps workspace lifecycle/import helpers
 - package-level `xpkg.adapters` and the CLI `xpkg convert` surface were removed
-- compatibility alias maps such as `current_project_archive_path(...)` were
-  removed from the public facades
+- compatibility alias maps for direct `.xpkg` archive files were removed from
+  the public facades
 
-## Remaining Archive Uses
+## Removed Archive Layer
 
-The archive engine is still valuable, but its role is narrower now.
+The legacy single-file HDF5 archive engine has been removed from the active IO
+surface. Workspace importers now build workspace-native labels and metadata
+directly, then commit snapshot roots into the private durable store.
 
-Archive handling remains appropriate for:
-
-- temporary internal conversion artifacts while workspace importers are being
-  rewritten around native snapshots
-- fixtures and compatibility coverage inside this repo
-
-Archive handling is no longer the normal committed workspace write path or a
-first-class public downstream surface.
-
-## Why The Archive Layer Still Exists
-
-The archive layer still provides the broadest round-trip surface for internal
-conversion work:
-
-- `xpkg.io.archive_format.write_archive`
-- `xpkg.io.archive_format.update_labels_archive`
-- `xpkg.io.archive_format.read_archive`
-
-Those functions still matter internally because they already know how to carry
-labels, predictions, segmentation, metrics, metadata, and manifests in a
-portable archive-shaped payload.
+Vendor HDF5 readers remain where the source format itself is HDF5, such as DLC
+H5, SLEAP analysis H5, Doric containers, and Teleopto H5 exports. Those are
+edge input readers, not xpkg project artifacts.
 
 ## Recommended Position
 
-xpkg should keep treating direct `.xpkg` archive handling as internal
-conversion machinery, not the product identity.
+xpkg should treat the editable workspace and `.expkg` export as the only
+project artifacts.
 
 That means:
 
-- keep archive support for fixtures and explicit internal archive work
-- avoid routing new workspace features through archive mutation
+- route new workspace features through workspace-native snapshot state
+- keep `.xpkg/` as a private directory, not a single-file project format
 - keep the public storage story centered on workspace + `.xpkg/` + `.expkg`
-- keep shrinking archive-first assumptions at the boundaries rather than adding
-  new ones
+- keep vendor HDF5 support scoped to input readers
 
 ## Bottom Line
 
 The durable store head is workspace-native for normal workspace flows. Direct
-archive handling is no longer a public migration path or a primary committed
-storage contract.
+HDF5 archive handling is no longer a migration path or a committed storage
+contract.

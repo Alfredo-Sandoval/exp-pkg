@@ -19,11 +19,9 @@ from xpkg.adapters.vicon import (
     vicon_recording_from_json_payload,
     vicon_recording_to_json_payload,
 )
-from xpkg.io.archive_format import read_archive
 from xpkg.io.archive_store.hashing import sha256_file
 from xpkg.io.project_artifact import validate_workspace
 from xpkg.io.project_layout import (
-    CANONICAL_ARCHIVE_SUFFIX,
     CURRENT_SNAPSHOT_FILENAME,
     EXPORTS_DIRNAME,
     MEDIA_DIRNAME,
@@ -62,16 +60,6 @@ from xpkg.io.workspace_state import (
 
 if TYPE_CHECKING:
     from xpkg.model import Labels, ViconRecording
-
-
-def export_project_archive(
-    path: str | Path,
-    *,
-    out: str | Path,
-) -> Path:
-    """Materialize an internal `.xpkg` archive from the committed workspace head."""
-
-    return _workspace_store(path).export_archive(out=out)
 
 
 def load_workspace_payload(path: str | Path) -> dict[str, Any]:
@@ -470,18 +458,6 @@ class WorkspaceStore:
 
         return ArchiveStore.open(self.store_root)
 
-    def export_archive(self, *, out: str | Path) -> Path:
-        target_archive_path = _archive_export_path(out)
-        if self.has_durable_store():
-            store = self.open()
-            if store.has_current_root("snapshot"):
-                return _export_archive_from_snapshot(
-                    self.workspace_root,
-                    store.current_root_path("snapshot"),
-                    archive_path=target_archive_path,
-                )
-        raise FileNotFoundError(f"Workspace has no committed state to export: {self.store_root}")
-
     def current_snapshot_path(self) -> Path:
         if not self.has_durable_store():
             raise FileNotFoundError(f"Workspace has no durable snapshot root: {self.store_root}")
@@ -554,25 +530,8 @@ def _clone_metadata(metadata: dict[str, Any] | None) -> dict[str, Any]:
     return dict(metadata or {})
 
 
-def _stage_archive_parent(workspace_root: Path) -> Path:
+def _stage_workspace_parent(workspace_root: Path) -> Path:
     return ensure_dir(_workspace_store(workspace_root).staging_root)
-
-
-def _archive_export_path(path: str | Path) -> Path:
-    target = resolve_path(path)
-    if target.suffix.lower() != CANONICAL_ARCHIVE_SUFFIX:
-        raise ValueError(f"Archive exports must use {CANONICAL_ARCHIVE_SUFFIX}: {target}")
-    return target
-
-
-def _snapshot_metadata(archive_payload: dict[str, Any]) -> dict[str, Any] | None:
-    metadata = archive_payload.get("metadata")
-    if not isinstance(metadata, dict):
-        return None
-    normalized = dict(metadata)
-    normalized.pop("manifest", None)
-    normalized.pop(WORKSPACE_COMMIT_ID_KEY, None)
-    return normalized
 
 
 def _snapshot_metadata_from_state_payload(
@@ -971,102 +930,6 @@ def _write_vicon_workspace_state(
     return target
 
 
-def _prediction_items_from_payload(predictions: dict[str, Any] | None) -> list[Any]:
-    from xpkg.io.archive_format.predictions_datasets import (
-        PredictionAppendItem,
-        SerializerPredictedInstance,
-    )
-
-    normalized = normalize_predictions_payload(predictions)
-    attrs = normalized.get("attrs")
-    frames = normalized.get("frames")
-    data = normalized.get("data")
-    if not isinstance(attrs, dict) or not isinstance(frames, dict) or not isinstance(data, dict):
-        return []
-
-    committed_length = int(attrs.get("committed_length", 0) or 0)
-    if committed_length <= 0:
-        return []
-
-    video_index = list(frames.get("video_index") or [])
-    frame_index = list(frames.get("frame_index") or [])
-    num_instances = list(frames.get("num_instances") or [])
-    keypoints = list(data.get("keypoints") or [])
-    keypoint_score = list(data.get("keypoint_score") or [])
-    instance_score = list(data.get("instance_score") or [])
-    track_id = list(data.get("track_id") or [])
-    deleted = list(data.get("deleted") or [])
-    heatmaps = data.get("heatmaps")
-
-    row_count = min(committed_length, len(video_index), len(frame_index), len(num_instances))
-    items: list[Any] = []
-
-    for row_idx in range(row_count):
-        instance_count = int(num_instances[row_idx] or 0)
-        row_keypoints = keypoints[row_idx] if row_idx < len(keypoints) else []
-        row_keypoint_scores = keypoint_score[row_idx] if row_idx < len(keypoint_score) else []
-        row_instance_scores = instance_score[row_idx] if row_idx < len(instance_score) else []
-        row_track_ids = track_id[row_idx] if row_idx < len(track_id) else []
-        row_deleted = deleted[row_idx] if row_idx < len(deleted) else []
-        row_heatmaps = None
-        if isinstance(heatmaps, list) and row_idx < len(heatmaps):
-            row_heatmaps = heatmaps[row_idx]
-
-        instances: list[Any] = []
-        for inst_idx in range(instance_count):
-            point_rows = row_keypoints[inst_idx] if inst_idx < len(row_keypoints) else []
-            point_score_rows = (
-                row_keypoint_scores[inst_idx] if inst_idx < len(row_keypoint_scores) else []
-            )
-            serialized_keypoints: list[tuple[float, float, float]] = []
-            serialized_scores: list[float] = []
-
-            for point_idx, point in enumerate(point_rows):
-                if not isinstance(point, list | tuple) or len(point) < 3:
-                    continue
-                x = float(point[0])
-                y = float(point[1])
-                score = float(point[2])
-                serialized_keypoints.append((x, y, score))
-                if point_idx < len(point_score_rows):
-                    serialized_scores.append(float(point_score_rows[point_idx]))
-                else:
-                    serialized_scores.append(score)
-
-            score_value = None
-            if inst_idx < len(row_instance_scores):
-                score_value = float(row_instance_scores[inst_idx])
-
-            track_value = None
-            if inst_idx < len(row_track_ids):
-                track_value = int(row_track_ids[inst_idx])
-
-            deleted_value = False
-            if inst_idx < len(row_deleted):
-                deleted_value = bool(row_deleted[inst_idx])
-
-            instances.append(
-                SerializerPredictedInstance(
-                    keypoints=serialized_keypoints,
-                    keypoint_scores=serialized_scores,
-                    score=score_value,
-                    track_id=track_value,
-                    deleted=deleted_value,
-                )
-            )
-
-        items.append(
-            PredictionAppendItem(
-                video_index=int(video_index[row_idx]),
-                frame_index=int(frame_index[row_idx]),
-                instances=instances,
-                heatmaps=row_heatmaps,
-            )
-        )
-
-    return items
-
-
 def _commit_labels_to_workspace(
     workspace_root: Path,
     *,
@@ -1086,7 +949,7 @@ def _commit_labels_to_workspace(
         else normalize_predictions_payload(predictions)
     )
 
-    stage_parent = _stage_archive_parent(workspace_root)
+    stage_parent = _stage_workspace_parent(workspace_root)
     with tempfile.TemporaryDirectory(
         prefix=".workspace_commit_",
         dir=str(stage_parent),
@@ -1138,7 +1001,7 @@ def _commit_snapshot_metadata_to_workspace(
         commit_id=None,
     )
 
-    stage_parent = _stage_archive_parent(workspace_root)
+    stage_parent = _stage_workspace_parent(workspace_root)
     with tempfile.TemporaryDirectory(
         prefix=".workspace_commit_",
         dir=str(stage_parent),
@@ -1170,7 +1033,7 @@ def _commit_vicon_to_workspace(
         workspace_root=workspace_root,
     )
 
-    stage_parent = _stage_archive_parent(workspace_root)
+    stage_parent = _stage_workspace_parent(workspace_root)
     with tempfile.TemporaryDirectory(
         prefix=".workspace_commit_",
         dir=str(stage_parent),
@@ -1205,45 +1068,29 @@ def _commit_vicon_to_workspace(
     )
 
 
-def _load_staged_archive_labels(
-    staged_archive: Path,
-) -> tuple[Labels, dict[str, Any] | None, dict[str, Any] | None]:
-    from xpkg.model import Labels
-
-    labels = Labels.load_file(staged_archive.as_posix())
-    payload = read_archive(staged_archive, lazy=False)
-    return (
-        labels,
-        _snapshot_metadata(payload),
-        _predictions_payload_from_state_payload(payload),
-    )
-
-
-def _import_workspace_from_staged_archive(
+def _import_workspace_from_conversion(
     workspace: str | Path,
     *,
     default_pack_mode: PackMode,
     force: bool,
     reason: str,
-    build_staged_archive: Callable[[Path], Path],
+    convert: Callable[[Path], Any],
 ) -> Path:
     root = _ensure_workspace_for_import(
         workspace,
         default_pack_mode=default_pack_mode,
         force=force,
     )
-    stage_parent = _stage_archive_parent(root)
+    stage_parent = _stage_workspace_parent(root)
     with tempfile.TemporaryDirectory(
         prefix=".workspace_import_",
         dir=str(stage_parent),
     ) as tmp_dir:
-        staged_archive = build_staged_archive(Path(tmp_dir))
-        labels, metadata, predictions = _load_staged_archive_labels(staged_archive)
+        result = convert(Path(tmp_dir))
         snapshot_path = _commit_labels_to_workspace(
             root,
-            labels=labels,
-            metadata=metadata,
-            predictions=predictions,
+            labels=result.labels,
+            metadata=result.metadata,
             reason=reason,
         )
     _touch_descriptor(root)
@@ -1629,34 +1476,6 @@ def rebase_workspace_payload_videos(payload: dict[str, Any], workspace_root: Pat
             _rebase_videos_info(metadata_videos)
 
 
-def _export_archive_from_snapshot(
-    workspace_root: Path,
-    committed_snapshot_path: Path,
-    *,
-    archive_path: Path,
-) -> Path:
-    from xpkg.io.archive_format import write_archive
-    from xpkg.io.labels.json_format import labels_from_json_payload
-
-    snapshot_payload = read_workspace_snapshot(committed_snapshot_path)
-    labels_payload = _strip_prediction_instances_from_snapshot_payload(snapshot_payload)
-    hydrated_payload = deepcopy(labels_payload)
-    rebase_workspace_payload_videos(hydrated_payload, workspace_root)
-    labels = labels_from_json_payload(hydrated_payload)
-
-    target_archive = _archive_export_path(archive_path)
-    ensure_dir(target_archive.parent)
-    write_archive(
-        target_archive,
-        labels,
-        metadata=_snapshot_metadata_from_state_payload(snapshot_payload),
-        predictions=_prediction_items_from_payload(
-            _predictions_payload_from_state_payload(snapshot_payload)
-        ),
-    )
-    return target_archive
-
-
 def _ensure_workspace_for_import(
     workspace: str | Path,
     *,
@@ -1681,140 +1500,6 @@ def _touch_descriptor(root: Path) -> None:
     descriptor = load_project_descriptor(root)
     descriptor.updated_at = _now_utc_iso()
     write_project_descriptor(root, descriptor)
-
-
-def _build_dlc_csv_import_archive(
-    tmp_dir: Path,
-    *,
-    csv_path: str | Path,
-    video_path: str | Path,
-    skeleton_name: str,
-    likelihood_threshold: float,
-    progress_callback: Any | None,
-    convert_dlc_csv: Callable[..., Any],
-) -> Path:
-    staged_archive = tmp_dir / f"dlc_csv{CANONICAL_ARCHIVE_SUFFIX}"
-    convert_dlc_csv(
-        csv_path,
-        video_path,
-        staged_archive,
-        skeleton_name=skeleton_name,
-        likelihood_threshold=likelihood_threshold,
-        progress_callback=progress_callback,
-    )
-    return staged_archive
-
-
-def _build_lightning_pose_csv_import_archive(
-    tmp_dir: Path,
-    *,
-    csv_path: str | Path,
-    video_path: str | Path,
-    skeleton_name: str,
-    likelihood_threshold: float,
-    progress_callback: Any | None,
-    convert_lightning_pose_csv: Callable[..., Any],
-) -> Path:
-    staged_archive = tmp_dir / f"lightning_pose_csv{CANONICAL_ARCHIVE_SUFFIX}"
-    convert_lightning_pose_csv(
-        csv_path,
-        video_path,
-        staged_archive,
-        skeleton_name=skeleton_name,
-        likelihood_threshold=likelihood_threshold,
-        progress_callback=progress_callback,
-    )
-    return staged_archive
-
-
-def _build_dlc_h5_import_archive(
-    tmp_dir: Path,
-    *,
-    h5_path: str | Path,
-    video_path: str | Path,
-    skeleton_name: str,
-    likelihood_threshold: float,
-    progress_callback: Any | None,
-    convert_dlc_h5: Callable[..., Any],
-) -> Path:
-    staged_archive = tmp_dir / f"dlc_h5{CANONICAL_ARCHIVE_SUFFIX}"
-    convert_dlc_h5(
-        h5_path,
-        video_path,
-        staged_archive,
-        skeleton_name=skeleton_name,
-        likelihood_threshold=likelihood_threshold,
-        progress_callback=progress_callback,
-    )
-    return staged_archive
-
-
-def _build_sleap_h5_import_archive(
-    tmp_dir: Path,
-    *,
-    h5_path: str | Path,
-    video_path: str | Path,
-    skeleton_name: str,
-    likelihood_threshold: float,
-    progress_callback: Any | None,
-    convert_sleap_h5: Callable[..., Any],
-) -> Path:
-    staged_archive = tmp_dir / f"sleap_h5{CANONICAL_ARCHIVE_SUFFIX}"
-    convert_sleap_h5(
-        h5_path,
-        video_path,
-        staged_archive,
-        skeleton_name=skeleton_name,
-        likelihood_threshold=likelihood_threshold,
-        progress_callback=progress_callback,
-    )
-    return staged_archive
-
-
-def _build_mediapipe_pose_landmarks_json_import_archive(
-    tmp_dir: Path,
-    *,
-    json_path: str | Path,
-    video_path: str | Path,
-    skeleton_name: str,
-    likelihood_threshold: float,
-    progress_callback: Any | None,
-    convert_mediapipe_pose_landmarks_json: Callable[..., Any],
-) -> Path:
-    staged_archive = tmp_dir / f"mediapipe_pose_landmarks{CANONICAL_ARCHIVE_SUFFIX}"
-    convert_mediapipe_pose_landmarks_json(
-        json_path,
-        video_path,
-        staged_archive,
-        skeleton_name=skeleton_name,
-        likelihood_threshold=likelihood_threshold,
-        progress_callback=progress_callback,
-    )
-    return staged_archive
-
-
-def _build_mmpose_topdown_json_import_archive(
-    tmp_dir: Path,
-    *,
-    json_path: str | Path,
-    video_path: str | Path,
-    skeleton_name: str,
-    instance_index: int,
-    likelihood_threshold: float,
-    progress_callback: Any | None,
-    convert_mmpose_topdown_json: Callable[..., Any],
-) -> Path:
-    staged_archive = tmp_dir / f"mmpose_topdown_json{CANONICAL_ARCHIVE_SUFFIX}"
-    convert_mmpose_topdown_json(
-        json_path,
-        video_path,
-        staged_archive,
-        skeleton_name=skeleton_name,
-        instance_index=int(instance_index),
-        likelihood_threshold=likelihood_threshold,
-        progress_callback=progress_callback,
-    )
-    return staged_archive
 
 
 def _import_vicon_workspace_recording(
@@ -1940,19 +1625,17 @@ def import_dlc_csv_workspace(
     """Import a DeepLabCut CSV plus video into a workspace."""
     from xpkg.io.converters.dlc_import import convert_dlc_csv
 
-    return _import_workspace_from_staged_archive(
+    return _import_workspace_from_conversion(
         workspace,
         default_pack_mode=default_pack_mode,
         force=force,
         reason="workspace.import.dlc_csv",
-        build_staged_archive=lambda tmp_dir: _build_dlc_csv_import_archive(
-            tmp_dir,
-            csv_path=csv_path,
-            video_path=video_path,
+        convert=lambda _tmp_dir: convert_dlc_csv(
+            csv_path,
+            video_path,
             skeleton_name=skeleton_name,
             likelihood_threshold=likelihood_threshold,
             progress_callback=progress_callback,
-            convert_dlc_csv=convert_dlc_csv,
         ),
     )
 
@@ -1971,19 +1654,17 @@ def import_lightning_pose_csv_workspace(
     """Import a Lightning Pose prediction CSV plus video into a workspace."""
     from xpkg.io.converters.dlc_import import convert_lightning_pose_csv
 
-    return _import_workspace_from_staged_archive(
+    return _import_workspace_from_conversion(
         workspace,
         default_pack_mode=default_pack_mode,
         force=force,
         reason="workspace.import.lightning_pose_csv",
-        build_staged_archive=lambda tmp_dir: _build_lightning_pose_csv_import_archive(
-            tmp_dir,
-            csv_path=csv_path,
-            video_path=video_path,
+        convert=lambda _tmp_dir: convert_lightning_pose_csv(
+            csv_path,
+            video_path,
             skeleton_name=skeleton_name,
             likelihood_threshold=likelihood_threshold,
             progress_callback=progress_callback,
-            convert_lightning_pose_csv=convert_lightning_pose_csv,
         ),
     )
 
@@ -2002,19 +1683,17 @@ def import_dlc_h5_workspace(
     """Import a DeepLabCut H5 export plus video into a workspace."""
     from xpkg.io.converters.dlc_import import convert_dlc_h5
 
-    return _import_workspace_from_staged_archive(
+    return _import_workspace_from_conversion(
         workspace,
         default_pack_mode=default_pack_mode,
         force=force,
         reason="workspace.import.dlc_h5",
-        build_staged_archive=lambda tmp_dir: _build_dlc_h5_import_archive(
-            tmp_dir,
-            h5_path=h5_path,
-            video_path=video_path,
+        convert=lambda _tmp_dir: convert_dlc_h5(
+            h5_path,
+            video_path,
             skeleton_name=skeleton_name,
             likelihood_threshold=likelihood_threshold,
             progress_callback=progress_callback,
-            convert_dlc_h5=convert_dlc_h5,
         ),
     )
 
@@ -2030,7 +1709,7 @@ def import_dlc_project_workspace(
     progress_callback: Any | None = None,
 ) -> Path:
     """Import a supported DeepLabCut project into one workspace."""
-    from xpkg.io.archive_format import write_archive
+    from xpkg.io.converters.converter_helpers import ConversionResult
     from xpkg.io.converters.dlc_import import (
         _discover_dlc_project_items,
         _stored_project_path,
@@ -2041,7 +1720,7 @@ def import_dlc_project_workspace(
     resolved_project_dir = resolve_path(project_dir)
     resolved_skeleton_name = skeleton_name or resolved_project_dir.name or "dlc"
 
-    def _build_archive(tmp_dir: Path) -> Path:
+    def _convert_project(_tmp_dir: Path) -> ConversionResult:
         project_items, skipped_items = _discover_dlc_project_items(
             resolved_project_dir,
             progress_callback=progress_callback,
@@ -2049,32 +1728,29 @@ def import_dlc_project_workspace(
         if not project_items:
             raise ValueError(f"No supported DLC project items found in {resolved_project_dir}")
 
-        staged_items_root = ensure_dir(tmp_dir / "items")
         merged_labels = None
+        videos: list[Path] = []
         source_items: list[dict[str, str]] = []
         for project_item in project_items:
-            staged_archive = staged_items_root / f"{project_item.name}{CANONICAL_ARCHIVE_SUFFIX}"
             if project_item.source_type == "h5":
-                convert_dlc_h5(
+                result = convert_dlc_h5(
                     project_item.data_path,
                     project_item.video_path,
-                    staged_archive,
                     skeleton_name=resolved_skeleton_name,
                     likelihood_threshold=likelihood_threshold,
                     progress_callback=progress_callback,
                 )
             else:
-                convert_dlc_csv(
+                result = convert_dlc_csv(
                     project_item.data_path,
                     project_item.video_path,
-                    staged_archive,
                     skeleton_name=resolved_skeleton_name,
                     likelihood_threshold=likelihood_threshold,
                     progress_callback=progress_callback,
                 )
 
-            labels, _metadata, _predictions = _load_staged_archive_labels(staged_archive)
-            merged_labels = _merge_labels_for_import(merged_labels, labels)
+            merged_labels = _merge_labels_for_import(merged_labels, result.labels)
+            videos.extend(result.videos)
             source_items.append(
                 {
                     "name": project_item.name,
@@ -2092,29 +1768,30 @@ def import_dlc_project_workspace(
 
         assert merged_labels is not None
         merged_labels.validate()
-
         metadata = {
             "project_name": resolved_project_dir.name,
             "source": "dlc_project_import",
             "source_project": resolved_project_dir.as_posix(),
-            "source_items_json": source_items,
-            "skipped_items_json": [
+            "source_items": source_items,
+            "skipped_items": [
                 {"name": skipped_item.name, "reason": skipped_item.reason}
                 for skipped_item in skipped_items
             ],
         }
-        staged_archive = (
-            tmp_dir / f"{resolved_project_dir.name or 'dlc_project'}{CANONICAL_ARCHIVE_SUFFIX}"
+        return ConversionResult(
+            source_dir=resolved_project_dir,
+            project_root=resolved_project_dir,
+            videos=videos,
+            labels=merged_labels,
+            metadata=metadata,
         )
-        write_archive(staged_archive, merged_labels, metadata=metadata)
-        return staged_archive
 
-    return _import_workspace_from_staged_archive(
+    return _import_workspace_from_conversion(
         workspace,
         default_pack_mode=default_pack_mode,
         force=force,
         reason="workspace.import.dlc_project",
-        build_staged_archive=_build_archive,
+        convert=_convert_project,
     )
 
 
@@ -2131,18 +1808,18 @@ def import_sleap_package_workspace(
     """Import a SLEAP package into a workspace."""
     from xpkg.io.converters.sleap_import import convert_sleap_package
 
-    return _import_workspace_from_staged_archive(
+    return _import_workspace_from_conversion(
         workspace,
         default_pack_mode=default_pack_mode,
         force=force,
         reason="workspace.import.sleap",
-        build_staged_archive=lambda tmp_dir: convert_sleap_package(
+        convert=lambda tmp_dir: convert_sleap_package(
             slp,
             tmp_dir,
             fps=int(fps),
             encode_videos=encode_videos,
             progress_callback=progress_callback,
-        ).archive_path,
+        ),
     )
 
 
@@ -2160,19 +1837,17 @@ def import_sleap_h5_workspace(
     """Import a SLEAP analysis H5 export plus video into a workspace."""
     from xpkg.io.converters.sleap_import import convert_sleap_h5
 
-    return _import_workspace_from_staged_archive(
+    return _import_workspace_from_conversion(
         workspace,
         default_pack_mode=default_pack_mode,
         force=force,
         reason="workspace.import.sleap_h5",
-        build_staged_archive=lambda tmp_dir: _build_sleap_h5_import_archive(
-            tmp_dir,
-            h5_path=h5_path,
-            video_path=video_path,
+        convert=lambda _tmp_dir: convert_sleap_h5(
+            h5_path,
+            video_path,
             skeleton_name=skeleton_name,
             likelihood_threshold=likelihood_threshold,
             progress_callback=progress_callback,
-            convert_sleap_h5=convert_sleap_h5,
         ),
     )
 
@@ -2192,20 +1867,18 @@ def import_mmpose_topdown_json_workspace(
     """Import an MMPose top-down JSON export plus video into a workspace."""
     from xpkg.io.converters.mmpose_import import convert_mmpose_topdown_json
 
-    return _import_workspace_from_staged_archive(
+    return _import_workspace_from_conversion(
         workspace,
         default_pack_mode=default_pack_mode,
         force=force,
         reason="workspace.import.mmpose_topdown_json",
-        build_staged_archive=lambda tmp_dir: _build_mmpose_topdown_json_import_archive(
-            tmp_dir,
-            json_path=json_path,
-            video_path=video_path,
+        convert=lambda _tmp_dir: convert_mmpose_topdown_json(
+            json_path,
+            video_path,
             skeleton_name=skeleton_name,
             instance_index=int(instance_index),
             likelihood_threshold=likelihood_threshold,
             progress_callback=progress_callback,
-            convert_mmpose_topdown_json=convert_mmpose_topdown_json,
         ),
     )
 
@@ -2224,19 +1897,17 @@ def import_mediapipe_pose_landmarks_json_workspace(
     """Import MediaPipe pose-landmarks JSON plus video into a workspace."""
     from xpkg.io.converters.mediapipe_import import convert_mediapipe_pose_landmarks_json
 
-    return _import_workspace_from_staged_archive(
+    return _import_workspace_from_conversion(
         workspace,
         default_pack_mode=default_pack_mode,
         force=force,
         reason="workspace.import.mediapipe_pose_landmarks_json",
-        build_staged_archive=lambda tmp_dir: _build_mediapipe_pose_landmarks_json_import_archive(
-            tmp_dir,
-            json_path=json_path,
-            video_path=video_path,
+        convert=lambda _tmp_dir: convert_mediapipe_pose_landmarks_json(
+            json_path,
+            video_path,
             skeleton_name=skeleton_name,
             likelihood_threshold=likelihood_threshold,
             progress_callback=progress_callback,
-            convert_mediapipe_pose_landmarks_json=convert_mediapipe_pose_landmarks_json,
         ),
     )
 
@@ -2322,10 +1993,8 @@ def save_workspace_labels(
 
 
 __all__ = [
-    "CANONICAL_ARCHIVE_SUFFIX",
     "CURRENT_SNAPSHOT_FILENAME",
     "EXPORTS_DIRNAME",
-    "export_project_archive",
     "import_vicon_c3d_workspace",
     "import_vicon_csv_workspace",
     "import_vicon_workspace",

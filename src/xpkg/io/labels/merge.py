@@ -1,4 +1,4 @@
-"""Helpers for merging `.xpkg` label archives while normalizing references."""
+"""Helpers for merging label sets while normalizing references."""
 
 from __future__ import annotations
 
@@ -65,26 +65,26 @@ def _unify_against_base(base_labels: Labels, new_labels: Labels) -> None:
 
     def _map_video(video: VideoProtocol) -> VideoProtocol:
         if not video.filename:
-            raise ValueError("Video missing filename while aligning archives")
+            raise ValueError("Video missing filename while aligning labels")
         abspath = str(Path(str(video.filename)).resolve())
         target = base_vid_by_abs.get(abspath)
         if target is not None:
             return target
         raise ValueError(
-            "Unable to align videos between archives. "
-            "Provide absolute filenames in both archives (no basename matching allowed)."
+            "Unable to align videos between labels sets. "
+            "Provide absolute filenames in both labels sets (no basename matching allowed)."
         )
 
     for lf in list(new_labels.labeled_frames):
         if lf.video is None:
-            raise ValueError("LabeledFrame missing video while aligning archives")
+            raise ValueError("LabeledFrame missing video while aligning labels")
         mapped = _map_video(lf.video)
         if mapped is not lf.video:
             lf.video = cast(Video, mapped)
 
     for sug in list(new_labels.suggestions):
         if sug.video is None:
-            raise ValueError("Suggestion missing video while aligning archives")
+            raise ValueError("Suggestion missing video while aligning labels")
         mapped = _map_video(sug.video)
         if mapped is not sug.video:
             sug.video = mapped

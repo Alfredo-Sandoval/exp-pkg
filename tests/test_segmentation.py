@@ -3,10 +3,7 @@
 from __future__ import annotations
 
 import json
-import tempfile
-from pathlib import Path
 
-import h5py
 import numpy as np
 import pytest
 
@@ -289,122 +286,6 @@ class TestLabeledFrameIntegration:
         assert len(lf.predicted_masks) == 1
         assert lf.user_masks[0].class_name == "user"
         assert lf.predicted_masks[0].class_name == "pred"
-
-
-# ---------------------------------------------------------------------------
-# HDF5 .xpkg roundtrip
-# ---------------------------------------------------------------------------
-
-
-class TestHDF5Roundtrip:
-    def test_masks_roundtrip(self):
-        from xpkg.io.archive_format.segmentation_hdf5 import (
-            read_segmentation_group,
-            write_segmentation_group,
-        )
-
-        poly_mask = SegmentationMask.from_polygon(
-            [
-                np.array([[0, 0], [10, 0], [10, 10], [0, 10]], dtype=np.float32),
-                np.array([[2, 2], [8, 2], [8, 8]], dtype=np.float32),
-            ],
-            class_name="body",
-            confidence=0.95,
-        )
-        poly_mask.prompt = SegmentationPrompt(
-            prompt_type=PromptType.BOX,
-            box=(0.0, 0.0, 10.0, 10.0),
-            model_id="sam2",
-            backend="torch",
-        )
-
-        binary = np.zeros((32, 32), dtype=np.uint8)
-        binary[5:15, 10:25] = 1
-        rle_mask = SegmentationMask.from_binary_mask(
-            binary, class_name="cell", confidence=0.88
-        )
-        rle_mask.is_predicted = True
-
-        masks_by_frame = [
-            (0, 10, [poly_mask]),
-            (0, 20, [rle_mask]),
-        ]
-        rois_by_frame = [
-            (0, 10, [ROI(x1=5, y1=5, x2=50, y2=50, class_name="animal")]),
-        ]
-
-        with tempfile.NamedTemporaryFile(suffix=".h5", delete=True) as tmp:
-            path = Path(tmp.name)
-            with h5py.File(str(path), "w") as f:
-                write_segmentation_group(f, masks_by_frame, rois_by_frame)
-
-            with h5py.File(str(path), "r") as f:
-                result = read_segmentation_group(f)
-
-        assert result["schema_version"] == "1.0.0"
-
-        masks = result["masks"]
-        assert len(masks) == 2
-
-        vi0, fi0, m0 = masks[0]
-        assert vi0 == 0 and fi0 == 10
-        assert m0.mask_type == MaskType.POLYGON
-        assert m0.class_name == "body"
-        assert abs(m0.confidence - 0.95) < 1e-5
-        assert m0.polygon_vertices is not None
-        assert len(m0.polygon_vertices) == 2
-        np.testing.assert_array_almost_equal(
-            m0.polygon_vertices[0],
-            [[0, 0], [10, 0], [10, 10], [0, 10]],
-        )
-        assert m0.prompt is not None
-        assert m0.prompt.prompt_type == PromptType.BOX
-        assert m0.prompt.model_id == "sam2"
-        assert not m0.is_predicted
-
-        vi1, fi1, m1 = masks[1]
-        assert vi1 == 0 and fi1 == 20
-        assert m1.mask_type == MaskType.RLE
-        assert m1.class_name == "cell"
-        assert m1.is_predicted
-        decoded = m1.to_binary_mask()
-        np.testing.assert_array_equal(decoded, binary)
-
-        rois = result["rois"]
-        assert len(rois) == 1
-        vi_r, fi_r, roi = rois[0]
-        assert vi_r == 0 and fi_r == 10
-        assert roi.class_name == "animal"
-        assert roi.x1 == 5 and roi.y2 == 50
-
-    def test_empty_roundtrip(self):
-        from xpkg.io.archive_format.segmentation_hdf5 import (
-            read_segmentation_group,
-            write_segmentation_group,
-        )
-
-        with tempfile.NamedTemporaryFile(suffix=".h5", delete=True) as tmp:
-            path = Path(tmp.name)
-            with h5py.File(str(path), "w") as f:
-                write_segmentation_group(f, [], [])
-            with h5py.File(str(path), "r") as f:
-                result = read_segmentation_group(f)
-
-        assert result["masks"] == []
-        assert result["rois"] == []
-
-    def test_no_segmentation_group(self):
-        from xpkg.io.archive_format.segmentation_hdf5 import read_segmentation_group
-
-        with tempfile.NamedTemporaryFile(suffix=".h5", delete=True) as tmp:
-            path = Path(tmp.name)
-            with h5py.File(str(path), "w") as f:
-                f.create_group("other")
-            with h5py.File(str(path), "r") as f:
-                result = read_segmentation_group(f)
-
-        assert result["masks"] == []
-        assert result["rois"] == []
 
 
 # ---------------------------------------------------------------------------

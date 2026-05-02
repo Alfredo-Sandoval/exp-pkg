@@ -6,15 +6,15 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from xpkg.io.archive_format.project_validation import (
-    ProjectSummary,
-    summarize_loaded_project,
-    validate_loaded_project,
-)
 from xpkg.io.project_layout import (
     ProjectDescriptor,
     load_project_descriptor,
     resolve_workspace_root,
+)
+from xpkg.io.project_validation import (
+    ProjectSummary,
+    summarize_loaded_project,
+    validate_loaded_project,
 )
 from xpkg.io.project_workspace import (
     current_project_commit_id,

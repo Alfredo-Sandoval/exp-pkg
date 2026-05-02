@@ -329,10 +329,10 @@ def read_labels_json_payload(path: str | Path) -> dict[str, Any]:
 def labels_from_json_payload(document_or_payload: dict[str, Any]) -> Labels:
     """Hydrate ``Labels`` from a JSON payload or full JSON document."""
     from xpkg.io.labels.model import Labels
-    from xpkg.io.labels.serialization import labels_from_archive_payload
+    from xpkg.io.labels.serialization import labels_from_payload
 
     payload = _coerce_labels_json_payload(document_or_payload)
-    return labels_from_archive_payload(Labels, payload)
+    return labels_from_payload(Labels, payload)
 
 
 __all__ = [

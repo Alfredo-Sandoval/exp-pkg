@@ -26,31 +26,25 @@ def _write_dummy_video(path: Path, *, frame_count: int) -> None:
         writer.release()
 
 
-def test_convert_sleap_h5_builds_multi_track_archive(tmp_path: Path) -> None:
-    from xpkg.io.archive_format import read_archive
+def test_convert_sleap_h5_builds_multi_track_labels(tmp_path: Path) -> None:
     from xpkg.io.converters.sleap_import import convert_sleap_h5
-    from xpkg.model import Labels
 
     tracking_path = tmp_path / "analysis.h5"
     _write_sleap_analysis_h5(tracking_path)
     video_path = tmp_path / "session.avi"
     _write_dummy_video(video_path, frame_count=10)
-    out_path = tmp_path / "analysis.xpkg"
 
     result = convert_sleap_h5(
         tracking_path,
         video_path,
-        out_path,
         skeleton_name="subject",
     )
 
-    assert result.archive_path == out_path
-    payload = read_archive(out_path, lazy=False)
-    track_ids = np.asarray(payload["labels"]["data"]["track_id"], dtype=np.int32)
-    assert track_ids.shape == (10, 2)
-    assert track_ids[0].tolist() == [0, 1]
+    assert result.metadata["source"] == "sleap_h5_import"
+    assert result.metadata["source_h5"] == tracking_path.as_posix()
+    assert result.metadata["source_video"] == video_path.as_posix()
 
-    labels = Labels.load_file(result.archive_path.as_posix())
+    labels = result.labels
     assert len(labels.videos) == 1
     assert len(labels.labeled_frames) == 10
 

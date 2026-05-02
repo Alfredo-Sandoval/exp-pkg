@@ -2,43 +2,46 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from xpkg.io.archive_store import ArchiveStore, create_xpkg_store, open_archive_store
+from xpkg.io.archive_store import ArchiveStore
 from xpkg.io.archive_store.object_store import get_object_file, put_object_file
 from xpkg.io.archive_store.paths import StorePaths
 
 
 def test_put_object_file_is_content_addressed(tmp_path: Path) -> None:
     paths = StorePaths(root=tmp_path / "store")
-    source = tmp_path / "payload.xpkg"
+    source = tmp_path / "payload.bin"
     source.write_bytes(b"payload-bytes")
 
-    object_id_a = put_object_file(paths, source, ext=".xpkg")
-    object_id_b = put_object_file(paths, source, ext=".xpkg")
-    object_path = get_object_file(paths, object_id_a, ext=".xpkg")
+    object_id_a = put_object_file(paths, source, ext=".bin")
+    object_id_b = put_object_file(paths, source, ext=".bin")
+    object_path = get_object_file(paths, object_id_a, ext=".bin")
 
     assert object_id_a == object_id_b
     assert object_path.exists()
     assert object_path.read_bytes() == b"payload-bytes"
-    assert object_path.suffix == ".xpkg"
+    assert object_path.suffix == ".bin"
 
 
-def test_store_wrapper_roundtrip_preserves_archive_suffix(tmp_path: Path) -> None:
-    initial_archive = tmp_path / "initial.xpkg"
-    initial_archive.write_bytes(b"first")
+def test_store_roundtrip_preserves_payload_root_suffix(tmp_path: Path) -> None:
+    initial_payload = tmp_path / "initial.bin"
+    initial_payload.write_bytes(b"first")
 
-    store = create_xpkg_store(tmp_path / "project.xpkg", initial_archive)
-    current = store.current_archive_path()
-    assert current.suffix == ".xpkg"
+    store = ArchiveStore.create_from_roots(
+        tmp_path / "project.xpkg",
+        {"payload": initial_payload},
+    )
+    current = store.current_root_path("payload")
+    assert current.suffix == ".bin"
     assert current.read_bytes() == b"first"
 
-    updated_archive = tmp_path / "updated.xpkg"
-    updated_archive.write_bytes(b"second")
-    commit_id = store.commit_new_archive(updated_archive, reason="update")
+    updated_payload = tmp_path / "updated.bin"
+    updated_payload.write_bytes(b"second")
+    commit_id = store.commit_new_roots({"payload": updated_payload}, reason="update")
     assert commit_id.startswith("c_")
 
-    reopened = open_archive_store(tmp_path / "project.xpkg")
-    assert reopened.current_archive_path().suffix == ".xpkg"
-    assert reopened.current_archive_path().read_bytes() == b"second"
+    reopened = ArchiveStore.open(tmp_path / "project.xpkg")
+    assert reopened.current_root_path("payload").suffix == ".bin"
+    assert reopened.current_root_path("payload").read_bytes() == b"second"
 
 
 def test_store_roundtrip_preserves_snapshot_root_suffix(tmp_path: Path) -> None:

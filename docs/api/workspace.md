@@ -15,7 +15,7 @@ when you want the explicit function-level form.
 
 !!! note
     <code>xpkg.workspace</code> intentionally exposes the workspace contract, not
-    direct archive convenience wrappers.
+    direct HDF5 archive convenience wrappers.
 
 ## Start Here
 

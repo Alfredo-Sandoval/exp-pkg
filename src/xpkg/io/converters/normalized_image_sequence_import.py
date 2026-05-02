@@ -1,25 +1,21 @@
-"""Convert normalized image-sequence annotations into native archive projects."""
+"""Convert normalized image-sequence annotations into workspace-ready labels."""
 
 from __future__ import annotations
 
 import shutil
 from collections import defaultdict
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, cast
 
 from xpkg._core.json_utils import load_json_dict
 from xpkg._core.path_registry import ensure_dir, resolve_path
-from xpkg.io.archive_format import write_archive
-from xpkg.io.archive_format.shared import CANONICAL_ARCHIVE_SUFFIX
-from xpkg.io.converters.converter_helpers import ConversionResult, project_archive_path
+from xpkg.io.converters.converter_helpers import ConversionResult
 from xpkg.io.labels.model import Labels
 from xpkg.io.video import Video
 from xpkg.pose.annotations import Instance, LabeledFrame, Point
 from xpkg.pose.skeleton import Keypoint, Skeleton
-
-ArchiveWriter = Callable[[Path, Labels], None]
 
 
 @dataclass(frozen=True, slots=True)
@@ -318,26 +314,26 @@ def _frame_instances(
 def convert_normalized_image_sequence_annotations(
     annotations_json: Path | str,
     out_dir: Path | str,
-    *,
-    archive_extension: str = CANONICAL_ARCHIVE_SUFFIX,
-    archive_writer: ArchiveWriter | None = None,
 ) -> ConversionResult:
-    """Convert a normalized image-sequence JSON payload into a native project archive."""
+    """Convert a normalized image-sequence JSON payload into workspace-ready labels."""
     annotations_path = resolve_path(annotations_json)
     project_root = resolve_path(out_dir)
     ensure_dir(project_root)
     payload = _load_payload(annotations_path)
     labels, video_dirs = _labels_from_payload(payload, project_root=project_root)
-    archive_path = project_archive_path(project_root, archive_extension=archive_extension)
-    writer = write_archive if archive_writer is None else archive_writer
-    writer(archive_path, labels)
-    if not archive_path.is_file():
-        raise FileNotFoundError(f"Expected converted archive at {archive_path}")
+    metadata = {
+        "project_name": payload.project_name,
+        "source": "normalized_image_sequence_import",
+        "source_annotations": annotations_path.as_posix(),
+        "dataset_key": payload.dataset_key,
+        "slice_key": payload.slice_key,
+    }
     return ConversionResult(
         source_dir=annotations_path.parent,
         project_root=project_root,
         videos=list(video_dirs),
-        archive_path=archive_path,
+        labels=labels,
+        metadata=metadata,
     )
 
 

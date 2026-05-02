@@ -97,10 +97,10 @@ Low-level store helpers still exist for tests, recovery work, and private
 workspace storage flows. They are intentionally outside the workspace-first
 public contract and do not appear in `xpkg.api`, `xpkg.workspace`, or the CLI:
 
-- `ArchiveStore.create_from_archive(store_root, initial_xpkg)`
 - `ArchiveStore.open(store_root)`
-- `ArchiveStore.current_archive_path()`
-- `ArchiveStore.commit_new_archive(...)`
+- `ArchiveStore.create_from_roots(store_root, {"snapshot": snapshot_path})`
+- `ArchiveStore.current_root_path("snapshot")`
+- `ArchiveStore.commit_new_roots({"snapshot": snapshot_path}, ...)`
 
 ## Recovery Model
 
@@ -130,8 +130,7 @@ Experimental today:
 - private `.xpkg/` durable-store machinery
 - commit-oriented autosave flow
 - superblock/journal durability layer
-- low-level `.xpkg` archive helpers under `xpkg.io.archive_format` for
-  migrations, fixtures, and private storage internals
+- generic committed roots for workspace-native snapshot payloads
 
 If you are building the public project contract, think in terms of workspace +
 `.expkg`. If you are prototyping crash-safe editing or autosave behavior,

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 from collections import Counter
 from pathlib import Path
 
@@ -81,10 +80,8 @@ def _make_dlc_project_fixture(tmp_path: Path) -> Path:
     return project_root
 
 
-def test_convert_dlc_h5_project_builds_multi_video_archive(tmp_path: Path) -> None:
-    from xpkg.io.archive_format import read_archive
+def test_convert_dlc_h5_project_builds_multi_video_labels(tmp_path: Path) -> None:
     from xpkg.io.converters.dlc_import import convert_dlc_h5_project
-    from xpkg.model import Labels
 
     recording_dir = tmp_path / "session-0"
     (recording_dir / "tracking").mkdir(parents=True)
@@ -103,14 +100,19 @@ def test_convert_dlc_h5_project_builds_multi_video_archive(tmp_path: Path) -> No
         recording_dir,
     )
 
-    assert result.archive_path == recording_dir / "session-0.xpkg"
-    payload = read_archive(result.archive_path, lazy=False)
-    assert payload["labels"]["videos"]["filenames"] == [
+    assert result.project_root == recording_dir
+    assert result.metadata["source"] == "dlc_h5_import"
+    assert result.metadata["source_h5"] == "tracking/session-0-tracking.h5"
+    assert result.metadata["source_videos"] == [
         "alpha_view/session-0-leftCam.avi",
         "beta_view/session-0-underGlass.avi",
     ]
 
-    labels = Labels.load_file(result.archive_path.as_posix())
+    labels = result.labels
+    assert [video.filename for video in labels.videos] == [
+        "alpha_view/session-0-leftCam.avi",
+        "beta_view/session-0-underGlass.avi",
+    ]
     assert len(labels.videos) == 2
     assert len(labels.labeled_frames) == len(df) * 2
     counts = Counter(Path(frame.video.filename or "").name for frame in labels.labeled_frames)
@@ -133,9 +135,13 @@ def test_convert_dlc_project_skips_incomplete_entries(tmp_path: Path) -> None:
         progress_callback=progress.append,
     )
 
-    assert [result.archive_path.name for result in results] == [
-        "session-csv.xpkg",
-        "session-h5.xpkg",
+    assert [result.project_root.name for result in results] == [
+        "session-csv",
+        "session-h5",
+    ]
+    assert [result.metadata["source"] for result in results] == [
+        "dlc_csv_import",
+        "dlc_h5_import",
     ]
     assert "IMPORT: Skipping session-missing-video (no video found)" in progress
     assert "IMPORT: Skipping session-no-data (no data file)" in progress
@@ -169,7 +175,7 @@ def test_import_dlc_project_workspace_imports_supported_items_into_one_workspace
     payload = read_workspace_snapshot_payload(snapshot_path)
     assert payload["metadata"]["source"] == "dlc_project_import"
     assert payload["metadata"]["project_name"] == "dlc-project"
-    assert json.loads(payload["metadata"]["source_items_json"]) == [
+    assert payload["metadata"]["source_items"] == [
         {
             "name": "session-csv",
             "source": "dlc_csv_import",
@@ -183,7 +189,7 @@ def test_import_dlc_project_workspace_imports_supported_items_into_one_workspace
             "source_video": "videos/session-h5.avi",
         },
     ]
-    assert json.loads(payload["metadata"]["skipped_items_json"]) == [
+    assert payload["metadata"]["skipped_items"] == [
         {"name": "session-missing-video", "reason": "no video found"},
         {"name": "session-no-data", "reason": "no data file"},
     ]

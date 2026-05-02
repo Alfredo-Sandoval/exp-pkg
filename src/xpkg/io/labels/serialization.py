@@ -1,4 +1,4 @@
-"""Serialization helpers for `Labels` archives."""
+"""Serialization helpers for `Labels` JSON snapshots and workspaces."""
 
 from __future__ import annotations
 
@@ -9,13 +9,6 @@ from typing import TYPE_CHECKING, Any, Protocol, cast
 import numpy as np
 
 from xpkg._core.logging_utils import get_logger
-from xpkg._core.path_registry import ensure_dir
-from xpkg.io.archive_format.shared import (
-    CANONICAL_ARCHIVE_SUFFIX,
-    LABEL_TRACK_ID_DATASET,
-    LABEL_VISIBILITY_DATASET,
-    SUPPORTED_ARCHIVE_SUFFIXES,
-)
 from xpkg.io.labels.video_types import VideoProtocol
 from xpkg.io.video import Video, gui_playback_backend_for_path
 from xpkg.pose.annotations import (
@@ -49,8 +42,8 @@ class VideoBuilder(Protocol):
 
 
 HydratedVideoFinalizer = Callable[[VideoProtocol], None]
-ArchiveReader = Callable[..., dict[str, Any]]
-ArchiveWriter = Callable[..., None]
+LABEL_TRACK_ID_DATASET = "track_id"
+LABEL_VISIBILITY_DATASET = "visibility"
 
 
 def _materialize(value: Any) -> Any:
@@ -70,7 +63,7 @@ def _as_array(
 ) -> np.ndarray:
     obj = _materialize(value)
     if obj is None:
-        raise ValueError(f"Required field '{name}' missing in archive payload")
+        raise ValueError(f"Required field '{name}' missing in labels payload")
     arr = np.asarray(obj, dtype=dtype)
     if arr.ndim == 0:
         arr = arr.reshape(1)
@@ -120,17 +113,6 @@ def build_video_object(
 def finalize_hydrated_video(video_obj: VideoProtocol) -> None:
     """Release hydrated video decode state until the caller needs it."""
     video_obj.close()
-
-
-def _resolve_archive_suffixes(
-    supported_archive_suffixes: Sequence[str] | None,
-) -> tuple[str, ...]:
-    if supported_archive_suffixes is None:
-        return SUPPORTED_ARCHIVE_SUFFIXES
-    resolved = tuple(str(suffix).lower() for suffix in supported_archive_suffixes if str(suffix))
-    if not resolved:
-        raise ValueError("supported_archive_suffixes must contain at least one suffix")
-    return resolved
 
 
 def _image_sequence_from_payload(entry: Any, *, video_index: int) -> list[str] | None:
@@ -293,7 +275,7 @@ def _parse_keypoint_names(skeleton_info: dict[str, Any], keypoints_arr: np.ndarr
     has_data = keypoints_arr.size > 0 and keypoints_arr.shape[0] > 0 and keypoints_arr.shape[1] > 0
     if not keypoint_names and has_data:
         raise ValueError(
-            "Skeleton names missing from native archive payload but keypoint data is present."
+            "Skeleton names missing from labels payload but keypoint data is present."
         )
     if keypoint_names and kp_count != len(keypoint_names):
         raise ValueError(
@@ -450,7 +432,7 @@ def _total_videos_count(
         max_video_idx,
     )
     if total_videos == 0 and frames_dim:
-        raise ValueError("Frames are present but no videos listed in native archive payload")
+        raise ValueError("Frames are present but no videos listed in labels payload")
     return total_videos
 
 
@@ -519,7 +501,7 @@ def _hydrate_videos(
     max_video_idx = int(video_index.max()) + 1 if video_index.size else 0
     if len(videos) < max_video_idx:
         raise FileNotFoundError(
-            "Labels archive references missing videos; all video slots must be present."
+            "Labels payload references missing videos; all video slots must be present."
         )
     return videos
 
@@ -805,7 +787,7 @@ def _attach_segmentation_payload(
     )
 
 
-def labels_from_archive_payload(
+def labels_from_payload(
     cls: type[Labels],
     payload: dict[str, Any] | None,
     *,
@@ -813,9 +795,9 @@ def labels_from_archive_payload(
     video_builder: VideoBuilder | None = None,
     video_finalizer: HydratedVideoFinalizer | None = None,
 ) -> Labels:
-    """Construct `Labels` from a native archive payload dictionary."""
+    """Construct `Labels` from a labels payload dictionary."""
     if not payload:
-        raise ValueError("Empty native archive payload; cannot hydrate Labels")
+        raise ValueError("Empty labels payload; cannot hydrate Labels")
 
     frames_info = payload.get("frames") or {}
     data_info = payload.get("data") or {}
@@ -832,7 +814,7 @@ def labels_from_archive_payload(
     video_index, frame_index, num_instances = _load_frame_arrays(frames_info)
     raw_keypoints = _materialize(data_info.get("keypoints"))
     if raw_keypoints is None:
-        raise ValueError("data.keypoints missing from native archive payload")
+        raise ValueError("data.keypoints missing from labels payload")
     if (
         isinstance(raw_keypoints, Sequence)
         and not isinstance(raw_keypoints, bytes | bytearray | str)
@@ -873,7 +855,7 @@ def labels_from_archive_payload(
     )
 
     logger.debug(
-        "Labels.from_archive_payload: %d videos, %d frames, keypoints_shape=%s",
+        "Labels.from_payload: %d videos, %d frames, keypoints_shape=%s",
         len(videos),
         total_frames,
         keypoints_arr.shape,
@@ -922,39 +904,16 @@ def labels_from_archive_payload(
     return labels_obj
 
 
-def _labels_payload_from_archive_payload(payload: dict[str, Any]) -> dict[str, Any]:
-    labels_payload = payload.get("labels")
-    if not isinstance(labels_payload, dict):
-        raise TypeError("Archive payload is missing the labels mapping")
-
-    hydrated_payload = dict(labels_payload)
-    hydrated_payload["metadata"] = payload.get("metadata", {})
-    hydrated_payload["provenance"] = payload.get("provenance", {})
-    hydrated_payload["session"] = payload.get("session", {})
-    if isinstance(payload.get("suggestions"), dict):
-        hydrated_payload["suggestions"] = payload["suggestions"]
-    if isinstance(payload.get("segmentation"), dict):
-        hydrated_payload["segmentation"] = payload["segmentation"]
-    return hydrated_payload
-
-
 def labels_load_file(
     cls: type[Labels],
     filename: str,
     *args: Any,
     video_builder: VideoBuilder | None = None,
     video_finalizer: HydratedVideoFinalizer | None = None,
-    read_archive_fn: ArchiveReader | None = None,
-    supported_archive_suffixes: Sequence[str] | None = None,
-    allow_json: bool = True,
     **kwargs: Any,
 ) -> Labels:
     """Load labels from disk."""
-    from xpkg.io.archive_format import read_archive
-
     del args, kwargs
-    archive_reader = read_archive if read_archive_fn is None else read_archive_fn
-    archive_suffixes = _resolve_archive_suffixes(supported_archive_suffixes)
     path = Path(filename)
     if path.suffix.lower() == ".expkg":
         raise ValueError("Packed .expkg artifacts must be unpacked before loading labels")
@@ -983,7 +942,7 @@ def labels_load_file(
                     rebuilt_snapshot_path = rebuild_workspace_snapshot_cache(workspace_root)
                     snapshot_payload = read_workspace_snapshot(rebuilt_snapshot_path)
                 rebase_workspace_payload_videos(snapshot_payload, workspace_root)
-                obj = labels_from_archive_payload(
+                obj = labels_from_payload(
                     cls,
                     snapshot_payload,
                     suggestions_payload=snapshot_payload.get("suggestions"),
@@ -1003,7 +962,7 @@ def labels_load_file(
 
         rebuilt_payload = read_workspace_snapshot(rebuilt_snapshot_path)
         rebase_workspace_payload_videos(rebuilt_payload, workspace_root)
-        obj = labels_from_archive_payload(
+        obj = labels_from_payload(
             cls,
             rebuilt_payload,
             suggestions_payload=rebuilt_payload.get("suggestions"),
@@ -1016,10 +975,8 @@ def labels_load_file(
 
     ext = path.suffix.lower()
     if ext == ".json":
-        if not allow_json:
-            raise ValueError(f"No serializer for extension: {ext}")
         payload = read_labels_json_payload(path)
-        obj = labels_from_archive_payload(
+        obj = labels_from_payload(
             cls,
             payload,
             suggestions_payload=payload.get("suggestions") if isinstance(payload, dict) else None,
@@ -1029,21 +986,7 @@ def labels_load_file(
         obj.validate()
         obj.path = path
         return obj
-    if ext and ext not in archive_suffixes:
-        raise ValueError(f"No serializer for extension: {ext}")
-
-    payload = archive_reader(path, lazy=False)
-    obj = labels_from_archive_payload(
-        cls,
-        _labels_payload_from_archive_payload(payload),
-        suggestions_payload=payload.get("suggestions"),
-        video_builder=video_builder,
-        video_finalizer=video_finalizer,
-    )
-
-    obj.validate()
-    obj.path = path
-    return obj
+    raise ValueError(f"No serializer for extension: {ext or '<none>'}")
 
 
 def labels_save_file(
@@ -1052,16 +995,9 @@ def labels_save_file(
     *,
     default_suffix: str = "",
     metadata: dict[str, Any] | None = None,
-    write_archive_fn: ArchiveWriter | None = None,
-    supported_archive_suffixes: Sequence[str] | None = None,
-    allow_json: bool = True,
     **_: Any,
 ) -> str:
     """Save labels to disk."""
-    from xpkg.io.archive_format import write_archive
-
-    archive_writer = write_archive if write_archive_fn is None else write_archive_fn
-    archive_suffixes = _resolve_archive_suffixes(supported_archive_suffixes)
     path = Path(filename)
     from xpkg.io.project_layout import resolve_workspace_root
     from xpkg.io.project_workspace import save_workspace_labels
@@ -1076,27 +1012,18 @@ def labels_save_file(
         labels.path = workspace_root
         return workspace_root.as_posix()
 
-    ext = path.suffix.lower() or default_suffix
+    ext = path.suffix.lower() or default_suffix or ".json"
     if ext == ".json":
-        if not allow_json:
-            raise ValueError(f"No serializer for extension: {ext}")
         if not path.suffix:
             path = path.with_suffix(".json")
         return write_labels_json(path, labels, metadata=metadata)
-    if ext and ext not in archive_suffixes:
-        raise ValueError(f"No serializer for extension: {ext}")
-    if not path.suffix:
-        path = path.with_suffix(CANONICAL_ARCHIVE_SUFFIX)
-    ensure_dir(path.parent)
-    archive_writer(path, labels, metadata=metadata)
-    labels.path = path
-    return str(path)
+    raise ValueError(f"No serializer for extension: {ext}")
 
 
 __all__ = [
     "build_video_object",
     "finalize_hydrated_video",
-    "labels_from_archive_payload",
+    "labels_from_payload",
     "labels_load_file",
     "labels_save_file",
     "load_suggestions",

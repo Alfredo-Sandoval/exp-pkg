@@ -2,7 +2,7 @@ from __future__ import annotations
 
 
 class ArchiveStoreError(Exception):
-    """Base exception for archive_store."""
+    """Base exception for the private durable store."""
 
 
 class StoreCorruptionError(ArchiveStoreError):

@@ -1,4 +1,4 @@
-"""Convert DeepLabCut-style tracking data into native archive projects."""
+"""Convert DeepLabCut-style tracking data into workspace-ready labels."""
 
 from __future__ import annotations
 
@@ -10,13 +10,10 @@ from typing import TYPE_CHECKING, Any
 import pandas as pd
 
 from xpkg._core.path_registry import ensure_dir, resolve_path
-from xpkg.io.archive_format import write_archive
-from xpkg.io.archive_format.shared import CANONICAL_ARCHIVE_SUFFIX
 from xpkg.io.converters.converter_helpers import (
     ConversionResult,
     ProgressCallback,
     _emit,
-    project_archive_path,
 )
 from xpkg.io.readers.dlc import read_dlc_csv_table, read_dlc_h5_table
 from xpkg.io.video import Video, available_video_exts
@@ -32,14 +29,14 @@ DlcReader = Callable[[Path], tuple[pd.DataFrame, list[str]]]
 _DLC_READ_H5_MARKER = "DLC_IMPORT STEP: read_h5"
 _DLC_VALIDATE_VIDEOS_MARKER = "DLC_IMPORT STEP: validate_videos"
 _DLC_BUILD_LABELS_MARKER = "DLC_IMPORT STEP: build_labels"
-_DLC_WRITE_ARCHIVE_MARKER = "DLC_IMPORT STEP: write_archive"
+_DLC_PREPARE_RESULT_MARKER = "DLC_IMPORT STEP: prepare_workspace_state"
 _DLC_DONE_MARKER = "DLC_IMPORT DONE"
 
 DLC_H5_PROJECT_PROGRESS_MARKERS: tuple[tuple[str, int], ...] = (
     (_DLC_READ_H5_MARKER, 10),
     (_DLC_VALIDATE_VIDEOS_MARKER, 30),
     (_DLC_BUILD_LABELS_MARKER, 55),
-    (_DLC_WRITE_ARCHIVE_MARKER, 80),
+    (_DLC_PREPARE_RESULT_MARKER, 80),
     (_DLC_DONE_MARKER, 100),
 )
 
@@ -370,39 +367,36 @@ def _build_tracking_labels(
     return labels
 
 
-def _write_tracking_archive(
+def _tracking_conversion_result(
     labels: _Labels,
     *,
-    out_path: Path,
     data_path: Path,
     video_path: Path,
     source_label: str,
     source_metadata_key: str,
     progress_callback: ProgressCallback | None,
 ) -> ConversionResult:
-    ensure_dir(out_path.parent)
     metadata = {
         "source": source_label,
         source_metadata_key: data_path.as_posix(),
         "source_video": video_path.as_posix(),
     }
 
-    _emit(progress_callback, f"IMPORT: Writing {out_path.name}")
-    write_archive(out_path, labels, metadata=metadata)
+    _emit(progress_callback, "IMPORT: Prepared workspace state")
     _emit(progress_callback, "IMPORT: Done")
 
     return ConversionResult(
         source_dir=data_path.parent,
-        project_root=out_path.parent,
+        project_root=data_path.parent,
         videos=[video_path],
-        archive_path=out_path,
+        labels=labels,
+        metadata=metadata,
     )
 
 
 def _convert_dlc_tracking(
     data_path: Path | str,
     video_path: Path | str,
-    out_path: Path | str,
     *,
     read_tracking: DlcReader,
     source_label: str,
@@ -412,11 +406,10 @@ def _convert_dlc_tracking(
     likelihood_threshold: float,
     progress_callback: ProgressCallback | None,
 ) -> ConversionResult:
-    """Run the single-file DLC data-file to archive conversion pipeline."""
+    """Run the single-file DLC data-file to workspace-state conversion pipeline."""
 
     resolved_data_path = _resolve_tracking_path(data_path)
     resolved_video_path = _resolve_video_path(video_path)
-    resolved_out_path = resolve_path(out_path)
 
     df, keypoints = _read_tracking_inputs(
         resolved_data_path,
@@ -432,9 +425,8 @@ def _convert_dlc_tracking(
         likelihood_threshold=likelihood_threshold,
         progress_callback=progress_callback,
     )
-    return _write_tracking_archive(
+    return _tracking_conversion_result(
         labels,
-        out_path=resolved_out_path,
         data_path=resolved_data_path,
         video_path=resolved_video_path,
         source_label=source_label,
@@ -446,18 +438,16 @@ def _convert_dlc_tracking(
 def convert_dlc_csv(
     csv_path: Path | str,
     video_path: Path | str,
-    out_path: Path | str,
     *,
     skeleton_name: str = "imported",
     likelihood_threshold: float = 0.0,
     progress_callback: ProgressCallback | None = None,
 ) -> ConversionResult:
-    """Convert a DLC CSV file and matching video into a native archive."""
+    """Convert a DLC CSV file and matching video into workspace-ready labels."""
 
     return _convert_dlc_tracking(
         csv_path,
         video_path,
-        out_path,
         read_tracking=_read_dlc_csv,
         source_label="dlc_csv_import",
         source_metadata_key="source_csv",
@@ -471,18 +461,16 @@ def convert_dlc_csv(
 def convert_lightning_pose_csv(
     csv_path: Path | str,
     video_path: Path | str,
-    out_path: Path | str,
     *,
     skeleton_name: str = "imported",
     likelihood_threshold: float = 0.0,
     progress_callback: ProgressCallback | None = None,
 ) -> ConversionResult:
-    """Convert a Lightning Pose prediction CSV and matching video into a native archive."""
+    """Convert a Lightning Pose prediction CSV and matching video into workspace-ready labels."""
 
     return _convert_dlc_tracking(
         csv_path,
         video_path,
-        out_path,
         read_tracking=_read_dlc_csv,
         source_label="lightning_pose_csv_import",
         source_metadata_key="source_csv",
@@ -496,18 +484,16 @@ def convert_lightning_pose_csv(
 def convert_dlc_h5(
     h5_path: Path | str,
     video_path: Path | str,
-    out_path: Path | str,
     *,
     skeleton_name: str = "imported",
     likelihood_threshold: float = 0.0,
     progress_callback: ProgressCallback | None = None,
 ) -> ConversionResult:
-    """Convert a DLC H5 tracking file and matching video into a native archive."""
+    """Convert a DLC H5 tracking file and matching video into workspace-ready labels."""
 
     return _convert_dlc_tracking(
         h5_path,
         video_path,
-        out_path,
         read_tracking=_read_dlc_h5,
         source_label="dlc_h5_import",
         source_metadata_key="source_h5",
@@ -525,18 +511,13 @@ def convert_dlc_h5_project(
     *,
     likelihood_threshold: float = 0.0,
     progress_callback: ProgressCallback | None = None,
-    archive_extension: str = CANONICAL_ARCHIVE_SUFFIX,
 ) -> ConversionResult:
-    """Convert one DLC H5 tracking file plus explicit videos into a project archive."""
+    """Convert one DLC H5 tracking file plus explicit videos into workspace-ready labels."""
 
     resolved_h5 = resolve_path(h5_path)
     resolved_project_root = ensure_dir(project_root)
     resolved_video_paths = _resolve_video_paths(video_paths)
     videos = _load_project_videos(resolved_video_paths, project_root=resolved_project_root)
-    archive_path = project_archive_path(
-        resolved_project_root,
-        archive_extension=archive_extension,
-    )
     try:
         _emit(progress_callback, f"{_DLC_READ_H5_MARKER} {resolved_h5.name}")
         df, keypoints = _read_dlc_h5(resolved_h5)
@@ -560,8 +541,7 @@ def convert_dlc_h5_project(
                 for video_path in resolved_video_paths
             ],
         }
-        _emit(progress_callback, f"{_DLC_WRITE_ARCHIVE_MARKER} {archive_path.name}")
-        write_archive(archive_path, labels, metadata=metadata)
+        _emit(progress_callback, _DLC_PREPARE_RESULT_MARKER)
     finally:
         for video in videos:
             video.close()
@@ -570,7 +550,8 @@ def convert_dlc_h5_project(
         source_dir=resolved_h5.parent,
         project_root=resolved_project_root,
         videos=list(resolved_video_paths),
-        archive_path=archive_path,
+        labels=labels,
+        metadata=metadata,
     )
 
 
@@ -581,7 +562,7 @@ def convert_dlc_project(
     likelihood_threshold: float = 0.0,
     progress_callback: ProgressCallback | None = None,
 ) -> list[ConversionResult]:
-    """Convert an entire DLC project directory into native `.xpkg` archives."""
+    """Convert an entire DLC project directory into workspace-ready label sets."""
 
     project_dir = resolve_path(project_dir)
     out_dir = resolve_path(out_dir)
@@ -594,14 +575,12 @@ def convert_dlc_project(
     )
 
     for item in items:
-        out_path = out_dir / f"{item.name}{CANONICAL_ARCHIVE_SUFFIX}"
         _emit(progress_callback, f"IMPORT: Converting {item.name}")
 
         if item.source_type == "h5":
             result = convert_dlc_h5(
                 item.data_path,
                 item.video_path,
-                out_path,
                 skeleton_name=project_dir.name,
                 likelihood_threshold=likelihood_threshold,
                 progress_callback=progress_callback,
@@ -610,7 +589,6 @@ def convert_dlc_project(
             result = convert_dlc_csv(
                 item.data_path,
                 item.video_path,
-                out_path,
                 skeleton_name=project_dir.name,
                 likelihood_threshold=likelihood_threshold,
                 progress_callback=progress_callback,

@@ -6,7 +6,7 @@ from pathlib import Path
 
 @dataclass(frozen=True, slots=True)
 class StorePaths:
-    """Canonical path layout for a archive_store root."""
+    """Canonical path layout for a private durable-store root."""
 
     root: Path
 

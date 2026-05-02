@@ -7,7 +7,7 @@ import cv2
 import numpy as np
 
 from xpkg.io.archive_store import ArchiveStore
-from xpkg.io.project_workspace import current_project_commit_id, export_project_archive
+from xpkg.io.project_workspace import current_project_commit_id
 from xpkg.io.workspace_snapshot_backend import (
     snapshot_commit_id,
     workspace_snapshot_cache_digest_matches,
@@ -69,43 +69,6 @@ def test_save_workspace_labels_creates_durable_head_and_snapshot_commit_id(tmp_p
     assert snapshot_commit_id(snapshot_payload) == commit_id
     assert workspace_snapshot_cache_digest_path(snapshot_path).is_file()
     assert workspace_snapshot_cache_digest_matches(snapshot_path, commit_id=commit_id)
-
-
-def test_export_project_archive_materializes_archive_to_explicit_path(tmp_path: Path) -> None:
-    workspace = tmp_path / "Project"
-    init_project(workspace, title="Project")
-
-    labels = _make_labels(tmp_path, x=5.0, y=6.0)
-    save_workspace_labels(workspace, labels)
-
-    materialized_archive = tmp_path / "materialized.xpkg"
-    archive_path = export_project_archive(workspace, out=materialized_archive)
-    assert archive_path == materialized_archive
-    assert archive_path.exists()
-
-    loaded = Labels.load_file(archive_path.as_posix())
-    pts = loaded.labeled_frames[0].instances[0].get_points_array(copy=False, full=True)
-    assert float(pts["x"][0]) == 5.0
-    assert float(pts["y"][0]) == 6.0
-
-
-def test_export_project_archive_supports_explicit_output_path(tmp_path: Path) -> None:
-    workspace = tmp_path / "Project"
-    init_project(workspace, title="Project")
-
-    labels = _make_labels(tmp_path, x=7.0, y=8.0)
-    save_workspace_labels(workspace, labels)
-
-    explicit_archive = tmp_path / "exported.xpkg"
-    archive_path = export_project_archive(workspace, out=explicit_archive)
-
-    assert archive_path == explicit_archive
-    assert archive_path.exists()
-
-    loaded = Labels.load_file(archive_path.as_posix())
-    pts = loaded.labeled_frames[0].instances[0].get_points_array(copy=False, full=True)
-    assert float(pts["x"][0]) == 7.0
-    assert float(pts["y"][0]) == 8.0
 
 
 def test_workspace_load_ignores_snapshot_when_commit_id_mismatches_head(tmp_path: Path) -> None:

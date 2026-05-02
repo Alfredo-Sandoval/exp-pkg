@@ -44,7 +44,6 @@ def test_xpkg_api_exposes_workspace_first_contract() -> None:
         "candidate_vicon_emg_channels",
         "current_project_snapshot_path",
         "current_project_state_path",
-        "decode_hdf5_string",
         "default_expkg_path",
         "extract_vicon_emg",
         "import_vicon_c3d_workspace",
@@ -77,8 +76,6 @@ def test_xpkg_api_exposes_workspace_first_contract() -> None:
         "pack_project",
         "read_doric_photometry",
         "read_events_csv",
-        "read_hdf5_table",
-        "read_hdf5_table_group",
         "read_neurophotometrics_csv",
         "read_photometry_csv",
         "read_pmat_events_csv",
@@ -111,8 +108,6 @@ def test_xpkg_api_exposes_workspace_first_contract() -> None:
         "validate_workspace",
         "vicon_recording_from_json_payload",
         "vicon_recording_to_json_payload",
-        "write_hdf5_table",
-        "write_hdf5_table_group",
     }
 
     assert expected.issubset(set(api.__all__))
@@ -161,7 +156,6 @@ def test_xpkg_api_exposes_workspace_first_contract() -> None:
     assert callable(api.build_prediction_stub)
     assert callable(api.build_force_plate_data_from_vicon_recording)
     assert callable(api.candidate_vicon_emg_channels)
-    assert callable(api.decode_hdf5_string)
     assert callable(api.inspect_workspace)
     assert callable(api.extract_vicon_emg)
     assert callable(api.list_workspace_artifact_index)
@@ -181,8 +175,6 @@ def test_xpkg_api_exposes_workspace_first_contract() -> None:
     assert callable(api.load_workspace_vicon_recording)
     assert callable(api.read_doric_photometry)
     assert callable(api.read_events_csv)
-    assert callable(api.read_hdf5_table)
-    assert callable(api.read_hdf5_table_group)
     assert callable(api.read_neurophotometrics_csv)
     assert callable(api.read_photometry_csv)
     assert callable(api.read_pmat_events_csv)
@@ -212,8 +204,6 @@ def test_xpkg_api_exposes_workspace_first_contract() -> None:
     assert callable(api.validate_workspace_figures)
     assert callable(api.vicon_recording_from_json_payload)
     assert callable(api.vicon_recording_to_json_payload)
-    assert callable(api.write_hdf5_table)
-    assert callable(api.write_hdf5_table_group)
 
 
 def test_xpkg_api_lists_service_entrypoints_before_free_function_helpers() -> None:

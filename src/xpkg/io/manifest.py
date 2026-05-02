@@ -2,9 +2,9 @@
 Project manifest for tracking assets with stable identifiers.
 
 This module provides a centralized registry for project assets (videos, models,
-skeletons, archives) that replaces scattered file searching with O(1) lookups.
-The manifest persists in the compatibility archive payload and uses portable
-path IDs.
+skeletons, predictions, and configuration files) that replaces scattered file
+searching with O(1) lookups. The manifest persists as JSON-compatible project
+metadata and uses portable path IDs.
 """
 
 from __future__ import annotations
@@ -16,8 +16,6 @@ from datetime import UTC, datetime
 from enum import StrEnum
 from pathlib import Path
 from typing import Any
-
-import h5py
 
 from xpkg._core.path_registry import PathId, normalize_separators, slugify_path_component
 
@@ -473,31 +471,3 @@ def resolve_asset_path(
         return resolved_entry
     return resolved_entry
 
-
-def persist_manifest(
-    archive_path: Path | str, manifest: ProjectManifest | Mapping[str, Any]
-) -> None:
-    """Write the provided manifest into the project's compatibility archive."""
-    from xpkg.io.archive_format.transaction import ArchiveFileLock
-
-    archive = Path(archive_path).resolve()
-    if not archive.exists():
-        raise FileNotFoundError(f"Archive not found: {archive}")
-    if isinstance(manifest, ProjectManifest):
-        manifest_obj = manifest
-    elif isinstance(manifest, Mapping):
-        manifest_obj = ProjectManifest.from_dict(dict(manifest))
-
-    from xpkg.io.archive_format.shared import _serialize_json
-
-    manifest_json = _serialize_json(manifest_obj.to_dict())
-
-    with ArchiveFileLock(archive):
-        with h5py.File(str(archive), "r+") as h5file:
-            meta_group = h5file.get("project_metadata")
-            if meta_group is None:
-                raise ValueError("Archive is missing the project_metadata group")
-            if not isinstance(meta_group, h5py.Group):
-                raise TypeError("project_metadata must be an h5py Group")
-            meta_group.attrs["manifest_json"] = manifest_json
-            h5file.flush()

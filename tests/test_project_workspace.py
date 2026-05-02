@@ -258,11 +258,11 @@ def test_workspace_metadata_helpers_roundtrip_without_existing_labels(tmp_path: 
     manifest_payload = {
         "entries": [
             {
-                "id": "archive",
-                "label": "Metadata Project.xpkg",
-                "path": "Metadata Project.xpkg",
+                "id": "predictions",
+                "label": "predictions.json",
+                "path": "predictions/predictions.json",
                 "asset_type": "predictions",
-                "metadata": {"role": "archive"},
+                "metadata": {"role": "predictions"},
             }
         ]
     }
@@ -378,22 +378,13 @@ def test_load_workspace_payload_keeps_predictions_out_of_labels_bundle(tmp_path:
     assert int(prediction_track_ids[0, 0]) == 7
 
 
-def test_load_workspace_payload_uses_snapshot_without_archive_export(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    import xpkg.io.project_workspace as project_workspace
+def test_load_workspace_payload_uses_snapshot_payload(tmp_path: Path) -> None:
     from xpkg.model import Labels
     from xpkg.workspace import init_project, load_workspace_payload
 
     workspace = tmp_path / "Direct Payload Project"
     init_project(workspace, title="Direct Payload Project")
     Labels.save_file(_make_labels(tmp_path, x=4.0, y=5.0), workspace.as_posix())
-
-    def fail_export(*_args, **_kwargs):
-        raise AssertionError("load_workspace_payload should not export an archive")
-
-    monkeypatch.setattr(project_workspace, "export_project_archive", fail_export)
 
     payload = load_workspace_payload(workspace)
 
@@ -697,11 +688,12 @@ def test_workspace_load_ignores_stale_snapshot_when_commit_id_mismatches(tmp_pat
     assert float(pts["y"][0]) == 32.0
 
 
-def test_summarize_project_and_validate_project_read_labels_video_group(tmp_path: Path) -> None:
-    from xpkg.io.archive_format import summarize_project, validate_project
-    from xpkg.io.project_workspace import export_project_archive
+def test_summarize_loaded_project_and_validate_loaded_project_read_labels_video_group(
+    tmp_path: Path,
+) -> None:
+    from xpkg.io.project_validation import summarize_loaded_project, validate_loaded_project
     from xpkg.model import Labels
-    from xpkg.workspace import current_project_snapshot_path, init_project
+    from xpkg.workspace import current_project_snapshot_path, init_project, load_workspace_payload
 
     source_video = tmp_path / "source.avi"
     _write_test_video(source_video)
@@ -710,14 +702,13 @@ def test_summarize_project_and_validate_project_read_labels_video_group(tmp_path
     init_project(workspace, title="Summary Project")
 
     saved_target = Labels.save_file(labels, workspace.as_posix())
-    archive = export_project_archive(workspace, out=tmp_path / "summary.xpkg")
-    labels.save_file(labels, archive.as_posix())
-    summary = summarize_project(archive)
+    snapshot = current_project_snapshot_path(workspace)
+    payload = load_workspace_payload(workspace)
+    summary = summarize_loaded_project(payload, path=snapshot)
 
     assert saved_target == workspace.as_posix()
-    assert current_project_snapshot_path(workspace).exists()
-    assert archive.exists()
-    validate_project(archive)
+    assert snapshot.exists()
+    validate_loaded_project(payload)
     assert summary.n_videos == 1
     assert len(summary.video_filenames) == 1
     assert Path(summary.video_filenames[0]).name == source_video.name

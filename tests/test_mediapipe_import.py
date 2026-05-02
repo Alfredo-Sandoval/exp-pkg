@@ -12,10 +12,8 @@ from tests.io.readers.test_mediapipe_pose_landmarks import (
 from tests.test_sleap_h5_import import _write_dummy_video
 
 
-def test_convert_mediapipe_pose_landmarks_json_builds_archive(tmp_path: Path) -> None:
-    from xpkg.io.archive_format import read_archive
+def test_convert_mediapipe_pose_landmarks_json_builds_labels(tmp_path: Path) -> None:
     from xpkg.io.converters.mediapipe_import import convert_mediapipe_pose_landmarks_json
-    from xpkg.model import Labels
 
     json_path = tmp_path / "pose_landmarks.json"
     _write_mediapipe_pose_landmarks_json(
@@ -30,22 +28,18 @@ def test_convert_mediapipe_pose_landmarks_json_builds_archive(tmp_path: Path) ->
     )
     video_path = tmp_path / "session.avi"
     _write_dummy_video(video_path, frame_count=3)
-    out_path = tmp_path / "mediapipe_pose.xpkg"
 
     result = convert_mediapipe_pose_landmarks_json(
         json_path.as_posix(),
         video_path.as_posix(),
-        out_path.as_posix(),
         skeleton_name="mediapipe_pose",
     )
 
-    assert result.archive_path == out_path
-    payload = read_archive(out_path, lazy=False)
-    assert payload["metadata"]["source"] == "mediapipe_pose_landmarks_json_import"
-    assert payload["metadata"]["source_json"] == json_path.as_posix()
-    assert payload["metadata"]["source_video"] == video_path.as_posix()
+    assert result.metadata["source"] == "mediapipe_pose_landmarks_json_import"
+    assert result.metadata["source_json"] == json_path.as_posix()
+    assert result.metadata["source_video"] == video_path.as_posix()
 
-    labels = Labels.load_file(out_path.as_posix())
+    labels = result.labels
     assert len(labels.skeletons[0].keypoint_names) == 33
     assert ("left_shoulder", "left_elbow") in labels.skeletons[0].links_by_names()
     assert len(labels.videos) == 1
@@ -59,7 +53,6 @@ def test_convert_mediapipe_pose_landmarks_json_builds_archive(tmp_path: Path) ->
 
 def test_convert_mediapipe_pose_landmarks_json_applies_threshold(tmp_path: Path) -> None:
     from xpkg.io.converters.mediapipe_import import convert_mediapipe_pose_landmarks_json
-    from xpkg.model import Labels
 
     json_path = tmp_path / "pose_landmarks.json"
     low_confidence_landmarks = _pose_landmarks()
@@ -72,16 +65,14 @@ def test_convert_mediapipe_pose_landmarks_json_applies_threshold(tmp_path: Path)
     )
     video_path = tmp_path / "session.avi"
     _write_dummy_video(video_path, frame_count=1)
-    out_path = tmp_path / "thresholded.xpkg"
 
-    convert_mediapipe_pose_landmarks_json(
+    result = convert_mediapipe_pose_landmarks_json(
         json_path,
         video_path,
-        out_path,
         likelihood_threshold=0.5,
     )
 
-    labels = Labels.load_file(out_path.as_posix())
+    labels = result.labels
     points = labels.labeled_frames[0].instances[0].get_points_array(copy=False, full=True)
     assert int(np.count_nonzero(~np.isnan(points["x"]))) == 32
 
@@ -104,7 +95,6 @@ def test_convert_mediapipe_pose_landmarks_json_rejects_video_size_mismatch(
         convert_mediapipe_pose_landmarks_json(
             json_path,
             video_path,
-            tmp_path / "mismatch.xpkg",
         )
 
 

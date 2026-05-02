@@ -7,7 +7,6 @@ from pathlib import Path
 from typing import Any, Literal
 
 from xpkg._core.json_utils import load_json_dict
-from xpkg.io.archive_format.shared import CANONICAL_ARCHIVE_SUFFIX
 from xpkg.io.archive_store.errors import (
     ChecksumError,
     IncompatibleStoreVersionError,
@@ -32,7 +31,7 @@ class MountedHead:
     superblock: Superblock
 
 
-def _object_ext_for_path(path: Path, *, default: str = ".xpkg") -> str:
+def _object_ext_for_path(path: Path, *, default: str = ".bin") -> str:
     suffix = Path(path).suffix.strip()
     if not suffix:
         return default
@@ -112,12 +111,8 @@ def _normalize_root_name(root_name: str) -> str:
 
 
 def _object_ext_for_root(root_name: str, path: Path) -> str:
-    normalized_root = _normalize_root_name(root_name)
-    default_ext = CANONICAL_ARCHIVE_SUFFIX if normalized_root == "archive" else ".bin"
-    suffix = _object_ext_for_path(path, default=default_ext).lower()
-    if normalized_root == "archive":
-        return CANONICAL_ARCHIVE_SUFFIX
-    return suffix
+    _normalize_root_name(root_name)
+    return _object_ext_for_path(path).lower()
 
 
 def _generation_from_commit_id(commit_id: str) -> int | None:
@@ -151,22 +146,6 @@ class ArchiveStore:
 
     def __init__(self, root: Path) -> None:
         self.paths = StorePaths(root=Path(root))
-
-    @classmethod
-    def create_from_archive(
-        cls,
-        store_root: Path,
-        initial_archive: Path,
-        *,
-        created_by: dict[str, Any] | None = None,
-        reason: str = "init",
-    ) -> ArchiveStore:
-        return cls.create_from_roots(
-            store_root,
-            {"archive": initial_archive},
-            created_by=created_by,
-            reason=reason,
-        )
 
     @classmethod
     def create_from_roots(
@@ -360,10 +339,6 @@ class ArchiveStore:
         commit = self.load_current_commit()
         return commit.has_root(_normalize_root_name(root_name))
 
-    def current_archive_path(self) -> Path:
-        """Return the current immutable archive payload path."""
-        return self.current_root_path("archive")
-
     def current_root_entry(self, root_name: str) -> RootEntry:
         """Return the typed current commit entry for a named root."""
         commit = self.load_current_commit()
@@ -380,20 +355,6 @@ class ArchiveStore:
         if not path.exists():
             raise StoreCorruptionError(f"Commit root object missing: {path}")
         return path
-
-    def commit_new_archive(
-        self,
-        archive_path: Path,
-        *,
-        reason: str,
-        created_by: dict[str, Any] | None = None,
-    ) -> str:
-        """Create a new immutable commit from a staged archive file."""
-        return self.commit_new_roots(
-            {"archive": archive_path},
-            reason=reason,
-            created_by=created_by,
-        )
 
     def commit_new_roots(
         self,

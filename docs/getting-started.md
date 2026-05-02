@@ -72,7 +72,7 @@ My Project/
 - You edit a normal workspace folder.
 - xpkg owns authoritative mutable state inside `.xpkg/`.
 - You move/share/export a single `.expkg` file.
-- Older `.xpkg` archives are migration inputs, not the ongoing project contract.
+- Older single-file HDF5 archives are not part of the ongoing project contract.
 
 This matters because the workspace is the place where media, segmentation,
 labels, and future experiment-side modalities can live together under one

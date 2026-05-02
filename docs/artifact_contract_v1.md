@@ -7,9 +7,9 @@ sessions. The public artifact needs to hold more context than a single archive
 blob, so the contract is defined around a workspace, a private store, and a
 portable export.
 
-It supersedes the older public framing that treated a direct archive file as
-the native single-file project artifact. `.xpkg` is now the canonical edge
-archive suffix. It is not the portable user-facing project contract.
+It supersedes the older public framing that treated a direct HDF5 archive file
+as the native single-file project artifact. `.xpkg/` is now only the private
+workspace store directory. It is not a portable user-facing project contract.
 
 ## Artifact Classes
 
@@ -144,7 +144,7 @@ Rules:
 - Unpacking recreates a valid workspace layout.
 - It is a project artifact, not a raw storage engine.
 - Users and third parties must treat it as opaque.
-- Internally it may use zip, tar+zstd, HDF5-backed blobs, or another transport.
+- Internally it may use zip, tar+zstd, or another transport.
   That is an implementation detail.
 
 On unpack, xpkg reconstructs:
@@ -196,8 +196,8 @@ xpkg unpack "My Project.expkg" --out "./My Project"
 
 ### Import
 
-Foreign formats import into a workspace, not directly into an opaque
-single-file native archive.
+Foreign formats import into a workspace, not directly into an opaque legacy
+HDF5 archive.
 
 Examples:
 
@@ -242,17 +242,17 @@ The default pack mode is `portable`.
 - Symlinks may exist in user content, but official project validity must not
   depend on them.
 
-## Archive Boundary Policy
+## Legacy HDF5 Boundary Policy
 
-`.xpkg` is the private workspace store directory name and may still appear in
-internal archive-format code paths, but it is not a public project artifact.
+`.xpkg/` is the private workspace store directory name, not a public project
+artifact and not a single HDF5 file.
 
 Policy:
 
 - New projects are created as workspace folders.
 - New portable exports are `.expkg`.
 - No dedicated workspace-to-`.xpkg` export command is part of the locked v1 surface.
-- No new core features should depend on direct archive handling as the primary
+- No new core features should depend on direct HDF5 archive handling as a
   project contract.
 
 ## What Is Public vs Private
@@ -296,6 +296,6 @@ And this:
 - editable project = workspace folder
 - authoritative mutable state = `.xpkg/`
 - portable artifact = `.expkg`
-- edge archive compatibility = `.xpkg`
+- legacy HDF5 archive compatibility = removed from the locked v1 surface
 - no required symlink layer
 - no `.h5` public contract

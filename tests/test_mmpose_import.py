@@ -8,30 +8,24 @@ from tests.io.readers.test_mmpose import _write_mmpose_topdown_json
 from tests.test_sleap_h5_import import _write_dummy_video
 
 
-def test_convert_mmpose_topdown_json_builds_archive_with_links(tmp_path: Path) -> None:
-    from xpkg.io.archive_format import read_archive
+def test_convert_mmpose_topdown_json_builds_labels_with_links(tmp_path: Path) -> None:
     from xpkg.io.converters.mmpose_import import convert_mmpose_topdown_json
-    from xpkg.model import Labels
 
     json_path = _write_mmpose_topdown_json(tmp_path / "results_session.json")
     video_path = tmp_path / "session.avi"
     _write_dummy_video(video_path, frame_count=3)
-    out_path = tmp_path / "mmpose.xpkg"
 
     result = convert_mmpose_topdown_json(
         json_path,
         video_path,
-        out_path,
         skeleton_name="toy_subject",
     )
 
-    assert result.archive_path == out_path
-    payload = read_archive(out_path, lazy=False)
-    assert payload["metadata"]["source"] == "mmpose_topdown_json_import"
-    assert payload["metadata"]["source_json"] == json_path.as_posix()
-    assert payload["metadata"]["source_video"] == video_path.as_posix()
+    assert result.metadata["source"] == "mmpose_topdown_json_import"
+    assert result.metadata["source_json"] == json_path.as_posix()
+    assert result.metadata["source_video"] == video_path.as_posix()
 
-    labels = Labels.load_file(out_path.as_posix())
+    labels = result.labels
     assert len(labels.skeletons[0].keypoint_names) == 3
     assert labels.skeletons[0].links_ids == [(0, 1), (1, 2)]
     assert len(labels.videos) == 1
@@ -45,22 +39,19 @@ def test_convert_mmpose_topdown_json_builds_archive_with_links(tmp_path: Path) -
 
 def test_convert_mmpose_topdown_json_supports_instance_slots(tmp_path: Path) -> None:
     from xpkg.io.converters.mmpose_import import convert_mmpose_topdown_json
-    from xpkg.model import Labels
 
     json_path = _write_mmpose_topdown_json(tmp_path / "results_session.json")
     video_path = tmp_path / "session.avi"
     _write_dummy_video(video_path, frame_count=3)
-    out_path = tmp_path / "mmpose_instance_1.xpkg"
 
-    convert_mmpose_topdown_json(
+    result = convert_mmpose_topdown_json(
         json_path,
         video_path,
-        out_path,
         instance_index=1,
         likelihood_threshold=0.5,
     )
 
-    labels = Labels.load_file(out_path.as_posix())
+    labels = result.labels
     frame_indices = [frame.frame_idx for frame in labels.labeled_frames]
     assert frame_indices == [0, 2]
 

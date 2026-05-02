@@ -42,12 +42,13 @@ class LabelsVideoRemapProtocol(Protocol):
 
 @dataclass(slots=True)
 class ConversionResult:
-    """Outcome of converting an external data format into a native archive."""
+    """Outcome of converting an external data format into workspace state."""
 
     source_dir: Path
     project_root: Path
     videos: list[Path]
-    archive_path: Path
+    labels: Any
+    metadata: dict[str, Any]
 
 
 def _emit(callback: ProgressCallback | None, message: str) -> None:
@@ -283,15 +284,6 @@ def rebase_image_sequences(
             video._image_filenames = updated
 
 
-def project_archive_path(project_root: Path, *, archive_extension: str) -> Path:
-    """Return the canonical archive path for a project directory."""
-    if not archive_extension.startswith("."):
-        raise ValueError(f"archive_extension must start with '.', got {archive_extension!r}")
-    if not project_root.name:
-        raise ValueError(f"Project root must have a terminal directory name: {project_root}")
-    return project_root / f"{project_root.name}{archive_extension}"
-
-
 def build_cli_parser(description: str) -> argparse.ArgumentParser:
     """Create a converter CLI parser with the provided description."""
 
@@ -348,7 +340,6 @@ __all__ = [
     "encode_videos",
     "parse_and_run_cli",
     "points_from_coords_scores",
-    "project_archive_path",
     "rebase_image_sequences",
     "remap_labels_to_videos",
 ]
