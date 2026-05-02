@@ -1,4 +1,4 @@
-"""Normalization helpers for point-like payloads."""
+"""Normalization routines for point-like annotation payloads."""
 
 from __future__ import annotations
 

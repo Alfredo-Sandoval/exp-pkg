@@ -114,7 +114,7 @@ class SuggestionFrame:
 
 @dataclass(repr=False)
 class Labels:
-    """Represent labels with caching, query helpers, and IO helpers."""
+    """Canonical container for labeled frames, videos, skeletons, and tracks."""
 
     labeled_frames: list[LabeledFrame] = field(default_factory=list)
     videos: list[VideoProtocol] = field(default_factory=list)

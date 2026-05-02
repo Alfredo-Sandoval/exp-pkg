@@ -1,4 +1,4 @@
-"""Explicit Vicon force-platform mapping helpers."""
+"""Vicon force-platform extraction into source-neutral force payloads."""
 
 from __future__ import annotations
 
@@ -176,7 +176,7 @@ def build_force_plate_data_from_vicon_recording(
         axis_convention=resolved_axis_convention,
         provenance=(
             *force_platform.provenance,
-            ("mapper", "xpkg.io.readers.vicon_force.build_force_plate_data_from_vicon_recording"),
+            ("mapper", "xpkg.io.readers.vicon.force.build_force_plate_data_from_vicon_recording"),
         ),
         moment_xyz_Nm=moment_xyz_nm,
         cop_xyz_m=None,

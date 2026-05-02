@@ -1,4 +1,4 @@
-"""Private shared utilities for xpkg internals."""
+"""Internal utilities shared across the xpkg package."""
 
 from __future__ import annotations
 

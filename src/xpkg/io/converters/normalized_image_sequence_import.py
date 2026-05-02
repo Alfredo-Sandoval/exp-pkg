@@ -13,7 +13,7 @@ from xpkg._core.json_utils import load_json_dict
 from xpkg._core.path_registry import ensure_dir, resolve_path
 from xpkg.io.converters.converter_helpers import ConversionResult
 from xpkg.io.labels.model import Labels
-from xpkg.io.video import Video
+from xpkg.media.video import Video
 from xpkg.pose.annotations import Instance, LabeledFrame, Point
 from xpkg.pose.skeleton import Keypoint, Skeleton
 

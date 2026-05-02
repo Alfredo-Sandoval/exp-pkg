@@ -1,4 +1,4 @@
-"""Project import commands."""
+"""CLI commands that import external data into project-first xpkg projects."""
 
 from __future__ import annotations
 

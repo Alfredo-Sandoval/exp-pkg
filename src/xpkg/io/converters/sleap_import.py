@@ -32,20 +32,20 @@ from xpkg.io.converters.pose_track_import import (
     validate_pose_tracks_consistency,
 )
 from xpkg.io.converters.sleap_helpers import extract_frames, extract_labels_step4
-from xpkg.io.readers.sleap_analysis_h5 import (
+from xpkg.io.readers.pose.sleap_analysis_h5 import (
     read_node_names as _read_sleap_node_names,
 )
-from xpkg.io.readers.sleap_analysis_h5 import (
+from xpkg.io.readers.pose.sleap_analysis_h5 import (
     read_track as _read_sleap_track,
 )
-from xpkg.io.readers.sleap_analysis_h5 import (
+from xpkg.io.readers.pose.sleap_analysis_h5 import (
     read_track_count as _read_sleap_track_count,
 )
-from xpkg.io.readers.sleap_analysis_h5 import (
+from xpkg.io.readers.pose.sleap_analysis_h5 import (
     read_track_names as _read_sleap_track_names,
 )
 from xpkg.io.skeleton_loaders import build_sleap_skeleton
-from xpkg.io.video import Video
+from xpkg.media.video import Video
 
 if TYPE_CHECKING:
     from xpkg.model import Labels as _Labels
@@ -107,7 +107,7 @@ def _labels_from_step4_table(
     labeled_root: Path,
     skeleton: _Skeleton,
 ) -> _Labels:
-    from xpkg.io.video import Video as _Video
+    from xpkg.media.video import Video as _Video
     from xpkg.model import Labels as _Labels
     from xpkg.pose.annotations import Instance as _Instance
     from xpkg.pose.annotations import LabeledFrame as _LabeledFrame

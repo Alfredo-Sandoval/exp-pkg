@@ -1,4 +1,4 @@
-"""Minimal image IO helpers (centralized color policy boundary).
+"""Image IO routines that keep color-channel policy in one place.
 
 - read_bgr(path): returns BGR uint8 image or None
 - read_rgb(path): returns RGB uint8 image or None

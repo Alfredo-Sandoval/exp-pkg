@@ -1,4 +1,4 @@
-"""Neutral pose trajectory adapter data.
+"""Source-neutral pose trajectory view shared across readers and adapters.
 
 ``PoseTrajectory`` is a read-only downstream adapter for algorithms that only
 need point trajectories. Project storage remains source-native, currently

@@ -19,7 +19,7 @@ from xpkg.pose.annotations.points import (
 from xpkg.pose.skeleton import Keypoint, Skeleton
 
 if TYPE_CHECKING:
-    from xpkg.io.video import Video
+    from xpkg.media.video import Video
     from xpkg.pose.annotations.frames import LabeledFrame
 else:
     from typing import Any as LabeledFrame

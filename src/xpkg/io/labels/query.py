@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any, cast
 import numpy as np
 
 from xpkg.io.labels.video_types import VideoProtocol
-from xpkg.io.video import Video
+from xpkg.media.video import Video
 from xpkg.pose.annotations import LabeledFrame
 
 if TYPE_CHECKING:

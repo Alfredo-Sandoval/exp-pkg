@@ -1,4 +1,4 @@
-"""Source-neutral EMG signal model."""
+"""Source-neutral EMG signal objects for multimodal sessions."""
 
 from __future__ import annotations
 

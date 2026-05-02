@@ -16,13 +16,13 @@ from xpkg.io.converters.dlc_import import (
     _validate_video_alignment,
 )
 from xpkg.io.converters.pose_track_import import labels_from_pose_tracks
-from xpkg.io.readers.mediapipe_pose_landmarks import (
+from xpkg.io.readers.pose.mediapipe_pose_landmarks import (
     MEDIAPIPE_POSE_CONNECTIONS,
     MEDIAPIPE_POSE_LANDMARK_NAMES,
     read_image_size,
     read_track,
 )
-from xpkg.io.video import Video
+from xpkg.media.video import Video
 
 _MEDIAPIPE_READ_JSON_MARKER = "MEDIAPIPE_IMPORT STEP: read_json"
 _MEDIAPIPE_VALIDATE_VIDEO_MARKER = "MEDIAPIPE_IMPORT STEP: validate_video"

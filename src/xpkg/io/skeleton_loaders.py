@@ -1,7 +1,7 @@
 """Unified skeleton loader supporting multiple external formats.
 
-Imports skeletons from DeepLabCut, SLEAP, Ultralytics/YOLO, and xpkg archive
-JSON. Returns xpkg.pose.skeleton.Skeleton instances directly.
+Imports skeletons from DeepLabCut, SLEAP, Ultralytics/YOLO, and xpkg skeleton
+JSON. Returns ``xpkg.pose.skeleton.Skeleton`` instances directly.
 """
 
 from __future__ import annotations
@@ -235,7 +235,7 @@ def load_skeleton(path: str | Path) -> Skeleton:
     """Auto-detect format and load skeleton into xpkg.pose.skeleton.Skeleton.
 
     Supports:
-    - .json: xpkg archive JSON format
+    - .json: xpkg skeleton JSON format
     - .pkg.slp: SLEAP package files
     - .yaml/.yml: DLC config, SLEAP, or Ultralytics format (auto-detected)
 

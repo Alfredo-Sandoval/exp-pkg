@@ -1,4 +1,4 @@
-"""Primary project-first service facade for downstream xpkg integrations."""
+"""Consumer-facing service facade for project-first xpkg integrations."""
 
 from __future__ import annotations
 

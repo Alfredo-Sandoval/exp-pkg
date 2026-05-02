@@ -1,4 +1,4 @@
-"""Small logging helpers for the extracted xpkg package."""
+"""Logging utilities shared by readers, converters, and project services."""
 
 from __future__ import annotations
 

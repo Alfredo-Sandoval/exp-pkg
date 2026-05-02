@@ -17,8 +17,8 @@ from xpkg.io.converters.dlc_import import (
 )
 from xpkg.io.converters.pose_track_import import labels_from_pose_tracks
 from xpkg.io.readers import read_pose_track
-from xpkg.io.readers.mmpose import read_sequence_dataset_name, read_skeleton_links
-from xpkg.io.video import Video
+from xpkg.io.readers.pose.mmpose import read_sequence_dataset_name, read_skeleton_links
+from xpkg.media.video import Video
 
 _MMPOSE_JSON_READ_MARKER = "MMPOSE_JSON_IMPORT STEP: read_json"
 _MMPOSE_JSON_VALIDATE_VIDEO_MARKER = "MMPOSE_JSON_IMPORT STEP: validate_video"

@@ -1,4 +1,4 @@
-"""Shared helpers for converter modules and adapter entry points."""
+"""Shared converter utilities for progress, video remapping, and CLI wrappers."""
 
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ import numpy as np
 from xpkg._core.logging_utils import get_logger
 from xpkg._core.path_registry import ensure_dir
 from xpkg._core.video_contract import video_total_frames
-from xpkg.io.video import Video, available_video_exts, write_video
+from xpkg.media.video import Video, available_video_exts, write_video
 
 if TYPE_CHECKING:
     from xpkg.model import Labels as _Labels
@@ -30,7 +30,7 @@ _NON_ALNUM_RE = re.compile(r"[^a-z0-9]+")
 
 
 class LabelsVideoRemapProtocol(Protocol):
-    """Minimal mutable labels surface required for video remapping."""
+    """Mutable label-container surface required when rebasing video references."""
 
     videos: list[Any]
     labeled_frames: list[Any]

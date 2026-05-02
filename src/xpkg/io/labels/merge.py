@@ -1,4 +1,4 @@
-"""Helpers for merging label sets while normalizing references."""
+"""Merge operations for label sets that may carry independent object references."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
 from xpkg.io.labels.video_types import VideoProtocol
-from xpkg.io.video import Video
+from xpkg.media.video import Video
 from xpkg.pose.annotations import LabeledFrame, Track
 from xpkg.pose.skeleton import Skeleton
 

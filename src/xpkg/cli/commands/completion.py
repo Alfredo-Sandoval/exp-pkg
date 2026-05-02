@@ -1,4 +1,4 @@
-"""Shell completion commands."""
+"""Shell completion generators for the ``xpkg`` command."""
 
 from __future__ import annotations
 

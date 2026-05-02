@@ -1,4 +1,4 @@
-"""Service-bound generic artifact registry API."""
+"""Service-bound API for the generic project artifact registry."""
 
 from __future__ import annotations
 
@@ -24,7 +24,7 @@ from xpkg.project.artifacts import (
 
 @dataclass(frozen=True, slots=True)
 class ProjectArtifacts:
-    """Project-bound helpers for generic artifact manifests and indexes."""
+    """Service-bound access to a project's generic artifact registry."""
 
     project_root: Path
 

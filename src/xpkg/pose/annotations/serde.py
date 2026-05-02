@@ -1,4 +1,4 @@
-"""Serialization helpers for annotation primitives."""
+"""Serialization setup for annotation primitives and instance payloads."""
 
 from __future__ import annotations
 

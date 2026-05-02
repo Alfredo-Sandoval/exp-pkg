@@ -1,4 +1,4 @@
-"""xpkg command-line interface package."""
+"""Typer-based command package for the ``xpkg`` executable."""
 
 from __future__ import annotations
 

@@ -1,3 +1,5 @@
+"""Checksum routines for project manifests, stores, and portable artifacts."""
+
 from __future__ import annotations
 
 import hashlib

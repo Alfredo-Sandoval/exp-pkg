@@ -1,8 +1,8 @@
-"""JSON loading and writing helpers.
+"""JSON parsing and writing policy for xpkg payload files.
 
 This module is the only place in the package that should call stdlib
-`json.load/json.loads/json.dump/json.dumps` directly. All other modules must
-use the helpers below.
+``json.load/json.loads/json.dump/json.dumps`` directly. Other modules should
+use this policy surface instead of ad hoc JSON handling.
 """
 
 from __future__ import annotations

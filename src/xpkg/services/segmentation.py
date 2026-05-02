@@ -1,4 +1,4 @@
-"""Service-bound segmentation mask API."""
+"""Service-bound API for project segmentation-mask state."""
 
 from __future__ import annotations
 
@@ -19,7 +19,7 @@ from xpkg.project.segmentation import (
 
 @dataclass(frozen=True, slots=True)
 class ProjectSegmentation:
-    """Project-bound helpers for saving and loading segmentation masks."""
+    """Service-bound access to segmentation masks for one project."""
 
     project_root: Path
 

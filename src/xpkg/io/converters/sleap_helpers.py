@@ -1,4 +1,4 @@
-"""Common helpers for converting SLEAP `.pkg.slp` into frame tables."""
+"""Shared SLEAP ``.pkg.slp`` extraction routines for converter modules."""
 
 from __future__ import annotations
 
@@ -100,7 +100,7 @@ def extract_frames(
             frames = cast(Any, hdf[f"{vg}/video"])
             frame_numbers = cast(Any, hdf[f"{vg}/frame_numbers"])
             for img_bytes, frame_num in zip(frames, frame_numbers, strict=False):
-                from xpkg.io.images import read_rgb_bytes as _read_rgb_bytes
+                from xpkg.media.images import read_rgb_bytes as _read_rgb_bytes
 
                 rgb = _read_rgb_bytes(bytes(img_bytes))
                 name = f"img{int(frame_num):08d}.png"

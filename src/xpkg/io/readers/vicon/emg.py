@@ -1,4 +1,4 @@
-"""Explicit Vicon analog-to-EMG extraction helpers."""
+"""Vicon analog-channel extraction for source-neutral EMG signals."""
 
 from __future__ import annotations
 

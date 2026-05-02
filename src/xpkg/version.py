@@ -1,4 +1,4 @@
-"""Package version metadata."""
+"""Runtime package version exported from installed metadata."""
 
 from __future__ import annotations
 

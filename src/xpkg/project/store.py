@@ -1,4 +1,4 @@
-"""Project save/import and store helpers for xpkg v1."""
+"""Project save/import boundary backed by the private ``.xpkg`` store."""
 
 from __future__ import annotations
 
@@ -62,7 +62,7 @@ if TYPE_CHECKING:
 
 
 def load_project_payload(path: str | Path) -> dict[str, Any]:
-    """Return the current committed project payload on the public bundle surface."""
+    """Return the current committed project payload on the public project surface."""
     root = resolve_project_root(path)
     if root is None:
         raise FileNotFoundError(f"Not an xpkg project: {path}")

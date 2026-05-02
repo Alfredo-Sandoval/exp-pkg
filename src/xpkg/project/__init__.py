@@ -1,9 +1,10 @@
-"""Public project-first format entry points.
+"""Project contract entry points for free-function integrations.
 
-This module defines the stable project/project boundary. New integrations
-should prefer ``ProjectService`` and ``ProjectService.imports`` for the
-normal lifecycle and ingestion flow, with ``import_*_project(...)`` kept
-public for explicit function-level callers.
+This module defines the free-function form of the project contract: project
+creation, import, validation, metadata, segmentation, artifact registry, and
+portable ``.expkg`` packing. New integrations should prefer ``ProjectService``
+for lifecycle orchestration, while these functions remain public for explicit
+function-level callers.
 """
 
 from __future__ import annotations

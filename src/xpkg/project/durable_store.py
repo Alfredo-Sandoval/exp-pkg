@@ -1,4 +1,4 @@
-"""Project-private crash-safe durability helpers.
+"""Crash-safe committed-state store for the private ``.xpkg`` directory.
 
 This module backs committed project state under ``.xpkg/``. Normal
 callers should go through project APIs rather than treating this as a

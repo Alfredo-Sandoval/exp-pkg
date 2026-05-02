@@ -1,4 +1,4 @@
-"""Point primitives for annotation data."""
+"""Point primitives for pose annotations and segmentation prompts."""
 
 from __future__ import annotations
 

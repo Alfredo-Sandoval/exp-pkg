@@ -1,4 +1,4 @@
-"""Helpers for detecting and introspecting project state documents."""
+"""Detection and introspection routines for project state JSON documents."""
 
 from __future__ import annotations
 

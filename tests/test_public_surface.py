@@ -163,6 +163,7 @@ def test_root_namespace_is_curated_to_project_first_modules() -> None:
     reloaded = importlib.reload(xpkg)
     reloaded.__dict__.pop("compat", None)
     reloaded.__dict__.pop("adapters", None)
+    reloaded.__dict__.pop("media", None)
     reloaded.__dict__.pop("pose", None)
     reloaded.__dict__.pop("project", None)
 
@@ -171,6 +172,7 @@ def test_root_namespace_is_curated_to_project_first_modules() -> None:
         "__version__",
         "api",
         "adapters",
+        "media",
         "model",
         "pose",
         "read_doric_photometry",
@@ -188,6 +190,7 @@ def test_root_namespace_is_curated_to_project_first_modules() -> None:
         "project",
     ]
     assert reloaded.adapters is not None
+    assert reloaded.media is not None
     assert reloaded.project is not None
     assert reloaded.model is not None
     assert reloaded.pose is not None
@@ -388,6 +391,15 @@ def test_model_exports_are_available() -> None:
     assert callable(load_skeleton_sleap)
     assert callable(load_skeleton_ultralytics)
     assert "load_skeleton_archive_json" not in xpkg.model.__all__
+
+
+def test_media_surface_is_public() -> None:
+    assert "media" in xpkg.__all__
+    assert xpkg.media.Video is Video
+    assert callable(xpkg.media.read_bgr)
+    assert callable(xpkg.media.read_rgb)
+    assert callable(xpkg.media.read_rgb_bytes)
+    assert callable(xpkg.media.write_video)
 
 
 def test_project_surface_is_project_first_only() -> None:

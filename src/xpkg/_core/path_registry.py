@@ -1,4 +1,4 @@
-"""Centralized registry of path helpers for xpkg."""
+"""Filesystem path normalization utilities for xpkg runtime code."""
 
 from __future__ import annotations
 
@@ -96,7 +96,7 @@ def parse_uri_path(uri: str) -> str:
 def return_absolute_path(
     possibly_relative_path: str | Path, n_dirs_back: int = 3, *, create_if_missing: bool = False
 ) -> str:
-    """Return an absolute path for Hydra-influenced training flows.
+    """Resolve a training-workflow path against the active working directory.
 
     Args:
         possibly_relative_path: A path (absolute or relative to CWD - n_dirs_back).
@@ -130,7 +130,7 @@ def return_absolute_path(
 def return_absolute_data_paths(
     data_cfg: Any, n_dirs_back: int = 3, *, create_if_missing: bool = True
 ) -> tuple[str, str]:
-    """Return absolute (data_dir, video_dir) tuple given a config-like object.
+    """Resolve data and video roots from a mapping-style configuration.
 
     Args:
         data_cfg: Configuration object with data_dir and video_dir attributes/keys.
@@ -254,7 +254,7 @@ def make_path_id(path: str | Path, *, prefix: str) -> PathId:
 def resolve_unified_archive_or_error(
     path: str | Path,
 ) -> tuple[Path | None, ValueError | FileNotFoundError | None]:
-    """Resolve user input to a concrete native archive without raising.
+    """Resolve user input to a legacy ``.xpkg`` annotation file without raising.
 
     Returns:
         (resolved_path, None) on success, or (None, exception) on failure.
@@ -298,17 +298,17 @@ def resolve_unified_archive_or_error(
 
 
 def resolve_unified_archive(path: str | Path) -> Path:
-    """Resolve user input to a concrete native archive (no discovery heuristics).
+    """Resolve user input to one legacy ``.xpkg`` annotation file.
 
     Args:
-        path: The input path to a native archive or a directory containing one.
+        path: The input path to a ``.xpkg`` file or a directory containing one.
 
     Returns:
-        The resolved absolute Path to the native archive.
+        The resolved path to the legacy annotation file.
 
     Raises:
-        ValueError: If the path is not a native archive or directory with a single archive.
-        FileNotFoundError: If the archive is not found.
+        ValueError: If the path is not a ``.xpkg`` file or a directory with exactly one.
+        FileNotFoundError: If the file is not found.
     """
     resolved, err = resolve_unified_archive_or_error(path)
     if err is not None:
@@ -319,13 +319,13 @@ def resolve_unified_archive(path: str | Path) -> Path:
 
 
 def find_project_archives(project_root: str | Path) -> list[Path]:
-    """Return the project archive path if it exists.
+    """Return legacy project-adjacent ``.xpkg`` files when present.
 
     Args:
         project_root: The root directory of the project.
 
     Returns:
-        A list containing the Path to the project archive if it exists, else empty.
+        A list containing the project-adjacent file when it exists, else empty.
     """
     root = Path(project_root)
     for suffix in (".xpkg",):
@@ -393,14 +393,14 @@ def resolve_project_roots(
 
 
 def locate_annotation_archive(project_root: Path, annotation_files: list[str]) -> Path | None:
-    """Locate the first existing native archive from a list of relative/absolute paths.
+    """Locate the first existing legacy annotation file from candidate paths.
 
     Args:
         project_root: The root directory of the project.
         annotation_files: A list of potential annotation file paths.
 
     Returns:
-        The Path to the first existing native archive, or None if none found.
+        The first existing ``.xpkg`` annotation file, or None if none is found.
     """
     for entry in annotation_files:
         candidate = Path(entry)
@@ -412,7 +412,7 @@ def locate_annotation_archive(project_root: Path, annotation_files: list[str]) -
 
 
 def get_package_file(filename: str) -> str:
-    """Returns full path to specified file within package.
+    """Return the installed package-resource path for ``filename``.
 
     Args:
         filename: The name of the file within the package.

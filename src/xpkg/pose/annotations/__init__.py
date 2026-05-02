@@ -37,7 +37,7 @@ from xpkg.pose.skeleton import Keypoint, Skeleton
 logger = get_logger(__name__)
 
 if TYPE_CHECKING:
-    from xpkg.io.video import Video
+    from xpkg.media.video import Video
 else:
     from typing import Any as Video
 

@@ -10,7 +10,7 @@ from xpkg.io.skeleton_loaders import (
     load_skeleton_ultralytics,
     load_skeleton_xpkg_json,
 )
-from xpkg.io.video import Video
+from xpkg.media.video import Video
 from xpkg.model.emg import EMGSignalData
 from xpkg.model.events import Event, EventTable, SyncEvent
 from xpkg.model.force import ForcePlateData

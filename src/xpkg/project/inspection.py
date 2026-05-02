@@ -1,4 +1,4 @@
-"""Project inspection helpers owned by the public project package."""
+"""Project inspection summaries for descriptor, state, metadata, and validation."""
 
 from __future__ import annotations
 
@@ -26,7 +26,7 @@ from xpkg.project.validation import (
 
 @dataclass(frozen=True, slots=True)
 class ProjectInspection:
-    """Normalized inspection result for one project root."""
+    """Validated summary of the current committed state for one project root."""
 
     project_root: Path
     descriptor: ProjectDescriptor
@@ -40,7 +40,7 @@ class ProjectInspection:
 
 
 def inspect_project(path: str | Path) -> ProjectInspection:
-    """Inspect one project using canonical project/archive APIs."""
+    """Inspect one project through the canonical project-state APIs."""
     project_root = resolve_project_root(path)
     if project_root is None:
         raise FileNotFoundError(f"Not an xpkg project: {path}")

@@ -1,4 +1,4 @@
-"""Service-bound figure artifact API."""
+"""Service-bound convenience API for figure artifacts."""
 
 from __future__ import annotations
 
@@ -21,7 +21,7 @@ from xpkg.project.artifacts import (
 
 @dataclass(frozen=True, slots=True)
 class ProjectFigures:
-    """Project-bound helpers for figure output manifests."""
+    """Service-bound access to figure artifact manifests for one project."""
 
     project_root: Path
 

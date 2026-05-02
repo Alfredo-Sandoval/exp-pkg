@@ -10,7 +10,7 @@ from typing import cast
 import numpy as np
 import pandas as pd
 
-from xpkg.io.readers._common import (
+from xpkg.io.readers.pose._common import (
     PoseTrack,
     build_pose_track,
     resolve_node_indices_from_names,

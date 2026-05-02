@@ -1,4 +1,4 @@
-"""In-memory exchange helpers for canonical xpkg objects.
+"""In-memory exchange adapters for canonical xpkg objects.
 
 This surface is intentionally separate from:
 
@@ -7,7 +7,7 @@ This surface is intentionally separate from:
 
 Use ``xpkg.adapters`` when another repo needs to transform xpkg objects into
 JSON-friendly payloads, numpy arrays, or tabular structures without coupling
-to project or archive internals.
+to project storage internals.
 """
 
 from __future__ import annotations

@@ -1,4 +1,4 @@
-"""Generic lightweight model helpers for tests and prediction payload setup."""
+"""Metadata-only model objects for prediction payloads and tests."""
 
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ from xpkg.pose.skeleton import Keypoint, Skeleton
 
 @dataclass(frozen=True, slots=True)
 class VideoStub:
-    """A metadata-only video object for prediction/archive flows."""
+    """Video metadata object used when frame decoding is intentionally unavailable."""
 
     filename: str | None
     frames: int
@@ -76,7 +76,7 @@ def build_prediction_stub(
     *,
     skeleton_name: str = "xpkg-predict",
 ) -> Labels:
-    """Build a generic labels container for prediction payload serialization."""
+    """Build an empty labels container anchored to prediction video metadata."""
     keypoints = [Keypoint(id=idx, name=str(name)) for idx, name in enumerate(keypoint_names)]
     skeleton = Skeleton(name=str(skeleton_name), keypoints=keypoints, links_ids=[])
     return Labels(

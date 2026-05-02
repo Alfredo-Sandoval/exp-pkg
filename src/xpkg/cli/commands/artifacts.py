@@ -1,4 +1,4 @@
-"""Project artifact commands."""
+"""CLI commands for listing, inspecting, validating, and reindexing artifacts."""
 
 from __future__ import annotations
 

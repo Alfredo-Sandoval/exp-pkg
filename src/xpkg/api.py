@@ -1,7 +1,7 @@
 """Stable public API for project-first xpkg integrations.
 
 New integrations should start with ``ProjectService`` and
-``ProjectService.imports``. The explicit ``import_*_project(...)`` helpers
+``ProjectService.imports``. The explicit ``import_*_project(...)`` functions
 remain public for function-level callers.
 """
 

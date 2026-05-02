@@ -1,4 +1,4 @@
-"""Project lifecycle commands."""
+"""CLI commands for the xpkg project lifecycle and portable artifacts."""
 
 from __future__ import annotations
 

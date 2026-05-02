@@ -1,4 +1,4 @@
-"""Project descriptor and layout helpers."""
+"""Project descriptor schema and canonical managed-path layout."""
 
 from __future__ import annotations
 

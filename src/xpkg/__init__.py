@@ -1,4 +1,10 @@
-"""Public package namespace for xpkg."""
+"""Top-level import surface for the xpkg runtime package.
+
+The distribution is published as ``exp-pkg`` while downstream code imports the
+runtime package as ``xpkg``. This namespace keeps the common project, service,
+model, adapter, and reader entry points lazy so importing ``xpkg`` does not
+eagerly import optional IO stacks.
+"""
 
 from __future__ import annotations
 
@@ -10,6 +16,7 @@ __all__ = [
     "__version__",
     "api",
     "adapters",
+    "media",
     "model",
     "pose",
     "read_doric_photometry",
@@ -29,7 +36,7 @@ __all__ = [
 
 
 def __getattr__(name: str):
-    if name in {"api", "adapters", "model", "pose", "services", "project"}:
+    if name in {"api", "adapters", "media", "model", "pose", "services", "project"}:
         module = importlib.import_module(f"xpkg.{name}")
         globals()[name] = module
         return module

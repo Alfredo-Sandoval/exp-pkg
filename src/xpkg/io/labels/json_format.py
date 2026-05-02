@@ -1,4 +1,4 @@
-"""JSON serialization helpers for canonical `Labels` payloads."""
+"""JSON document format for canonical ``Labels`` payloads."""
 
 from __future__ import annotations
 

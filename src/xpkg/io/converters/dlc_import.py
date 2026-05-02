@@ -15,8 +15,8 @@ from xpkg.io.converters.converter_helpers import (
     ProgressCallback,
     _emit,
 )
-from xpkg.io.readers.dlc import read_dlc_csv_table, read_dlc_h5_table
-from xpkg.io.video import Video, available_video_exts
+from xpkg.io.readers.pose.dlc import read_dlc_csv_table, read_dlc_h5_table
+from xpkg.media.video import Video, available_video_exts
 from xpkg.pose.skeleton import build_keypoint_skeleton
 
 if TYPE_CHECKING:

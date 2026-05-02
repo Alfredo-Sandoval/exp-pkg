@@ -1,4 +1,4 @@
-"""Runtime cache of labeled frames, track occupancy, and frame indexing helpers."""
+"""Runtime indexes for labeled frames, track occupancy, and label counts."""
 
 from __future__ import annotations
 

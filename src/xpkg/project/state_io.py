@@ -1,4 +1,4 @@
-"""Project-native JSON state helpers."""
+"""Project-native JSON state serialization and cache-digest routines."""
 
 from __future__ import annotations
 

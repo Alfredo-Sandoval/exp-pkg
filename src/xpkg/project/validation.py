@@ -1,4 +1,4 @@
-"""Project payload validation and summary helpers."""
+"""Validation and summary routines for materialized project payloads."""
 
 from __future__ import annotations
 

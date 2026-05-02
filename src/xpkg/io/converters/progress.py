@@ -1,4 +1,4 @@
-"""Progress callback helpers for converter adapters."""
+"""Progress-callback adapters shared by converter entry points."""
 
 from __future__ import annotations
 

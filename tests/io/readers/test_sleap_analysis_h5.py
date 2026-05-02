@@ -6,7 +6,7 @@ import h5py
 import numpy as np
 import pytest
 
-from xpkg.io.readers.sleap_analysis_h5 import (
+from xpkg.io.readers.pose.sleap_analysis_h5 import (
     read_node_names,
     read_track,
     read_track_count,

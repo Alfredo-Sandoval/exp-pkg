@@ -1,4 +1,4 @@
-"""Video helpers and writer utilities for xpkg."""
+"""Video wrappers and writer utilities used by labels and converters."""
 
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ from cattrs import Converter
 from xpkg._core.colors import bgr_to_gray, bgr_to_rgb, ensure_bgr, ensure_three_channels
 from xpkg._core.logging_utils import get_logger
 from xpkg._core.path_registry import ensure_dir, resolve_path
-from xpkg.io.images import read_bgr
+from xpkg.media.images import read_bgr
 
 logger = get_logger(__name__)
 
@@ -110,7 +110,7 @@ def _load_image_sequence_frame(filename: str, *, grayscale: bool) -> np.ndarray:
 
 
 class Video:
-    """Minimal video wrapper for file-backed videos and image sequences."""
+    """Frame reader for file-backed videos and ordered image sequences."""
 
     def __init__(
         self,

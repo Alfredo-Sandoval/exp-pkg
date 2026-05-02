@@ -1,16 +1,15 @@
-"""
-xpkg skeleton loader/normalizer (schema v1.1.0)
+"""Skeleton schema, normalization, validation, and analytics adapters.
 
- - Link field is `links` (pairs of KEYPOINT NAMES; undirected).
- - Accept aliases on load: {edges, segments, bones, skeleton}; normalize to `links`.
+ - Link field is ``links`` (pairs of keypoint names; undirected).
+ - Accept aliases on load: {edges, segments, bones, skeleton}; normalize to ``links``.
  - Accept keypoint container aliases:
-   {keypoints, bodyparts, markers, nodes, landmarks}; normalize to `keypoints`.
- - Do NOT store symmetry pairs; derive L<->R from per-keypoint `side`
+   {keypoints, bodyparts, markers, nodes, landmarks}; normalize to ``keypoints``.
+ - Do NOT store symmetry pairs; derive L<->R from per-keypoint ``side``
    + *_left/_right naming.
  - Optionally normalize names to snake_case and expand L/R tokens.
- - Export ALWAYS with `links` and `keypoints` only (drop alias containers).
- - Provide validation, adjacency/incidence helpers,
-   and simple analytics resolution (pairs/triples).
+ - Export ALWAYS with ``links`` and ``keypoints`` only (drop alias containers).
+ - Provide validation, adjacency/incidence utilities, and simple analytics
+   resolution (pairs/triples).
 """
 
 from __future__ import annotations
@@ -188,7 +187,7 @@ class Keypoint:
 
 @dataclass
 class Skeleton:
-    """Schema-aware skeleton model with normalization/validation helpers."""
+    """Schema-aware keypoint graph with normalization and validation routines."""
 
     name: str
     keypoints: list[Keypoint]
@@ -875,7 +874,7 @@ class Skeleton:
         """Load skeleton from any supported external format.
 
         Auto-detects format by file extension. Supports:
-        - .json: xpkg archive JSON format
+        - .json: xpkg skeleton JSON format
         - .pkg.slp: SLEAP package files
         - .yaml/.yml: DLC, SLEAP, or Ultralytics format (auto-detected)
 

@@ -1,4 +1,4 @@
-"""Minimal color conversion helpers used by the extracted IO stack."""
+"""Color conversion utilities used by video and image IO."""
 
 from __future__ import annotations
 

@@ -12,7 +12,7 @@ from typing import Any
 import numpy as np
 
 from xpkg._core.json_utils import load_json_dict
-from xpkg.io.readers._common import (
+from xpkg.io.readers.pose._common import (
     PoseTrack,
     build_pose_track,
     resolve_node_indices_from_names,

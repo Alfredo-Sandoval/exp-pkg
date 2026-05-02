@@ -37,7 +37,7 @@ Today the repositories are split in an unhealthy way:
 
 - xpkg already owns canonical labels IO, project state IO, and external
   adapter logic.
-- xpkg also has a small media layer in `xpkg.io.video`.
+- xpkg also has a small media layer in `xpkg.media.video`.
 - downstream GUI apps still own a richer and partially duplicated media stack for playback,
   writer selection, backend routing, and threaded export.
 

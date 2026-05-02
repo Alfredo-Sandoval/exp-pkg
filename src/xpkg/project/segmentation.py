@@ -1,4 +1,4 @@
-"""Project-first helpers for frame segmentation masks."""
+"""Project-state storage for frame-level segmentation masks."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Any, Literal, cast
 
 from xpkg._core.path_registry import resolve_path
 from xpkg.io.labels.model import Labels
-from xpkg.io.video import Video
+from xpkg.media.video import Video
 from xpkg.pose.annotations import LabeledFrame, SegmentationMask
 from xpkg.pose.skeleton import build_keypoint_skeleton
 from xpkg.project.layout import resolve_project_root

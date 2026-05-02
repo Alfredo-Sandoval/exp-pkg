@@ -1,4 +1,4 @@
-"""Project pack/unpack and validation helpers."""
+"""Pack, unpack, and validate portable ``.expkg`` project artifacts."""
 
 from __future__ import annotations
 

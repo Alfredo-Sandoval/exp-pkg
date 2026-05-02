@@ -9,7 +9,7 @@ from typing import Any
 import h5py
 import numpy as np
 
-from xpkg.io.readers._common import (
+from xpkg.io.readers.pose._common import (
     PoseTrack,
     build_pose_track,
     resolve_node_indices_from_names,

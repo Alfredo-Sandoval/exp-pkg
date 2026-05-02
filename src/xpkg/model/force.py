@@ -1,4 +1,4 @@
-"""Source-neutral force-plate payloads."""
+"""Source-neutral force-plate payload objects for Vicon-derived data."""
 
 from __future__ import annotations
 

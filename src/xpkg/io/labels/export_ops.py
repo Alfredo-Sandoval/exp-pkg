@@ -1,4 +1,4 @@
-"""Export and keypoint transformation helpers for `Labels`."""
+"""Array, table, and keypoint-export operations for ``Labels``."""
 
 from __future__ import annotations
 

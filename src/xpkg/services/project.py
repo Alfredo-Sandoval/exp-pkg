@@ -3,7 +3,7 @@
 ``ProjectService`` is the stable consumer-facing boundary for downstream
 integrations that need to create, open, import into, validate, pack, or unpack
 an xpkg project. ``ProjectImports`` mirrors the public
-``xpkg.project.import_*_project(...)`` helpers on a project-bound object so
+``xpkg.project.import_*_project(...)`` functions on a project-bound object so
 new code can stay on the same service path end to end.
 """
 
@@ -62,7 +62,7 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True, slots=True)
 class ProjectImports:
-    """Project-bound mirror of the public ``xpkg.project`` import helpers."""
+    """Service-bound import surface for supported external tracking formats."""
 
     project_root: Path
 
@@ -283,7 +283,7 @@ class ProjectImports:
 
 @dataclass(frozen=True, slots=True)
 class ProjectLayout:
-    """Normalized project summary returned by ``describe()`` and ``validate()``."""
+    """Normalized descriptor and managed paths returned by service lifecycle calls."""
 
     project_root: Path
     descriptor: ProjectDescriptor
@@ -299,7 +299,7 @@ class ProjectLayout:
 
 @dataclass(slots=True)
 class ProjectService:
-    """Stable public service for project-first project lifecycle operations."""
+    """Stable project object for create/open/import/validate/pack workflows."""
 
     project_root: Path
 
@@ -353,22 +353,22 @@ class ProjectService:
 
     @property
     def imports(self) -> ProjectImports:
-        """Return service-bound import helpers backed by the public format API."""
+        """Return project-bound import commands for supported tracking formats."""
         return ProjectImports(project_root=self.project_root)
 
     @property
     def segmentation(self) -> ProjectSegmentation:
-        """Return service-bound segmentation mask helpers."""
+        """Return project-bound segmentation-mask storage commands."""
         return ProjectSegmentation(project_root=self.project_root)
 
     @property
     def artifacts(self) -> ProjectArtifacts:
-        """Return service-bound generic artifact registry helpers."""
+        """Return project-bound generic artifact registry commands."""
         return ProjectArtifacts(project_root=self.project_root)
 
     @property
     def figures(self) -> ProjectFigures:
-        """Return service-bound figure artifact helpers."""
+        """Return project-bound figure artifact registry commands."""
         return ProjectFigures(project_root=self.project_root)
 
     def describe(self) -> ProjectLayout:

@@ -1,4 +1,4 @@
-"""Converters for xpkg IO."""
+"""Converters that turn external tracking exports into project-ready state."""
 
 from __future__ import annotations
 

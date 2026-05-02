@@ -1,4 +1,4 @@
-"""Frame-level annotation structures and helpers."""
+"""Frame-level annotation objects for instances, regions, and masks."""
 
 from __future__ import annotations
 
@@ -24,7 +24,7 @@ from xpkg.pose.annotations.regions import ROI, SegmentationMask
 logger = get_logger("xpkg.pose.annotations")
 
 if TYPE_CHECKING:
-    from xpkg.io.video import Video
+    from xpkg.media.video import Video
 
     class _LabelsQueryLike(Protocol):
         def find(

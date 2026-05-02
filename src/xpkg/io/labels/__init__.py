@@ -1,4 +1,4 @@
-"""Internal compatibility shim for the canonical `xpkg.model` labels types."""
+"""Internal label-container implementation re-exported through ``xpkg.model``."""
 
 from xpkg.io.labels.model import Labels, SuggestionFrame
 

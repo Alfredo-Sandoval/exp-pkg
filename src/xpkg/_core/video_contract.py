@@ -6,7 +6,7 @@ from typing import Protocol
 
 
 class VideoWithFrames(Protocol):
-    """Minimal protocol required by frame-count consumers."""
+    """Protocol for video-like objects that expose an integer frame count."""
 
     @property
     def frames(self) -> int: ...

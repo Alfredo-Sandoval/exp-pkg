@@ -1,4 +1,4 @@
-"""Shared CLI output, invocation, validation, and error helpers."""
+"""Shared CLI contracts for JSON output, progress, validation, and errors."""
 
 from __future__ import annotations
 

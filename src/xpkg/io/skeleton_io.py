@@ -1,4 +1,4 @@
-"""Filesystem and external loader helpers for core skeletons."""
+"""Filesystem-facing skeleton loading and saving utilities."""
 
 from __future__ import annotations
 

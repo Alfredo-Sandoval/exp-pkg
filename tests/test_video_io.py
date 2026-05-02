@@ -7,7 +7,7 @@ import numpy as np
 
 
 def test_video_image_sequence_and_writer_roundtrip(tmp_path: Path) -> None:
-    from xpkg.io.video import Video, gui_playback_backend_for_path, write_video
+    from xpkg.media.video import Video, gui_playback_backend_for_path, write_video
 
     frames_dir = tmp_path / "frames"
     frames_dir.mkdir()

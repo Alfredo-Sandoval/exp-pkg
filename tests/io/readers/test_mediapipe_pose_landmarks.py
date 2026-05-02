@@ -11,7 +11,7 @@ from xpkg.io.readers import (
     read_pose_track,
     resolve_pose_node_indices,
 )
-from xpkg.io.readers.mediapipe_pose_landmarks import (
+from xpkg.io.readers.pose.mediapipe_pose_landmarks import (
     MEDIAPIPE_POSE_LANDMARK_NAMES,
     MEDIAPIPE_POSE_LANDMARKS_JSON_SCHEMA,
     read_node_names,

@@ -1,4 +1,4 @@
-"""Generic project artifact manifests, indexes, validation, and figure helpers."""
+"""Generic project artifact manifests, indexes, validation, and figure records."""
 
 from __future__ import annotations
 

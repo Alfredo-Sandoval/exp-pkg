@@ -1,4 +1,4 @@
-"""Shared naming helpers for source-native pose and marker models."""
+"""Name normalization routines for source-native pose and marker models."""
 
 from __future__ import annotations
 

@@ -1,4 +1,4 @@
-"""Prediction payload helpers for project state documents."""
+"""Prediction payload extraction and coercion for project state documents."""
 
 from __future__ import annotations
 

@@ -1,4 +1,4 @@
-"""Project metadata helpers owned by the public project package."""
+"""Read and write mapping-valued metadata fields on the current project head."""
 
 from __future__ import annotations
 

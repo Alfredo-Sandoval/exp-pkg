@@ -1,4 +1,4 @@
-"""Serialization helpers for `Labels` JSON state documents and projects."""
+"""Serialization and hydration routines for ``Labels`` state documents."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ import numpy as np
 from xpkg._core.logging_utils import get_logger
 from xpkg.io.labels.json_format import read_labels_json_payload, write_labels_json
 from xpkg.io.labels.video_types import VideoProtocol
-from xpkg.io.video import Video, gui_playback_backend_for_path
+from xpkg.media.video import Video, gui_playback_backend_for_path
 from xpkg.pose.annotations import (
     ROI,
     Instance,
