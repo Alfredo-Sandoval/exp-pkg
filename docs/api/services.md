@@ -38,7 +38,7 @@ workspace = WorkspaceService.create("./My Project", title="My Project")
 workspace.imports.dlc_csv(
     "tracking.csv",
     "video.mp4",
-    skeleton_name="mouse",
+    skeleton_name="subject",
 )
 workspace.validate()
 artifact = workspace.pack()

@@ -89,11 +89,11 @@ nav:
       - Local Quality Gates: development/local-ci.md
   - API Guide:
       - Model: api/model.md
-      - Codecs: api/codecs.md
+      - Exchange: api/exchange.md
       - Services: api/services.md
       - Formats: api/formats.md
   - Reference:
       - xpkg.model: reference/model.md
-      - xpkg.codecs: reference/codecs.md
+      - xpkg.exchange: reference/exchange.md
       - xpkg.services: reference/services.md
       - xpkg.formats: reference/formats.md

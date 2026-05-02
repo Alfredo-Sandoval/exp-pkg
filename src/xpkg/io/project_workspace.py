@@ -12,13 +12,13 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
-from xpkg.codecs.vicon import (
+from xpkg.core.json_utils import write_json
+from xpkg.core.path_registry import ensure_dir, resolve_path, slugify_path_component
+from xpkg.exchange.vicon import (
     read_vicon_json_payload,
     vicon_recording_from_json_payload,
     vicon_recording_to_json_payload,
 )
-from xpkg.core.json_utils import write_json
-from xpkg.core.path_registry import ensure_dir, resolve_path, slugify_path_component
 from xpkg.io.archive_format import read_archive
 from xpkg.io.archive_store.hashing import sha256_file
 from xpkg.io.project_artifact import validate_workspace

@@ -23,7 +23,6 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from xpkg.config.definitions import ROLE_ENUM, SIDE_TOKENS, get_skeleton_def
 from xpkg.core.json_utils import parse_json_dict
 from xpkg.core.logging_utils import get_logger
 
@@ -36,6 +35,44 @@ SCHEMA_VERSION = "1.1.0"
 
 LINK_FIELDS = ("links",)
 KP_FIELDS = ("keypoints",)
+
+SIDE_TOKENS: dict[str, str] = {
+    "left": "left",
+    "right": "right",
+    "midline": "midline",
+    "center": "midline",
+    "centre": "midline",
+    "unknown": "unknown",
+    "l": "left",
+    "r": "right",
+    "lf": "left",
+    "rf": "right",
+    "lh": "left",
+    "rh": "right",
+    "fl": "left",
+    "fr": "right",
+    "hl": "left",
+    "hr": "right",
+}
+
+ROLE_ENUM: set[str] = {
+    "head",
+    "ear",
+    "eye",
+    "whisker",
+    "landmark",
+    "shoulder",
+    "elbow",
+    "wrist",
+    "paw",
+    "digit",
+    "hip",
+    "knee",
+    "ankle",
+    "spine",
+    "tail",
+    "pelvis",
+}
 
 
 def to_snake(name: str) -> str:
@@ -374,7 +411,7 @@ class Skeleton:
         - Ordered keypoint names
         - Sorted undirected links (as id pairs)
 
-        Use this to detect skeleton schema mismatches between training and inference.
+        Use this to detect skeleton schema mismatches between pipeline stages.
         Two skeletons with the same content_hash are structurally equivalent.
 
         Returns:
@@ -762,10 +799,10 @@ class Skeleton:
         return out
 
     def to_keypoint_config(self) -> dict[str, Any]:
-        """Build keypoint config dict for training/inference.
+        """Build a compact keypoint configuration dictionary.
 
         Returns essential skeleton information in a format suitable for
-        the older training stack and other frameworks.
+        downstream tools that need a small, framework-neutral handoff.
 
         Returns:
             A dictionary containing keypoint names, count, links, and skeleton name.
@@ -826,21 +863,6 @@ class Skeleton:
         from xpkg.io.skeleton_io import load_skeleton
 
         return load_skeleton(src, **kwargs)
-
-    @classmethod
-    def load_builtin(cls, name: str, **kwargs) -> Skeleton:
-        """Load a built-in skeleton by name.
-
-        Args:
-            name: The name of the built-in skeleton.
-            **kwargs: Additional arguments passed to `from_dict`.
-
-        Returns:
-            A Skeleton instance.
-        """
-        from xpkg.io.skeleton_io import load_builtin_skeleton
-
-        return load_builtin_skeleton(name, **kwargs)
 
     @classmethod
     def load_any(
@@ -1043,10 +1065,3 @@ def build_keypoint_skeleton(keypoint_names: list[str], *, name: str = "imported"
     """Build a skeleton from keypoint names with no links."""
     keypoints = [Keypoint(id=i, name=kp) for i, kp in enumerate(keypoint_names)]
     return Skeleton(name=name, keypoints=keypoints, links_ids=[])
-
-
-DEFAULT_SKELETON_NAME = "mouse_bottom_up_v2"
-_DEFAULT_SKELETON = Skeleton.from_dict(get_skeleton_def(DEFAULT_SKELETON_NAME))
-
-KEYPOINT_NAMES: list[str] = list(_DEFAULT_SKELETON.keypoint_names)
-SKELETON_CONNECTIONS: list[tuple[int, int]] = list(_DEFAULT_SKELETON.links_ids)

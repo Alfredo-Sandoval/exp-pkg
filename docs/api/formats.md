@@ -288,7 +288,7 @@ Remove all segmentation masks from one workspace video frame.
 
 These helpers remain file-oriented interchange helpers on
 <code>xpkg.formats</code>. The pure in-memory payload conversions now live in
-<code>xpkg.codecs</code>.
+<code>xpkg.exchange</code>.
 
 ### `read_labels_json_payload(path)`
 

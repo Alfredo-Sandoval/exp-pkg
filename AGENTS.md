@@ -12,16 +12,14 @@ If instructions conflict, follow this order:
 
 ## Repository Identity
 
-Canonical identity lives in `repo_profile.yaml`.
+Repository identity is maintained directly in this file and package metadata.
 
-- `repo.name`: `exp-pkg`
-- `repo.slug`: `Alfredo-Sandoval/exp-pkg`
-- `repo.preset`: `base`
-- `repo.support_matrix`: `macos`, `linux`
+- Name: `exp-pkg`
+- Slug: `Alfredo-Sandoval/exp-pkg`
+- Support matrix: `macos`, `linux`
 
 ## Instruction Routing
 
-`repo_profile.yaml` intentionally does not define a `skills` routing block.
 Use this `AGENTS.md`, explicit user requests, and the current task context as
 the repository instruction source.
 
@@ -48,9 +46,9 @@ Use `Makefile` targets as the canonical command surface:
 
 ## Licensing Policy
 
-- Default license is proprietary (`All rights reserved`).
+- Default license is BSD-3-Clause.
 - Rights holders: `Alfredo and Joseph Sandoval`.
-- Keep `LICENSE` aligned with `repo_profile.yaml`.
+- Keep `LICENSE`, `pyproject.toml`, and README license text aligned.
 
 ## Portability Rules
 

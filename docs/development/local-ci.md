@@ -92,7 +92,7 @@ resolved relative to `XPKG_REAL_DATA_ROOT` unless they are absolute.
       "kind": "dlc",
       "tracking": "dlc/session_001/tracking.csv",
       "video": "dlc/session_001/video.mp4",
-      "skeleton_name": "mouse",
+      "skeleton_name": "subject",
       "expect": {
         "state": "labels",
         "videos": 1,

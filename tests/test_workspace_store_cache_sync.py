@@ -33,7 +33,7 @@ def _make_labels(tmp_path: Path, *, x: float, y: float) -> Labels:
     _write_test_image(frame_path)
     video = Video.from_image_filenames([frame_path.as_posix()])
     video.filename = frame_path.as_posix()
-    skeleton = build_keypoint_skeleton(["nose"], name="mouse")
+    skeleton = build_keypoint_skeleton(["nose"], name="subject")
     frame = LabeledFrame(
         video=video,
         frame_idx=0,

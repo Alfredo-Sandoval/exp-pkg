@@ -1,8 +1,8 @@
-# Codecs
+# Exchange
 
 <div class="page-intro">
 <p>
-<code>xpkg.codecs</code> is the in-memory conversion surface for canonical
+<code>xpkg.exchange</code> is the in-memory conversion surface for canonical
 xpkg objects. It exists for downstream tools that need arrays, tables, or
 JSON-friendly payloads without coupling to workspace layout or legacy archive
 tooling.
@@ -13,7 +13,7 @@ tooling.
     Use <code>xpkg.model</code> for the object graph and
     <code>xpkg.services</code> or <code>xpkg.formats</code> for the
     workspace/project contract.
-    Use <code>xpkg.codecs</code> when you want pure in-memory conversions.
+    Use <code>xpkg.exchange</code> when you want pure in-memory conversions.
 
 ## Current Surface
 
@@ -38,7 +38,7 @@ payload mapping.
 ## Example
 
 ```python
-from xpkg.codecs import labels_from_json_payload, labels_to_json_payload
+from xpkg.exchange import labels_from_json_payload, labels_to_json_payload
 from xpkg.model import Labels
 
 labels = Labels()

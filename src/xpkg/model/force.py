@@ -107,7 +107,11 @@ class ForcePlateData:
                 f"ForcePlateData.sample_rate_hz must be positive, got {sample_rate_hz}."
             )
 
-        vector_shape = tuple(int(value) for value in force_xyz_n.shape)
+        vector_shape: tuple[int, int, int] = (
+            int(force_xyz_n.shape[0]),
+            int(force_xyz_n.shape[1]),
+            int(force_xyz_n.shape[2]),
+        )
         moment_xyz_nm = None
         if self.moment_xyz_Nm is not None:
             moment_xyz_nm = _force_vector_array(

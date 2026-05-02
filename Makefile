@@ -1,4 +1,4 @@
-.PHONY: env setup bootstrap env-macos env-linux env-windows loc lint typecheck test require-real-data test-real qa ci-local release-check build package-check docs-build docs-serve clean
+.PHONY: env setup bootstrap env-macos env-linux loc lint typecheck test require-real-data test-real qa ci-local release-check build package-check docs-build docs-serve clean
 
 ENV_ARGS ?=
 PYTHON ?= python
@@ -27,11 +27,6 @@ env-linux:
 	@test -f environment/linux/setup.sh || { echo "Missing setup script: environment/linux/setup.sh"; exit 1; }
 	bash environment/linux/setup.sh $(ENV_ARGS)
 
-# Optional target. Keep only if Windows support is explicitly enabled.
-env-windows:
-	@echo "Windows setup is optional. Run from PowerShell:"
-	@echo "powershell -ExecutionPolicy Bypass -File environment/windows/setup.ps1"
-
 lint:
 	$(RUN_IN_ENV) ruff check .
 
@@ -39,7 +34,7 @@ typecheck:
 	$(RUN_IN_ENV) ty check
 
 test:
-	$(RUN_IN_ENV) pytest
+	PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 $(RUN_IN_ENV) pytest
 
 require-real-data:
 	@root="$${XPKG_REAL_DATA_ROOT:-$(REAL_DATA_ROOT)}"; \
@@ -55,7 +50,7 @@ require-real-data:
 test-real: require-real-data
 	XPKG_REAL_DATA_ROOT="$${XPKG_REAL_DATA_ROOT:-$(REAL_DATA_ROOT)}" \
 	XPKG_REAL_DATA_MANIFEST="$${XPKG_REAL_DATA_MANIFEST:-$(REAL_DATA_MANIFEST)}" \
-	$(RUN_IN_ENV) pytest -m realdata tests/real_data
+	PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 $(RUN_IN_ENV) pytest -m realdata tests/real_data
 
 qa: lint typecheck test
 

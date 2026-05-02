@@ -16,7 +16,7 @@ from xpkg.model import Labels
 from xpkg.services import WorkspaceService
 
 
-def _assert_sample_mouse_labels(labels: Labels) -> None:
+def _assert_sample_subject_labels(labels: Labels) -> None:
     assert len(labels.videos) == 1
     assert len(labels.skeletons) == 1
     assert len(labels.labeled_frames) == 2
@@ -56,7 +56,7 @@ def test_readme_recommended_workspace_service_flow_roundtrips_imported_artifact(
     snapshot_path = workspace.imports.dlc_csv(
         csv_path,
         video_path,
-        skeleton_name="mouse",
+        skeleton_name="subject",
     )
 
     layout = workspace.validate()
@@ -66,7 +66,7 @@ def test_readme_recommended_workspace_service_flow_roundtrips_imported_artifact(
     assert layout.has_current_state
 
     loaded = workspace.load_labels()
-    _assert_sample_mouse_labels(loaded)
+    _assert_sample_subject_labels(loaded)
 
     artifact = workspace.pack(out=tmp_path / "Imported Project.expkg")
     validate_expkg(artifact)
@@ -77,7 +77,7 @@ def test_readme_recommended_workspace_service_flow_roundtrips_imported_artifact(
     assert unpacked_layout.has_current_state
 
     restored = unpacked.load_labels()
-    _assert_sample_mouse_labels(restored)
+    _assert_sample_subject_labels(restored)
 
 
 def test_workspace_service_open_reuses_existing_workspace_from_nested_path(

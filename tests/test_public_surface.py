@@ -5,7 +5,7 @@ import importlib
 import pytest
 
 import xpkg
-from xpkg.codecs import (
+from xpkg.exchange import (
     labels_from_json_payload,
     labels_numpy,
     labels_to_dataframe,
@@ -142,8 +142,8 @@ def test_root_namespace_is_curated_to_workspace_first_modules() -> None:
     reloaded.__dict__.pop("adapters", None)
 
     assert reloaded.__version__
-    assert reloaded.__all__ == ["__version__", "api", "codecs", "formats", "model", "services"]
-    assert reloaded.codecs is not None
+    assert reloaded.__all__ == ["__version__", "api", "exchange", "formats", "model", "services"]
+    assert reloaded.exchange is not None
     assert reloaded.formats is not None
     assert reloaded.model is not None
     assert reloaded.services is not None
@@ -352,8 +352,8 @@ def test_direct_compat_module_is_removed() -> None:
         importlib.import_module("xpkg.compat")
 
 
-def test_codecs_surface_is_curated() -> None:
-    assert sorted(xpkg.codecs.__all__) == [
+def test_exchange_surface_is_curated() -> None:
+    assert sorted(xpkg.exchange.__all__) == [
         "labels_from_json_payload",
         "labels_numpy",
         "labels_to_dataframe",

@@ -162,7 +162,10 @@ def build_force_plate_data_from_vicon_recording(
     sample_times_s = np.arange(recording.analog.n_samples, dtype=np.float64) / float(
         recording.analog.fps
     )
-    valid_mask = np.isfinite(force_xyz_n).all(axis=2) & np.isfinite(moment_xyz_nm).all(axis=2)
+    valid_mask = np.asarray(
+        np.isfinite(force_xyz_n).all(axis=2) & np.isfinite(moment_xyz_nm).all(axis=2),
+        dtype=bool,
+    )
     return ForcePlateData(
         sample_times_s=sample_times_s,
         force_xyz_N=force_xyz_n,

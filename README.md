@@ -1,7 +1,7 @@
 # exp-pkg
 
 [![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-blue.svg)](https://www.python.org/downloads/)
-[![License: Proprietary](https://img.shields.io/badge/license-Proprietary-red.svg)](LICENSE)
+[![License: BSD-3-Clause](https://img.shields.io/badge/license-BSD--3--Clause-blue.svg)](LICENSE)
 [![Version: 0.1.0](https://img.shields.io/badge/version-0.1.0-green.svg)](pyproject.toml)
 
 **Canonical IO and artifact layer for experiment data, managed workspaces, and portable project artifacts.**
@@ -30,7 +30,7 @@ The intended stack is:
 
 - external pose / annotation formats at the edge
 - canonical in-memory objects in the middle
-- in-memory codecs for arrays / tables / JSON payloads
+- in-memory exchange helpers for arrays / tables / JSON payloads
 - editable workspace + private store + portable artifact at the boundary
 
 The current codebase should be read as a generic IO and packaging layer for
@@ -49,7 +49,7 @@ workspace = WorkspaceService.create("./My Project", title="My Project")
 workspace.imports.dlc_csv(
     "tracking.csv",
     "video.mp4",
-    skeleton_name="mouse",
+    skeleton_name="subject",
 )
 layout = workspace.validate()
 artifact = workspace.pack()
@@ -99,7 +99,7 @@ The shipped workspace import surface currently covers:
 - Registers output artifacts with portable manifests for inputs, producer metadata, stats, checksums, and source data
 - Provides figure convenience helpers on top of the generic artifact registry
 - Saves and loads frame-level segmentation masks through `workspace.segmentation`
-- Exposes a clean in-memory codec layer through `xpkg.codecs`
+- Exposes a clean in-memory exchange layer through `xpkg.exchange`
 - Handles media-aware packaging and workspace-relative project state
 - Ships one explicit legacy migration path for older `.xpkg` archives
 
@@ -190,7 +190,7 @@ Create a manifest named `xpkg-real-data.json` at the corpus root, or point
       "kind": "dlc",
       "tracking": "dlc/session_001/tracking.csv",
       "video": "dlc/session_001/video.mp4",
-      "skeleton_name": "mouse",
+      "skeleton_name": "subject",
       "expect": {
         "state": "labels",
         "videos": 1,
@@ -293,6 +293,10 @@ xpkg artifacts validate "./My Project" --kind figure
 
 The same `xpkg import` command also ships source-specific workspace imports for
 Vicon recordings, Lightning Pose CSV, SLEAP, MMPose JSON, and MediaPipe JSON.
+Every canonical command supports `--json` for machine-readable output, and
+`xpkg describe --json` reports the current command contract for agents.
+Input files that are themselves JSON use `--input-json` so `--json` is reserved
+for output mode.
 
 ## Vicon Recording API
 
@@ -358,4 +362,4 @@ Please follow the existing code style (enforced by [Ruff](https://docs.astral.sh
 
 ## License
 
-This project is released under a **Proprietary License**. See the [LICENSE](LICENSE) file for full terms. © 2026 Alfredo and Joseph Sandoval. All rights reserved.
+This project is licensed under the **BSD 3-Clause License**. See the [LICENSE](LICENSE) file for full terms.

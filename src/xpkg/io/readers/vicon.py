@@ -64,153 +64,6 @@ def _display_marker_names(source_labels: Sequence[str]) -> tuple[str, ...]:
     return tuple(display_names)
 
 
-MOUSE_MARKER_NAMES: tuple[str, ...] = (
-    "center",
-    "R_crest",
-    "L_crest",
-    "R_hip",
-    "R_knee",
-    "R_ankle",
-    "R_foot",
-    "L_hip",
-    "L_knee",
-    "L_ankle",
-    "L_foot",
-    "L_shoulder",
-    "L_elbow",
-    "L_paw",
-    "R_shoulder",
-    "R_elbow",
-    "R_paw",
-)
-
-MOUSE_EDGES: tuple[tuple[str, str], ...] = (
-    ("center", "R_crest"),
-    ("center", "L_crest"),
-    ("R_crest", "L_crest"),
-    ("R_crest", "R_hip"),
-    ("R_hip", "R_knee"),
-    ("R_knee", "R_ankle"),
-    ("R_ankle", "R_foot"),
-    ("L_crest", "L_hip"),
-    ("L_hip", "L_knee"),
-    ("L_knee", "L_ankle"),
-    ("L_ankle", "L_foot"),
-    ("center", "R_shoulder"),
-    ("R_shoulder", "R_elbow"),
-    ("R_elbow", "R_paw"),
-    ("center", "L_shoulder"),
-    ("L_shoulder", "L_elbow"),
-    ("L_elbow", "L_paw"),
-)
-
-PLUG_IN_GAIT_MARKER_NAMES: tuple[str, ...] = (
-    "LFHD",
-    "RFHD",
-    "LBHD",
-    "RBHD",
-    "C7",
-    "T10",
-    "CLAV",
-    "STRN",
-    "LSHO",
-    "LELB",
-    "LWRA",
-    "LWRB",
-    "LFIN",
-    "RSHO",
-    "RELB",
-    "RWRA",
-    "RWRB",
-    "RFIN",
-    "LASI",
-    "RASI",
-    "LPSI",
-    "RPSI",
-    "LTHI",
-    "LKNE",
-    "LTIB",
-    "LANK",
-    "LHEE",
-    "LTOE",
-    "RTHI",
-    "RKNE",
-    "RTIB",
-    "RANK",
-    "RHEE",
-    "RTOE",
-)
-
-PLUG_IN_GAIT_EDGES: tuple[tuple[str, str], ...] = (
-    ("LFHD", "RFHD"),
-    ("LFHD", "LBHD"),
-    ("RFHD", "RBHD"),
-    ("LBHD", "RBHD"),
-    ("C7", "CLAV"),
-    ("C7", "STRN"),
-    ("T10", "CLAV"),
-    ("T10", "STRN"),
-    ("CLAV", "STRN"),
-    ("CLAV", "LSHO"),
-    ("LSHO", "LELB"),
-    ("LELB", "LWRA"),
-    ("LELB", "LWRB"),
-    ("LWRA", "LWRB"),
-    ("LWRA", "LFIN"),
-    ("LWRB", "LFIN"),
-    ("CLAV", "RSHO"),
-    ("RSHO", "RELB"),
-    ("RELB", "RWRA"),
-    ("RELB", "RWRB"),
-    ("RWRA", "RWRB"),
-    ("RWRA", "RFIN"),
-    ("RWRB", "RFIN"),
-    ("LASI", "RASI"),
-    ("LASI", "LPSI"),
-    ("LASI", "RPSI"),
-    ("RASI", "LPSI"),
-    ("RASI", "RPSI"),
-    ("LPSI", "RPSI"),
-    ("LASI", "LTHI"),
-    ("LASI", "LKNE"),
-    ("LPSI", "LKNE"),
-    ("LTHI", "LKNE"),
-    ("LKNE", "LTIB"),
-    ("LKNE", "LANK"),
-    ("LTIB", "LANK"),
-    ("LANK", "LHEE"),
-    ("LANK", "LTOE"),
-    ("LHEE", "LTOE"),
-    ("RASI", "RTHI"),
-    ("RASI", "RKNE"),
-    ("RPSI", "RKNE"),
-    ("RTHI", "RKNE"),
-    ("RKNE", "RTIB"),
-    ("RKNE", "RANK"),
-    ("RTIB", "RANK"),
-    ("RANK", "RHEE"),
-    ("RANK", "RTOE"),
-    ("RHEE", "RTOE"),
-)
-
-KNOWN_MODELS: tuple[ViconMarkerModel, ...] = (
-    ViconMarkerModel(
-        name="mouse_vicon_17",
-        display_name="Mouse Vicon 17",
-        marker_names=MOUSE_MARKER_NAMES,
-        edges=MOUSE_EDGES,
-        source="detected",
-    ),
-    ViconMarkerModel(
-        name="plug_in_gait_fullbody",
-        display_name="Plug-in Gait Full Body",
-        marker_names=PLUG_IN_GAIT_MARKER_NAMES,
-        edges=PLUG_IN_GAIT_EDGES,
-        source="detected",
-    ),
-)
-
-
 def _parse_float_cell(cell: str) -> float:
     stripped = str(cell).strip()
     if not stripped:
@@ -243,44 +96,6 @@ def _event_side_from_context(context: str) -> str | None:
     if normalized in {"left", "right"}:
         return normalized
     return None
-
-
-def _match_known_model(marker_names: Sequence[str]) -> ViconMarkerModel | None:
-    observed = {normalize_marker_name(name) for name in marker_names}
-    for model in KNOWN_MODELS:
-        expected = {normalize_marker_name(name) for name in model.marker_names}
-        if expected.issubset(observed):
-            return model
-    return None
-
-
-def _match_partial_model(
-    marker_names: Sequence[str],
-    *,
-    min_fraction: float = 0.75,
-    min_markers: int = 8,
-) -> ViconMarkerModel | None:
-    observed = {normalize_marker_name(name) for name in marker_names}
-    best_model: ViconMarkerModel | None = None
-    best_fraction = 0.0
-    best_count = 0
-
-    for model in KNOWN_MODELS:
-        expected = [normalize_marker_name(name) for name in model.marker_names]
-        if not expected:
-            continue
-        matched_count = sum(1 for name in expected if name in observed)
-        fraction = matched_count / len(expected)
-        if matched_count > best_count or (matched_count == best_count and fraction > best_fraction):
-            best_model = model
-            best_fraction = fraction
-            best_count = matched_count
-
-    if best_model is None:
-        return None
-    if best_fraction < min_fraction or best_count < min_markers:
-        return None
-    return best_model
 
 
 def _detected_marker_cloud(marker_names: Sequence[str]) -> ViconMarkerModel:
@@ -332,7 +147,6 @@ def select_marker_labels(
 ) -> tuple[tuple[str, ...], tuple[str, ...], ViconMarkerModel]:
     """Choose a stable marker subset and model from raw source labels."""
 
-    canonical_names: list[str] = []
     aligned_source_labels: list[str] = []
     seen_sources: set[str] = set()
 
@@ -344,8 +158,6 @@ def select_marker_labels(
         if normalized_source in seen_sources:
             continue
         seen_sources.add(normalized_source)
-        canonical = canonical_marker_label(source)
-        canonical_names.append(canonical)
         aligned_source_labels.append(source)
 
     if not aligned_source_labels:
@@ -366,15 +178,10 @@ def select_marker_labels(
         for marker_name, source in zip(marker_names, aligned_source_labels, strict=True)
     }
 
-    active_model = preferred_model
-    if active_model is None:
-        active_model = _match_known_model(canonical_names)
-    if active_model is None:
-        active_model = _match_partial_model(canonical_names)
-    if active_model is not None:
+    if preferred_model is not None:
         ordered_markers: list[str] = []
         ordered_sources: list[str] = []
-        for marker_name in active_model.marker_names:
+        for marker_name in preferred_model.marker_names:
             resolved = lookup.get(normalize_marker_name(marker_name))
             if resolved is None:
                 continue
@@ -384,7 +191,7 @@ def select_marker_labels(
             return (
                 tuple(ordered_markers),
                 tuple(ordered_sources),
-                _project_model_to_observed(active_model, ordered_markers),
+                _project_model_to_observed(preferred_model, ordered_markers),
             )
 
     return marker_names, tuple(aligned_source_labels), _detected_marker_cloud(marker_names)

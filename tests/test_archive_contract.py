@@ -29,7 +29,7 @@ def _make_labels(tmp_path: Path, *, x: float, y: float, visible: bool = True, fr
     from xpkg.model import Labels, build_keypoint_skeleton
 
     _, video = _make_single_frame_video(tmp_path)
-    skeleton = build_keypoint_skeleton(["nose"], name="mouse")
+    skeleton = build_keypoint_skeleton(["nose"], name="subject")
     frame = LabeledFrame(
         video=video,
         frame_idx=frame_idx,

@@ -13,8 +13,8 @@ def _write_test_frame(path: Path, value: int) -> None:
 
 
 def test_labels_json_roundtrip_with_image_sequence(tmp_path: Path) -> None:
-    from xpkg.codecs import labels_from_json_payload, labels_to_json_payload
     from xpkg.core.annotations import Instance, LabeledFrame, Point
+    from xpkg.exchange import labels_from_json_payload, labels_to_json_payload
     from xpkg.formats import read_labels_json_payload
     from xpkg.model import Labels, Video, build_keypoint_skeleton
 
@@ -26,7 +26,7 @@ def test_labels_json_roundtrip_with_image_sequence(tmp_path: Path) -> None:
         _write_test_frame(frame_path, value)
         frame_paths.append(frame_path.as_posix())
 
-    skeleton = build_keypoint_skeleton(["nose", "tail"], name="mouse")
+    skeleton = build_keypoint_skeleton(["nose", "tail"], name="subject")
     video = Video.from_image_filenames(frame_paths)
     frame0 = LabeledFrame(
         video=video,
@@ -66,9 +66,9 @@ def test_labels_json_roundtrip_with_image_sequence(tmp_path: Path) -> None:
     assert payload["videos"]["image_filenames"] == [frame_paths]
     assert payload["frames"]["frame_index"] == [0, 2]
 
-    loaded_from_codec = labels_from_json_payload(labels_to_json_payload(labels))
-    assert [lf.frame_idx for lf in loaded_from_codec.labeled_frames] == [0, 2]
-    assert loaded_from_codec.videos[0].image_filenames == frame_paths
+    loaded_from_exchange = labels_from_json_payload(labels_to_json_payload(labels))
+    assert [lf.frame_idx for lf in loaded_from_exchange.labeled_frames] == [0, 2]
+    assert loaded_from_exchange.videos[0].image_filenames == frame_paths
 
     loaded = Labels.load_file(json_path.as_posix())
     assert len(loaded.videos) == 1
@@ -100,7 +100,7 @@ def test_labels_json_roundtrip_preserves_tracks_and_segmentation(tmp_path: Path)
     frame_path = frames_dir / "frame_0000.png"
     _write_test_frame(frame_path, 42)
 
-    skeleton = build_keypoint_skeleton(["nose"], name="mouse")
+    skeleton = build_keypoint_skeleton(["nose"], name="subject")
     video = Video.from_image_filenames([frame_path.as_posix()])
     track = Track(spawned_on=7, name="seg-track")
     frame = LabeledFrame(
@@ -116,10 +116,10 @@ def test_labels_json_roundtrip_preserves_tracks_and_segmentation(tmp_path: Path)
             SegmentationMask.from_polygon(
                 np.array([[0.0, 0.0], [5.0, 0.0], [5.0, 5.0]], dtype=np.float32),
                 track=track,
-                class_name="mouse",
+                class_name="subject",
             )
         ],
-        rois=[ROI(x1=1.0, y1=2.0, x2=8.0, y2=9.0, track=track, class_name="mouse")],
+        rois=[ROI(x1=1.0, y1=2.0, x2=8.0, y2=9.0, track=track, class_name="subject")],
     )
 
     labels = Labels(labeled_frames=[frame], videos=[video], skeletons=[skeleton], tracks=[track])

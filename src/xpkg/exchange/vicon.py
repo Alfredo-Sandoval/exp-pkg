@@ -1,4 +1,4 @@
-"""JSON codecs for canonical ``ViconRecording`` payloads."""
+"""JSON exchange helpers for canonical ``ViconRecording`` payloads."""
 
 from __future__ import annotations
 

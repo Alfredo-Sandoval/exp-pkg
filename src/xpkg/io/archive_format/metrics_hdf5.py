@@ -30,7 +30,6 @@ import h5py
 import numpy as np
 import pandas as pd
 
-from xpkg.config.loaders import load_json_config
 from xpkg.core.logging_utils import get_logger
 
 logger = get_logger(__name__)
@@ -44,8 +43,7 @@ _STRING_COLUMNS_DATASET = "string_columns"
 _COLUMN_ORDER_DATASET = "column_order"
 _DEFAULT_COMPRESSION = "gzip"
 
-_METRICS_DEFAULTS = load_json_config("defaults/app_defaults.json")["metrics"]
-_DEFAULT_COMPRESSION_OPTS = int(_METRICS_DEFAULTS["hdf5_compression_opts"])
+_DEFAULT_COMPRESSION_OPTS = 4
 
 
 class MetricsError(Exception):

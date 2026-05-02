@@ -4,7 +4,6 @@
 # Repository setup and environment ownership.
 /environment/ @Alfredo-Sandoval @sandovaljoseph
 /Makefile @Alfredo-Sandoval @sandovaljoseph
-/repo_profile.yaml @Alfredo-Sandoval @sandovaljoseph
 /AGENTS.md @Alfredo-Sandoval @sandovaljoseph
 
 # CI/CD and automation ownership.

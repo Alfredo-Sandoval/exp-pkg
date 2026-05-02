@@ -77,7 +77,7 @@ workspace = WorkspaceService.create("./My Project", title="My Project")
 workspace.imports.dlc_csv(
     "tracking.csv",
     "video.mp4",
-    skeleton_name="mouse",
+    skeleton_name="subject",
 )
 workspace.validate()
 artifact = workspace.pack()
@@ -215,10 +215,10 @@ snapshot_path = migrate_legacy_archive("./legacy.xpkg", "./My Project")
 That migration writes workspace-native state into the private store and refreshes
 the rebuildable `.xpkg/state/current.json` cache for normal workspace use.
 
-## In-memory codec API
+## In-memory Exchange API
 
 ```python
-from xpkg.codecs import labels_from_json_payload, labels_to_json_payload
+from xpkg.exchange import labels_from_json_payload, labels_to_json_payload
 from xpkg.model import Labels
 
 labels = Labels()
@@ -226,5 +226,5 @@ payload = labels_to_json_payload(labels)
 roundtripped = labels_from_json_payload(payload)
 ```
 
-Use `xpkg.codecs` when another repo needs an in-memory handoff boundary rather
+Use `xpkg.exchange` when another repo needs an in-memory handoff boundary rather
 than a workspace path.

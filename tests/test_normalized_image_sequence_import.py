@@ -45,7 +45,7 @@ def test_convert_normalized_image_sequence_annotations_writes_archive_and_manife
                         "instances": [
                             {
                                 "keypoints": [[1.0, 2.0, 1], [3.0, 4.0, 1]],
-                                "metadata": {"animal_id": "mouse_a"},
+                                "metadata": {"animal_id": "subject_a"},
                             }
                         ],
                     }

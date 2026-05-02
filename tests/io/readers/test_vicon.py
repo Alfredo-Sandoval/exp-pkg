@@ -19,7 +19,7 @@ class _FakeParam:
 
     @property
     def int16_value(self) -> int:
-        return int(self._value)
+        return int(np.asarray(self._value, dtype=np.int16).item())
 
     @property
     def int16_array(self) -> np.ndarray:
@@ -63,7 +63,7 @@ def test_read_vicon_csv_preserves_marker_labels_gaps_and_sidecars(tmp_path: Path
     assert recording.fps == 100
     assert recording.frame_offset == 101
     assert recording.marker_names == ("center", "R_foot", "L_foot")
-    assert recording.source_marker_labels == ("Mouse:center", "Mouse:R_foot", "Mouse:L_foot")
+    assert recording.source_marker_labels == ("Subject:center", "Subject:R_foot", "Subject:L_foot")
     assert recording.positions.shape == (2, 3, 3)
     assert recording.marker_valid.tolist() == [[True, True, True], [True, True, False]]
     assert np.isnan(recording.positions[1, 2]).all()
@@ -90,7 +90,7 @@ def test_read_vicon_c3d_preserves_events_analog_and_additional_points(tmp_path: 
     assert recording.fps == 100
     assert recording.frame_offset == 11
     assert recording.marker_names == ("center", "R_foot")
-    assert recording.source_marker_labels == ("Mouse:center", "Mouse:R_foot")
+    assert recording.source_marker_labels == ("Subject:center", "Subject:R_foot")
     assert recording.positions.shape == (2, 2, 3)
     assert recording.marker_valid.tolist() == [[True, True], [True, False]]
     assert np.isnan(recording.positions[1, 1]).all()
@@ -198,7 +198,7 @@ def test_read_force_platform_metadata_from_minimal_c3d_reader_shape() -> None:
 
 
 def test_vicon_json_round_trips_force_platform_metadata() -> None:
-    from xpkg.codecs import vicon_recording_from_json_payload, vicon_recording_to_json_payload
+    from xpkg.exchange import vicon_recording_from_json_payload, vicon_recording_to_json_payload
     from xpkg.model import ViconForcePlatformMetadata, ViconRecording
 
     recording = ViconRecording(
@@ -237,17 +237,36 @@ def test_read_vicon_recording_dispatches_from_suffix(tmp_path: Path) -> None:
     recording = read_vicon_recording(csv_path)
 
     assert recording.source_type == "csv"
+    assert recording.model is not None
+    assert recording.model.name == "marker_cloud"
+    assert recording.model.edges == ()
+    assert recording.model.source == "detected"
+
+
+def test_select_marker_labels_without_vsk_uses_observed_marker_cloud() -> None:
+    from xpkg.io.readers.vicon import select_marker_labels
+
+    marker_names, source_marker_labels, model = select_marker_labels(
+        ("Subject:center", "Subject:R_foot", "Subject:L_foot"),
+    )
+
+    assert marker_names == ("center", "R_foot", "L_foot")
+    assert source_marker_labels == ("Subject:center", "Subject:R_foot", "Subject:L_foot")
+    assert model.name == "marker_cloud"
+    assert model.marker_names == marker_names
+    assert model.edges == ()
+    assert model.source == "detected"
 
 
 def test_select_marker_labels_preserves_multi_subject_marker_namespaces() -> None:
     from xpkg.io.readers.vicon import select_marker_labels
 
     marker_names, source_marker_labels, model = select_marker_labels(
-        ("MouseA:LASI", "MouseB:LASI", "MouseA:RASI"),
+        ("SubjectA:LASI", "SubjectB:LASI", "SubjectA:RASI"),
     )
 
-    assert marker_names == ("MouseA:LASI", "MouseB:LASI", "MouseA:RASI")
-    assert source_marker_labels == ("MouseA:LASI", "MouseB:LASI", "MouseA:RASI")
+    assert marker_names == ("SubjectA:LASI", "SubjectB:LASI", "SubjectA:RASI")
+    assert source_marker_labels == ("SubjectA:LASI", "SubjectB:LASI", "SubjectA:RASI")
     assert model.marker_names == marker_names
 
 
@@ -258,8 +277,8 @@ def test_vicon_lookup_requires_namespaced_query_when_suffix_is_ambiguous() -> No
         path=Path("trial.c3d"),
         source_type="c3d",
         fps=100,
-        marker_names=("MouseA:LASI", "MouseB:LASI"),
-        source_marker_labels=("MouseA:LASI", "MouseB:LASI"),
+        marker_names=("SubjectA:LASI", "SubjectB:LASI"),
+        source_marker_labels=("SubjectA:LASI", "SubjectB:LASI"),
         positions=np.zeros((1, 2, 3), dtype=np.float64),
         marker_valid=np.ones((1, 2), dtype=bool),
         frame_offset=1,
@@ -272,7 +291,7 @@ def test_vicon_lookup_requires_namespaced_query_when_suffix_is_ambiguous() -> No
         ),
     )
 
-    assert recording.marker_index("MouseB:LASI") == 1
+    assert recording.marker_index("SubjectB:LASI") == 1
     assert recording.analog is not None
     assert recording.analog.channel_index("FP2:Fz") == 1
     with pytest.raises(KeyError, match="ambiguous"):

@@ -6,11 +6,11 @@ import importlib
 
 from xpkg.version import __version__
 
-__all__ = ["__version__", "api", "codecs", "formats", "model", "services"]
+__all__ = ["__version__", "api", "exchange", "formats", "model", "services"]
 
 
 def __getattr__(name: str):
-    if name in {"api", "codecs", "formats", "model", "services"}:
+    if name in {"api", "exchange", "formats", "model", "services"}:
         module = importlib.import_module(f"xpkg.{name}")
         globals()[name] = module
         return module

@@ -37,7 +37,7 @@ The repo and distribution name are <code>exp-pkg</code>; the Python import and C
 | Legacy migration seam | `xpkg migrate` or `xpkg.formats.migrate_legacy_archive(...)` |
 | External import ecosystems | DeepLabCut, Lightning Pose, SLEAP, MMPose, MediaPipe |
 | Core objects | `xpkg.model` |
-| In-memory codecs | `xpkg.codecs` |
+| In-memory exchange | `xpkg.exchange` |
 </div>
 
 <div class="spec-panel" markdown="1">
@@ -54,7 +54,7 @@ The repo and distribution name are <code>exp-pkg</code>; the Python import and C
 - Use `xpkg.formats.migrate_legacy_archive(...)` or `xpkg migrate` only when
   you are cutting over an older `.xpkg` archive into the workspace contract.
 - Use `xpkg.model` when you need `Labels`, `Skeleton`, `Instance`, or `Video`.
-- Use `xpkg.codecs` when you need arrays, tables, or JSON payloads without
+- Use `xpkg.exchange` when you need arrays, tables, or JSON payloads without
   touching workspace internals.
 - Read [Artifact Contract v1](artifact_contract_v1.md) for the public workspace
   and `.expkg` contract.
@@ -141,7 +141,7 @@ single converter output.
   `.expkg`.
 - Read [Experimental Durable Store](architecture/experimental-store.md) for the commit-oriented recovery workflow.
 - Read [Model](api/model.md) for the pose object graph.
-- Read [Codecs](api/codecs.md) for in-memory JSON / dataframe / numpy
+- Read [Exchange](api/exchange.md) for in-memory JSON / dataframe / numpy
   conversions.
 - Read [Services](api/services.md) for the primary consumer-facing workspace
   API.

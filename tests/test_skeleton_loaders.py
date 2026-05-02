@@ -106,7 +106,7 @@ def _write_sleap_pkg(path: Path) -> Path:
 def test_dump_skeleton_writes_json(tmp_path: Path) -> None:
     skeleton = Skeleton.from_dict(
         {
-            "name": "mouse",
+            "name": "subject",
             "keypoints": ["nose", "tail_base"],
             "links": [["nose", "tail_base"]],
         }
@@ -116,7 +116,7 @@ def test_dump_skeleton_writes_json(tmp_path: Path) -> None:
     dump_skeleton(skeleton, output_path)
 
     payload = json.loads(output_path.read_text(encoding="utf-8"))
-    assert payload["name"] == "mouse"
+    assert payload["name"] == "subject"
     assert payload["keypoints"][0]["name"] == "nose"
     assert payload["links"] == [["nose", "tail_base"]]
 

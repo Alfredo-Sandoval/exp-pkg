@@ -41,7 +41,7 @@ def test_convert_sleap_h5_builds_multi_track_archive(tmp_path: Path) -> None:
         tracking_path,
         video_path,
         out_path,
-        skeleton_name="mouse",
+        skeleton_name="subject",
     )
 
     assert result.archive_path == out_path

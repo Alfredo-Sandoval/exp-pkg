@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "Workspace-first toolkit for behavior-centered experiment data and portable project artifacts."
 readme = "README.md"
 requires-python = ">=3.12"
-license = "LicenseRef-Proprietary"
+license = "BSD-3-Clause"
 dependencies = [
   "c3d>=0.6,<1",
   "cattrs>=24.1",
@@ -19,7 +19,9 @@ dependencies = [
   "opencv-python-headless>=4.10",
   "pandas>=2.2",
   "pyyaml>=6.0",
+  "rich>=13.7",
   "tables>=3.9",
+  "typer>=0.16,<1",
 ]
 
 [project.urls]

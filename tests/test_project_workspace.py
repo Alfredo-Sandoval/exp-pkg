@@ -127,7 +127,7 @@ def _make_labels(tmp_path: Path, *, x: float, y: float):
     from xpkg.model import Labels, build_keypoint_skeleton
 
     _, video = _make_single_frame_video(tmp_path)
-    skeleton = build_keypoint_skeleton(["nose"], name="mouse")
+    skeleton = build_keypoint_skeleton(["nose"], name="subject")
     frame = LabeledFrame(
         video=video,
         frame_idx=0,
@@ -148,7 +148,7 @@ def _make_media_labels(video_path: Path, *, x: float, y: float):
     from xpkg.model import Labels, Video, build_keypoint_skeleton
 
     video = Video.from_filename(video_path.as_posix())
-    skeleton = build_keypoint_skeleton(["nose"], name="mouse")
+    skeleton = build_keypoint_skeleton(["nose"], name="subject")
     frame = LabeledFrame(
         video=video,
         frame_idx=0,
@@ -178,7 +178,7 @@ def _make_predicted_labels(
     from xpkg.model import Labels, build_keypoint_skeleton
 
     _, video = _make_single_frame_video(tmp_path)
-    skeleton = build_keypoint_skeleton(["nose"], name="mouse")
+    skeleton = build_keypoint_skeleton(["nose"], name="subject")
     frame = LabeledFrame(video=video, frame_idx=0)
     frame.heatmaps = heatmaps
     frame.instances = [

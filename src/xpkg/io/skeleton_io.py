@@ -5,7 +5,6 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from xpkg.config.definitions import get_skeleton_def
 from xpkg.core.json_utils import load_json_dict, write_json
 
 if TYPE_CHECKING:
@@ -35,13 +34,6 @@ def load_skeleton(src: Path, **kwargs: Any) -> Skeleton:
     from xpkg.core.skeleton import Skeleton
 
     return Skeleton.from_dict(load_json_dict(src), **kwargs)
-
-
-def load_builtin_skeleton(name: str, **kwargs: Any) -> Skeleton:
-    """Load a built-in Skeleton definition by name."""
-    from xpkg.core.skeleton import Skeleton
-
-    return Skeleton.from_dict(get_skeleton_def(name), **kwargs)
 
 
 def load_any_skeleton(

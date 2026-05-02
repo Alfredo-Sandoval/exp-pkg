@@ -83,7 +83,7 @@ from xpkg.model import build_keypoint_skeleton
 
 skeleton = build_keypoint_skeleton(
     ["nose", "left_ear", "right_ear", "tail_base"],
-    name="mouse_topdown",
+    name="subject_topdown",
 )
 ```
 
@@ -122,7 +122,7 @@ from xpkg.model import (
     build_keypoint_skeleton,
 )
 
-skeleton = build_keypoint_skeleton(["nose", "tail_base"], name="mouse")
+skeleton = build_keypoint_skeleton(["nose", "tail_base"], name="subject")
 video = Video.from_filename("session.mp4")
 
 instance = Instance(

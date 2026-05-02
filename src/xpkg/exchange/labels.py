@@ -1,4 +1,4 @@
-"""In-memory codecs for ``Labels`` objects."""
+"""In-memory exchange helpers for ``Labels`` objects."""
 
 from __future__ import annotations
 

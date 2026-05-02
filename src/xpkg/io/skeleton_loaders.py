@@ -12,9 +12,9 @@ from typing import Any, Literal
 
 import h5py
 
-from xpkg.config.loaders import load_yaml_file
 from xpkg.core.json_utils import parse_json_dict
 from xpkg.core.logging_utils import get_logger
+from xpkg.core.path_registry import resolve_path
 from xpkg.core.skeleton import Skeleton
 
 logger = get_logger(__name__)
@@ -24,6 +24,26 @@ EDGE_TYPE_SYMMETRY = 2
 
 type YamlSkeletonFormat = Literal["dlc", "sleap", "ultralytics"]
 type SkeletonFormat = Literal["dlc", "xpkg_json", "sleap", "sleap_pkg_slp", "ultralytics"]
+
+
+def _load_yaml_mapping(path: str | Path) -> dict[str, Any]:
+    path_obj = resolve_path(path)
+    if not path_obj.exists():
+        raise FileNotFoundError(f"YAML file not found: {path_obj}")
+
+    import yaml
+
+    data = yaml.safe_load(path_obj.read_text(encoding="utf-8"))
+    if data is None:
+        return {}
+    if not isinstance(data, dict):
+        raise TypeError(f"YAML file must contain a mapping at the top level: {path_obj}")
+    out: dict[str, Any] = {}
+    for key, value in data.items():
+        if not isinstance(key, str):
+            raise TypeError(f"YAML mapping keys must be strings: {path_obj}")
+        out[key] = value
+    return out
 
 
 def build_sleap_skeleton(
@@ -178,7 +198,7 @@ def _require_int_payload(value: Any, *, error_message: str) -> int:
 
 def detect_yaml_skeleton_format(path: str | Path) -> YamlSkeletonFormat:
     """Classify a YAML skeleton file before dispatching to a concrete loader."""
-    return _classify_yaml_skeleton_mapping(load_yaml_file(Path(path)))
+    return _classify_yaml_skeleton_mapping(_load_yaml_mapping(Path(path)))
 
 
 def _classify_yaml_skeleton_mapping(data: Mapping[str, Any]) -> YamlSkeletonFormat:
@@ -271,7 +291,7 @@ def load_skeleton_dlc(path: str | Path) -> Skeleton:
         ValueError: If YAML parsing or conversion fails.
     """
     path = Path(path)
-    data = load_yaml_file(path)
+    data = _load_yaml_mapping(path)
 
     bodyparts = list(data.get("bodyparts", []))
     skeleton_raw = data.get("skeleton", [])
@@ -365,7 +385,7 @@ def _load_skeleton_sleap_yaml(path: Path) -> Skeleton:
     Raises:
         ValueError: If YAML structure is invalid.
     """
-    data = load_yaml_file(path)
+    data = _load_yaml_mapping(path)
 
     nodes = data.get("nodes", [])
     keypoints = [
@@ -410,7 +430,7 @@ def load_skeleton_ultralytics(path: str | Path) -> Skeleton:
         ValueError: If YAML structure is invalid.
     """
     path = Path(path)
-    data = load_yaml_file(path)
+    data = _load_yaml_mapping(path)
 
     keypoints = list(data.get("keypoint_names", data.get("kpt_names", [])))
 

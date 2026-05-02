@@ -1,24 +1,24 @@
-"""In-memory codecs for canonical xpkg objects.
+"""In-memory exchange helpers for canonical xpkg objects.
 
 This surface is intentionally separate from:
 
 - ``xpkg.model`` for the canonical object graph
 - ``xpkg.formats`` for workspace and project artifacts
 
-Use ``xpkg.codecs`` when another repo needs to transform xpkg objects into
+Use ``xpkg.exchange`` when another repo needs to transform xpkg objects into
 JSON-friendly payloads, numpy arrays, or tabular structures without coupling
 to workspace or archive internals.
 """
 
 from __future__ import annotations
 
-from xpkg.codecs.labels import (
+from xpkg.exchange.labels import (
     labels_from_json_payload,
     labels_numpy,
     labels_to_dataframe,
     labels_to_json_payload,
 )
-from xpkg.codecs.vicon import (
+from xpkg.exchange.vicon import (
     read_vicon_json_payload,
     vicon_recording_from_json_payload,
     vicon_recording_to_json_payload,

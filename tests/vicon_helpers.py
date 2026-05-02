@@ -39,7 +39,7 @@ def write_sample_vicon_csv(path: Path) -> None:
             [
                 "Trajectories",
                 "100",
-                ",,Mouse:center,,,Mouse:R_foot,,,Mouse:L_foot",
+                ",,Subject:center,,,Subject:R_foot,,,Subject:L_foot",
                 "Frame,Sub Frame,X,Y,Z,X,Y,Z,X,Y,Z",
                 ",,mm,mm,mm,mm,mm,mm,mm,mm,mm",
                 "101,0,1,2,3,4,5,6,7,8,9",
@@ -54,7 +54,7 @@ def write_sample_vicon_csv(path: Path) -> None:
 def write_sample_vsk(path: Path) -> None:
     path.write_text(
         """<?xml version="1.0" encoding="UTF-8"?>
-<KinematicModel MODEL="Sample Mouse">
+<KinematicModel MODEL="Sample Marker Model">
   <MarkerSet>
     <Markers>
       <Marker NAME="center" />
@@ -107,7 +107,7 @@ def write_sample_xcp(path: Path) -> None:
 def write_sample_vicon_c3d(path: Path) -> None:
     writer = c3d.Writer(point_rate=100.0, analog_rate=200.0)
     writer.set_start_frame(11)
-    writer.set_point_labels(["Mouse:center", "Mouse:R_foot", "Model:HipMoment"])
+    writer.set_point_labels(["Subject:center", "Subject:R_foot", "Model:HipMoment"])
     writer.set_analog_labels(["Fx", "Fy", "Voltage.RTA"])
     writer.set_analog_scales([1.0, 1.0, 1.0])
     writer.set_analog_offsets([0, 0, 0])

@@ -33,7 +33,7 @@ def _write_mmpose_topdown_json(path: Path) -> Path:
         path,
         {
             "meta_info": {
-                "dataset_name": "toy_mouse",
+                "dataset_name": "toy_subject",
                 "num_keypoints": 3,
                 "keypoint_id2name": {
                     0: "nose",
@@ -128,7 +128,7 @@ def test_mmpose_reader_rejects_image_style_json(tmp_path: Path) -> None:
         json_path,
         {
             "meta_info": {
-                "dataset_name": "toy_mouse",
+                "dataset_name": "toy_subject",
                 "keypoint_id2name": {0: "nose"},
                 "skeleton_links": [],
             },

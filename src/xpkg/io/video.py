@@ -13,13 +13,30 @@ import imageio.v2 as iio
 import numpy as np
 from cattrs import Converter
 
-from xpkg.config import settings
 from xpkg.core.colors import bgr_to_gray, bgr_to_rgb, ensure_bgr, ensure_three_channels
 from xpkg.core.logging_utils import get_logger
 from xpkg.core.path_registry import ensure_dir, resolve_path
 from xpkg.io.images import read_bgr
 
 logger = get_logger(__name__)
+
+_RECOGNIZED_VIDEO_EXTS = (
+    ".avi",
+    ".mov",
+    ".mp4",
+    ".mkv",
+    ".mpeg",
+    ".mpg",
+    ".wmv",
+    ".m4v",
+    ".webm",
+    ".png",
+    ".jpg",
+    ".jpeg",
+    ".bmp",
+    ".tif",
+    ".tiff",
+)
 
 __all__ = [
     "SingleImageVideo",
@@ -53,7 +70,7 @@ def _video_writer_fourcc(code: str) -> int:
 def available_video_exts() -> list[str]:
     """Return normalized extensions treated as video-like media."""
     exts: list[str] = []
-    for ext in settings.video.recognized_exts:
+    for ext in _RECOGNIZED_VIDEO_EXTS:
         normalized = str(ext).strip().lower()
         if not normalized:
             continue

@@ -22,7 +22,7 @@ def test_convert_mmpose_topdown_json_builds_archive_with_links(tmp_path: Path) -
         json_path,
         video_path,
         out_path,
-        skeleton_name="toy_mouse",
+        skeleton_name="toy_subject",
     )
 
     assert result.archive_path == out_path
@@ -88,7 +88,7 @@ def test_import_mmpose_topdown_json_workspace_imports_sequence_into_workspace(
         json_path,
         video_path,
         workspace,
-        skeleton_name="toy_mouse",
+        skeleton_name="toy_subject",
     )
 
     assert snapshot_path == current_project_snapshot_path(workspace)

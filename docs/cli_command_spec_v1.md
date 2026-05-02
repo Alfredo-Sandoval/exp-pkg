@@ -12,8 +12,10 @@ The workspace-first command surface is:
 
 ```text
 xpkg init
-xpkg import
 xpkg artifacts
+xpkg completion
+xpkg describe
+xpkg import
 xpkg pack
 xpkg unpack
 xpkg validate
@@ -30,6 +32,17 @@ xpkg migrate
 - Project-internal paths are stored relative to the workspace root.
 - Portable mode defaults to `portable`.
 - Pack must fail loudly if required media are missing from a portable export.
+- Every canonical command supports `--json` for machine-readable output.
+- In `--json` mode, success payloads are written to stdout as one JSON object.
+- In `--json` mode, progress text is suppressed and errors are written to
+  stderr under a top-level `error` object with `code`, `message`, and `hint`.
+- Exit codes are `0` for success, `1` for usage or runtime errors, `2` reserved
+  for future auth/config failures, and `3` for not found.
+- `--json` is reserved for machine output. Commands that import JSON files use
+  `--input-json` for those input paths.
+- `xpkg describe --json` exposes the current command contract for agents.
+- Shell completion is exposed through `xpkg completion bash`, `xpkg completion
+  zsh`, and `xpkg completion fish`.
 
 ## `xpkg init`
 
@@ -71,8 +84,8 @@ xpkg import dlc project --project dlc_project --out "./My Project"
 xpkg import lightning-pose --csv predictions.csv --video video.mp4 --out "./My Project"
 xpkg import sleap --slp labels.pkg.slp --out "./My Project"
 xpkg import sleap --h5 analysis.h5 --video video.mp4 --out "./My Project"
-xpkg import mmpose --json results.json --video video.mp4 --out "./My Project"
-xpkg import mediapipe --json pose_landmarks.json --video video.mp4 --out "./My Project"
+xpkg import mmpose --input-json results.json --video video.mp4 --out "./My Project"
+xpkg import mediapipe --input-json pose_landmarks.json --video video.mp4 --out "./My Project"
 ```
 
 ### Supported families today

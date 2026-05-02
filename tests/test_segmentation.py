@@ -77,10 +77,10 @@ class TestRLE:
 class TestSegmentationMask:
     def test_polygon_construction(self):
         verts = np.array([[10, 20], [30, 20], [30, 50], [10, 50]], dtype=np.float32)
-        mask = SegmentationMask.from_polygon(verts, class_name="mouse")
+        mask = SegmentationMask.from_polygon(verts, class_name="subject")
         assert mask.is_polygon()
         assert not mask.is_rle()
-        assert mask.class_name == "mouse"
+        assert mask.class_name == "subject"
         assert mask.vertex_count == 4
 
     def test_rle_construction(self):
@@ -416,13 +416,13 @@ class TestJSONRoundtrip:
     def test_mask_json_serialization(self):
         prompt = SegmentationPrompt(
             prompt_type=PromptType.TEXT,
-            text="a mouse",
+            text="a subject",
             model_id="sam3",
             backend="mlx",
         )
         mask = SegmentationMask.from_polygon(
             np.array([[0, 0], [5, 0], [5, 5]], dtype=np.float32),
-            class_name="mouse",
+            class_name="subject",
             confidence=0.92,
         )
         mask.prompt = prompt
@@ -434,11 +434,11 @@ class TestJSONRoundtrip:
         restored = SegmentationMask.from_dict(parsed)
 
         assert restored.mask_type == MaskType.POLYGON
-        assert restored.class_name == "mouse"
+        assert restored.class_name == "subject"
         assert restored.is_predicted
         assert restored.prompt is not None
         assert restored.prompt.prompt_type == PromptType.TEXT
-        assert restored.prompt.text == "a mouse"
+        assert restored.prompt.text == "a subject"
 
     def test_roi_json_serialization(self):
         roi = ROI(x1=10, y1=20, x2=100, y2=200, class_name="region")

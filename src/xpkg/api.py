@@ -118,7 +118,7 @@ _MODEL_EXPORTS: dict[str, tuple[str, str]] = {
     "ViconRecording": (".model", "ViconRecording"),
 }
 
-_CODEC_AND_READER_EXPORTS: dict[str, tuple[str, str]] = {
+_EXCHANGE_AND_READER_EXPORTS: dict[str, tuple[str, str]] = {
     "PoseTrack": (".io.readers", "PoseTrack"),
     "build_force_plate_data_from_vicon_recording": (
         ".io.readers",
@@ -127,13 +127,13 @@ _CODEC_AND_READER_EXPORTS: dict[str, tuple[str, str]] = {
     "build_prediction_stub": (".model", "build_prediction_stub"),
     "candidate_vicon_emg_channels": (".io.readers", "candidate_vicon_emg_channels"),
     "extract_vicon_emg": (".io.readers", "extract_vicon_emg"),
-    "labels_from_json_payload": (".codecs", "labels_from_json_payload"),
-    "labels_numpy": (".codecs", "labels_numpy"),
-    "labels_to_dataframe": (".codecs", "labels_to_dataframe"),
-    "labels_to_json_payload": (".codecs", "labels_to_json_payload"),
-    "read_vicon_json_payload": (".codecs", "read_vicon_json_payload"),
-    "vicon_recording_from_json_payload": (".codecs", "vicon_recording_from_json_payload"),
-    "vicon_recording_to_json_payload": (".codecs", "vicon_recording_to_json_payload"),
+    "labels_from_json_payload": (".exchange", "labels_from_json_payload"),
+    "labels_numpy": (".exchange", "labels_numpy"),
+    "labels_to_dataframe": (".exchange", "labels_to_dataframe"),
+    "labels_to_json_payload": (".exchange", "labels_to_json_payload"),
+    "read_vicon_json_payload": (".exchange", "read_vicon_json_payload"),
+    "vicon_recording_from_json_payload": (".exchange", "vicon_recording_from_json_payload"),
+    "vicon_recording_to_json_payload": (".exchange", "vicon_recording_to_json_payload"),
     "read_pose_node_names": (".io.readers", "read_pose_node_names"),
     "read_pose_track": (".io.readers", "read_pose_track"),
     "read_vicon_c3d": (".io.readers", "read_vicon_c3d"),
@@ -150,7 +150,7 @@ _CODEC_AND_READER_EXPORTS: dict[str, tuple[str, str]] = {
 _LAZY_EXPORTS: dict[str, tuple[str, str]] = {
     **_WORKSPACE_EXPORTS,
     **_MODEL_EXPORTS,
-    **_CODEC_AND_READER_EXPORTS,
+    **_EXCHANGE_AND_READER_EXPORTS,
 }
 
 __all__ = list(_LAZY_EXPORTS)

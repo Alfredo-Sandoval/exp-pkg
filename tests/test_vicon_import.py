@@ -15,7 +15,7 @@ from tests.vicon_helpers import (
 
 
 def test_import_vicon_workspace_roundtrips_through_workspace_and_expkg(tmp_path: Path) -> None:
-    from xpkg.codecs import read_vicon_json_payload
+    from xpkg.exchange import read_vicon_json_payload
     from xpkg.formats import (
         current_project_snapshot_path,
         import_vicon_workspace,
