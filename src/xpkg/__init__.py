@@ -19,6 +19,7 @@ __all__ = [
     "media",
     "model",
     "pose",
+    "segmentation",
     "read_doric_photometry",
     "read_events_csv",
     "read_neurophotometrics_csv",
@@ -36,7 +37,16 @@ __all__ = [
 
 
 def __getattr__(name: str):
-    if name in {"api", "adapters", "media", "model", "pose", "services", "project"}:
+    if name in {
+        "api",
+        "adapters",
+        "media",
+        "model",
+        "pose",
+        "project",
+        "segmentation",
+        "services",
+    }:
         module = importlib.import_module(f"xpkg.{name}")
         globals()[name] = module
         return module

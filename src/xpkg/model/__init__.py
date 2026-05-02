@@ -1,4 +1,4 @@
-"""Canonical in-memory pose model for xpkg."""
+"""Canonical in-memory model surface for xpkg."""
 
 from __future__ import annotations
 
@@ -37,28 +37,30 @@ from xpkg.pose.adapters import (
     vicon_marker_model_to_skeleton,
 )
 from xpkg.pose.annotations import (
-    ROI,
     Instance,
     KPFlag,
     LabeledFrame,
-    MaskType,
     Point,
     PointArray,
     PredictedInstance,
     PredictedPoint,
     PredictedPointArray,
-    PromptType,
-    SegmentationMask,
-    SegmentationPrompt,
     Track,
     is_predicted_instance,
-    rle_decode,
-    rle_encode,
 )
 from xpkg.pose.skeleton import Keypoint, Skeleton, build_keypoint_skeleton
 from xpkg.pose.trajectory import (
     PoseTrajectory,
     pose_trajectory_from_vicon_recording,
+)
+from xpkg.segmentation import (
+    ROI,
+    MaskType,
+    PromptType,
+    SegmentationMask,
+    SegmentationPrompt,
+    rle_decode,
+    rle_encode,
 )
 
 __all__ = [

@@ -166,6 +166,7 @@ def test_root_namespace_is_curated_to_project_first_modules() -> None:
     reloaded.__dict__.pop("media", None)
     reloaded.__dict__.pop("pose", None)
     reloaded.__dict__.pop("project", None)
+    reloaded.__dict__.pop("segmentation", None)
 
     assert reloaded.__version__
     assert reloaded.__all__ == [
@@ -175,6 +176,7 @@ def test_root_namespace_is_curated_to_project_first_modules() -> None:
         "media",
         "model",
         "pose",
+        "segmentation",
         "read_doric_photometry",
         "read_events_csv",
         "read_neurophotometrics_csv",
@@ -194,6 +196,7 @@ def test_root_namespace_is_curated_to_project_first_modules() -> None:
     assert reloaded.project is not None
     assert reloaded.model is not None
     assert reloaded.pose is not None
+    assert reloaded.segmentation is not None
     assert callable(reloaded.read_doric_photometry)
     assert callable(reloaded.read_events_csv)
     assert callable(reloaded.read_neurophotometrics_csv)
