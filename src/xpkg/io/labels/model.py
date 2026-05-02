@@ -820,7 +820,7 @@ class Labels:
         )
 
     def save(self, filename: str, *args, **kwargs):
-        """Save labels to a workspace or JSON file."""
+        """Save labels to a project or JSON file."""
         return self.save_file(self, filename)
 
     def numpy(

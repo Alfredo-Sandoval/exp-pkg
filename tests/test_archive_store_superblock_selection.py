@@ -2,10 +2,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from xpkg.io.workspace_durable_store import (
+from xpkg.project.durable_store import (
+    ProjectDurableStore,
     StorePaths,
     Superblock,
-    WorkspaceDurableStore,
     atomic_write_json,
 )
 
@@ -17,7 +17,7 @@ def _superblock(
     updated_at: str,
 ) -> Superblock:
     return Superblock(
-        format="xpkg.workspace-durable-store",
+        format="xpkg.project-durable-store",
         store_version=1,
         generation=generation,
         current_commit_id=current_commit_id,
@@ -47,7 +47,7 @@ def test_recover_picks_highest_generation_superblock(tmp_path: Path) -> None:
     atomic_write_json(paths.superblock_a, superblock_a.to_dict())
     atomic_write_json(paths.superblock_b, superblock_b.to_dict())
 
-    head = WorkspaceDurableStore(paths.root).recover()
+    head = ProjectDurableStore(paths.root).recover()
     assert head.slot == "b"
     assert head.superblock.generation == 2
     assert head.superblock.current_commit_id == "c_000000000002_deadbeef"
@@ -71,6 +71,6 @@ def test_recover_breaks_generation_ties_with_updated_at(tmp_path: Path) -> None:
     atomic_write_json(paths.superblock_a, superblock_a.to_dict())
     atomic_write_json(paths.superblock_b, superblock_b.to_dict())
 
-    head = WorkspaceDurableStore(paths.root).recover()
+    head = ProjectDurableStore(paths.root).recover()
     assert head.slot == "b"
     assert head.superblock.current_commit_id == "c_000000000003_beta"

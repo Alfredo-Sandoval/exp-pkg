@@ -1,11 +1,11 @@
-# Workspace Durability
+# Project Durability
 
 <div class="page-intro">
 <p>
-xpkg now has an <strong>experimental</strong> workspace durability layer for
+xpkg now has an <strong>experimental</strong> project durability layer for
 crash-safe, commit-oriented project state. In the locked v1 artifact contract
-this belongs under the workspace-owned <code>.xpkg/</code> directory. Normal
-workspace commits now store workspace-native snapshot roots in that private
+this belongs under the project-owned <code>.xpkg/</code> directory. Normal
+project commits now store project-native snapshot roots in that private
 store.
 </p>
 </div>
@@ -15,18 +15,18 @@ If you want the broader rationale for the storage cutover, read
 
 !!! warning
 This workflow is experimental private machinery. The public v1 artifact
-contract is workspace folder + <code>.expkg</code>. Use the durability layer
+contract is project folder + <code>.expkg</code>. Use the durability layer
 when you want stronger recovery semantics inside <code>.xpkg/</code>, not
 as a public interchange layer.
 
 !!! info
 Status: current private prototype. The committed source of truth is the
-workspace durability head; <code>.xpkg/state/current.json</code> is only a
+project durability head; <code>.xpkg/state/current.json</code> is only a
 cache.
 
 ## What Changed
 
-The public contract is a workspace:
+The public contract is a project:
 
 ```text
 My Project/
@@ -37,7 +37,7 @@ My Project/
     My Project.expkg
 ```
 
-Inside that workspace, the current private store manages committed root
+Inside that project, the current private store manages committed root
 payloads behind dual superblocks:
 
 ```text
@@ -75,36 +75,36 @@ dies mid-save.
 ## Recommended Experimental Workflow
 
 Normal project-facing code should not call the durability layer directly. Use the
-workspace APIs; they commit snapshot roots into `.xpkg/` and refresh
+project APIs; they commit snapshot roots into `.xpkg/` and refresh
 `.xpkg/state/current.json` as a rebuildable cache.
 
 Example:
 
 ```python
 from xpkg.model import Labels
-from xpkg.services import WorkspaceService
+from xpkg.services import ProjectService
 
 labels = Labels()
 
-workspace = WorkspaceService.create("My Project", title="My Project")
-workspace.save_labels(labels, metadata={"source": "manual"})
-workspace.validate()
+project = ProjectService.create("My Project", title="My Project")
+project.save_labels(labels, metadata={"source": "manual"})
+project.validate()
 ```
 
 ## Low-Level Entry Points
 
 Low-level durability helpers still exist for tests, recovery work, and private
-workspace storage flows. They are intentionally outside the workspace-first
-public contract and do not appear in `xpkg.api`, `xpkg.workspace`, or the CLI:
+project storage flows. They are intentionally outside the project-first
+public contract and do not appear in `xpkg.api`, `xpkg.project`, or the CLI:
 
-- `WorkspaceDurableStore.open(store_root)`
-- `WorkspaceDurableStore.create_from_roots(store_root, {"snapshot": snapshot_path})`
-- `WorkspaceDurableStore.current_root_path("snapshot")`
-- `WorkspaceDurableStore.commit_new_roots({"snapshot": snapshot_path}, ...)`
+- `ProjectDurableStore.open(store_root)`
+- `ProjectDurableStore.create_from_roots(store_root, {"snapshot": snapshot_path})`
+- `ProjectDurableStore.current_root_path("snapshot")`
+- `ProjectDurableStore.commit_new_roots({"snapshot": snapshot_path}, ...)`
 
 ## Recovery Model
 
-`WorkspaceDurableStore.open(...)` calls recovery before returning a mounted store.
+`ProjectDurableStore.open(...)` calls recovery before returning a mounted store.
 
 The recovery logic is intentionally narrow:
 
@@ -122,16 +122,16 @@ known clean head over guessing about partially finished writes.
 
 Stable today:
 
-- public workspace contract: `PROJECT.json`, `.xpkg/`, `Media/`, `Exports/`
+- public project contract: `PROJECT.json`, `.xpkg/`, `Media/`, `Exports/`
 - `.expkg` as the portable project artifact
 
 Experimental today:
 
-- private `.xpkg/` workspace durability machinery
+- private `.xpkg/` project durability machinery
 - commit-oriented autosave flow
 - superblock/journal durability layer
-- generic committed roots for workspace-native snapshot payloads
+- generic committed roots for project-native snapshot payloads
 
-If you are building the public project contract, think in terms of workspace +
+If you are building the public project contract, think in terms of project +
 `.expkg`. If you are prototyping crash-safe editing or autosave behavior,
-the workspace durability layer is the right private layer to evaluate.
+the project durability layer is the right private layer to evaluate.

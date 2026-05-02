@@ -1,4 +1,4 @@
-"""Convert SLEAP exports into workspace-ready labels."""
+"""Convert SLEAP exports into project-ready labels."""
 
 from __future__ import annotations
 
@@ -62,8 +62,8 @@ _OK_LABEL_TABLE_READY_MARKER = "XPKG_IMPORT OK: label_table_ready"
 _ASSEMBLE_LABELS_MARKER = "XPKG_IMPORT STEP: assemble_labels"
 _BUILD_VIDEO_MARKER = "XPKG_IMPORT STEP: build_video"
 _COPY_FRAMES_MARKER = "XPKG_IMPORT STEP: copy_frames"
-_PREPARE_RESULT_MARKER = "XPKG_IMPORT STEP: prepare_workspace_state"
-_OK_RESULT_READY_MARKER = "XPKG_IMPORT OK: workspace_state_ready"
+_PREPARE_RESULT_MARKER = "XPKG_IMPORT STEP: prepare_project_state"
+_OK_RESULT_READY_MARKER = "XPKG_IMPORT OK: project_state_ready"
 _CLEANUP_TEMP_MARKER = "XPKG_IMPORT STEP: cleanup_temp_folders"
 _DONE_MARKER = "XPKG_IMPORT DONE"
 
@@ -84,7 +84,7 @@ SLEAP_PACKAGE_PROGRESS_MARKERS: tuple[tuple[str, int], ...] = (
 _SLEAP_H5_READ_TRACKS_MARKER = "SLEAP_H5_IMPORT STEP: read_h5"
 _SLEAP_H5_VALIDATE_VIDEO_MARKER = "SLEAP_H5_IMPORT STEP: validate_video"
 _SLEAP_H5_BUILD_LABELS_MARKER = "SLEAP_H5_IMPORT STEP: build_labels"
-_SLEAP_H5_PREPARE_RESULT_MARKER = "SLEAP_H5_IMPORT STEP: prepare_workspace_state"
+_SLEAP_H5_PREPARE_RESULT_MARKER = "SLEAP_H5_IMPORT STEP: prepare_project_state"
 _SLEAP_H5_DONE_MARKER = "SLEAP_H5_IMPORT DONE"
 
 SLEAP_H5_PROGRESS_MARKERS: tuple[tuple[str, int], ...] = (
@@ -238,7 +238,7 @@ def convert_sleap_h5(
     likelihood_threshold: float = 0.0,
     progress_callback: ProgressCallback | None = None,
 ) -> ConversionResult:
-    """Convert a SLEAP analysis H5 export plus its video into workspace-ready labels."""
+    """Convert a SLEAP analysis H5 export plus its video into project-ready labels."""
 
     resolved_h5_path = _resolve_tracking_path(h5_path)
     resolved_video_path = _resolve_video_path(video_path)
@@ -294,7 +294,7 @@ def convert_sleap_package(
     encode_videos: bool | None = None,
     progress_callback: ProgressCallback | None = None,
 ) -> ConversionResult:
-    """Convert a SLEAP `.pkg.slp` package into workspace-ready labels."""
+    """Convert a SLEAP `.pkg.slp` package into project-ready labels."""
 
     slp_path = resolve_path(slp)
     proj_root = resolve_path(out_dir)

@@ -1,4 +1,4 @@
-"""Workspace artifact commands."""
+"""Project artifact commands."""
 
 from __future__ import annotations
 
@@ -9,17 +9,17 @@ import typer
 
 from xpkg._core.json_utils import dump_json
 from xpkg.cli.shared import JsonOption, run_command
-from xpkg.workspace import (
-    list_workspace_artifact_index,
-    load_workspace_artifact,
-    rebuild_workspace_artifact_index,
-    validate_workspace_artifact,
-    validate_workspace_artifacts,
+from xpkg.project import (
+    list_project_artifact_index,
+    load_project_artifact,
+    rebuild_project_artifact_index,
+    validate_project_artifact,
+    validate_project_artifacts,
 )
 
 app = typer.Typer(
     add_completion=False,
-    help="Inspect and validate workspace artifact manifests.",
+    help="Inspect and validate project artifact manifests.",
     no_args_is_help=True,
     rich_markup_mode="rich",
 )
@@ -27,7 +27,7 @@ app = typer.Typer(
 
 @app.command("list")
 def artifacts_list(
-    workspace: Annotated[str, typer.Argument(help="Workspace directory to inspect.")],
+    project: Annotated[str, typer.Argument(help="Project directory to inspect.")],
     kind: Annotated[str | None, typer.Option("--kind", help="Optional artifact kind.")] = None,
     namespace: Annotated[
         str | None,
@@ -38,14 +38,14 @@ def artifacts_list(
     """List registered artifacts."""
 
     def action() -> dict[str, Any]:
-        entries = list_workspace_artifact_index(
-            workspace,
+        entries = list_project_artifact_index(
+            project,
             artifact_type=kind,
             namespace=namespace,
         )
         return {
             "status": "listed",
-            "workspace": workspace,
+            "project": project,
             "count": len(entries),
             "artifacts": [entry.to_dict() for entry in entries],
         }
@@ -67,7 +67,7 @@ def artifacts_list(
 
 @app.command("inspect")
 def artifacts_inspect(
-    workspace: Annotated[str, typer.Argument(help="Workspace directory to inspect.")],
+    project: Annotated[str, typer.Argument(help="Project directory to inspect.")],
     artifact_id: Annotated[str, typer.Argument(help="Artifact id to inspect.")],
     kind: Annotated[str | None, typer.Option("--kind", help="Optional artifact kind.")] = None,
     namespace: Annotated[
@@ -79,8 +79,8 @@ def artifacts_inspect(
     """Print one artifact manifest."""
 
     def action() -> dict[str, Any]:
-        artifact = load_workspace_artifact(
-            workspace,
+        artifact = load_project_artifact(
+            project,
             artifact_id,
             artifact_type=kind,
             namespace=namespace,
@@ -95,7 +95,7 @@ def artifacts_inspect(
 
 @app.command("validate")
 def artifacts_validate(
-    workspace: Annotated[str, typer.Argument(help="Workspace directory to validate.")],
+    project: Annotated[str, typer.Argument(help="Project directory to validate.")],
     artifact_id: Annotated[str | None, typer.Argument(help="Optional artifact id.")] = None,
     kind: Annotated[str | None, typer.Option("--kind", help="Optional artifact kind.")] = None,
     namespace: Annotated[
@@ -108,28 +108,28 @@ def artifacts_validate(
 
     def action() -> dict[str, Any]:
         if artifact_id:
-            artifact = validate_workspace_artifact(
-                workspace,
+            artifact = validate_project_artifact(
+                project,
                 artifact_id,
                 artifact_type=kind,
                 namespace=namespace,
             )
             return {
                 "status": "valid",
-                "workspace": workspace,
+                "project": project,
                 "artifact_id": artifact.artifact_id,
                 "artifact_type": artifact.artifact_type,
                 "namespace": artifact.namespace,
                 "count": 1,
             }
-        artifacts = validate_workspace_artifacts(
-            workspace,
+        artifacts = validate_project_artifacts(
+            project,
             artifact_type=kind,
             namespace=namespace,
         )
         return {
             "status": "valid",
-            "workspace": workspace,
+            "project": project,
             "count": len(artifacts),
             "artifacts": [artifact.to_dict() for artifact in artifacts],
         }
@@ -145,16 +145,16 @@ def artifacts_validate(
 
 @app.command("rebuild-index")
 def artifacts_rebuild_index(
-    workspace: Annotated[str, typer.Argument(help="Workspace directory to index.")],
+    project: Annotated[str, typer.Argument(help="Project directory to index.")],
     json_output: JsonOption = False,
 ) -> None:
-    """Rebuild the workspace artifact index from manifests."""
+    """Rebuild the project artifact index from manifests."""
 
     def action() -> dict[str, Any]:
-        entries = rebuild_workspace_artifact_index(workspace)
+        entries = rebuild_project_artifact_index(project)
         return {
             "status": "indexed",
-            "workspace": workspace,
+            "project": project,
             "count": len(entries),
             "artifacts": [entry.to_dict() for entry in entries],
         }

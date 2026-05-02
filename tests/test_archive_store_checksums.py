@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from xpkg.io.workspace_durable_store import Commit, Journal, RootEntry, Superblock, now_utc_iso
+from xpkg.project.durable_store import Commit, Journal, RootEntry, Superblock, now_utc_iso
 
 
 def test_superblock_checksum_roundtrip() -> None:
     superblock = Superblock(
-        format="xpkg.workspace-durable-store",
+        format="xpkg.project-durable-store",
         store_version=1,
         generation=1,
         current_commit_id="c_000000000001_deadbeef",

@@ -11,7 +11,7 @@ neuroscience IO work that is still ahead.
 installs the `xpkg` console script, publishes typed package metadata, and ships
 the public project schema in the wheel.
 
-The product is not finished. The current package is strongest for workspace
+The product is not finished. The current package is strongest for project
 lifecycle, portable artifacts, pose labels, video-associated imports, Vicon,
 segmentation masks, and output artifact registration. The next work is to make
 the multimodal session layer usable end to end for pose, video, photometry,
@@ -24,12 +24,12 @@ Implemented and covered by the normal package gates:
 - distribution name: `exp-pkg`
 - Python import name: `xpkg`
 - CLI command: `xpkg`
-- workspace folder + private `.xpkg/` state + portable `.expkg` artifact
-- `WorkspaceService` lifecycle API
+- project folder + private `.xpkg/` state + portable `.expkg` artifact
+- `ProjectService` lifecycle API
 - Typer CLI with JSON output for canonical commands
-- readers and workspace importers for Vicon, DeepLabCut, Lightning Pose, SLEAP,
+- readers and project importers for Vicon, DeepLabCut, Lightning Pose, SLEAP,
   MMPose, and MediaPipe pose-landmark data
-- segmentation-mask workspace helpers
+- segmentation-mask project helpers
 - generic artifact and figure registries
 - package metadata suitable for PyPI/TestPyPI checks
 - inline typing marker through `xpkg/py.typed`
@@ -53,13 +53,13 @@ The first multimodal model layer is public and intentionally small:
 
 These objects establish the direction: modality-specific containers with a
 shared timing contract. They do not yet mean that photometry, events, and sync
-CSV files are fully imported into workspaces.
+CSV files are fully imported into projects.
 
 ## Next Implementation Priorities
 
 ### 1. Direct Readers
 
-Simple, low-ceremony CSV readers now exist before the workspace machinery:
+Simple, low-ceremony CSV readers now exist before the project machinery:
 
 ```python
 xpkg.read_photometry_csv(...)
@@ -76,24 +76,24 @@ xpkg.read_tdt_photometry_block(...)
 ```
 
 These return `PhotometryRecording`, `EventTable`, or session-level objects
-without requiring users to create a workspace first. `read_sync_csv(...)` is
+without requiring users to create a project first. `read_sync_csv(...)` is
 still the next direct reader in this family.
 
 The fiber-photometry reader set is scoped to fiber/session IO. Inscopix
 miniscope files, Blackrock NEV/NSx, and Neuralynx Cheetah files are deliberately
 excluded from this layer.
 
-### 2. Workspace Imports
+### 2. Project Imports
 
-After direct readers exist, wire them into `WorkspaceService`:
+After direct readers exist, wire them into `ProjectService`:
 
 ```python
-workspace.imports.photometry_csv(...)
-workspace.imports.events_csv(...)
-workspace.imports.sync_csv(...)
+project.imports.photometry_csv(...)
+project.imports.events_csv(...)
+project.imports.sync_csv(...)
 ```
 
-These imports should store normalized data under the workspace contract and
+These imports should store normalized data under the project contract and
 preserve enough provenance to rebuild, inspect, and package the session.
 
 ### 3. Inspect-First CLI
@@ -161,9 +161,9 @@ Prefer this order for new modality support:
 2. add a direct reader
 3. add focused synthetic tests
 4. add real-data cases privately
-5. wire the reader into workspace imports
+5. wire the reader into project imports
 6. expose CLI JSON output
 7. document the supported workflow honestly
 
 That order keeps `xpkg` close to the `sleap-io` lesson: pleasant direct Python
-IO first, durable workspaces second, optional analysis bridges later.
+IO first, durable projects second, optional analysis bridges later.

@@ -24,12 +24,12 @@ __all__ = [
     "read_tdt_photometry_block",
     "read_teleopto_h5",
     "services",
-    "workspace",
+    "project",
 ]
 
 
 def __getattr__(name: str):
-    if name in {"api", "adapters", "model", "pose", "services", "workspace"}:
+    if name in {"api", "adapters", "model", "pose", "services", "project"}:
         module = importlib.import_module(f"xpkg.{name}")
         globals()[name] = module
         return module

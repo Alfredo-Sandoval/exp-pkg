@@ -1,9 +1,9 @@
-"""Primary workspace-first service surface for xpkg project operations.
+"""Primary project-first service surface for xpkg project operations.
 
-``WorkspaceService`` is the stable consumer-facing boundary for downstream
+``ProjectService`` is the stable consumer-facing boundary for downstream
 integrations that need to create, open, import into, validate, pack, or unpack
-an xpkg workspace. ``WorkspaceImports`` mirrors the public
-``xpkg.workspace.import_*_workspace(...)`` helpers on a workspace-bound object so
+an xpkg project. ``ProjectImports`` mirrors the public
+``xpkg.project.import_*_project(...)`` helpers on a project-bound object so
 new code can stay on the same service path end to end.
 """
 
@@ -14,60 +14,60 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from xpkg.io.project_workspace import ensure_current_workspace_snapshot_cache
-from xpkg.io.workspace_state import workspace_state_kind
-from xpkg.services.artifacts import WorkspaceArtifacts
-from xpkg.services.figures import WorkspaceFigures
-from xpkg.services.segmentation import WorkspaceSegmentation
-from xpkg.workspace.project import (
+from xpkg.project.core import (
     ProjectDescriptor,
-    WorkspaceInspection,
+    ProjectInspection,
     current_project_state_path,
-    import_dlc_csv_workspace,
-    import_dlc_h5_workspace,
-    import_dlc_project_workspace,
-    import_lightning_pose_csv_workspace,
-    import_mediapipe_pose_landmarks_json_workspace,
-    import_mmpose_topdown_json_workspace,
-    import_sleap_h5_workspace,
-    import_sleap_package_workspace,
-    import_vicon_c3d_workspace,
-    import_vicon_csv_workspace,
-    import_vicon_workspace,
+    import_dlc_csv_project,
+    import_dlc_h5_project,
+    import_dlc_project_directory,
+    import_lightning_pose_csv_project,
+    import_mediapipe_pose_landmarks_json_project,
+    import_mmpose_topdown_json_project,
+    import_sleap_h5_project,
+    import_sleap_package_project,
+    import_vicon_c3d_project,
+    import_vicon_csv_project,
+    import_vicon_project,
     init_project,
-    inspect_workspace,
+    inspect_project,
     load_project_descriptor,
-    load_workspace_metadata,
-    load_workspace_metadata_field,
-    load_workspace_payload,
-    load_workspace_vicon_recording,
+    load_project_metadata,
+    load_project_metadata_field,
+    load_project_payload,
+    load_project_vicon_recording,
     pack_project,
+    project_artifacts_root,
     project_descriptor_path,
-    resolve_workspace_root,
-    save_workspace_labels,
-    save_workspace_metadata,
-    save_workspace_metadata_field,
+    project_exports_root,
+    project_media_root,
+    project_state_root,
+    project_store_root,
+    resolve_project_root,
+    save_project_labels,
+    save_project_metadata,
+    save_project_metadata_field,
     unpack_project,
-    validate_workspace,
-    workspace_artifacts_root,
-    workspace_exports_root,
-    workspace_media_root,
-    workspace_state_root,
-    workspace_store_root,
+    validate_project,
 )
+from xpkg.project.state import project_state_kind
+from xpkg.project.store import ensure_current_project_snapshot_cache
+from xpkg.services.artifacts import ProjectArtifacts
+from xpkg.services.figures import ProjectFigures
+from xpkg.services.segmentation import ProjectSegmentation
 
 if TYPE_CHECKING:
     from xpkg.model import Labels, ViconRecording
 
 
 @dataclass(frozen=True, slots=True)
-class WorkspaceImports:
-    """Workspace-bound mirror of the public ``xpkg.workspace`` import helpers."""
+class ProjectImports:
+    """Project-bound mirror of the public ``xpkg.project`` import helpers."""
 
-    workspace_root: Path
+    project_root: Path
 
     def _import(self, importer: Callable[..., Path], /, *args: Any, **kwargs: Any) -> Path:
-        return importer(*args, workspace=self.workspace_root, **kwargs)
+        return importer(*args, project=self.project_root, **kwargs)
 
     def vicon(
         self,
@@ -76,9 +76,9 @@ class WorkspaceImports:
         force: bool = False,
         progress_callback: Any | None = None,
     ) -> Path:
-        """Import a Vicon CSV or C3D recording into this workspace."""
+        """Import a Vicon CSV or C3D recording into this project."""
         return self._import(
-            import_vicon_workspace,
+            import_vicon_project,
             recording_path,
             force=force,
             progress_callback=progress_callback,
@@ -91,9 +91,9 @@ class WorkspaceImports:
         force: bool = False,
         progress_callback: Any | None = None,
     ) -> Path:
-        """Import a Vicon CSV recording into this workspace."""
+        """Import a Vicon CSV recording into this project."""
         return self._import(
-            import_vicon_csv_workspace,
+            import_vicon_csv_project,
             csv_path,
             force=force,
             progress_callback=progress_callback,
@@ -106,9 +106,9 @@ class WorkspaceImports:
         force: bool = False,
         progress_callback: Any | None = None,
     ) -> Path:
-        """Import a Vicon C3D recording into this workspace."""
+        """Import a Vicon C3D recording into this project."""
         return self._import(
-            import_vicon_c3d_workspace,
+            import_vicon_c3d_project,
             c3d_path,
             force=force,
             progress_callback=progress_callback,
@@ -124,9 +124,9 @@ class WorkspaceImports:
         force: bool = False,
         progress_callback: Any | None = None,
     ) -> Path:
-        """Import a DeepLabCut CSV plus video into this workspace."""
+        """Import a DeepLabCut CSV plus video into this project."""
         return self._import(
-            import_dlc_csv_workspace,
+            import_dlc_csv_project,
             csv_path,
             video_path,
             skeleton_name=skeleton_name,
@@ -145,9 +145,9 @@ class WorkspaceImports:
         force: bool = False,
         progress_callback: Any | None = None,
     ) -> Path:
-        """Import a DeepLabCut H5 export plus video into this workspace."""
+        """Import a DeepLabCut H5 export plus video into this project."""
         return self._import(
-            import_dlc_h5_workspace,
+            import_dlc_h5_project,
             h5_path,
             video_path,
             skeleton_name=skeleton_name,
@@ -165,9 +165,9 @@ class WorkspaceImports:
         force: bool = False,
         progress_callback: Any | None = None,
     ) -> Path:
-        """Import a supported DeepLabCut project into this workspace."""
+        """Import a supported DeepLabCut project into this project."""
         return self._import(
-            import_dlc_project_workspace,
+            import_dlc_project_directory,
             project_dir,
             skeleton_name=skeleton_name,
             likelihood_threshold=likelihood_threshold,
@@ -185,9 +185,9 @@ class WorkspaceImports:
         force: bool = False,
         progress_callback: Any | None = None,
     ) -> Path:
-        """Import a Lightning Pose prediction CSV plus video into this workspace."""
+        """Import a Lightning Pose prediction CSV plus video into this project."""
         return self._import(
-            import_lightning_pose_csv_workspace,
+            import_lightning_pose_csv_project,
             csv_path,
             video_path,
             skeleton_name=skeleton_name,
@@ -206,9 +206,9 @@ class WorkspaceImports:
         force: bool = False,
         progress_callback: Any | None = None,
     ) -> Path:
-        """Import a SLEAP analysis H5 export plus video into this workspace."""
+        """Import a SLEAP analysis H5 export plus video into this project."""
         return self._import(
-            import_sleap_h5_workspace,
+            import_sleap_h5_project,
             h5_path,
             video_path,
             skeleton_name=skeleton_name,
@@ -226,9 +226,9 @@ class WorkspaceImports:
         force: bool = False,
         progress_callback: Any | None = None,
     ) -> Path:
-        """Import a SLEAP package into this workspace."""
+        """Import a SLEAP package into this project."""
         return self._import(
-            import_sleap_package_workspace,
+            import_sleap_package_project,
             slp,
             fps=int(fps),
             encode_videos=encode_videos,
@@ -247,9 +247,9 @@ class WorkspaceImports:
         force: bool = False,
         progress_callback: Any | None = None,
     ) -> Path:
-        """Import an MMPose top-down JSON export plus video into this workspace."""
+        """Import an MMPose top-down JSON export plus video into this project."""
         return self._import(
-            import_mmpose_topdown_json_workspace,
+            import_mmpose_topdown_json_project,
             json_path,
             video_path,
             skeleton_name=skeleton_name,
@@ -269,9 +269,9 @@ class WorkspaceImports:
         force: bool = False,
         progress_callback: Any | None = None,
     ) -> Path:
-        """Import MediaPipe pose-landmarks JSON plus video into this workspace."""
+        """Import MediaPipe pose-landmarks JSON plus video into this project."""
         return self._import(
-            import_mediapipe_pose_landmarks_json_workspace,
+            import_mediapipe_pose_landmarks_json_project,
             json_path,
             video_path,
             skeleton_name=skeleton_name,
@@ -282,10 +282,10 @@ class WorkspaceImports:
 
 
 @dataclass(frozen=True, slots=True)
-class WorkspaceLayout:
-    """Normalized workspace summary returned by ``describe()`` and ``validate()``."""
+class ProjectLayout:
+    """Normalized project summary returned by ``describe()`` and ``validate()``."""
 
-    workspace_root: Path
+    project_root: Path
     descriptor: ProjectDescriptor
     descriptor_path: Path
     store_root: Path
@@ -298,36 +298,36 @@ class WorkspaceLayout:
 
 
 @dataclass(slots=True)
-class WorkspaceService:
-    """Stable public service for workspace-first project lifecycle operations."""
+class ProjectService:
+    """Stable public service for project-first project lifecycle operations."""
 
-    workspace_root: Path
+    project_root: Path
 
     @classmethod
     def create(
         cls,
-        workspace: str | Path,
+        project: str | Path,
         *,
         title: str | None = None,
         project_id: str | None = None,
         force: bool = False,
-    ) -> WorkspaceService:
-        """Create a workspace with the canonical public layout and open it."""
+    ) -> ProjectService:
+        """Create a project with the canonical public layout and open it."""
         init_project(
-            workspace,
+            project,
             title=title,
             project_id=project_id,
             force=force,
         )
-        return cls.open(workspace)
+        return cls.open(project)
 
     @classmethod
-    def open(cls, workspace: str | Path) -> WorkspaceService:
-        """Open an existing workspace root or a path inside one."""
-        root = resolve_workspace_root(workspace)
+    def open(cls, project: str | Path) -> ProjectService:
+        """Open an existing project root or a path inside one."""
+        root = resolve_project_root(project)
         if root is None:
-            raise FileNotFoundError(f"Not an xpkg workspace: {workspace}")
-        return cls(workspace_root=root)
+            raise FileNotFoundError(f"Not an xpkg project: {project}")
+        return cls(project_root=root)
 
     @classmethod
     def unpack(
@@ -337,8 +337,8 @@ class WorkspaceService:
         *,
         force: bool = False,
         rename_title: str | None = None,
-    ) -> WorkspaceService:
-        """Unpack a portable `.expkg` artifact into a workspace and open it."""
+    ) -> ProjectService:
+        """Unpack a portable `.expkg` artifact into a project and open it."""
         unpack_project(
             artifact,
             out,
@@ -348,95 +348,95 @@ class WorkspaceService:
         return cls.open(out)
 
     def descriptor(self) -> ProjectDescriptor:
-        """Load the current workspace descriptor."""
-        return load_project_descriptor(self.workspace_root)
+        """Load the current project descriptor."""
+        return load_project_descriptor(self.project_root)
 
     @property
-    def imports(self) -> WorkspaceImports:
+    def imports(self) -> ProjectImports:
         """Return service-bound import helpers backed by the public format API."""
-        return WorkspaceImports(workspace_root=self.workspace_root)
+        return ProjectImports(project_root=self.project_root)
 
     @property
-    def segmentation(self) -> WorkspaceSegmentation:
+    def segmentation(self) -> ProjectSegmentation:
         """Return service-bound segmentation mask helpers."""
-        return WorkspaceSegmentation(workspace_root=self.workspace_root)
+        return ProjectSegmentation(project_root=self.project_root)
 
     @property
-    def artifacts(self) -> WorkspaceArtifacts:
+    def artifacts(self) -> ProjectArtifacts:
         """Return service-bound generic artifact registry helpers."""
-        return WorkspaceArtifacts(workspace_root=self.workspace_root)
+        return ProjectArtifacts(project_root=self.project_root)
 
     @property
-    def figures(self) -> WorkspaceFigures:
+    def figures(self) -> ProjectFigures:
         """Return service-bound figure artifact helpers."""
-        return WorkspaceFigures(workspace_root=self.workspace_root)
+        return ProjectFigures(project_root=self.project_root)
 
-    def describe(self) -> WorkspaceLayout:
-        """Return the normalized managed paths for this workspace."""
+    def describe(self) -> ProjectLayout:
+        """Return the normalized managed paths for this project."""
         descriptor = self.descriptor()
-        state_path = current_project_state_path(self.workspace_root)
-        return WorkspaceLayout(
-            workspace_root=self.workspace_root,
+        state_path = current_project_state_path(self.project_root)
+        return ProjectLayout(
+            project_root=self.project_root,
             descriptor=descriptor,
-            descriptor_path=project_descriptor_path(self.workspace_root),
-            store_root=workspace_store_root(self.workspace_root),
-            artifacts_root=workspace_artifacts_root(self.workspace_root),
-            state_root=workspace_state_root(self.workspace_root),
-            media_root=workspace_media_root(self.workspace_root),
-            exports_root=workspace_exports_root(self.workspace_root),
+            descriptor_path=project_descriptor_path(self.project_root),
+            store_root=project_store_root(self.project_root),
+            artifacts_root=project_artifacts_root(self.project_root),
+            state_root=project_state_root(self.project_root),
+            media_root=project_media_root(self.project_root),
+            exports_root=project_exports_root(self.project_root),
             current_state_path=state_path,
             has_current_state=state_path.exists(),
         )
 
-    def validate(self) -> WorkspaceLayout:
-        """Validate the workspace and return its normalized layout."""
-        validate_workspace(self.workspace_root)
+    def validate(self) -> ProjectLayout:
+        """Validate the project and return its normalized layout."""
+        validate_project(self.project_root)
         return self.describe()
 
-    def inspect(self) -> WorkspaceInspection:
-        """Inspect the current workspace using canonical package-owned summary APIs."""
-        return inspect_workspace(self.workspace_root)
+    def inspect(self) -> ProjectInspection:
+        """Inspect the current project using canonical package-owned summary APIs."""
+        return inspect_project(self.project_root)
 
     def load_labels(self) -> Labels:
-        """Load the current workspace labels through the public workspace root."""
+        """Load the current project labels through the public project root."""
         from xpkg.model import Labels
 
-        state_path = ensure_current_workspace_snapshot_cache(self.workspace_root)
+        state_path = ensure_current_project_snapshot_cache(self.project_root)
         if state_path is None:
-            state_path = current_project_state_path(self.workspace_root)
+            state_path = current_project_state_path(self.project_root)
         if state_path.exists() and state_path.suffix.lower() == ".json":
-            if workspace_state_kind(state_path) == "vicon":
+            if project_state_kind(state_path) == "vicon":
                 raise ValueError(
-                    "Workspace current state is a Vicon recording. "
-                    "Use WorkspaceService.load_vicon_recording()."
+                    "Project current state is a Vicon recording. "
+                    "Use ProjectService.load_vicon_recording()."
                 )
-        return Labels.load_file(self.workspace_root.as_posix())
+        return Labels.load_file(self.project_root.as_posix())
 
     def load_vicon_recording(self) -> ViconRecording:
-        """Load the current workspace Vicon recording."""
-        return load_workspace_vicon_recording(self.workspace_root)
+        """Load the current project Vicon recording."""
+        return load_project_vicon_recording(self.project_root)
 
     def load_metadata(self) -> dict[str, Any] | None:
-        """Load the current workspace metadata payload."""
-        return load_workspace_metadata(self.workspace_root)
+        """Load the current project metadata payload."""
+        return load_project_metadata(self.project_root)
 
     def load_metadata_field(self, field: str) -> dict[str, Any] | None:
-        """Load one mapping-valued metadata field from the current workspace head."""
-        return load_workspace_metadata_field(self.workspace_root, field)
+        """Load one mapping-valued metadata field from the current project head."""
+        return load_project_metadata_field(self.project_root, field)
 
     def load_payload(self) -> dict[str, Any]:
-        """Load the current workspace payload with workspace-relative media rebased."""
-        return load_workspace_payload(self.workspace_root)
+        """Load the current project payload with project-relative media rebased."""
+        return load_project_payload(self.project_root)
 
     def save_metadata(
         self,
         metadata: dict[str, Any] | None,
         *,
-        reason: str = "workspace.save.metadata",
+        reason: str = "project.save.metadata",
     ) -> Path:
-        """Commit metadata onto the current workspace head."""
-        return save_workspace_metadata(
-            self.workspace_root,
+        """Commit metadata onto the current project head."""
+        return save_project_metadata(
+            self.project_root,
             metadata,
             reason=reason,
         )
@@ -446,11 +446,11 @@ class WorkspaceService:
         field: str,
         value: Mapping[str, Any],
         *,
-        reason: str = "workspace.save.metadata_field",
+        reason: str = "project.save.metadata_field",
     ) -> Path:
-        """Persist one mapping-valued metadata field onto the current workspace head."""
-        return save_workspace_metadata_field(
-            self.workspace_root,
+        """Persist one mapping-valued metadata field onto the current project head."""
+        return save_project_metadata_field(
+            self.project_root,
             field,
             value,
             reason=reason,
@@ -464,9 +464,9 @@ class WorkspaceService:
         journal: bool = True,
         regenerate_predictions: bool = False,
     ) -> Path:
-        """Commit labels into the workspace-managed durable state."""
-        return save_workspace_labels(
-            self.workspace_root,
+        """Commit labels into the project-managed durable state."""
+        return save_project_labels(
+            self.project_root,
             labels,
             metadata=metadata,
             journal=journal,
@@ -480,9 +480,9 @@ class WorkspaceService:
         media: str | None = None,
         overwrite: bool = False,
     ) -> Path:
-        """Pack the workspace into a portable `.expkg` artifact."""
+        """Pack the project into a portable `.expkg` artifact."""
         return pack_project(
-            self.workspace_root,
+            self.project_root,
             out=out,
             media=media,
             overwrite=overwrite,
@@ -490,11 +490,11 @@ class WorkspaceService:
 
 
 __all__ = [
-    "WorkspaceService",
-    "WorkspaceImports",
-    "WorkspaceLayout",
-    "WorkspaceInspection",
-    "WorkspaceArtifacts",
-    "WorkspaceFigures",
-    "WorkspaceSegmentation",
+    "ProjectService",
+    "ProjectImports",
+    "ProjectLayout",
+    "ProjectInspection",
+    "ProjectArtifacts",
+    "ProjectFigures",
+    "ProjectSegmentation",
 ]

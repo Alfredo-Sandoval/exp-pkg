@@ -11,7 +11,7 @@ hide:
 
 <p class="manual-deck">
 xpkg is the canonical IO and artifact layer for multimodal neuroscience
-experiment data, built around an editable workspace folder, a private
+experiment data, built around an editable project folder, a private
 <code>.xpkg/</code> store, and portable <code>.expkg</code> exports.
 The repo and distribution name are <code>exp-pkg</code>; the Python import and CLI name are
 <code>xpkg</code>.
@@ -27,11 +27,11 @@ The repo and distribution name are <code>exp-pkg</code>; the Python import and C
 | Item | Value |
 | --- | --- |
 | Mission | multimodal neuroscience IO and artifact contracts |
-| Public project contract | workspace folder + private `.xpkg/` + `.expkg` |
-| Primary lifecycle API | `xpkg.services.WorkspaceService` |
-| Service-bound workspace imports | `workspace.imports.*` from `xpkg.services.WorkspaceService` |
-| Output artifact registry | `workspace.artifacts.*` and `.xpkg/artifacts/index.json` |
-| Function-level workspace imports | `xpkg.workspace.import_*_workspace(...)` |
+| Public project contract | project folder + private `.xpkg/` + `.expkg` |
+| Primary lifecycle API | `xpkg.services.ProjectService` |
+| Service-bound project imports | `project.imports.*` from `xpkg.services.ProjectService` |
+| Output artifact registry | `project.artifacts.*` and `.xpkg/artifacts/index.json` |
+| Function-level project imports | `xpkg.project.import_*_project(...)` |
 | External import ecosystems | Vicon, DeepLabCut, Lightning Pose, SLEAP, MMPose, MediaPipe |
 | Core objects | `xpkg.model` |
 | In-memory exchange | `xpkg.adapters` |
@@ -40,18 +40,18 @@ The repo and distribution name are <code>exp-pkg</code>; the Python import and C
 <div class="spec-panel" markdown="1">
 ### Choose by Task
 
-- Use `xpkg.services.WorkspaceService` when you need to create, open, import
+- Use `xpkg.services.ProjectService` when you need to create, open, import
   into, validate, pack, or unpack a project.
-- Use `workspace.imports.*` for the normal workspace-first import flow from
+- Use `project.imports.*` for the normal project-first import flow from
   DeepLabCut, Lightning Pose, SLEAP, MMPose, or MediaPipe.
-- Use `workspace.artifacts.*` to register figures, tables, analyses, reports,
+- Use `project.artifacts.*` to register figures, tables, analyses, reports,
   stats, and other output files with provenance and checksums.
-- Use `xpkg.workspace.import_*_workspace(...)` when you want the same
-  workspace-first importers as explicit free functions.
+- Use `xpkg.project.import_*_project(...)` when you want the same
+  project-first importers as explicit free functions.
 - Use `xpkg.model` when you need `Labels`, `Skeleton`, `Instance`, or `Video`.
 - Use `xpkg.adapters` when you need arrays, tables, or JSON payloads without
-  touching workspace internals.
-- Read [Artifact Contract v1](artifact_contract_v1.md) for the public workspace
+  touching project internals.
+- Read [Artifact Contract v1](artifact_contract_v1.md) for the public project
   and `.expkg` contract.
 - Read [Roadmap](roadmap.md) for the current baseline and the multimodal work
   still ahead.
@@ -80,23 +80,23 @@ The repo and distribution name are <code>exp-pkg</code>; the Python import and C
 - `Point`, `PredictedPoint`
 - `Skeleton`, `Keypoint`, `Track`
 - `Video`
-- workspace descriptors and managed media roots
+- project descriptors and managed media roots
 </div>
 
 <div class="spec-panel" markdown="1">
-### Workspace-First Project APIs
+### Project-First Project APIs
 
-- `WorkspaceService`
-- `WorkspaceService.imports`
-- `WorkspaceService.artifacts`
-- `WorkspaceService.figures`
-- `WorkspaceService.segmentation`
+- `ProjectService`
+- `ProjectService.imports`
+- `ProjectService.artifacts`
+- `ProjectService.figures`
+- `ProjectService.segmentation`
 - `init_project`, `pack_project`, `unpack_project`
-- `validate_workspace`
-- `import_dlc_*_workspace`, `import_sleap_*_workspace`
-- `import_lightning_pose_csv_workspace`
-- `import_mmpose_topdown_json_workspace`
-- `import_mediapipe_pose_landmarks_json_workspace`
+- `validate_project`
+- `import_dlc_*_project`, `import_sleap_*_project`
+- `import_lightning_pose_csv_project`
+- `import_mmpose_topdown_json_project`
+- `import_mediapipe_pose_landmarks_json_project`
 </div>
 
 </div>
@@ -112,7 +112,7 @@ My Project/
     My Project.expkg
 ```
 
-The workspace contract exists because experiment state usually extends beyond a
+The project contract exists because experiment state usually extends beyond a
 single converter output.
 
 ## Navigation
@@ -122,7 +122,7 @@ single converter output.
 - Start with [Getting Started](getting-started.md) for install and first-use examples.
 - Read [Roadmap](roadmap.md) for what is implemented now versus planned next.
 - Read [Artifact Contract v1](artifact_contract_v1.md) for the locked public
-  workspace and portable artifact semantics.
+  project and portable artifact semantics.
 - Read [CLI Command Spec v1](cli_command_spec_v1.md) for `init`, `import`,
   `pack`, `unpack`, and `validate`.
 - Read [Media IO Stack](architecture/media-io.md) for the target ownership split between xpkg and downstream GUI apps.
@@ -130,13 +130,13 @@ single converter output.
   shared timing/events/signals layer.
 - Read [Storage Direction](architecture/storage-direction.md) for the current
   rationale around `.xpkg/` and `.expkg`.
-- Read [Workspace Durability](architecture/experimental-store.md) for the commit-oriented recovery workflow.
+- Read [Project Durability](architecture/experimental-store.md) for the commit-oriented recovery workflow.
 - Read [Model](api/model.md) for the pose object graph.
 - Read [Adapters](api/adapters.md) for in-memory JSON / dataframe / numpy
   conversions.
-- Read [Services](api/services.md) for the primary consumer-facing workspace
+- Read [Services](api/services.md) for the primary consumer-facing project
   API.
-- Read [Workspace](api/workspace.md) for workspace-first lifecycle and import APIs.
+- Read [Project](api/project.md) for project-first lifecycle and import APIs.
 - Use the reference pages when you need exact signatures and docstrings.
 
 </div>

@@ -8,25 +8,25 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, overload
 
-from xpkg.workspace.artifacts import (
+from xpkg.project.artifacts import (
     ArtifactIndexEntry,
     ArtifactManifest,
     ArtifactOutputSpec,
-    list_workspace_artifact_index,
-    list_workspace_artifacts,
-    load_workspace_artifact,
-    rebuild_workspace_artifact_index,
-    save_workspace_artifact,
-    validate_workspace_artifact,
-    validate_workspace_artifacts,
+    list_project_artifact_index,
+    list_project_artifacts,
+    load_project_artifact,
+    rebuild_project_artifact_index,
+    save_project_artifact,
+    validate_project_artifact,
+    validate_project_artifacts,
 )
 
 
 @dataclass(frozen=True, slots=True)
-class WorkspaceArtifacts:
-    """Workspace-bound helpers for generic artifact manifests and indexes."""
+class ProjectArtifacts:
+    """Project-bound helpers for generic artifact manifests and indexes."""
 
-    workspace_root: Path
+    project_root: Path
 
     def register(
         self,
@@ -42,9 +42,9 @@ class WorkspaceArtifacts:
         namespace: str | None = None,
         overwrite: bool = True,
     ) -> ArtifactManifest:
-        """Copy artifact outputs into the workspace and write a manifest."""
-        return save_workspace_artifact(
-            self.workspace_root,
+        """Copy artifact outputs into the project and write a manifest."""
+        return save_project_artifact(
+            self.project_root,
             artifact_id=artifact_id,
             artifact_type=artifact_type,
             outputs=outputs,
@@ -65,8 +65,8 @@ class WorkspaceArtifacts:
         namespace: str | None = None,
     ) -> ArtifactManifest:
         """Load one saved artifact manifest."""
-        return load_workspace_artifact(
-            self.workspace_root,
+        return load_project_artifact(
+            self.project_root,
             artifact_id,
             artifact_type=kind,
             namespace=namespace,
@@ -79,8 +79,8 @@ class WorkspaceArtifacts:
         namespace: str | None = None,
     ) -> builtins.list[ArtifactManifest]:
         """List saved artifact manifests."""
-        return list_workspace_artifacts(
-            self.workspace_root,
+        return list_project_artifacts(
+            self.project_root,
             artifact_type=kind,
             namespace=namespace,
         )
@@ -91,9 +91,9 @@ class WorkspaceArtifacts:
         kind: str | None = None,
         namespace: str | None = None,
     ) -> builtins.list[ArtifactIndexEntry]:
-        """List the compact workspace artifact index."""
-        return list_workspace_artifact_index(
-            self.workspace_root,
+        """List the compact project artifact index."""
+        return list_project_artifact_index(
+            self.project_root,
             artifact_type=kind,
             namespace=namespace,
         )
@@ -125,23 +125,23 @@ class WorkspaceArtifacts:
     ) -> ArtifactManifest | builtins.list[ArtifactManifest]:
         """Validate one saved artifact, or every matching artifact when omitted."""
         if artifact_id is None:
-            return validate_workspace_artifacts(
-                self.workspace_root,
+            return validate_project_artifacts(
+                self.project_root,
                 artifact_type=kind,
                 namespace=namespace,
             )
-        return validate_workspace_artifact(
-            self.workspace_root,
+        return validate_project_artifact(
+            self.project_root,
             artifact_id,
             artifact_type=kind,
             namespace=namespace,
         )
 
     def rebuild_index(self) -> builtins.list[ArtifactIndexEntry]:
-        """Rebuild the workspace-wide artifact index from manifests."""
-        return rebuild_workspace_artifact_index(self.workspace_root)
+        """Rebuild the project-wide artifact index from manifests."""
+        return rebuild_project_artifact_index(self.project_root)
 
 
 __all__ = [
-    "WorkspaceArtifacts",
+    "ProjectArtifacts",
 ]

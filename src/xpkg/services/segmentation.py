@@ -5,23 +5,23 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from xpkg.io.project_segmentation import (
+from xpkg.model import SegmentationMask
+from xpkg.project.segmentation import (
     MaskSaveMode,
     SegmentationFrame,
     VideoSelector,
-    clear_workspace_segmentation_masks,
-    load_workspace_segmentation_frames,
-    load_workspace_segmentation_masks,
-    save_workspace_segmentation_masks,
+    clear_project_segmentation_masks,
+    load_project_segmentation_frames,
+    load_project_segmentation_masks,
+    save_project_segmentation_masks,
 )
-from xpkg.model import SegmentationMask
 
 
 @dataclass(frozen=True, slots=True)
-class WorkspaceSegmentation:
-    """Workspace-bound helpers for saving and loading segmentation masks."""
+class ProjectSegmentation:
+    """Project-bound helpers for saving and loading segmentation masks."""
 
-    workspace_root: Path
+    project_root: Path
 
     def load_frames(
         self,
@@ -32,8 +32,8 @@ class WorkspaceSegmentation:
         class_name: str | None = None,
     ) -> list[SegmentationFrame]:
         """Load segmentation masks grouped by video frame."""
-        return load_workspace_segmentation_frames(
-            self.workspace_root,
+        return load_project_segmentation_frames(
+            self.project_root,
             video=video,
             frame_index=frame_index,
             predicted=predicted,
@@ -49,8 +49,8 @@ class WorkspaceSegmentation:
         class_name: str | None = None,
     ) -> tuple[SegmentationMask, ...]:
         """Load segmentation masks for one video frame."""
-        return load_workspace_segmentation_masks(
-            self.workspace_root,
+        return load_project_segmentation_masks(
+            self.project_root,
             frame_index=frame_index,
             video=video,
             predicted=predicted,
@@ -67,8 +67,8 @@ class WorkspaceSegmentation:
         skeleton_name: str = "segmentation",
     ) -> Path:
         """Save segmentation masks for one video frame."""
-        return save_workspace_segmentation_masks(
-            self.workspace_root,
+        return save_project_segmentation_masks(
+            self.project_root,
             frame_index=frame_index,
             masks=masks,
             video=video,
@@ -83,13 +83,13 @@ class WorkspaceSegmentation:
         video: VideoSelector | None = None,
     ) -> Path:
         """Remove all segmentation masks from one video frame."""
-        return clear_workspace_segmentation_masks(
-            self.workspace_root,
+        return clear_project_segmentation_masks(
+            self.project_root,
             frame_index=frame_index,
             video=video,
         )
 
 
 __all__ = [
-    "WorkspaceSegmentation",
+    "ProjectSegmentation",
 ]

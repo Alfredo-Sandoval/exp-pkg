@@ -47,7 +47,7 @@ make package-check
 
 That gate builds the sdist and wheel, runs `twine check`, installs the wheel in
 a temporary fresh virtual environment, smoke-tests `xpkg --help`, and verifies
-that `WorkspaceService` imports from the installed package.
+that `ProjectService` imports from the installed package.
 
 Run the release gate before a package handoff or PyPI/TestPyPI cut:
 
@@ -57,7 +57,7 @@ make release-check REAL_DATA_ROOT=/path/to/xpkg-real-data
 
 The installed wheel should include `xpkg/py.typed` and
 `xpkg/schemas/project.schema.json`, so downstream users get both typing metadata
-and the public workspace schema.
+and the public project schema.
 
 `ci-local` runs:
 
@@ -137,8 +137,8 @@ folder. Use `kind: "lightning_pose"` with `tracking` plus `video` for a
 Lightning Pose prediction CSV produced by `litpose predict`. Use
 `kind: "sleap"` with a `labels` file ending in `.slp`, `.pkg.slp`, `.h5`, or
 `.hdf5`; SLEAP analysis H5 cases also need a matching `video`. Each
-case imports into a fresh workspace, validates it, packs it to `.expkg`,
-unpacks it, and validates the restored workspace. Set `"skip_pack": true` only
+case imports into a fresh project, validates it, packs it to `.expkg`,
+unpacks it, and validates the restored project. Set `"skip_pack": true` only
 for a case that is deliberately too large for the pack/unpack release pass.
 
 ## Scope
@@ -147,7 +147,7 @@ This local quality surface is intended for:
 
 - day-to-day development on macOS and Linux
 - pre-handoff checks
-- validating storage and workspace experiments cheaply
+- validating storage and project experiments cheaply
 
 It is not a replacement for targeted regression tests, but it gives the repo a
 consistent local quality bar.

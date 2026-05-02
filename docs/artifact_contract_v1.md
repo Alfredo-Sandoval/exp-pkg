@@ -2,20 +2,20 @@
 
 This document defines the locked public artifact contract for xpkg v1.
 
-The contract is workspace-first because xpkg is aimed at whole experiment
+The contract is project-first because xpkg is aimed at whole experiment
 sessions. The public artifact needs to hold more context than a single archive
-blob, so the contract is defined around a workspace, a private store, and a
+blob, so the contract is defined around a project, a private store, and a
 portable export.
 
 It supersedes the older public framing that treated a direct HDF5 archive file
 as the native single-file project artifact. `.xpkg/` is now only the private
-workspace store directory. It is not a portable user-facing project contract.
+project store directory. It is not a portable user-facing project contract.
 
 ## Artifact Classes
 
 There are exactly three artifact classes.
 
-### A. Workspace
+### A. Project
 
 The canonical editable project is a normal folder.
 
@@ -29,7 +29,7 @@ This is what users open, click into, back up, and work from.
 
 ### B. Internal Store
 
-Inside the workspace, xpkg keeps a hidden implementation-owned store:
+Inside the project, xpkg keeps a hidden implementation-owned store:
 
 ```text
 My Project/.xpkg/
@@ -48,7 +48,7 @@ My Project.expkg
 This is the only portable file type. It is not `.h5`. It is not `.zip`. It is
 not `.archive`.
 
-## Canonical Workspace Layout
+## Canonical Project Layout
 
 This is the public, stable layout:
 
@@ -109,9 +109,9 @@ Its internal sublayout is not part of the public long-term contract. That
 preserves room to evolve journals, commits, objects, caches, and indexes
 without freezing every internal subdirectory forever.
 
-Current xpkg workspaces also use `.xpkg/artifacts/` for registered scientific
+Current xpkg projects also use `.xpkg/artifacts/` for registered scientific
 outputs such as figures, tables, analyses, reports, stats reports, and source
-data. These artifact entries are still private workspace state, but their
+data. These artifact entries are still private project state, but their
 manifests are portable JSON records that connect outputs back to inputs,
 producer commands, stats reports, source data, and checksum-bearing file
 records. The compact discovery index lives at `.xpkg/artifacts/index.json` and
@@ -120,7 +120,7 @@ can be rebuilt from individual manifests.
 Domain packages may also keep derived outputs under caller-owned namespaces
 such as `.xpkg/neuro-analysis/figures/` or
 `.xpkg/neuro-analysis/tables/`. The same artifact manifest contract applies; the
-namespace only controls where the files live inside the workspace. `xpkg` does
+namespace only controls where the files live inside the project. `xpkg` does
 not reserve or hard-code downstream package names.
 
 ### `Media/`
@@ -139,8 +139,8 @@ exports.
 
 Rules:
 
-- It represents a committed, validated workspace.
-- Unpacking recreates a workspace layout with `PROJECT.json`, `.xpkg/`,
+- It represents a committed, validated project.
+- Unpacking recreates a project layout with `PROJECT.json`, `.xpkg/`,
   `Media/`, and `Exports/`.
 - It is a project artifact, not a raw storage engine.
 - Users and third parties must treat it as opaque.
@@ -161,12 +161,12 @@ On unpack, xpkg reconstructs:
 For portable artifacts the result must be logically identical, not
 byte-identical. Locks, caches, temporary files, and machine-local scratch state
 are excluded. Artifacts packed with omitted media preserve project state and
-media references, but those unpacked workspaces are not guaranteed to load
+media references, but those unpacked projects are not guaranteed to load
 media-backed labels on another machine until the matching media are restored.
 
 ## Open, Pack, Unpack, Import
 
-xpkg should accept a workspace folder as the primary open target:
+xpkg should accept a project folder as the primary open target:
 
 ```text
 My Project/
@@ -175,41 +175,41 @@ My Project/
 GUI behavior for `.expkg`:
 
 - `File > Open` on a `.expkg` triggers unpack/import into a chosen folder,
-  then opens that workspace.
+  then opens that project.
 - xpkg does not edit a packed file in place.
 
 ### Pack
 
-`workspace pack` creates a packed project artifact from a workspace.
+`project pack` creates a packed project artifact from a project.
 
 Example:
 
 ```bash
-xpkg workspace pack "My Project"
+xpkg project pack "My Project"
 # emits My Project/Exports/My Project.expkg
 ```
 
 Media scope is controlled by `--media`:
 
 ```bash
-xpkg workspace pack "My Project" --media full
-xpkg workspace pack "My Project" --media package
-xpkg workspace pack "My Project" --media manifest
+xpkg project pack "My Project" --media full
+xpkg project pack "My Project" --media package
+xpkg project pack "My Project" --media manifest
 ```
 
 ### Unpack
 
-`workspace unpack` creates a workspace from a portable artifact.
+`project unpack` creates a project from a portable artifact.
 
 Example:
 
 ```bash
-xpkg workspace unpack "My Project.expkg" --out "./My Project"
+xpkg project unpack "My Project.expkg" --out "./My Project"
 ```
 
 ### Import
 
-Foreign formats import into a workspace, not directly into an opaque legacy
+Foreign formats import into a project, not directly into an opaque legacy
 HDF5 archive.
 
 Examples:
@@ -245,7 +245,7 @@ or hidden side channels to the `.expkg` contract.
 
 ## Path Rules
 
-- All project-internal paths are stored relative to the workspace root.
+- All project-internal paths are stored relative to the project root.
 - No xpkg-required absolute paths exist in the portable contract.
 - No required symlink semantics exist.
 - Symlinks may exist in user content, but official project validity must not
@@ -253,14 +253,14 @@ or hidden side channels to the `.expkg` contract.
 
 ## Legacy HDF5 Boundary Policy
 
-`.xpkg/` is the private workspace store directory name, not a public project
+`.xpkg/` is the private project store directory name, not a public project
 artifact and not a single HDF5 file.
 
 Policy:
 
-- New projects are created as workspace folders.
+- New projects are created as project folders.
 - New portable exports are `.expkg`.
-- No dedicated workspace-to-`.xpkg` export command is part of the locked v1 surface.
+- No dedicated project-to-`.xpkg` export command is part of the locked v1 surface.
 - No new core features should depend on direct HDF5 archive handling as a
   project contract.
 
@@ -268,7 +268,7 @@ Policy:
 
 ### Public and Stable
 
-- workspace root is a normal folder
+- project root is a normal folder
 - `PROJECT.json`
 - hidden store path `.xpkg/`
 - standard `Media/` and `Exports/`
@@ -302,7 +302,7 @@ My Project/
 
 And this:
 
-- editable project = workspace folder
+- editable project = project folder
 - authoritative mutable state = `.xpkg/`
 - portable artifact = `.expkg`
 - legacy HDF5 archive compatibility = removed from the locked v1 surface

@@ -5,7 +5,7 @@ from __future__ import annotations
 import xpkg.api as api
 
 
-def test_xpkg_api_exposes_workspace_first_contract() -> None:
+def test_xpkg_api_exposes_project_first_contract() -> None:
     expected = {
         "Labels",
         "ArtifactFile",
@@ -32,13 +32,13 @@ def test_xpkg_api_exposes_workspace_first_contract() -> None:
         "ViconRecording",
         "ViconEvent",
         "ViconForcePlatformMetadata",
-        "WorkspaceImports",
-        "WorkspaceArtifacts",
-        "WorkspaceFigures",
-        "WorkspaceInspection",
-        "WorkspaceLayout",
-        "WorkspaceSegmentation",
-        "WorkspaceService",
+        "ProjectImports",
+        "ProjectArtifacts",
+        "ProjectFigures",
+        "ProjectInspection",
+        "ProjectLayout",
+        "ProjectSegmentation",
+        "ProjectService",
         "build_force_plate_data_from_vicon_recording",
         "build_prediction_stub",
         "candidate_vicon_emg_channels",
@@ -46,33 +46,33 @@ def test_xpkg_api_exposes_workspace_first_contract() -> None:
         "current_project_state_path",
         "default_expkg_path",
         "extract_vicon_emg",
-        "import_vicon_c3d_workspace",
-        "import_vicon_csv_workspace",
-        "import_vicon_workspace",
-        "import_dlc_csv_workspace",
-        "import_dlc_h5_workspace",
-        "import_dlc_project_workspace",
-        "import_lightning_pose_csv_workspace",
-        "import_mediapipe_pose_landmarks_json_workspace",
-        "import_mmpose_topdown_json_workspace",
-        "import_sleap_h5_workspace",
-        "import_sleap_package_workspace",
-        "inspect_workspace",
-        "list_workspace_artifact_index",
-        "list_workspace_artifacts",
-        "list_workspace_figures",
+        "import_vicon_c3d_project",
+        "import_vicon_csv_project",
+        "import_vicon_project",
+        "import_dlc_csv_project",
+        "import_dlc_h5_project",
+        "import_dlc_project_directory",
+        "import_lightning_pose_csv_project",
+        "import_mediapipe_pose_landmarks_json_project",
+        "import_mmpose_topdown_json_project",
+        "import_sleap_h5_project",
+        "import_sleap_package_project",
+        "inspect_project",
+        "list_project_artifact_index",
+        "list_project_artifacts",
+        "list_project_figures",
         "labels_from_json_payload",
         "labels_numpy",
         "labels_to_dataframe",
         "labels_to_json_payload",
-        "load_workspace_figure",
-        "load_workspace_artifact",
-        "load_workspace_metadata",
-        "load_workspace_metadata_field",
-        "load_workspace_payload",
-        "load_workspace_segmentation_frames",
-        "load_workspace_segmentation_masks",
-        "load_workspace_vicon_recording",
+        "load_project_figure",
+        "load_project_artifact",
+        "load_project_metadata",
+        "load_project_metadata_field",
+        "load_project_payload",
+        "load_project_segmentation_frames",
+        "load_project_segmentation_masks",
+        "load_project_vicon_recording",
         "pack_project",
         "read_doric_photometry",
         "read_events_csv",
@@ -92,20 +92,20 @@ def test_xpkg_api_exposes_workspace_first_contract() -> None:
         "read_vicon_recording",
         "read_vicon_json_payload",
         "resolve_pose_node_indices",
-        "rebuild_workspace_artifact_index",
-        "save_workspace_artifact",
-        "save_workspace_figure",
-        "save_workspace_metadata",
-        "save_workspace_labels",
-        "save_workspace_metadata_field",
-        "save_workspace_segmentation_masks",
-        "clear_workspace_segmentation_masks",
+        "rebuild_project_artifact_index",
+        "save_project_artifact",
+        "save_project_figure",
+        "save_project_metadata",
+        "save_project_labels",
+        "save_project_metadata_field",
+        "save_project_segmentation_masks",
+        "clear_project_segmentation_masks",
         "unpack_project",
-        "validate_workspace_artifact",
-        "validate_workspace_artifacts",
-        "validate_workspace_figure",
-        "validate_workspace_figures",
-        "validate_workspace",
+        "validate_project_artifact",
+        "validate_project_artifacts",
+        "validate_project_figure",
+        "validate_project_figures",
+        "validate_project",
         "vicon_recording_from_json_payload",
         "vicon_recording_to_json_payload",
     }
@@ -114,10 +114,10 @@ def test_xpkg_api_exposes_workspace_first_contract() -> None:
     assert "ConversionResult" not in api.__all__
     assert "convert_dlc_csv" not in api.__all__
     assert "current_project_archive_path" not in api.__all__
-    assert "export_workspace_archive" not in api.__all__
     assert "export_project_archive" not in api.__all__
-    assert "import_detectron2_coco_workspace" not in api.__all__
-    assert "import_openpose_json_workspace" not in api.__all__
+    assert "export_project_archive" not in api.__all__
+    assert "import_detectron2_coco_project" not in api.__all__
+    assert "import_openpose_json_project" not in api.__all__
     assert "SleapTrack" not in api.__all__
     assert "read_sleap_node_names" not in api.__all__
     assert "read_sleap_track" not in api.__all__
@@ -146,33 +146,33 @@ def test_xpkg_api_exposes_workspace_first_contract() -> None:
     assert api.ViconEvent.__name__ == "ViconEvent"
     assert api.ViconForcePlatformMetadata.__name__ == "ViconForcePlatformMetadata"
     assert api.ViconRecording.__name__ == "ViconRecording"
-    assert api.WorkspaceImports.__name__ == "WorkspaceImports"
-    assert api.WorkspaceArtifacts.__name__ == "WorkspaceArtifacts"
-    assert api.WorkspaceFigures.__name__ == "WorkspaceFigures"
-    assert api.WorkspaceInspection.__name__ == "WorkspaceInspection"
-    assert api.WorkspaceSegmentation.__name__ == "WorkspaceSegmentation"
-    assert api.WorkspaceService.__name__ == "WorkspaceService"
+    assert api.ProjectImports.__name__ == "ProjectImports"
+    assert api.ProjectArtifacts.__name__ == "ProjectArtifacts"
+    assert api.ProjectFigures.__name__ == "ProjectFigures"
+    assert api.ProjectInspection.__name__ == "ProjectInspection"
+    assert api.ProjectSegmentation.__name__ == "ProjectSegmentation"
+    assert api.ProjectService.__name__ == "ProjectService"
     assert api.SegmentationFrame.__name__ == "SegmentationFrame"
     assert callable(api.build_prediction_stub)
     assert callable(api.build_force_plate_data_from_vicon_recording)
     assert callable(api.candidate_vicon_emg_channels)
-    assert callable(api.inspect_workspace)
+    assert callable(api.inspect_project)
     assert callable(api.extract_vicon_emg)
-    assert callable(api.list_workspace_artifact_index)
-    assert callable(api.list_workspace_artifacts)
-    assert callable(api.list_workspace_figures)
+    assert callable(api.list_project_artifact_index)
+    assert callable(api.list_project_artifacts)
+    assert callable(api.list_project_figures)
     assert callable(api.labels_from_json_payload)
     assert callable(api.labels_numpy)
     assert callable(api.labels_to_dataframe)
     assert callable(api.labels_to_json_payload)
-    assert callable(api.load_workspace_metadata)
-    assert callable(api.load_workspace_metadata_field)
-    assert callable(api.load_workspace_payload)
-    assert callable(api.load_workspace_artifact)
-    assert callable(api.load_workspace_figure)
-    assert callable(api.load_workspace_segmentation_frames)
-    assert callable(api.load_workspace_segmentation_masks)
-    assert callable(api.load_workspace_vicon_recording)
+    assert callable(api.load_project_metadata)
+    assert callable(api.load_project_metadata_field)
+    assert callable(api.load_project_payload)
+    assert callable(api.load_project_artifact)
+    assert callable(api.load_project_figure)
+    assert callable(api.load_project_segmentation_frames)
+    assert callable(api.load_project_segmentation_masks)
+    assert callable(api.load_project_vicon_recording)
     assert callable(api.read_doric_photometry)
     assert callable(api.read_events_csv)
     assert callable(api.read_neurophotometrics_csv)
@@ -191,17 +191,17 @@ def test_xpkg_api_exposes_workspace_first_contract() -> None:
     assert callable(api.read_vicon_recording)
     assert callable(api.read_vicon_json_payload)
     assert callable(api.resolve_pose_node_indices)
-    assert callable(api.rebuild_workspace_artifact_index)
-    assert callable(api.save_workspace_artifact)
-    assert callable(api.save_workspace_figure)
-    assert callable(api.save_workspace_metadata)
-    assert callable(api.save_workspace_metadata_field)
-    assert callable(api.save_workspace_segmentation_masks)
-    assert callable(api.clear_workspace_segmentation_masks)
-    assert callable(api.validate_workspace_artifact)
-    assert callable(api.validate_workspace_artifacts)
-    assert callable(api.validate_workspace_figure)
-    assert callable(api.validate_workspace_figures)
+    assert callable(api.rebuild_project_artifact_index)
+    assert callable(api.save_project_artifact)
+    assert callable(api.save_project_figure)
+    assert callable(api.save_project_metadata)
+    assert callable(api.save_project_metadata_field)
+    assert callable(api.save_project_segmentation_masks)
+    assert callable(api.clear_project_segmentation_masks)
+    assert callable(api.validate_project_artifact)
+    assert callable(api.validate_project_artifacts)
+    assert callable(api.validate_project_figure)
+    assert callable(api.validate_project_figures)
     assert callable(api.vicon_recording_from_json_payload)
     assert callable(api.vicon_recording_to_json_payload)
 
@@ -209,6 +209,6 @@ def test_xpkg_api_exposes_workspace_first_contract() -> None:
 def test_xpkg_api_lists_service_entrypoints_before_free_function_helpers() -> None:
     exports = api.__all__
 
-    assert exports.index("WorkspaceService") < exports.index("WorkspaceImports")
-    assert exports.index("WorkspaceImports") < exports.index("WorkspaceLayout")
-    assert exports.index("WorkspaceService") < exports.index("import_dlc_csv_workspace")
+    assert exports.index("ProjectService") < exports.index("ProjectImports")
+    assert exports.index("ProjectImports") < exports.index("ProjectLayout")
+    assert exports.index("ProjectService") < exports.index("import_dlc_csv_project")

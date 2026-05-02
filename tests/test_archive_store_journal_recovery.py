@@ -2,11 +2,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from xpkg.io.workspace_durable_store import (
+from xpkg.project.durable_store import (
     Journal,
+    ProjectDurableStore,
     StorePaths,
     Superblock,
-    WorkspaceDurableStore,
     atomic_write_json,
     read_journal,
     write_journal,
@@ -18,7 +18,7 @@ def test_recover_clears_staging_journal_and_keeps_last_clean_head(tmp_path: Path
     snapshot.write_text('{"version": 1}', encoding="utf-8")
 
     store_root = tmp_path / ".xpkg"
-    store = WorkspaceDurableStore.create_from_roots(store_root, {"snapshot": snapshot})
+    store = ProjectDurableStore.create_from_roots(store_root, {"snapshot": snapshot})
     initial_head = store.recover()
 
     journal = Journal(
@@ -32,7 +32,7 @@ def test_recover_clears_staging_journal_and_keeps_last_clean_head(tmp_path: Path
     ).with_checksum()
     write_journal(StorePaths(store_root).active_journal, journal.to_dict())
 
-    recovered = WorkspaceDurableStore.open(store_root).recover()
+    recovered = ProjectDurableStore.open(store_root).recover()
     assert recovered.superblock.current_commit_id == initial_head.superblock.last_clean_commit_id
     assert recovered.superblock.generation == initial_head.superblock.generation + 1
     assert read_journal(StorePaths(store_root).active_journal) is None
@@ -43,7 +43,7 @@ def test_recover_reverts_committing_state_when_commit_file_is_missing(tmp_path: 
     snapshot.write_text('{"version": 1}', encoding="utf-8")
 
     store_root = tmp_path / ".xpkg"
-    store = WorkspaceDurableStore.create_from_roots(store_root, {"snapshot": snapshot})
+    store = ProjectDurableStore.create_from_roots(store_root, {"snapshot": snapshot})
     initial_head = store.recover()
     paths = StorePaths(store_root)
     original_commit_id = initial_head.superblock.current_commit_id
@@ -68,7 +68,7 @@ def test_recover_reverts_committing_state_when_commit_file_is_missing(tmp_path: 
     ).with_checksum()
     write_journal(paths.active_journal, journal.to_dict())
 
-    recovered = WorkspaceDurableStore.open(store_root).recover()
+    recovered = ProjectDurableStore.open(store_root).recover()
     assert recovered.superblock.current_commit_id == initial_head.superblock.last_clean_commit_id
     assert recovered.superblock.generation == broken_superblock.generation + 1
     assert read_journal(paths.active_journal) is None

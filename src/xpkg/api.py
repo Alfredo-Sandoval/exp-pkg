@@ -1,7 +1,7 @@
-"""Stable public API for workspace-first xpkg integrations.
+"""Stable public API for project-first xpkg integrations.
 
-New integrations should start with ``WorkspaceService`` and
-``WorkspaceService.imports``. The explicit ``import_*_workspace(...)`` helpers
+New integrations should start with ``ProjectService`` and
+``ProjectService.imports``. The explicit ``import_*_project(...)`` helpers
 remain public for function-level callers.
 """
 
@@ -10,87 +10,87 @@ from __future__ import annotations
 import importlib
 from typing import Any
 
-_WORKSPACE_EXPORTS: dict[str, tuple[str, str]] = {
-    "WorkspaceService": (".services", "WorkspaceService"),
-    "WorkspaceImports": (".services", "WorkspaceImports"),
-    "WorkspaceLayout": (".services", "WorkspaceLayout"),
-    "WorkspaceArtifacts": (".services", "WorkspaceArtifacts"),
-    "WorkspaceFigures": (".services", "WorkspaceFigures"),
-    "WorkspaceSegmentation": (".services", "WorkspaceSegmentation"),
-    "WorkspaceInspection": (".workspace.inspection", "WorkspaceInspection"),
-    "ProjectDescriptor": (".workspace.layout", "ProjectDescriptor"),
-    "ArtifactFile": (".workspace.artifacts", "ArtifactFile"),
-    "ArtifactIndexEntry": (".workspace.artifacts", "ArtifactIndexEntry"),
-    "ArtifactManifest": (".workspace.artifacts", "ArtifactManifest"),
-    "FigureArtifact": (".workspace.figures", "FigureArtifact"),
-    "SegmentationFrame": (".workspace.project", "SegmentationFrame"),
-    "init_project": (".workspace.project", "init_project"),
-    "load_project_descriptor": (".workspace.layout", "load_project_descriptor"),
-    "load_workspace_vicon_recording": (".workspace.project", "load_workspace_vicon_recording"),
-    "inspect_workspace": (".workspace.inspection", "inspect_workspace"),
-    "save_workspace_labels": (".workspace.project", "save_workspace_labels"),
-    "load_workspace_metadata_field": (".workspace.metadata", "load_workspace_metadata_field"),
-    "save_workspace_metadata_field": (".workspace.metadata", "save_workspace_metadata_field"),
-    "save_workspace_metadata": (".workspace.project", "save_workspace_metadata"),
-    "load_workspace_metadata": (".workspace.project", "load_workspace_metadata"),
-    "load_workspace_payload": (".workspace.project", "load_workspace_payload"),
-    "list_workspace_artifacts": (".workspace.artifacts", "list_workspace_artifacts"),
-    "list_workspace_artifact_index": (".workspace.artifacts", "list_workspace_artifact_index"),
-    "load_workspace_artifact": (".workspace.artifacts", "load_workspace_artifact"),
-    "save_workspace_artifact": (".workspace.artifacts", "save_workspace_artifact"),
-    "validate_workspace_artifact": (".workspace.artifacts", "validate_workspace_artifact"),
-    "validate_workspace_artifacts": (".workspace.artifacts", "validate_workspace_artifacts"),
-    "rebuild_workspace_artifact_index": (
-        ".workspace.artifacts",
-        "rebuild_workspace_artifact_index",
+_PROJECT_EXPORTS: dict[str, tuple[str, str]] = {
+    "ProjectService": (".services", "ProjectService"),
+    "ProjectImports": (".services", "ProjectImports"),
+    "ProjectLayout": (".services", "ProjectLayout"),
+    "ProjectArtifacts": (".services", "ProjectArtifacts"),
+    "ProjectFigures": (".services", "ProjectFigures"),
+    "ProjectSegmentation": (".services", "ProjectSegmentation"),
+    "ProjectInspection": (".project.inspection", "ProjectInspection"),
+    "ProjectDescriptor": (".project.layout", "ProjectDescriptor"),
+    "ArtifactFile": (".project.artifacts", "ArtifactFile"),
+    "ArtifactIndexEntry": (".project.artifacts", "ArtifactIndexEntry"),
+    "ArtifactManifest": (".project.artifacts", "ArtifactManifest"),
+    "FigureArtifact": (".project.figures", "FigureArtifact"),
+    "SegmentationFrame": (".project", "SegmentationFrame"),
+    "init_project": (".project", "init_project"),
+    "load_project_descriptor": (".project.layout", "load_project_descriptor"),
+    "load_project_vicon_recording": (".project", "load_project_vicon_recording"),
+    "inspect_project": (".project.inspection", "inspect_project"),
+    "save_project_labels": (".project", "save_project_labels"),
+    "load_project_metadata_field": (".project.metadata", "load_project_metadata_field"),
+    "save_project_metadata_field": (".project.metadata", "save_project_metadata_field"),
+    "save_project_metadata": (".project", "save_project_metadata"),
+    "load_project_metadata": (".project", "load_project_metadata"),
+    "load_project_payload": (".project", "load_project_payload"),
+    "list_project_artifacts": (".project.artifacts", "list_project_artifacts"),
+    "list_project_artifact_index": (".project.artifacts", "list_project_artifact_index"),
+    "load_project_artifact": (".project.artifacts", "load_project_artifact"),
+    "save_project_artifact": (".project.artifacts", "save_project_artifact"),
+    "validate_project_artifact": (".project.artifacts", "validate_project_artifact"),
+    "validate_project_artifacts": (".project.artifacts", "validate_project_artifacts"),
+    "rebuild_project_artifact_index": (
+        ".project.artifacts",
+        "rebuild_project_artifact_index",
     ),
-    "list_workspace_figures": (".workspace.figures", "list_workspace_figures"),
-    "load_workspace_figure": (".workspace.figures", "load_workspace_figure"),
-    "save_workspace_figure": (".workspace.figures", "save_workspace_figure"),
-    "validate_workspace_figure": (".workspace.figures", "validate_workspace_figure"),
-    "validate_workspace_figures": (".workspace.figures", "validate_workspace_figures"),
-    "load_workspace_segmentation_frames": (
-        ".workspace.project",
-        "load_workspace_segmentation_frames",
+    "list_project_figures": (".project.figures", "list_project_figures"),
+    "load_project_figure": (".project.figures", "load_project_figure"),
+    "save_project_figure": (".project.figures", "save_project_figure"),
+    "validate_project_figure": (".project.figures", "validate_project_figure"),
+    "validate_project_figures": (".project.figures", "validate_project_figures"),
+    "load_project_segmentation_frames": (
+        ".project",
+        "load_project_segmentation_frames",
     ),
-    "load_workspace_segmentation_masks": (
-        ".workspace.project",
-        "load_workspace_segmentation_masks",
+    "load_project_segmentation_masks": (
+        ".project",
+        "load_project_segmentation_masks",
     ),
-    "save_workspace_segmentation_masks": (
-        ".workspace.project",
-        "save_workspace_segmentation_masks",
+    "save_project_segmentation_masks": (
+        ".project",
+        "save_project_segmentation_masks",
     ),
-    "clear_workspace_segmentation_masks": (
-        ".workspace.project",
-        "clear_workspace_segmentation_masks",
+    "clear_project_segmentation_masks": (
+        ".project",
+        "clear_project_segmentation_masks",
     ),
-    "current_project_state_path": (".workspace.project", "current_project_state_path"),
-    "current_project_snapshot_path": (".workspace.project", "current_project_snapshot_path"),
-    "pack_project": (".workspace.project", "pack_project"),
-    "unpack_project": (".workspace.project", "unpack_project"),
-    "validate_workspace": (".workspace.project", "validate_workspace"),
-    "default_expkg_path": (".workspace.layout", "default_expkg_path"),
-    "import_vicon_workspace": (".workspace.project", "import_vicon_workspace"),
-    "import_vicon_csv_workspace": (".workspace.project", "import_vicon_csv_workspace"),
-    "import_vicon_c3d_workspace": (".workspace.project", "import_vicon_c3d_workspace"),
-    "import_dlc_csv_workspace": (".workspace.project", "import_dlc_csv_workspace"),
-    "import_dlc_h5_workspace": (".workspace.project", "import_dlc_h5_workspace"),
-    "import_dlc_project_workspace": (".workspace.project", "import_dlc_project_workspace"),
-    "import_lightning_pose_csv_workspace": (
-        ".workspace.project",
-        "import_lightning_pose_csv_workspace",
+    "current_project_state_path": (".project", "current_project_state_path"),
+    "current_project_snapshot_path": (".project", "current_project_snapshot_path"),
+    "pack_project": (".project", "pack_project"),
+    "unpack_project": (".project", "unpack_project"),
+    "validate_project": (".project", "validate_project"),
+    "default_expkg_path": (".project.layout", "default_expkg_path"),
+    "import_vicon_project": (".project", "import_vicon_project"),
+    "import_vicon_csv_project": (".project", "import_vicon_csv_project"),
+    "import_vicon_c3d_project": (".project", "import_vicon_c3d_project"),
+    "import_dlc_csv_project": (".project", "import_dlc_csv_project"),
+    "import_dlc_h5_project": (".project", "import_dlc_h5_project"),
+    "import_dlc_project_directory": (".project", "import_dlc_project_directory"),
+    "import_lightning_pose_csv_project": (
+        ".project",
+        "import_lightning_pose_csv_project",
     ),
-    "import_mediapipe_pose_landmarks_json_workspace": (
-        ".workspace.project",
-        "import_mediapipe_pose_landmarks_json_workspace",
+    "import_mediapipe_pose_landmarks_json_project": (
+        ".project",
+        "import_mediapipe_pose_landmarks_json_project",
     ),
-    "import_mmpose_topdown_json_workspace": (
-        ".workspace.project",
-        "import_mmpose_topdown_json_workspace",
+    "import_mmpose_topdown_json_project": (
+        ".project",
+        "import_mmpose_topdown_json_project",
     ),
-    "import_sleap_h5_workspace": (".workspace.project", "import_sleap_h5_workspace"),
-    "import_sleap_package_workspace": (".workspace.project", "import_sleap_package_workspace"),
+    "import_sleap_h5_project": (".project", "import_sleap_h5_project"),
+    "import_sleap_package_project": (".project", "import_sleap_package_project"),
 }
 
 _MODEL_EXPORTS: dict[str, tuple[str, str]] = {
@@ -162,7 +162,7 @@ _ADAPTER_AND_READER_EXPORTS: dict[str, tuple[str, str]] = {
 }
 
 _LAZY_EXPORTS: dict[str, tuple[str, str]] = {
-    **_WORKSPACE_EXPORTS,
+    **_PROJECT_EXPORTS,
     **_MODEL_EXPORTS,
     **_ADAPTER_AND_READER_EXPORTS,
 }

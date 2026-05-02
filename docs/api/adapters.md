@@ -4,15 +4,15 @@
 <p>
 <code>xpkg.adapters</code> is the in-memory conversion surface for canonical
 xpkg objects. It exists for downstream tools that need arrays, tables, or
-JSON-friendly payloads without coupling to workspace layout or archive-format
+JSON-friendly payloads without coupling to project layout or archive-format
 storage tooling.
 </p>
 </div>
 
 !!! note
     Use <code>xpkg.model</code> for the object graph and
-    <code>xpkg.services</code> or <code>xpkg.workspace</code> for the
-    workspace/project contract.
+    <code>xpkg.services</code> or <code>xpkg.project</code> for the
+    project/project contract.
     Use <code>xpkg.adapters</code> when you want pure in-memory conversions.
 
 ## Current Surface
@@ -46,5 +46,5 @@ payload = labels_to_json_payload(labels)
 roundtripped = labels_from_json_payload(payload)
 ```
 
-The important boundary is that none of these helpers require a workspace root
+The important boundary is that none of these helpers require a project root
 or portable `.expkg` artifact.

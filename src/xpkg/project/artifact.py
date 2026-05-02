@@ -1,4 +1,4 @@
-"""Workspace pack/unpack and validation helpers."""
+"""Project pack/unpack and validation helpers."""
 
 from __future__ import annotations
 
@@ -13,21 +13,21 @@ from typing import Any, Literal
 
 from xpkg._core.hashing import sha256_file
 from xpkg._core.path_registry import resolve_path
-from xpkg.io.project_layout import (
+from xpkg.project.layout import (
     EXPKG_SUFFIX,
     MEDIA_DIRNAME,
     PROJECT_DESCRIPTOR_FILENAME,
     STORE_DIRNAME,
     ProjectDescriptor,
-    _candidate_workspace_root,
+    _candidate_project_root,
     _now_utc_iso,
     default_expkg_path,
     load_project_descriptor,
+    project_artifacts_root,
     project_descriptor_path,
-    resolve_workspace_root,
-    workspace_artifacts_root,
-    workspace_media_root,
-    workspace_store_root,
+    project_media_root,
+    project_store_root,
+    resolve_project_root,
     write_project_descriptor,
 )
 
@@ -74,18 +74,18 @@ _VIDEO_MEDIA_SUFFIXES = {
 }
 
 
-def _iter_workspace_files(
-    workspace_root: Path,
+def _iter_project_files(
+    project_root: Path,
     *,
     include_media: bool = True,
 ) -> list[Path]:
     files: list[Path] = []
-    descriptor_path = project_descriptor_path(workspace_root)
+    descriptor_path = project_descriptor_path(project_root)
     if descriptor_path.is_file():
         files.append(descriptor_path)
-    root_dirs = [workspace_store_root(workspace_root)]
+    root_dirs = [project_store_root(project_root)]
     if include_media:
-        root_dirs.append(workspace_media_root(workspace_root))
+        root_dirs.append(project_media_root(project_root))
     for root_dir in root_dirs:
         if not root_dir.exists():
             continue
@@ -99,8 +99,8 @@ def _iter_workspace_files(
     return files
 
 
-def _iter_workspace_media_files(workspace_root: Path) -> list[Path]:
-    media_root = workspace_media_root(workspace_root)
+def _iter_project_media_files(project_root: Path) -> list[Path]:
+    media_root = project_media_root(project_root)
     if not media_root.exists():
         return []
     files: list[Path] = []
@@ -112,8 +112,8 @@ def _iter_workspace_media_files(workspace_root: Path) -> list[Path]:
     return files
 
 
-def _relative_member_path(path: Path, workspace_root: Path) -> str:
-    return path.relative_to(workspace_root).as_posix()
+def _relative_member_path(path: Path, project_root: Path) -> str:
+    return path.relative_to(project_root).as_posix()
 
 
 def _member_role(member_path: str) -> str:
@@ -123,7 +123,7 @@ def _member_role(member_path: str) -> str:
         return "media"
     if member_path.startswith(f"{STORE_DIRNAME}/"):
         return "store"
-    return "workspace"
+    return "project"
 
 
 def _compression_name_for_member(member_path: str) -> str:
@@ -139,8 +139,8 @@ def _zip_compression_for_member(member_path: str) -> int:
     )
 
 
-def _file_manifest_entry(path: Path, *, workspace_root: Path) -> dict[str, Any]:
-    member_path = _relative_member_path(path, workspace_root)
+def _file_manifest_entry(path: Path, *, project_root: Path) -> dict[str, Any]:
+    member_path = _relative_member_path(path, project_root)
     return {
         "path": member_path,
         "role": _member_role(member_path),
@@ -153,10 +153,10 @@ def _file_manifest_entry(path: Path, *, workspace_root: Path) -> dict[str, Any]:
 def _media_manifest_entry(
     path: Path,
     *,
-    workspace_root: Path,
+    project_root: Path,
     included: bool,
 ) -> dict[str, Any]:
-    entry = _file_manifest_entry(path, workspace_root=workspace_root)
+    entry = _file_manifest_entry(path, project_root=project_root)
     entry["included"] = bool(included)
     if not included:
         entry["compression"] = "none"
@@ -182,8 +182,6 @@ def _expkg_manifest_payload(
             "title": descriptor.title,
             "project_schema_version": descriptor.project_schema_version,
             "layout_version": descriptor.layout_version,
-        },
-        "workspace": {
             "store_path": descriptor.store_path,
             "media_root": descriptor.media_root,
             "exports_root": descriptor.exports_root,
@@ -208,8 +206,8 @@ def _is_within(path: Path, parent: Path) -> bool:
         return False
 
 
-def _validate_vicon_bundle_paths(workspace_root: Path, recording: Any) -> None:
-    store_root = workspace_store_root(workspace_root).resolve()
+def _validate_vicon_bundle_paths(project_root: Path, recording: Any) -> None:
+    store_root = project_store_root(project_root).resolve()
     managed_paths = {
         "recording": recording.path,
         "xcp": recording.xcp_path,
@@ -220,26 +218,26 @@ def _validate_vicon_bundle_paths(workspace_root: Path, recording: Any) -> None:
             continue
         resolved = resolve_path(raw_path)
         if not resolved.is_file():
-            raise FileNotFoundError(f"Workspace Vicon {label} file missing: {resolved}")
+            raise FileNotFoundError(f"Project Vicon {label} file missing: {resolved}")
         if not _is_within(resolved, store_root):
             raise ValueError(
-                "Workspace Vicon bundle files must live under the workspace store. "
+                "Project Vicon bundle files must live under the project store. "
                 f"Found unmanaged {label} path: {resolved}"
             )
 
 
-def _workspace_media_violations(workspace_root: Path) -> list[str]:
-    from xpkg.io.project_workspace import current_project_state_path
-    from xpkg.io.workspace_state import workspace_state_kind
+def _project_media_violations(project_root: Path) -> list[str]:
     from xpkg.model import Labels
+    from xpkg.project.state import project_state_kind
+    from xpkg.project.store import current_project_state_path
 
-    state_path = current_project_state_path(workspace_root)
+    state_path = current_project_state_path(project_root)
     if not state_path.exists():
         return []
-    if state_path.suffix.lower() == ".json" and workspace_state_kind(state_path) == "vicon":
+    if state_path.suffix.lower() == ".json" and project_state_kind(state_path) == "vicon":
         return []
-    labels = Labels.load_file(workspace_root.as_posix())
-    media_root = workspace_media_root(workspace_root).resolve()
+    labels = Labels.load_file(project_root.as_posix())
+    media_root = project_media_root(project_root).resolve()
     violations: list[str] = []
 
     for video in labels.videos:
@@ -277,20 +275,20 @@ def _include_media_in_pack(path: Path, *, media_mode: PackMediaMode) -> bool:
 
 
 def pack_project(
-    workspace: str | Path,
+    project: str | Path,
     *,
     out: str | Path | None = None,
     media: str | None = None,
     overwrite: bool = False,
 ) -> Path:
-    root = resolve_workspace_root(workspace)
+    root = resolve_project_root(project)
     if root is None:
-        raise FileNotFoundError(f"Not an xpkg workspace: {workspace}")
+        raise FileNotFoundError(f"Not an xpkg project: {project}")
     media_mode = _normalize_pack_media_mode(media)
-    validate_workspace(root)
+    validate_project(root)
 
     descriptor = load_project_descriptor(root)
-    violations = _workspace_media_violations(root)
+    violations = _project_media_violations(root)
     if violations:
         joined = ", ".join(violations[:5])
         if len(violations) > 5:
@@ -307,27 +305,27 @@ def pack_project(
         raise FileExistsError(f"Output artifact already exists: {out_path}")
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
-    workspace_media_files = _iter_workspace_media_files(root)
+    project_media_files = _iter_project_media_files(root)
     included_media_paths = {
         source_path
-        for source_path in workspace_media_files
+        for source_path in project_media_files
         if _include_media_in_pack(source_path, media_mode=media_mode)
     }
     members = [
-        *_iter_workspace_files(root, include_media=False),
-        *[path for path in workspace_media_files if path in included_media_paths],
+        *_iter_project_files(root, include_media=False),
+        *[path for path in project_media_files if path in included_media_paths],
     ]
     member_entries = [
-        _file_manifest_entry(source_path, workspace_root=root)
+        _file_manifest_entry(source_path, project_root=root)
         for source_path in members
     ]
     media_entries = [
         _media_manifest_entry(
             source_path,
-            workspace_root=root,
+            project_root=root,
             included=source_path in included_media_paths,
         )
-        for source_path in workspace_media_files
+        for source_path in project_media_files
     ]
     manifest = _expkg_manifest_payload(
         descriptor=descriptor,
@@ -673,7 +671,7 @@ def unpack_project(
         raise FileNotFoundError(f"Packed project artifact not found: {artifact_path}")
     manifest = _validate_expkg_artifact(artifact_path)
 
-    out_root = _candidate_workspace_root(out)
+    out_root = _candidate_project_root(out)
     if out_root.exists() and not out_root.is_dir():
         raise NotADirectoryError(f"Output path is not a directory: {out_root}")
     if out_root.exists():
@@ -704,9 +702,9 @@ def unpack_project(
         descriptor.updated_at = _now_utc_iso()
         write_project_descriptor(out_root, descriptor)
     if _manifest_has_external_media(manifest):
-        _validate_workspace_layout(out_root)
+        _validate_project_layout(out_root)
     else:
-        validate_workspace(out_root)
+        validate_project(out_root)
     return out_root
 
 
@@ -718,50 +716,50 @@ def _manifest_has_external_media(manifest: dict[str, Any]) -> bool:
     )
 
 
-def _validate_workspace_layout(workspace: str | Path) -> tuple[Path, ProjectDescriptor]:
-    root = resolve_workspace_root(workspace)
+def _validate_project_layout(project: str | Path) -> tuple[Path, ProjectDescriptor]:
+    root = resolve_project_root(project)
     if root is None:
-        raise FileNotFoundError(f"Not an xpkg workspace: {workspace}")
+        raise FileNotFoundError(f"Not an xpkg project: {project}")
     descriptor = load_project_descriptor(root)
     descriptor.validate()
 
     store_root = root / descriptor.store_path
     if not store_root.is_dir():
-        raise FileNotFoundError(f"Workspace store directory missing: {store_root}")
+        raise FileNotFoundError(f"Project store directory missing: {store_root}")
 
     media_root = root / descriptor.media_root
     exports_root = root / descriptor.exports_root
     if media_root.exists() and not media_root.is_dir():
-        raise ValueError(f"Workspace media root is not a directory: {media_root}")
+        raise ValueError(f"Project media root is not a directory: {media_root}")
     if exports_root.exists() and not exports_root.is_dir():
-        raise ValueError(f"Workspace exports root is not a directory: {exports_root}")
-    artifacts_root = workspace_artifacts_root(root)
+        raise ValueError(f"Project exports root is not a directory: {exports_root}")
+    artifacts_root = project_artifacts_root(root)
     if artifacts_root.exists() and not artifacts_root.is_dir():
-        raise ValueError(f"Workspace artifacts root is not a directory: {artifacts_root}")
+        raise ValueError(f"Project artifacts root is not a directory: {artifacts_root}")
     return root, descriptor
 
 
-def validate_workspace(workspace: str | Path) -> None:
-    root, _descriptor = _validate_workspace_layout(workspace)
+def validate_project(project: str | Path) -> None:
+    root, _descriptor = _validate_project_layout(project)
 
-    from xpkg.io.project_artifacts import validate_workspace_artifacts
-    from xpkg.io.project_workspace import (
-        current_project_state_path,
-        ensure_current_workspace_snapshot_cache,
-        load_workspace_vicon_recording,
-    )
-    from xpkg.io.workspace_state import workspace_state_kind
     from xpkg.model import Labels
+    from xpkg.project.artifacts import validate_project_artifacts
+    from xpkg.project.state import project_state_kind
+    from xpkg.project.store import (
+        current_project_state_path,
+        ensure_current_project_snapshot_cache,
+        load_project_vicon_recording,
+    )
 
-    validate_workspace_artifacts(root)
+    validate_project_artifacts(root)
 
-    snapshot_path = ensure_current_workspace_snapshot_cache(root)
+    snapshot_path = ensure_current_project_snapshot_cache(root)
     state_path = snapshot_path if snapshot_path is not None else current_project_state_path(root)
     if not state_path.exists():
         return
     if state_path.suffix.lower() == ".json":
-        if workspace_state_kind(state_path) == "vicon":
-            recording = load_workspace_vicon_recording(root)
+        if project_state_kind(state_path) == "vicon":
+            recording = load_project_vicon_recording(root)
             _validate_vicon_bundle_paths(root, recording)
             return
     labels = Labels.load_file(root.as_posix())
@@ -780,7 +778,7 @@ def validate_expkg(artifact: str | Path) -> None:
 def validate_artifact(path: str | Path) -> None:
     resolved = resolve_path(path)
     if resolved.is_dir() or resolved.name == PROJECT_DESCRIPTOR_FILENAME:
-        validate_workspace(resolved)
+        validate_project(resolved)
         return
     if resolved.suffix.lower() == EXPKG_SUFFIX:
         validate_expkg(resolved)
@@ -794,5 +792,5 @@ __all__ = [
     "unpack_project",
     "validate_artifact",
     "validate_expkg",
-    "validate_workspace",
+    "validate_project",
 ]

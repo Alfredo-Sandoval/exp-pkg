@@ -1,4 +1,4 @@
-"""Workspace lifecycle commands."""
+"""Project lifecycle commands."""
 
 from __future__ import annotations
 
@@ -8,59 +8,59 @@ from typing import Annotated, Any
 
 import typer
 
-from xpkg.cli.shared import JsonOption, PackMedia, run_command, write_path
-from xpkg.workspace import (
+from xpkg.cli.shared import JsonOption, PackMedia, require_option_value, run_command, write_path
+from xpkg.project import (
     current_project_state_path,
     init_project,
     load_project_descriptor,
     pack_project,
+    project_artifacts_root,
     project_descriptor_path,
-    resolve_workspace_root,
+    project_exports_root,
+    project_media_root,
+    project_state_root,
+    project_store_root,
+    resolve_project_root,
     unpack_project,
-    workspace_artifacts_root,
-    workspace_exports_root,
-    workspace_media_root,
-    workspace_state_root,
-    workspace_store_root,
 )
-from xpkg.workspace import (
+from xpkg.project import (
     validate_artifact as validate_artifact_target,
 )
 
 app = typer.Typer(
     add_completion=False,
-    help="Create, inspect, validate, pack, and unpack workspace-first projects.",
+    help="Create, inspect, validate, pack, and unpack project-first projects.",
     no_args_is_help=True,
     rich_markup_mode="rich",
 )
 
 
-def _workspace_describe_payload(path: str) -> dict[str, Any]:
-    root = resolve_workspace_root(path)
+def _project_describe_payload(path: str) -> dict[str, Any]:
+    root = resolve_project_root(path)
     if root is None:
-        raise FileNotFoundError(f"Not an xpkg workspace: {path}")
+        raise FileNotFoundError(f"Not an xpkg project: {path}")
     descriptor = load_project_descriptor(root)
     current_state = current_project_state_path(root)
     return {
         "status": "described",
-        "workspace": str(root),
+        "project": str(root),
         "descriptor": descriptor.to_dict(),
         "paths": {
             "descriptor": str(project_descriptor_path(root)),
-            "store": str(workspace_store_root(root)),
-            "artifacts": str(workspace_artifacts_root(root)),
-            "state": str(workspace_state_root(root)),
-            "media": str(workspace_media_root(root)),
-            "exports": str(workspace_exports_root(root)),
+            "store": str(project_store_root(root)),
+            "artifacts": str(project_artifacts_root(root)),
+            "state": str(project_state_root(root)),
+            "media": str(project_media_root(root)),
+            "exports": str(project_exports_root(root)),
             "current_state": str(current_state),
         },
         "has_current_state": current_state.exists(),
     }
 
 
-def _emit_workspace_description(payload: dict[str, Any]) -> None:
+def _emit_project_description(payload: dict[str, Any]) -> None:
     paths = payload["paths"]
-    sys.stdout.write(f"Workspace {payload['workspace']}\n")
+    sys.stdout.write(f"Project {payload['project']}\n")
     sys.stdout.write(f"Descriptor {paths['descriptor']}\n")
     sys.stdout.write(f"Store {paths['store']}\n")
     sys.stdout.write(f"Artifacts {paths['artifacts']}\n")
@@ -72,21 +72,21 @@ def _emit_workspace_description(payload: dict[str, Any]) -> None:
 
 @app.command("describe")
 def describe(
-    workspace: Annotated[str, typer.Argument(help="Workspace directory to inspect.")],
+    project: Annotated[str, typer.Argument(help="Project directory to inspect.")],
     json_output: JsonOption = False,
 ) -> None:
-    """Describe the normalized workspace layout and descriptor."""
+    """Describe the normalized project layout and descriptor."""
 
     run_command(
         json_output=json_output,
-        action=lambda: _workspace_describe_payload(workspace),
-        human_output=_emit_workspace_description,
+        action=lambda: _project_describe_payload(project),
+        human_output=_emit_project_description,
     )
 
 
 @app.command("init")
 def init(
-    workspace: Annotated[str, typer.Argument(help="Workspace directory to create.")],
+    project: Annotated[str, typer.Argument(help="Project directory to create.")],
     title: Annotated[
         str | None,
         typer.Option("--title", help="Optional project title."),
@@ -101,31 +101,31 @@ def init(
     ] = False,
     json_output: JsonOption = False,
 ) -> None:
-    """Create a new empty exp-pkg workspace."""
+    """Create a new empty exp-pkg project."""
 
     def action() -> dict[str, object]:
         init_project(
-            workspace,
+            project,
             title=title,
             project_id=project_id,
             force=force,
         )
         return {
             "status": "initialized",
-            "workspace": workspace,
+            "project": project,
             "title": title,
             "project_id": project_id,
         }
 
     def human_output(payload: dict[str, object]) -> None:
-        sys.stdout.write(f"Initialized workspace {Path(str(payload['workspace']))}\n")
+        sys.stdout.write(f"Initialized project {Path(str(payload['project']))}\n")
 
     run_command(json_output=json_output, action=action, human_output=human_output)
 
 
 @app.command("pack")
 def pack(
-    workspace: Annotated[str, typer.Argument(help="Workspace directory to pack.")],
+    project: Annotated[str, typer.Argument(help="Project directory to pack.")],
     out: Annotated[
         str | None,
         typer.Option("--out", help="Explicit output .expkg path."),
@@ -146,24 +146,24 @@ def pack(
     ] = False,
     json_output: JsonOption = False,
 ) -> None:
-    """Pack a workspace into a .expkg artifact."""
+    """Pack a project into a .expkg artifact."""
 
     def action() -> dict[str, object]:
         artifact_path = pack_project(
-            workspace,
+            project,
             out=out,
             media=media.value,
             overwrite=overwrite,
         )
         return {
             "status": "packed",
-            "workspace": workspace,
+            "project": project,
             "artifact": str(artifact_path),
             "media": media.value,
         }
 
     def human_output(payload: dict[str, object]) -> None:
-        sys.stdout.write(f"Packed {payload['workspace']}\n")
+        sys.stdout.write(f"Packed {payload['project']}\n")
         write_path(Path(str(payload["artifact"])))
 
     run_command(json_output=json_output, action=action, human_output=human_output)
@@ -172,7 +172,7 @@ def pack(
 @app.command("unpack")
 def unpack(
     artifact: Annotated[str, typer.Argument(help="Path to the .expkg artifact.")],
-    out: Annotated[str, typer.Option("--out", help="Destination workspace directory.")],
+    out: Annotated[str, typer.Option("--out", help="Destination project directory.")] = ...,
     force: Annotated[
         bool,
         typer.Option("--force", help="Allow unpacking into an existing empty directory."),
@@ -183,10 +183,11 @@ def unpack(
     ] = None,
     json_output: JsonOption = False,
 ) -> None:
-    """Unpack a .expkg artifact into a workspace."""
+    """Unpack a .expkg artifact into a project."""
+    out = require_option_value(out, "--out")
 
     def action() -> dict[str, object]:
-        workspace_path = unpack_project(
+        project_path = unpack_project(
             artifact,
             out,
             force=force,
@@ -195,23 +196,23 @@ def unpack(
         return {
             "status": "unpacked",
             "artifact": artifact,
-            "workspace": str(workspace_path),
+            "project": str(project_path),
             "title": rename,
         }
 
     def human_output(payload: dict[str, object]) -> None:
         sys.stdout.write(f"Unpacked {payload['artifact']}\n")
-        write_path(Path(str(payload["workspace"])))
+        write_path(Path(str(payload["project"])))
 
     run_command(json_output=json_output, action=action, human_output=human_output)
 
 
 @app.command("validate")
 def validate(
-    path: Annotated[str, typer.Argument(help="Workspace or .expkg artifact to validate.")],
+    path: Annotated[str, typer.Argument(help="Project or .expkg artifact to validate.")],
     json_output: JsonOption = False,
 ) -> None:
-    """Validate a workspace or packed .expkg artifact."""
+    """Validate a project or packed .expkg artifact."""
 
     def action() -> dict[str, object]:
         validate_artifact_target(path)

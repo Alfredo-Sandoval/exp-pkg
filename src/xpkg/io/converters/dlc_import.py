@@ -1,4 +1,4 @@
-"""Convert DeepLabCut-style tracking data into workspace-ready labels."""
+"""Convert DeepLabCut-style tracking data into project-ready labels."""
 
 from __future__ import annotations
 
@@ -29,7 +29,7 @@ DlcReader = Callable[[Path], tuple[pd.DataFrame, list[str]]]
 _DLC_READ_H5_MARKER = "DLC_IMPORT STEP: read_h5"
 _DLC_VALIDATE_VIDEOS_MARKER = "DLC_IMPORT STEP: validate_videos"
 _DLC_BUILD_LABELS_MARKER = "DLC_IMPORT STEP: build_labels"
-_DLC_PREPARE_RESULT_MARKER = "DLC_IMPORT STEP: prepare_workspace_state"
+_DLC_PREPARE_RESULT_MARKER = "DLC_IMPORT STEP: prepare_project_state"
 _DLC_DONE_MARKER = "DLC_IMPORT DONE"
 
 DLC_H5_PROJECT_PROGRESS_MARKERS: tuple[tuple[str, int], ...] = (
@@ -382,7 +382,7 @@ def _tracking_conversion_result(
         "source_video": video_path.as_posix(),
     }
 
-    _emit(progress_callback, "IMPORT: Prepared workspace state")
+    _emit(progress_callback, "IMPORT: Prepared project state")
     _emit(progress_callback, "IMPORT: Done")
 
     return ConversionResult(
@@ -406,7 +406,7 @@ def _convert_dlc_tracking(
     likelihood_threshold: float,
     progress_callback: ProgressCallback | None,
 ) -> ConversionResult:
-    """Run the single-file DLC data-file to workspace-state conversion pipeline."""
+    """Run the single-file DLC data-file to project-state conversion pipeline."""
 
     resolved_data_path = _resolve_tracking_path(data_path)
     resolved_video_path = _resolve_video_path(video_path)
@@ -443,7 +443,7 @@ def convert_dlc_csv(
     likelihood_threshold: float = 0.0,
     progress_callback: ProgressCallback | None = None,
 ) -> ConversionResult:
-    """Convert a DLC CSV file and matching video into workspace-ready labels."""
+    """Convert a DLC CSV file and matching video into project-ready labels."""
 
     return _convert_dlc_tracking(
         csv_path,
@@ -466,7 +466,7 @@ def convert_lightning_pose_csv(
     likelihood_threshold: float = 0.0,
     progress_callback: ProgressCallback | None = None,
 ) -> ConversionResult:
-    """Convert a Lightning Pose prediction CSV and matching video into workspace-ready labels."""
+    """Convert a Lightning Pose prediction CSV and matching video into project-ready labels."""
 
     return _convert_dlc_tracking(
         csv_path,
@@ -489,7 +489,7 @@ def convert_dlc_h5(
     likelihood_threshold: float = 0.0,
     progress_callback: ProgressCallback | None = None,
 ) -> ConversionResult:
-    """Convert a DLC H5 tracking file and matching video into workspace-ready labels."""
+    """Convert a DLC H5 tracking file and matching video into project-ready labels."""
 
     return _convert_dlc_tracking(
         h5_path,
@@ -512,7 +512,7 @@ def convert_dlc_h5_project(
     likelihood_threshold: float = 0.0,
     progress_callback: ProgressCallback | None = None,
 ) -> ConversionResult:
-    """Convert one DLC H5 tracking file plus explicit videos into workspace-ready labels."""
+    """Convert one DLC H5 tracking file plus explicit videos into project-ready labels."""
 
     resolved_h5 = resolve_path(h5_path)
     resolved_project_root = ensure_dir(project_root)
@@ -562,7 +562,7 @@ def convert_dlc_project(
     likelihood_threshold: float = 0.0,
     progress_callback: ProgressCallback | None = None,
 ) -> list[ConversionResult]:
-    """Convert an entire DLC project directory into workspace-ready label sets."""
+    """Convert an entire DLC project directory into project-ready label sets."""
 
     project_dir = resolve_path(project_dir)
     out_dir = resolve_path(out_dir)

@@ -7,7 +7,7 @@ from typing import Annotated
 
 import typer
 
-from xpkg.cli.commands import artifacts, completion, imports, workspace
+from xpkg.cli.commands import artifacts, completion, imports, project
 from xpkg.cli.shared import (
     JsonOption,
     run_command,
@@ -18,7 +18,7 @@ from xpkg.version import __version__
 app = typer.Typer(
     add_completion=False,
     context_settings={"help_option_names": ["-h", "--help"]},
-    help="Workspace-first IO and artifact tools for experiment projects.",
+    help="Project-first IO and artifact tools for experiment projects.",
     no_args_is_help=False,
     rich_markup_mode="rich",
 )
@@ -69,7 +69,7 @@ def _describe_payload() -> dict[str, object]:
                 "vicon csv",
                 "vicon recording",
             ],
-            "workspace": ["describe", "init", "pack", "unpack", "validate"],
+            "project": ["describe", "init", "pack", "unpack", "validate"],
         },
         "commands": [
             "artifacts inspect",
@@ -91,11 +91,11 @@ def _describe_payload() -> dict[str, object]:
             "import vicon c3d",
             "import vicon csv",
             "import vicon recording",
-            "workspace describe",
-            "workspace init",
-            "workspace pack",
-            "workspace unpack",
-            "workspace validate",
+            "project describe",
+            "project init",
+            "project pack",
+            "project unpack",
+            "project validate",
         ],
     }
 
@@ -138,7 +138,7 @@ def describe(json_output: JsonOption = False) -> None:
 app.add_typer(artifacts.app, name="artifacts")
 app.add_typer(completion.build_app(app), name="completion")
 app.add_typer(imports.app, name="import")
-app.add_typer(workspace.app, name="workspace")
+app.add_typer(project.app, name="project")
 
 
 def main(argv: Sequence[str] | None = None) -> int:

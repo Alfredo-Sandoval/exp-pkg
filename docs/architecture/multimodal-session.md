@@ -2,7 +2,7 @@
 
 <div class="page-intro">
 <p>
-The multimodal session model is the bridge between today's pose/video workspace
+The multimodal session model is the bridge between today's pose/video project
 support and the target neuroscience IO layer for pose, video, photometry,
 events, and synchronization.
 </p>
@@ -18,12 +18,12 @@ keeping modality-specific data in typed objects.
 raw lab files
   -> direct readers
   -> model objects
-  -> workspace imports
-  -> validated workspace
+  -> project imports
+  -> validated project
   -> portable .expkg artifact
 ```
 
-The direct reader layer should stay pleasant and lightweight. The workspace
+The direct reader layer should stay pleasant and lightweight. The project
 layer adds durable storage, validation, provenance, and packaging.
 
 ## Current Public Objects
@@ -111,7 +111,7 @@ print(session.time_range)
 ## Current Boundary
 
 The session/time/events/signals classes are available today as model objects.
-They are not yet a full workspace import stack.
+They are not yet a full project import stack.
 
 Implemented now:
 
@@ -135,21 +135,21 @@ Explicitly not part of the fiber-photometry layer:
 Still ahead:
 
 - `read_sync_csv(...)`
-- `workspace.imports.photometry_csv(...)`
-- `workspace.imports.events_csv(...)`
-- `workspace.imports.sync_csv(...)`
-- session manifest storage under the workspace contract
+- `project.imports.photometry_csv(...)`
+- `project.imports.events_csv(...)`
+- `project.imports.sync_csv(...)`
+- session manifest storage under the project contract
 - `xpkg inspect --json`
 
 ## Design Constraints
 
 - Keep the core package IO-focused.
 - Do not require NWB, PyTorch, or a downstream analysis stack.
-- Keep direct readers usable without workspaces.
-- Keep workspace imports useful for durable projects and artifacts.
+- Keep direct readers usable without projects.
+- Keep project imports useful for durable projects and artifacts.
 - Preserve provenance and time alignment.
 - Do not overfit the model to one photometry vendor, one camera stack, or one
   lab's file naming scheme.
 
 This gives `xpkg` a practical adoption path: direct neuroscience IO first,
-portable workspace/session contracts second, optional analysis bridges later.
+portable project/session contracts second, optional analysis bridges later.

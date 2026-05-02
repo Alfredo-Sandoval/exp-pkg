@@ -6,8 +6,8 @@ from pathlib import Path
 import pytest
 
 
-def _workspace_state_path(workspace: str) -> Path:
-    return Path(workspace) / ".xpkg" / "state" / "current.json"
+def _project_state_path(project: str) -> Path:
+    return Path(project) / ".xpkg" / "state" / "current.json"
 
 
 def test_cli_rejects_removed_compat_commands() -> None:
@@ -32,29 +32,29 @@ def test_cli_rejects_removed_compat_commands() -> None:
         main(["import", "vicon", "--csv", "trial.csv", "--out", "My Project"])
 
 
-def test_cli_routes_init_workspace(monkeypatch, capsys) -> None:
+def test_cli_routes_init_project(monkeypatch, capsys) -> None:
     from xpkg.cli import main
 
     captured: dict[str, object] = {}
 
     def fake_init_project(
-        workspace: str,
+        project: str,
         *,
         title: str | None,
         project_id: str | None,
         force: bool,
     ) -> object:
-        captured["workspace"] = workspace
+        captured["project"] = project
         captured["title"] = title
         captured["project_id"] = project_id
         captured["force"] = force
         return object()
 
-    monkeypatch.setattr("xpkg.cli.commands.workspace.init_project", fake_init_project)
+    monkeypatch.setattr("xpkg.cli.commands.project.init_project", fake_init_project)
 
     code = main(
         [
-            "workspace",
+            "project",
             "init",
             "My Project",
             "--title",
@@ -67,12 +67,12 @@ def test_cli_routes_init_workspace(monkeypatch, capsys) -> None:
 
     assert code == 0
     assert captured == {
-        "workspace": "My Project",
+        "project": "My Project",
         "title": "My Project",
         "project_id": "project-123",
         "force": True,
     }
-    assert "Initialized workspace My Project" in capsys.readouterr().out
+    assert "Initialized project My Project" in capsys.readouterr().out
 
 
 def test_cli_init_json_mode(monkeypatch, capsys) -> None:
@@ -81,25 +81,25 @@ def test_cli_init_json_mode(monkeypatch, capsys) -> None:
     captured: dict[str, object] = {}
 
     def fake_init_project(
-        workspace: str,
+        project: str,
         *,
         title: str | None,
         project_id: str | None,
         force: bool,
     ) -> object:
-        captured["workspace"] = workspace
+        captured["project"] = project
         captured["title"] = title
         captured["project_id"] = project_id
         captured["force"] = force
         return object()
 
-    monkeypatch.setattr("xpkg.cli.commands.workspace.init_project", fake_init_project)
+    monkeypatch.setattr("xpkg.cli.commands.project.init_project", fake_init_project)
 
-    code = main(["workspace", "init", "My Project", "--title", "My Project", "--json"])
+    code = main(["project", "init", "My Project", "--title", "My Project", "--json"])
 
     assert code == 0
     assert captured == {
-        "workspace": "My Project",
+        "project": "My Project",
         "title": "My Project",
         "project_id": None,
         "force": False,
@@ -109,21 +109,21 @@ def test_cli_init_json_mode(monkeypatch, capsys) -> None:
     payload = json.loads(captured_streams.out)
     assert payload == {
         "status": "initialized",
-        "workspace": "My Project",
+        "project": "My Project",
         "title": "My Project",
         "project_id": None,
     }
 
 
-def test_cli_routes_import_dlc_csv_workspace(monkeypatch, capsys) -> None:
+def test_cli_routes_import_dlc_csv_project(monkeypatch, capsys) -> None:
     from xpkg.cli import main
 
     captured: dict[str, object] = {}
 
-    def fake_import_dlc_csv_workspace(
+    def fake_import_dlc_csv_project(
         csv_path: str,
         video_path: str,
-        workspace: str,
+        project: str,
         *,
         skeleton_name: str,
         likelihood_threshold: float,
@@ -132,16 +132,16 @@ def test_cli_routes_import_dlc_csv_workspace(monkeypatch, capsys) -> None:
     ) -> Path:
         captured["csv_path"] = csv_path
         captured["video_path"] = video_path
-        captured["workspace"] = workspace
+        captured["project"] = project
         captured["skeleton_name"] = skeleton_name
         captured["likelihood_threshold"] = likelihood_threshold
         captured["force"] = force
         progress_callback("import-progress")
-        return _workspace_state_path(workspace)
+        return _project_state_path(project)
 
     monkeypatch.setattr(
-        "xpkg.cli.commands.imports.import_dlc_csv_workspace",
-        fake_import_dlc_csv_workspace,
+        "xpkg.cli.commands.imports.import_dlc_csv_project",
+        fake_import_dlc_csv_project,
     )
 
     code = main(
@@ -166,7 +166,7 @@ def test_cli_routes_import_dlc_csv_workspace(monkeypatch, capsys) -> None:
     assert captured == {
         "csv_path": "tracking.csv",
         "video_path": "clip.mp4",
-        "workspace": "My Project",
+        "project": "My Project",
         "skeleton_name": "subject",
         "likelihood_threshold": 0.25,
         "force": False,
@@ -180,10 +180,10 @@ def test_cli_routes_import_dlc_csv_workspace(monkeypatch, capsys) -> None:
 def test_cli_import_json_mode_suppresses_progress(monkeypatch, capsys) -> None:
     from xpkg.cli import main
 
-    def fake_import_dlc_csv_workspace(
+    def fake_import_dlc_csv_project(
         csv_path: str,
         video_path: str,
-        workspace: str,
+        project: str,
         *,
         skeleton_name: str,
         likelihood_threshold: float,
@@ -191,11 +191,11 @@ def test_cli_import_json_mode_suppresses_progress(monkeypatch, capsys) -> None:
         progress_callback,
     ) -> Path:
         progress_callback("import-progress")
-        return _workspace_state_path(workspace)
+        return _project_state_path(project)
 
     monkeypatch.setattr(
-        "xpkg.cli.commands.imports.import_dlc_csv_workspace",
-        fake_import_dlc_csv_workspace,
+        "xpkg.cli.commands.imports.import_dlc_csv_project",
+        fake_import_dlc_csv_project,
     )
 
     code = main(
@@ -221,32 +221,32 @@ def test_cli_import_json_mode_suppresses_progress(monkeypatch, capsys) -> None:
     assert payload == {
         "status": "imported",
         "source": "dlc_csv",
-        "workspace": "My Project",
+        "project": "My Project",
         "state_path": "My Project/.xpkg/state/current.json",
     }
 
 
-def test_cli_routes_import_vicon_csv_workspace(monkeypatch, capsys) -> None:
+def test_cli_routes_import_vicon_csv_project(monkeypatch, capsys) -> None:
     from xpkg.cli import main
 
     captured: dict[str, object] = {}
 
-    def fake_import_vicon_csv_workspace(
+    def fake_import_vicon_csv_project(
         csv_path: str,
-        workspace: str,
+        project: str,
         *,
         force: bool = False,
         progress_callback,
     ) -> Path:
         captured["csv_path"] = csv_path
-        captured["workspace"] = workspace
+        captured["project"] = project
         captured["force"] = force
         progress_callback("vicon-csv-progress")
-        return _workspace_state_path(workspace)
+        return _project_state_path(project)
 
     monkeypatch.setattr(
-        "xpkg.cli.commands.imports.import_vicon_csv_workspace",
-        fake_import_vicon_csv_workspace,
+        "xpkg.cli.commands.imports.import_vicon_csv_project",
+        fake_import_vicon_csv_project,
     )
 
     code = main(
@@ -264,7 +264,7 @@ def test_cli_routes_import_vicon_csv_workspace(monkeypatch, capsys) -> None:
     assert code == 0
     assert captured == {
         "csv_path": "trial.csv",
-        "workspace": "My Project",
+        "project": "My Project",
         "force": False,
     }
     stdout = capsys.readouterr().out
@@ -273,27 +273,27 @@ def test_cli_routes_import_vicon_csv_workspace(monkeypatch, capsys) -> None:
     assert ".xpkg/state/current.json" in stdout
 
 
-def test_cli_routes_import_vicon_c3d_workspace(monkeypatch, capsys) -> None:
+def test_cli_routes_import_vicon_c3d_project(monkeypatch, capsys) -> None:
     from xpkg.cli import main
 
     captured: dict[str, object] = {}
 
-    def fake_import_vicon_c3d_workspace(
+    def fake_import_vicon_c3d_project(
         c3d_path: str,
-        workspace: str,
+        project: str,
         *,
         force: bool = False,
         progress_callback,
     ) -> Path:
         captured["c3d_path"] = c3d_path
-        captured["workspace"] = workspace
+        captured["project"] = project
         captured["force"] = force
         progress_callback("vicon-c3d-progress")
-        return _workspace_state_path(workspace)
+        return _project_state_path(project)
 
     monkeypatch.setattr(
-        "xpkg.cli.commands.imports.import_vicon_c3d_workspace",
-        fake_import_vicon_c3d_workspace,
+        "xpkg.cli.commands.imports.import_vicon_c3d_project",
+        fake_import_vicon_c3d_project,
     )
 
     code = main(
@@ -311,7 +311,7 @@ def test_cli_routes_import_vicon_c3d_workspace(monkeypatch, capsys) -> None:
     assert code == 0
     assert captured == {
         "c3d_path": "trial.c3d",
-        "workspace": "My Project",
+        "project": "My Project",
         "force": False,
     }
     stdout = capsys.readouterr().out
@@ -320,27 +320,27 @@ def test_cli_routes_import_vicon_c3d_workspace(monkeypatch, capsys) -> None:
     assert ".xpkg/state/current.json" in stdout
 
 
-def test_cli_routes_import_vicon_recording_workspace(monkeypatch, capsys) -> None:
+def test_cli_routes_import_vicon_recording_project(monkeypatch, capsys) -> None:
     from xpkg.cli import main
 
     captured: dict[str, object] = {}
 
-    def fake_import_vicon_workspace(
+    def fake_import_vicon_project(
         recording_path: str,
-        workspace: str,
+        project: str,
         *,
         force: bool = False,
         progress_callback,
     ) -> Path:
         captured["recording_path"] = recording_path
-        captured["workspace"] = workspace
+        captured["project"] = project
         captured["force"] = force
         progress_callback("vicon-auto-progress")
-        return _workspace_state_path(workspace)
+        return _project_state_path(project)
 
     monkeypatch.setattr(
-        "xpkg.cli.commands.imports.import_vicon_workspace",
-        fake_import_vicon_workspace,
+        "xpkg.cli.commands.imports.import_vicon_project",
+        fake_import_vicon_project,
     )
 
     code = main(
@@ -358,7 +358,7 @@ def test_cli_routes_import_vicon_recording_workspace(monkeypatch, capsys) -> Non
     assert code == 0
     assert captured == {
         "recording_path": "trial.csv",
-        "workspace": "My Project",
+        "project": "My Project",
         "force": False,
     }
     stdout = capsys.readouterr().out
@@ -367,14 +367,14 @@ def test_cli_routes_import_vicon_recording_workspace(monkeypatch, capsys) -> Non
     assert ".xpkg/state/current.json" in stdout
 
 
-def test_cli_routes_import_dlc_project_workspace(monkeypatch, capsys) -> None:
+def test_cli_routes_import_dlc_project_directory(monkeypatch, capsys) -> None:
     from xpkg.cli import main
 
     captured: dict[str, object] = {}
 
-    def fake_import_dlc_project_workspace(
+    def fake_import_dlc_project_directory(
         project_dir: str,
-        workspace: str,
+        project: str,
         *,
         skeleton_name: str | None = None,
         likelihood_threshold: float,
@@ -382,16 +382,16 @@ def test_cli_routes_import_dlc_project_workspace(monkeypatch, capsys) -> None:
         progress_callback,
     ) -> Path:
         captured["project_dir"] = project_dir
-        captured["workspace"] = workspace
+        captured["project"] = project
         captured["skeleton_name"] = skeleton_name
         captured["likelihood_threshold"] = likelihood_threshold
         captured["force"] = force
         progress_callback("project-import-progress")
-        return _workspace_state_path(workspace)
+        return _project_state_path(project)
 
     monkeypatch.setattr(
-        "xpkg.cli.commands.imports.import_dlc_project_workspace",
-        fake_import_dlc_project_workspace,
+        "xpkg.cli.commands.imports.import_dlc_project_directory",
+        fake_import_dlc_project_directory,
     )
 
     code = main(
@@ -411,7 +411,7 @@ def test_cli_routes_import_dlc_project_workspace(monkeypatch, capsys) -> None:
     assert code == 0
     assert captured == {
         "project_dir": "dlc-project",
-        "workspace": "My Project",
+        "project": "My Project",
         "skeleton_name": None,
         "likelihood_threshold": 0.5,
         "force": False,
@@ -422,14 +422,14 @@ def test_cli_routes_import_dlc_project_workspace(monkeypatch, capsys) -> None:
     assert ".xpkg/state/current.json" in stdout
 
 
-def test_cli_routes_import_sleap_package_workspace(monkeypatch, capsys) -> None:
+def test_cli_routes_import_sleap_package_project(monkeypatch, capsys) -> None:
     from xpkg.cli import main
 
     captured: dict[str, object] = {}
 
-    def fake_import_sleap_package_workspace(
+    def fake_import_sleap_package_project(
         slp: str,
-        workspace: str,
+        project: str,
         *,
         fps: int,
         encode_videos: bool | None,
@@ -437,16 +437,16 @@ def test_cli_routes_import_sleap_package_workspace(monkeypatch, capsys) -> None:
         progress_callback,
     ) -> Path:
         captured["slp"] = slp
-        captured["workspace"] = workspace
+        captured["project"] = project
         captured["fps"] = fps
         captured["encode_videos"] = encode_videos
         captured["force"] = force
         progress_callback("sleap-progress")
-        return _workspace_state_path(workspace)
+        return _project_state_path(project)
 
     monkeypatch.setattr(
-        "xpkg.cli.commands.imports.import_sleap_package_workspace",
-        fake_import_sleap_package_workspace,
+        "xpkg.cli.commands.imports.import_sleap_package_project",
+        fake_import_sleap_package_project,
     )
 
     code = main(
@@ -467,7 +467,7 @@ def test_cli_routes_import_sleap_package_workspace(monkeypatch, capsys) -> None:
     assert code == 0
     assert captured == {
         "slp": "labels.pkg.slp",
-        "workspace": "My Project",
+        "project": "My Project",
         "fps": 24,
         "encode_videos": False,
         "force": False,
@@ -478,15 +478,15 @@ def test_cli_routes_import_sleap_package_workspace(monkeypatch, capsys) -> None:
     assert ".xpkg/state/current.json" in stdout
 
 
-def test_cli_routes_import_sleap_h5_workspace(monkeypatch, capsys) -> None:
+def test_cli_routes_import_sleap_h5_project(monkeypatch, capsys) -> None:
     from xpkg.cli import main
 
     captured: dict[str, object] = {}
 
-    def fake_import_sleap_h5_workspace(
+    def fake_import_sleap_h5_project(
         h5_path: str,
         video_path: str,
-        workspace: str,
+        project: str,
         *,
         skeleton_name: str,
         likelihood_threshold: float,
@@ -495,16 +495,16 @@ def test_cli_routes_import_sleap_h5_workspace(monkeypatch, capsys) -> None:
     ) -> Path:
         captured["h5_path"] = h5_path
         captured["video_path"] = video_path
-        captured["workspace"] = workspace
+        captured["project"] = project
         captured["skeleton_name"] = skeleton_name
         captured["likelihood_threshold"] = likelihood_threshold
         captured["force"] = force
         progress_callback("sleap-h5-import-progress")
-        return _workspace_state_path(workspace)
+        return _project_state_path(project)
 
     monkeypatch.setattr(
-        "xpkg.cli.commands.imports.import_sleap_h5_workspace",
-        fake_import_sleap_h5_workspace,
+        "xpkg.cli.commands.imports.import_sleap_h5_project",
+        fake_import_sleap_h5_project,
     )
 
     code = main(
@@ -529,7 +529,7 @@ def test_cli_routes_import_sleap_h5_workspace(monkeypatch, capsys) -> None:
     assert captured == {
         "h5_path": "analysis.h5",
         "video_path": "clip.mp4",
-        "workspace": "My Project",
+        "project": "My Project",
         "skeleton_name": "subject",
         "likelihood_threshold": 0.25,
         "force": False,
@@ -540,15 +540,15 @@ def test_cli_routes_import_sleap_h5_workspace(monkeypatch, capsys) -> None:
     assert ".xpkg/state/current.json" in stdout
 
 
-def test_cli_routes_import_mmpose_workspace(monkeypatch, capsys) -> None:
+def test_cli_routes_import_mmpose_project(monkeypatch, capsys) -> None:
     from xpkg.cli import main
 
     captured: dict[str, object] = {}
 
-    def fake_import_mmpose_topdown_json_workspace(
+    def fake_import_mmpose_topdown_json_project(
         json_path: str,
         video_path: str,
-        workspace: str,
+        project: str,
         *,
         skeleton_name: str,
         instance_index: int,
@@ -558,17 +558,17 @@ def test_cli_routes_import_mmpose_workspace(monkeypatch, capsys) -> None:
     ) -> Path:
         captured["json_path"] = json_path
         captured["video_path"] = video_path
-        captured["workspace"] = workspace
+        captured["project"] = project
         captured["skeleton_name"] = skeleton_name
         captured["instance_index"] = instance_index
         captured["likelihood_threshold"] = likelihood_threshold
         captured["force"] = force
         progress_callback("mmpose-import-progress")
-        return _workspace_state_path(workspace)
+        return _project_state_path(project)
 
     monkeypatch.setattr(
-        "xpkg.cli.commands.imports.import_mmpose_topdown_json_workspace",
-        fake_import_mmpose_topdown_json_workspace,
+        "xpkg.cli.commands.imports.import_mmpose_topdown_json_project",
+        fake_import_mmpose_topdown_json_project,
     )
 
     code = main(
@@ -592,7 +592,7 @@ def test_cli_routes_import_mmpose_workspace(monkeypatch, capsys) -> None:
     assert captured == {
         "json_path": "results.json",
         "video_path": "clip.mp4",
-        "workspace": "My Project",
+        "project": "My Project",
         "skeleton_name": "imported",
         "instance_index": 1,
         "likelihood_threshold": 0.4,
@@ -604,15 +604,15 @@ def test_cli_routes_import_mmpose_workspace(monkeypatch, capsys) -> None:
     assert ".xpkg/state/current.json" in stdout
 
 
-def test_cli_routes_import_mediapipe_workspace(monkeypatch, capsys) -> None:
+def test_cli_routes_import_mediapipe_project(monkeypatch, capsys) -> None:
     from xpkg.cli import main
 
     captured: dict[str, object] = {}
 
-    def fake_import_mediapipe_pose_landmarks_json_workspace(
+    def fake_import_mediapipe_pose_landmarks_json_project(
         json_path: str,
         video_path: str,
-        workspace: str,
+        project: str,
         *,
         skeleton_name: str,
         likelihood_threshold: float,
@@ -621,16 +621,16 @@ def test_cli_routes_import_mediapipe_workspace(monkeypatch, capsys) -> None:
     ) -> Path:
         captured["json_path"] = json_path
         captured["video_path"] = video_path
-        captured["workspace"] = workspace
+        captured["project"] = project
         captured["skeleton_name"] = skeleton_name
         captured["likelihood_threshold"] = likelihood_threshold
         captured["force"] = force
         progress_callback("mediapipe-import-progress")
-        return _workspace_state_path(workspace)
+        return _project_state_path(project)
 
     monkeypatch.setattr(
-        "xpkg.cli.commands.imports.import_mediapipe_pose_landmarks_json_workspace",
-        fake_import_mediapipe_pose_landmarks_json_workspace,
+        "xpkg.cli.commands.imports.import_mediapipe_pose_landmarks_json_project",
+        fake_import_mediapipe_pose_landmarks_json_project,
     )
 
     code = main(
@@ -652,7 +652,7 @@ def test_cli_routes_import_mediapipe_workspace(monkeypatch, capsys) -> None:
     assert captured == {
         "json_path": "pose_landmarks.json",
         "video_path": "clip.mp4",
-        "workspace": "My Project",
+        "project": "My Project",
         "skeleton_name": "mediapipe_pose",
         "likelihood_threshold": 0.3,
         "force": False,
@@ -663,15 +663,15 @@ def test_cli_routes_import_mediapipe_workspace(monkeypatch, capsys) -> None:
     assert ".xpkg/state/current.json" in stdout
 
 
-def test_cli_routes_import_lightning_pose_workspace(monkeypatch, capsys) -> None:
+def test_cli_routes_import_lightning_pose_project(monkeypatch, capsys) -> None:
     from xpkg.cli import main
 
     captured: dict[str, object] = {}
 
-    def fake_import_lightning_pose_csv_workspace(
+    def fake_import_lightning_pose_csv_project(
         csv_path: str,
         video_path: str,
-        workspace: str,
+        project: str,
         *,
         skeleton_name: str,
         likelihood_threshold: float,
@@ -680,16 +680,16 @@ def test_cli_routes_import_lightning_pose_workspace(monkeypatch, capsys) -> None
     ) -> Path:
         captured["csv_path"] = csv_path
         captured["video_path"] = video_path
-        captured["workspace"] = workspace
+        captured["project"] = project
         captured["skeleton_name"] = skeleton_name
         captured["likelihood_threshold"] = likelihood_threshold
         captured["force"] = force
         progress_callback("lightning-pose-import-progress")
-        return _workspace_state_path(workspace)
+        return _project_state_path(project)
 
     monkeypatch.setattr(
-        "xpkg.cli.commands.imports.import_lightning_pose_csv_workspace",
-        fake_import_lightning_pose_csv_workspace,
+        "xpkg.cli.commands.imports.import_lightning_pose_csv_project",
+        fake_import_lightning_pose_csv_project,
     )
 
     code = main(
@@ -711,7 +711,7 @@ def test_cli_routes_import_lightning_pose_workspace(monkeypatch, capsys) -> None
     assert captured == {
         "csv_path": "video_preds/session0.csv",
         "video_path": "clip.mp4",
-        "workspace": "My Project",
+        "project": "My Project",
         "skeleton_name": "imported",
         "likelihood_threshold": 0.4,
         "force": False,
@@ -748,13 +748,13 @@ def test_cli_routes_pack_unpack_and_validate(monkeypatch, capsys) -> None:
     validated: list[str] = []
 
     def fake_pack_project(
-        workspace: str,
+        project: str,
         *,
         out: str | None,
         media: str,
         overwrite: bool,
     ) -> Path:
-        captured["pack_workspace"] = workspace
+        captured["pack_project"] = project
         captured["pack_out"] = out
         captured["pack_media"] = media
         captured["pack_overwrite"] = overwrite
@@ -776,16 +776,16 @@ def test_cli_routes_pack_unpack_and_validate(monkeypatch, capsys) -> None:
     def fake_validate_artifact(path: str) -> None:
         validated.append(path)
 
-    monkeypatch.setattr("xpkg.cli.commands.workspace.pack_project", fake_pack_project)
-    monkeypatch.setattr("xpkg.cli.commands.workspace.unpack_project", fake_unpack_project)
+    monkeypatch.setattr("xpkg.cli.commands.project.pack_project", fake_pack_project)
+    monkeypatch.setattr("xpkg.cli.commands.project.unpack_project", fake_unpack_project)
     monkeypatch.setattr(
-        "xpkg.cli.commands.workspace.validate_artifact_target",
+        "xpkg.cli.commands.project.validate_artifact_target",
         fake_validate_artifact,
     )
 
     pack_code = main(
         [
-            "workspace",
+            "project",
             "pack",
             "My Project",
             "--media",
@@ -795,7 +795,7 @@ def test_cli_routes_pack_unpack_and_validate(monkeypatch, capsys) -> None:
     )
     unpack_code = main(
         [
-            "workspace",
+            "project",
             "unpack",
             "My Project.expkg",
             "--out",
@@ -805,13 +805,13 @@ def test_cli_routes_pack_unpack_and_validate(monkeypatch, capsys) -> None:
             "Renamed Project",
         ]
     )
-    validate_code = main(["workspace", "validate", "My Project.expkg"])
+    validate_code = main(["project", "validate", "My Project.expkg"])
 
     assert pack_code == 0
     assert unpack_code == 0
     assert validate_code == 0
     assert captured == {
-        "pack_workspace": "My Project",
+        "pack_project": "My Project",
         "pack_out": None,
         "pack_media": "package",
         "pack_overwrite": True,
@@ -827,20 +827,20 @@ def test_cli_routes_pack_unpack_and_validate(monkeypatch, capsys) -> None:
     assert "Valid My Project.expkg" in stdout
 
 
-def test_cli_workspace_describe_json_mode(tmp_path: Path, capsys) -> None:
+def test_cli_project_describe_json_mode(tmp_path: Path, capsys) -> None:
     from xpkg.cli import main
-    from xpkg.services import WorkspaceService
+    from xpkg.services import ProjectService
 
-    workspace = WorkspaceService.create(tmp_path / "Described Project", title="Described Project")
+    project = ProjectService.create(tmp_path / "Described Project", title="Described Project")
 
-    code = main(["workspace", "describe", str(workspace.workspace_root), "--json"])
+    code = main(["project", "describe", str(project.project_root), "--json"])
 
     assert code == 0
     captured_streams = capsys.readouterr()
     assert captured_streams.err == ""
     payload = json.loads(captured_streams.out)
     assert payload["status"] == "described"
-    assert payload["workspace"] == str(workspace.workspace_root)
+    assert payload["project"] == str(project.project_root)
     assert payload["descriptor"]["title"] == "Described Project"
     assert payload["paths"]["descriptor"].endswith("/PROJECT.json")
     assert payload["paths"]["store"].endswith("/.xpkg")
@@ -850,18 +850,18 @@ def test_cli_workspace_describe_json_mode(tmp_path: Path, capsys) -> None:
 
 def test_cli_artifacts_list_inspect_validate_and_rebuild(tmp_path: Path, capsys) -> None:
     from xpkg.cli import main
-    from xpkg.services import WorkspaceService
+    from xpkg.services import ProjectService
 
-    workspace = WorkspaceService.create(tmp_path / "Artifact CLI")
+    project = ProjectService.create(tmp_path / "Artifact CLI")
     source = tmp_path / "summary.csv"
     source.write_text("x\n1\n", encoding="utf-8")
-    workspace.artifacts.register(
+    project.artifacts.register(
         artifact_id="summary",
         artifact_type="table",
         outputs=[source],
     )
 
-    assert main(["artifacts", "list", str(workspace.workspace_root), "--kind", "table"]) == 0
+    assert main(["artifacts", "list", str(project.project_root), "--kind", "table"]) == 0
     stdout = capsys.readouterr().out
     assert "table\t-\tsummary\t.xpkg/artifacts/tables/summary/manifest.json" in stdout
 
@@ -870,7 +870,7 @@ def test_cli_artifacts_list_inspect_validate_and_rebuild(tmp_path: Path, capsys)
             [
                 "artifacts",
                 "inspect",
-                str(workspace.workspace_root),
+                str(project.project_root),
                 "summary",
                 "--kind",
                 "table",
@@ -887,7 +887,7 @@ def test_cli_artifacts_list_inspect_validate_and_rebuild(tmp_path: Path, capsys)
             [
                 "artifacts",
                 "validate",
-                str(workspace.workspace_root),
+                str(project.project_root),
                 "summary",
                 "--kind",
                 "table",
@@ -897,5 +897,5 @@ def test_cli_artifacts_list_inspect_validate_and_rebuild(tmp_path: Path, capsys)
     )
     assert "Valid artifact summary" in capsys.readouterr().out
 
-    assert main(["artifacts", "rebuild-index", str(workspace.workspace_root)]) == 0
+    assert main(["artifacts", "rebuild-index", str(project.project_root)]) == 0
     assert "Indexed artifacts 1" in capsys.readouterr().out

@@ -11,7 +11,7 @@ GUI/runtime orchestration that is truly app-specific.
 ## Status
 
 This document is the target architecture for media ownership after the current
-adapter and workspace IO cutover work. It is intentionally opinionated: the goal
+adapter and project IO cutover work. It is intentionally opinionated: the goal
 is to stop splitting core media behavior across two repositories.
 
 ## Governing Idea
@@ -35,7 +35,7 @@ The key rule is simple: optimize backends in xpkg, not semantics in downstream G
 
 Today the repositories are split in an unhealthy way:
 
-- xpkg already owns canonical labels IO, workspace state IO, and external
+- xpkg already owns canonical labels IO, project state IO, and external
   adapter logic.
 - xpkg also has a small media layer in `xpkg.io.video`.
 - downstream GUI apps still own a richer and partially duplicated media stack for playback,
@@ -185,7 +185,7 @@ That optimization work belongs in xpkg because the same fast path should
 benefit:
 
 - DLC/SLEAP conversion
-- workspace import/export
+- project import/export
 - offline frame sampling
 - future benchmarking tools
 - GUI tools and other downstream applications

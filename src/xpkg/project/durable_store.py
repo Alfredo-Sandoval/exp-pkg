@@ -1,7 +1,7 @@
-"""Workspace-private crash-safe durability helpers.
+"""Project-private crash-safe durability helpers.
 
-This module backs committed workspace snapshot state under ``.xpkg/``. Normal
-callers should go through workspace APIs rather than treating this as a
+This module backs committed project snapshot state under ``.xpkg/``. Normal
+callers should go through project APIs rather than treating this as a
 standalone storage subsystem.
 """
 
@@ -23,35 +23,35 @@ from xpkg._core.hashing import sha256_bytes, sha256_file
 from xpkg._core.json_utils import dump_json, load_json_dict, parse_json_dict
 
 _SUPPORTED_STORE_VERSION = 1
-_STORE_FORMAT = "xpkg.workspace-durable-store"
+_STORE_FORMAT = "xpkg.project-durable-store"
 _LEGACY_STORE_FORMAT = "xpkg.archive-store"
 _SUPPORTED_STORE_FORMATS = {_STORE_FORMAT, _LEGACY_STORE_FORMAT}
 
 
-class WorkspaceDurableStoreError(Exception):
-    """Base exception for the private workspace durability layer."""
+class ProjectDurableStoreError(Exception):
+    """Base exception for the private project durability layer."""
 
 
-ArchiveStoreError = WorkspaceDurableStoreError
+ArchiveStoreError = ProjectDurableStoreError
 
 
-class StoreCorruptionError(WorkspaceDurableStoreError):
+class StoreCorruptionError(ProjectDurableStoreError):
     """Raised when required store files are missing or checksum validation fails."""
 
 
-class IncompatibleStoreVersionError(WorkspaceDurableStoreError):
+class IncompatibleStoreVersionError(ProjectDurableStoreError):
     """Raised when the store_version is not supported by this xpkg build."""
 
 
-class LockAcquisitionError(WorkspaceDurableStoreError):
+class LockAcquisitionError(ProjectDurableStoreError):
     """Raised when the store lock cannot be acquired."""
 
 
-class JournalStateError(WorkspaceDurableStoreError):
+class JournalStateError(ProjectDurableStoreError):
     """Raised for invalid journal transitions or inconsistent recovery states."""
 
 
-class ChecksumError(WorkspaceDurableStoreError):
+class ChecksumError(ProjectDurableStoreError):
     """Raised when a checksum cannot be verified."""
 
 
@@ -210,7 +210,7 @@ def atomic_copy_file(
 
 @dataclass(frozen=True, slots=True)
 class StorePaths:
-    """Canonical path layout for committed workspace durability state."""
+    """Canonical path layout for committed project durability state."""
 
     root: Path
 
@@ -477,7 +477,7 @@ class Journal:
 
 
 class StoreLock:
-    """Advisory hard-link lock for the private workspace durability root."""
+    """Advisory hard-link lock for the private project durability root."""
 
     def __init__(
         self,
@@ -541,7 +541,7 @@ class StoreLock:
 
         while True:
             fd, tmp_name = tempfile.mkstemp(
-                prefix=".workspace_store_lock_",
+                prefix=".project_store_lock_",
                 dir=str(self.store_root),
             )
             tmp_path = Path(tmp_name)
@@ -715,8 +715,8 @@ def _commit_root_entries(
     return entries
 
 
-class WorkspaceDurableStore:
-    """Crash-safe committed snapshot store for a workspace's private ``.xpkg`` root."""
+class ProjectDurableStore:
+    """Crash-safe committed snapshot store for a project's private ``.xpkg`` root."""
 
     def __init__(self, root: Path) -> None:
         self.paths = StorePaths(root=Path(root))
@@ -729,7 +729,7 @@ class WorkspaceDurableStore:
         *,
         created_by: dict[str, Any] | None = None,
         reason: str = "init",
-    ) -> WorkspaceDurableStore:
+    ) -> ProjectDurableStore:
         store = cls(store_root)
         paths = store.paths
         paths.root.mkdir(parents=True, exist_ok=True)
@@ -784,7 +784,7 @@ class WorkspaceDurableStore:
         return store
 
     @classmethod
-    def open(cls, store_root: Path) -> WorkspaceDurableStore:
+    def open(cls, store_root: Path) -> ProjectDurableStore:
         store = cls(store_root)
         store.recover()
         return store
@@ -1022,7 +1022,7 @@ class WorkspaceDurableStore:
             return commit_id
 
 
-ArchiveStore = WorkspaceDurableStore
+ArchiveStore = ProjectDurableStore
 
 
 __all__ = [
@@ -1038,8 +1038,8 @@ __all__ = [
     "StoreCorruptionError",
     "StorePaths",
     "Superblock",
-    "WorkspaceDurableStore",
-    "WorkspaceDurableStoreError",
+    "ProjectDurableStore",
+    "ProjectDurableStoreError",
     "atomic_write_json",
     "clear_journal",
     "get_object_file",

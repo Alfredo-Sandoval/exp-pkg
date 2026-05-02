@@ -1,23 +1,23 @@
-"""Primary workspace-first service facade for downstream xpkg integrations."""
+"""Primary project-first service facade for downstream xpkg integrations."""
 
 from __future__ import annotations
 
-from xpkg.services.artifacts import WorkspaceArtifacts
-from xpkg.services.figures import WorkspaceFigures
-from xpkg.services.workspace import (
-    WorkspaceImports,
-    WorkspaceInspection,
-    WorkspaceLayout,
-    WorkspaceSegmentation,
-    WorkspaceService,
+from xpkg.services.artifacts import ProjectArtifacts
+from xpkg.services.figures import ProjectFigures
+from xpkg.services.project import (
+    ProjectImports,
+    ProjectInspection,
+    ProjectLayout,
+    ProjectSegmentation,
+    ProjectService,
 )
 
 __all__ = [
-    "WorkspaceService",
-    "WorkspaceImports",
-    "WorkspaceLayout",
-    "WorkspaceInspection",
-    "WorkspaceArtifacts",
-    "WorkspaceFigures",
-    "WorkspaceSegmentation",
+    "ProjectService",
+    "ProjectImports",
+    "ProjectLayout",
+    "ProjectInspection",
+    "ProjectArtifacts",
+    "ProjectFigures",
+    "ProjectSegmentation",
 ]

@@ -20,7 +20,6 @@ JsonOption = Annotated[
     ),
 ]
 
-
 class PackMedia(StrEnum):
     """CLI values for packed project media scope."""
 
@@ -183,3 +182,10 @@ def argv_requests_json(argv: Sequence[str] | None) -> bool:
     if argv is None:
         return "--json" in sys.argv[1:]
     return "--json" in argv
+
+
+def require_option_value[OptionValue](value: OptionValue | None, option_name: str) -> OptionValue:
+    """Raise a Click-style missing-option error when Typer passes `None`."""
+    if value is None:
+        raise click.MissingParameter(param=click.Option([option_name]))
+    return value

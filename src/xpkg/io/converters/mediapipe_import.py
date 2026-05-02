@@ -1,4 +1,4 @@
-"""Convert serialized MediaPipe pose-landmarks JSON into workspace-ready labels."""
+"""Convert serialized MediaPipe pose-landmarks JSON into project-ready labels."""
 
 from __future__ import annotations
 
@@ -27,7 +27,7 @@ from xpkg.io.video import Video
 _MEDIAPIPE_READ_JSON_MARKER = "MEDIAPIPE_IMPORT STEP: read_json"
 _MEDIAPIPE_VALIDATE_VIDEO_MARKER = "MEDIAPIPE_IMPORT STEP: validate_video"
 _MEDIAPIPE_BUILD_LABELS_MARKER = "MEDIAPIPE_IMPORT STEP: build_labels"
-_MEDIAPIPE_PREPARE_RESULT_MARKER = "MEDIAPIPE_IMPORT STEP: prepare_workspace_state"
+_MEDIAPIPE_PREPARE_RESULT_MARKER = "MEDIAPIPE_IMPORT STEP: prepare_project_state"
 _MEDIAPIPE_DONE_MARKER = "MEDIAPIPE_IMPORT DONE"
 
 MEDIAPIPE_POSE_LANDMARKS_JSON_PROGRESS_MARKERS: tuple[tuple[str, int], ...] = (
@@ -57,7 +57,7 @@ def convert_mediapipe_pose_landmarks_json(
     likelihood_threshold: float = 0.0,
     progress_callback: ProgressCallback | None = None,
 ) -> ConversionResult:
-    """Convert serialized MediaPipe pose-landmarks JSON plus a video into workspace-ready labels."""
+    """Convert serialized MediaPipe pose-landmarks JSON plus a video into project-ready labels."""
 
     resolved_json_path = _resolve_tracking_path(json_path)
     resolved_video_path = _resolve_video_path(video_path)

@@ -1,4 +1,4 @@
-"""Generic workspace artifact manifests, indexes, validation, and figure helpers."""
+"""Generic project artifact manifests, indexes, validation, and figure helpers."""
 
 from __future__ import annotations
 
@@ -11,11 +11,11 @@ from typing import Any, cast
 
 from xpkg._core.json_utils import load_json_dict, write_json
 from xpkg._core.path_registry import ensure_dir, resolve_path, slugify_path_component
-from xpkg.io.project_layout import (
+from xpkg.project.layout import (
     _now_utc_iso,
-    resolve_workspace_root,
-    workspace_artifacts_root,
-    workspace_store_root,
+    project_artifacts_root,
+    project_store_root,
+    resolve_project_root,
 )
 
 ARTIFACT_MANIFEST_FILENAME = "manifest.json"
@@ -77,7 +77,7 @@ class ArtifactFile:
 
 @dataclass(frozen=True, slots=True)
 class ArtifactManifest:
-    """Portable manifest for one saved workspace artifact."""
+    """Portable manifest for one saved project artifact."""
 
     artifact_type: str
     artifact_id: str
@@ -116,7 +116,7 @@ class ArtifactManifest:
 
 @dataclass(frozen=True, slots=True)
 class ArtifactIndexEntry:
-    """Compact artifact index entry used for workspace-wide discovery."""
+    """Compact artifact index entry used for project-wide discovery."""
 
     artifact_type: str
     artifact_id: str
@@ -128,7 +128,7 @@ class ArtifactIndexEntry:
 
     @classmethod
     def from_dict(cls, data: Mapping[str, Any]) -> ArtifactIndexEntry:
-        """Create an index entry from the workspace artifact index payload."""
+        """Create an index entry from the project artifact index payload."""
         return cls(
             artifact_type=_artifact_type(str(data.get("artifact_type", ""))),
             artifact_id=str(data.get("artifact_id", "")).strip(),
@@ -191,10 +191,10 @@ class FigureArtifact:
         }
 
 
-def _workspace_root(path: str | Path) -> Path:
-    root = resolve_workspace_root(path)
+def _project_root(path: str | Path) -> Path:
+    root = resolve_project_root(path)
     if root is None:
-        raise FileNotFoundError(f"Not an xpkg workspace: {path}")
+        raise FileNotFoundError(f"Not an xpkg project: {path}")
     return root
 
 
@@ -242,34 +242,34 @@ def _infer_namespace(artifact_root: Path) -> str:
     return container.name
 
 
-def _relative_to_workspace(path: Path, workspace_root: Path) -> str:
+def _relative_to_project(path: Path, project_root: Path) -> str:
     try:
-        return path.resolve().relative_to(workspace_root.resolve()).as_posix()
+        return path.resolve().relative_to(project_root.resolve()).as_posix()
     except ValueError as exc:
-        raise ValueError(f"Artifact path must live inside the workspace: {path}") from exc
+        raise ValueError(f"Artifact path must live inside the project: {path}") from exc
 
 
-def _portable_path(value: str | Path, workspace_root: Path) -> str:
+def _portable_path(value: str | Path, project_root: Path) -> str:
     raw = Path(value)
     if raw.is_absolute():
-        return _relative_to_workspace(raw, workspace_root)
+        return _relative_to_project(raw, project_root)
     portable = PurePosixPath(raw.as_posix())
     if portable.is_absolute() or ".." in portable.parts:
-        raise ValueError(f"Artifact paths must be workspace-relative: {value}")
+        raise ValueError(f"Artifact paths must be project-relative: {value}")
     return portable.as_posix()
 
 
-def _portable_paths(values: Sequence[str | Path], workspace_root: Path) -> tuple[str, ...]:
+def _portable_paths(values: Sequence[str | Path], project_root: Path) -> tuple[str, ...]:
     if isinstance(values, str | bytes | bytearray):
         raise TypeError("paths must be a sequence, not a string")
-    return tuple(_portable_path(item, workspace_root) for item in values)
+    return tuple(_portable_path(item, project_root) for item in values)
 
 
-def _workspace_file_path(workspace_root: Path, portable_path: str) -> Path:
+def _project_file_path(project_root: Path, portable_path: str) -> Path:
     portable = PurePosixPath(portable_path)
     if portable.is_absolute() or ".." in portable.parts:
-        raise ValueError(f"Artifact paths must be workspace-relative: {portable_path}")
-    return workspace_root.joinpath(*portable.parts)
+        raise ValueError(f"Artifact paths must be project-relative: {portable_path}")
+    return project_root.joinpath(*portable.parts)
 
 
 def _validate_target_name(name: str) -> PurePosixPath:
@@ -307,7 +307,7 @@ def _copy_outputs(
     outputs: ArtifactOutputSpec,
     *,
     artifact_root: Path,
-    workspace_root: Path,
+    project_root: Path,
     overwrite: bool,
 ) -> tuple[str, ...]:
     copied_paths: list[str] = []
@@ -320,7 +320,7 @@ def _copy_outputs(
         ensure_dir(target_path.parent)
         if source_path.resolve() != target_path.resolve():
             shutil.copy2(source_path, target_path)
-        copied_paths.append(_relative_to_workspace(target_path, workspace_root))
+        copied_paths.append(_relative_to_project(target_path, project_root))
     return tuple(copied_paths)
 
 
@@ -332,8 +332,8 @@ def _sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
-def _file_record(role: str, portable_path: str, workspace_root: Path) -> ArtifactFile:
-    path = _workspace_file_path(workspace_root, portable_path)
+def _file_record(role: str, portable_path: str, project_root: Path) -> ArtifactFile:
+    path = _project_file_path(project_root, portable_path)
     if not path.is_file():
         return ArtifactFile(role=role, path=portable_path)
     stat = path.stat()
@@ -350,12 +350,12 @@ def _file_records(
     outputs: Sequence[str],
     inputs: Sequence[str],
     stats: Sequence[str],
-    workspace_root: Path,
+    project_root: Path,
 ) -> tuple[ArtifactFile, ...]:
     files: list[ArtifactFile] = []
-    files.extend(_file_record("output", path, workspace_root) for path in outputs)
-    files.extend(_file_record("input", path, workspace_root) for path in inputs)
-    files.extend(_file_record("stat", path, workspace_root) for path in stats)
+    files.extend(_file_record("output", path, project_root) for path in outputs)
+    files.extend(_file_record("input", path, project_root) for path in inputs)
+    files.extend(_file_record("stat", path, project_root) for path in stats)
     return tuple(files)
 
 
@@ -434,62 +434,62 @@ def _figure_from_artifact(artifact: ArtifactManifest) -> FigureArtifact:
     )
 
 
-def workspace_artifact_type_root(
-    workspace: str | Path,
+def project_artifact_type_root(
+    project: str | Path,
     artifact_type: str,
     *,
     namespace: str | None = None,
 ) -> Path:
-    """Return the private workspace root for one artifact type."""
+    """Return the private project root for one artifact type."""
     normalized_namespace = _namespace(namespace)
     kind_dir = artifact_kind_dir(artifact_type)
     if normalized_namespace:
-        return workspace_store_root(workspace) / normalized_namespace / kind_dir
-    return workspace_artifacts_root(workspace) / kind_dir
+        return project_store_root(project) / normalized_namespace / kind_dir
+    return project_artifacts_root(project) / kind_dir
 
 
-def workspace_figures_root(workspace: str | Path, *, namespace: str | None = None) -> Path:
-    """Return the private workspace figure artifact root."""
-    return workspace_artifact_type_root(
-        workspace,
+def project_figures_root(project: str | Path, *, namespace: str | None = None) -> Path:
+    """Return the private project figure artifact root."""
+    return project_artifact_type_root(
+        project,
         FIGURE_ARTIFACT_TYPE,
         namespace=namespace,
     )
 
 
-def workspace_artifact_root(
-    workspace: str | Path,
+def project_artifact_root(
+    project: str | Path,
     artifact_id: str,
     artifact_type: str,
     *,
     namespace: str | None = None,
 ) -> Path:
-    """Return the private workspace root for one artifact."""
-    return workspace_artifact_type_root(
-        workspace,
+    """Return the private project root for one artifact."""
+    return project_artifact_type_root(
+        project,
         artifact_type,
         namespace=namespace,
     ) / _artifact_id(artifact_id)
 
 
-def workspace_figure_root(
-    workspace: str | Path,
+def project_figure_root(
+    project: str | Path,
     figure_id: str,
     *,
     namespace: str | None = None,
 ) -> Path:
     """Return the private root for one figure artifact."""
-    return workspace_artifact_root(
-        workspace,
+    return project_artifact_root(
+        project,
         figure_id,
         FIGURE_ARTIFACT_TYPE,
         namespace=namespace,
     )
 
 
-def workspace_artifact_index_path(workspace: str | Path) -> Path:
-    """Return the workspace-wide artifact index path."""
-    return workspace_artifacts_root(workspace) / ARTIFACT_INDEX_FILENAME
+def project_artifact_index_path(project: str | Path) -> Path:
+    """Return the project-wide artifact index path."""
+    return project_artifacts_root(project) / ARTIFACT_INDEX_FILENAME
 
 
 def _manifest_path(artifact_root: Path) -> Path:
@@ -497,7 +497,7 @@ def _manifest_path(artifact_root: Path) -> Path:
 
 
 def _generic_manifest_paths(
-    workspace_root: Path,
+    project_root: Path,
     *,
     artifact_type: str | None,
     artifact_id: str | None,
@@ -505,29 +505,29 @@ def _generic_manifest_paths(
     if artifact_type is None:
         if artifact_id is None:
             return sorted(
-                workspace_artifacts_root(workspace_root).glob(
+                project_artifacts_root(project_root).glob(
                     f"*/*/{ARTIFACT_MANIFEST_FILENAME}"
                 )
             )
         return sorted(
-            workspace_artifacts_root(workspace_root).glob(
+            project_artifacts_root(project_root).glob(
                 f"*/{_artifact_id(artifact_id)}/{ARTIFACT_MANIFEST_FILENAME}"
             )
         )
-    type_root = workspace_artifact_type_root(workspace_root, artifact_type)
+    type_root = project_artifact_type_root(project_root, artifact_type)
     if artifact_id is None:
         return sorted(type_root.glob(f"*/{ARTIFACT_MANIFEST_FILENAME}"))
     return [_manifest_path(type_root / _artifact_id(artifact_id))]
 
 
 def _namespaced_manifest_paths(
-    workspace_root: Path,
+    project_root: Path,
     *,
     artifact_type: str | None,
     artifact_id: str | None,
     namespace: str | None,
 ) -> list[Path]:
-    store_root = workspace_store_root(workspace_root)
+    store_root = project_store_root(project_root)
     normalized_namespace = _namespace(namespace)
     if normalized_namespace:
         namespace_root = store_root / normalized_namespace
@@ -539,8 +539,8 @@ def _namespaced_manifest_paths(
                     f"*/{_artifact_id(artifact_id)}/{ARTIFACT_MANIFEST_FILENAME}"
                 )
             )
-        type_root = workspace_artifact_type_root(
-            workspace_root,
+        type_root = project_artifact_type_root(
+            project_root,
             artifact_type,
             namespace=normalized_namespace,
         )
@@ -570,13 +570,13 @@ def _namespaced_manifest_paths(
 
 
 def _candidate_manifest_paths(
-    workspace: str | Path,
+    project: str | Path,
     artifact_id: str | None = None,
     *,
     artifact_type: str | None,
     namespace: str | None,
 ) -> list[Path]:
-    root = _workspace_root(workspace)
+    root = _project_root(project)
     if namespace is not None and not _namespace(namespace):
         paths = _generic_manifest_paths(
             root,
@@ -617,14 +617,14 @@ def _manifest_matches_type(path: Path, artifact_type: str | None) -> bool:
 def _entry_from_artifact(
     artifact: ArtifactManifest,
     *,
-    workspace_root: Path,
+    project_root: Path,
 ) -> ArtifactIndexEntry:
     return ArtifactIndexEntry(
         artifact_type=artifact.artifact_type,
         artifact_id=artifact.artifact_id,
         namespace=artifact.namespace,
         title=artifact.title,
-        manifest_path=_relative_to_workspace(artifact.manifest_path, workspace_root),
+        manifest_path=_relative_to_project(artifact.manifest_path, project_root),
         outputs=artifact.outputs,
         updated_at=artifact.updated_at,
     )
@@ -648,10 +648,10 @@ def _load_index_entries(path: Path) -> list[ArtifactIndexEntry]:
 
 
 def _write_index_entries(
-    workspace_root: Path,
+    project_root: Path,
     entries: Sequence[ArtifactIndexEntry],
 ) -> None:
-    index_path = workspace_artifact_index_path(workspace_root)
+    index_path = project_artifact_index_path(project_root)
     ensure_dir(index_path.parent)
     sorted_entries = sorted(
         entries,
@@ -675,10 +675,10 @@ def _write_index_entries(
     )
 
 
-def _upsert_artifact_index(workspace_root: Path, artifact: ArtifactManifest) -> None:
-    index_path = workspace_artifact_index_path(workspace_root)
+def _upsert_artifact_index(project_root: Path, artifact: ArtifactManifest) -> None:
+    index_path = project_artifact_index_path(project_root)
     entries = _load_index_entries(index_path)
-    new_entry = _entry_from_artifact(artifact, workspace_root=workspace_root)
+    new_entry = _entry_from_artifact(artifact, project_root=project_root)
     entries = [
         entry
         for entry in entries
@@ -689,11 +689,11 @@ def _upsert_artifact_index(workspace_root: Path, artifact: ArtifactManifest) -> 
         )
     ]
     entries.append(new_entry)
-    _write_index_entries(workspace_root, entries)
+    _write_index_entries(project_root, entries)
 
 
-def save_workspace_artifact(
-    workspace: str | Path,
+def save_project_artifact(
+    project: str | Path,
     *,
     artifact_id: str,
     artifact_type: str,
@@ -706,12 +706,12 @@ def save_workspace_artifact(
     namespace: str | None = None,
     overwrite: bool = True,
 ) -> ArtifactManifest:
-    """Copy artifact outputs into the workspace and write a portable manifest."""
-    root = _workspace_root(workspace)
+    """Copy artifact outputs into the project and write a portable manifest."""
+    root = _project_root(project)
     normalized_type = _artifact_type(artifact_type)
     normalized_id = _artifact_id(artifact_id)
     normalized_namespace = _namespace(namespace)
-    artifact_root = workspace_artifact_root(
+    artifact_root = project_artifact_root(
         root,
         normalized_id,
         normalized_type,
@@ -730,7 +730,7 @@ def save_workspace_artifact(
     copied_outputs = _copy_outputs(
         outputs,
         artifact_root=artifact_root,
-        workspace_root=root,
+        project_root=root,
         overwrite=overwrite,
     )
     portable_inputs = _portable_paths(inputs, root)
@@ -749,7 +749,7 @@ def save_workspace_artifact(
             outputs=copied_outputs,
             inputs=portable_inputs,
             stats=portable_stats,
-            workspace_root=root,
+            project_root=root,
         ),
         manifest_path=manifest_path,
         artifact_root=artifact_root,
@@ -763,7 +763,7 @@ def save_workspace_artifact(
         sort_keys=False,
         ensure_ascii=True,
     )
-    validate_workspace_artifact(
+    validate_project_artifact(
         root,
         normalized_id,
         artifact_type=normalized_type,
@@ -773,8 +773,8 @@ def save_workspace_artifact(
     return artifact
 
 
-def save_workspace_figure(
-    workspace: str | Path,
+def save_project_figure(
+    project: str | Path,
     *,
     figure_id: str,
     outputs: FigureOutputSpec,
@@ -786,10 +786,10 @@ def save_workspace_figure(
     namespace: str | None = None,
     overwrite: bool = True,
 ) -> FigureArtifact:
-    """Copy figure outputs into the workspace and write a portable manifest."""
+    """Copy figure outputs into the project and write a portable manifest."""
     return _figure_from_artifact(
-        save_workspace_artifact(
-            workspace,
+        save_project_artifact(
+            project,
             artifact_id=figure_id,
             artifact_type=FIGURE_ARTIFACT_TYPE,
             outputs=outputs,
@@ -804,15 +804,15 @@ def save_workspace_figure(
     )
 
 
-def load_workspace_artifact(
-    workspace: str | Path,
+def load_project_artifact(
+    project: str | Path,
     artifact_id: str,
     *,
     artifact_type: str | None = None,
     namespace: str | None = None,
 ) -> ArtifactManifest:
-    """Load one workspace artifact manifest by id."""
-    root = _workspace_root(workspace)
+    """Load one project artifact manifest by id."""
+    root = _project_root(project)
     manifests = [
         path
         for path in _candidate_manifest_paths(
@@ -838,16 +838,16 @@ def load_workspace_artifact(
     )
 
 
-def load_workspace_figure(
-    workspace: str | Path,
+def load_project_figure(
+    project: str | Path,
     figure_id: str,
     *,
     namespace: str | None = None,
 ) -> FigureArtifact:
-    """Load one workspace figure artifact manifest."""
+    """Load one project figure artifact manifest."""
     return _figure_from_artifact(
-        load_workspace_artifact(
-            workspace,
+        load_project_artifact(
+            project,
             figure_id,
             artifact_type=FIGURE_ARTIFACT_TYPE,
             namespace=namespace,
@@ -855,14 +855,14 @@ def load_workspace_figure(
     )
 
 
-def list_workspace_artifacts(
-    workspace: str | Path,
+def list_project_artifacts(
+    project: str | Path,
     *,
     artifact_type: str | None = None,
     namespace: str | None = None,
 ) -> list[ArtifactManifest]:
-    """List saved workspace artifact manifests."""
-    root = _workspace_root(workspace)
+    """List saved project artifact manifests."""
+    root = _project_root(project)
     manifest_paths = [
         path
         for path in _candidate_manifest_paths(
@@ -886,16 +886,16 @@ def list_workspace_artifacts(
     return artifacts
 
 
-def list_workspace_figures(
-    workspace: str | Path,
+def list_project_figures(
+    project: str | Path,
     *,
     namespace: str | None = None,
 ) -> list[FigureArtifact]:
-    """List saved workspace figure artifacts."""
+    """List saved project figure artifacts."""
     return [
         _figure_from_artifact(artifact)
-        for artifact in list_workspace_artifacts(
-            workspace,
+        for artifact in list_project_artifacts(
+            project,
             artifact_type=FIGURE_ARTIFACT_TYPE,
             namespace=namespace,
         )
@@ -918,38 +918,38 @@ def _filter_index_entries(
     ]
 
 
-def list_workspace_artifact_index(
-    workspace: str | Path,
+def list_project_artifact_index(
+    project: str | Path,
     *,
     artifact_type: str | None = None,
     namespace: str | None = None,
 ) -> list[ArtifactIndexEntry]:
-    """List the compact workspace artifact index, rebuilding it if missing."""
-    root = _workspace_root(workspace)
-    index_path = workspace_artifact_index_path(root)
+    """List the compact project artifact index, rebuilding it if missing."""
+    root = _project_root(project)
+    index_path = project_artifact_index_path(root)
     entries = _load_index_entries(index_path)
     if not index_path.is_file():
-        entries = rebuild_workspace_artifact_index(root)
+        entries = rebuild_project_artifact_index(root)
     return _filter_index_entries(entries, artifact_type=artifact_type, namespace=namespace)
 
 
-def validate_workspace_artifact(
-    workspace: str | Path,
+def validate_project_artifact(
+    project: str | Path,
     artifact_id: str,
     *,
     artifact_type: str | None = None,
     namespace: str | None = None,
 ) -> ArtifactManifest:
-    """Validate one artifact manifest and referenced workspace-local files."""
-    root = _workspace_root(workspace)
-    artifact = load_workspace_artifact(
+    """Validate one artifact manifest and referenced project-local files."""
+    root = _project_root(project)
+    artifact = load_project_artifact(
         root,
         artifact_id,
         artifact_type=artifact_type,
         namespace=namespace,
     )
     for path_value in (*artifact.outputs, *artifact.inputs, *artifact.stats):
-        path = _workspace_file_path(root, path_value)
+        path = _project_file_path(root, path_value)
         if not path.is_file():
             raise FileNotFoundError(
                 f"Artifact {artifact.artifact_id!r} references missing file: {path_value}"
@@ -958,7 +958,7 @@ def validate_workspace_artifact(
     for file_record in artifact.files:
         if file_record.sha256 is None:
             continue
-        path = _workspace_file_path(root, file_record.path)
+        path = _project_file_path(root, file_record.path)
         if not path.is_file():
             raise FileNotFoundError(
                 f"Artifact {artifact.artifact_id!r} references missing file: "
@@ -977,16 +977,16 @@ def validate_workspace_artifact(
     return artifact
 
 
-def validate_workspace_figure(
-    workspace: str | Path,
+def validate_project_figure(
+    project: str | Path,
     figure_id: str,
     *,
     namespace: str | None = None,
 ) -> FigureArtifact:
-    """Validate one figure manifest and referenced workspace-local files."""
+    """Validate one figure manifest and referenced project-local files."""
     return _figure_from_artifact(
-        validate_workspace_artifact(
-            workspace,
+        validate_project_artifact(
+            project,
             figure_id,
             artifact_type=FIGURE_ARTIFACT_TYPE,
             namespace=namespace,
@@ -994,21 +994,21 @@ def validate_workspace_figure(
     )
 
 
-def validate_workspace_artifacts(
-    workspace: str | Path,
+def validate_project_artifacts(
+    project: str | Path,
     *,
     artifact_type: str | None = None,
     namespace: str | None = None,
 ) -> list[ArtifactManifest]:
-    """Validate every saved workspace artifact manifest."""
-    artifacts = list_workspace_artifacts(
-        workspace,
+    """Validate every saved project artifact manifest."""
+    artifacts = list_project_artifacts(
+        project,
         artifact_type=artifact_type,
         namespace=namespace,
     )
-    root = _workspace_root(workspace)
+    root = _project_root(project)
     return [
-        validate_workspace_artifact(
+        validate_project_artifact(
             root,
             artifact.artifact_id,
             artifact_type=artifact.artifact_type,
@@ -1018,27 +1018,27 @@ def validate_workspace_artifacts(
     ]
 
 
-def validate_workspace_figures(
-    workspace: str | Path,
+def validate_project_figures(
+    project: str | Path,
     *,
     namespace: str | None = None,
 ) -> list[FigureArtifact]:
-    """Validate every saved workspace figure artifact."""
+    """Validate every saved project figure artifact."""
     return [
         _figure_from_artifact(artifact)
-        for artifact in validate_workspace_artifacts(
-            workspace,
+        for artifact in validate_project_artifacts(
+            project,
             artifact_type=FIGURE_ARTIFACT_TYPE,
             namespace=namespace,
         )
     ]
 
 
-def rebuild_workspace_artifact_index(workspace: str | Path) -> list[ArtifactIndexEntry]:
-    """Rebuild and write the workspace-wide artifact index from manifests."""
-    root = _workspace_root(workspace)
-    artifacts = list_workspace_artifacts(root)
-    entries = [_entry_from_artifact(artifact, workspace_root=root) for artifact in artifacts]
+def rebuild_project_artifact_index(project: str | Path) -> list[ArtifactIndexEntry]:
+    """Rebuild and write the project-wide artifact index from manifests."""
+    root = _project_root(project)
+    artifacts = list_project_artifacts(root)
+    entries = [_entry_from_artifact(artifact, project_root=root) for artifact in artifacts]
     _write_index_entries(root, entries)
     return sorted(
         entries,
@@ -1066,21 +1066,21 @@ __all__ = [
     "FigureArtifact",
     "FigureOutputSpec",
     "artifact_kind_dir",
-    "list_workspace_figures",
-    "list_workspace_artifact_index",
-    "list_workspace_artifacts",
-    "load_workspace_figure",
-    "load_workspace_artifact",
-    "rebuild_workspace_artifact_index",
-    "save_workspace_figure",
-    "save_workspace_artifact",
-    "validate_workspace_figure",
-    "validate_workspace_figures",
-    "validate_workspace_artifact",
-    "validate_workspace_artifacts",
-    "workspace_artifact_index_path",
-    "workspace_figure_root",
-    "workspace_figures_root",
-    "workspace_artifact_root",
-    "workspace_artifact_type_root",
+    "list_project_figures",
+    "list_project_artifact_index",
+    "list_project_artifacts",
+    "load_project_figure",
+    "load_project_artifact",
+    "rebuild_project_artifact_index",
+    "save_project_figure",
+    "save_project_artifact",
+    "validate_project_figure",
+    "validate_project_figures",
+    "validate_project_artifact",
+    "validate_project_artifacts",
+    "project_artifact_index_path",
+    "project_figure_root",
+    "project_figures_root",
+    "project_artifact_root",
+    "project_artifact_type_root",
 ]

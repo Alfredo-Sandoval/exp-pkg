@@ -1,4 +1,4 @@
-"""Workspace payload validation and summary helpers."""
+"""Project payload validation and summary helpers."""
 
 from __future__ import annotations
 
@@ -71,7 +71,7 @@ def _check_frame_group_consistency(group: dict, group_name: str) -> None:
 
 
 def validate_loaded_project(project: dict[str, Any]) -> None:
-    """Validate a materialized workspace payload."""
+    """Validate a materialized project payload."""
 
     if not isinstance(project, dict):
         raise TypeError("Loaded project payload is not a dict")

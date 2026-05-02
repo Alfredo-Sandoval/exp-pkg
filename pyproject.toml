@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "exp-pkg"
 dynamic = ["version"]
-description = "Workspace-first IO toolkit for multimodal neuroscience experiment data and portable artifacts."
+description = "Project-first IO toolkit for multimodal neuroscience experiment data and portable artifacts."
 readme = "README.md"
 requires-python = ">=3.12"
 license = "BSD-3-Clause"
@@ -26,7 +26,7 @@ keywords = [
   "pose-estimation",
   "sleap",
   "video",
-  "workspace",
+  "project",
 ]
 classifiers = [
   "Development Status :: 3 - Alpha",

@@ -14,12 +14,12 @@ from tests.vicon_helpers import (
 )
 
 
-def test_import_vicon_workspace_roundtrips_through_workspace_and_expkg(tmp_path: Path) -> None:
+def test_import_vicon_project_roundtrips_through_project_and_expkg(tmp_path: Path) -> None:
     from xpkg.adapters import read_vicon_json_payload
-    from xpkg.workspace import (
+    from xpkg.project import (
         current_project_snapshot_path,
-        import_vicon_workspace,
-        load_workspace_vicon_recording,
+        import_vicon_project,
+        load_project_vicon_recording,
         pack_project,
         unpack_project,
         validate_expkg,
@@ -29,19 +29,19 @@ def test_import_vicon_workspace_roundtrips_through_workspace_and_expkg(tmp_path:
     write_sample_vicon_c3d(c3d_path)
     write_sample_vsk(c3d_path.with_suffix(".vsk"))
     write_sample_xcp(c3d_path.with_suffix(".xcp"))
-    workspace = tmp_path / "Imported Vicon Project"
+    project = tmp_path / "Imported Vicon Project"
 
-    snapshot_path = import_vicon_workspace(c3d_path, workspace)
+    snapshot_path = import_vicon_project(c3d_path, project)
 
-    assert snapshot_path == current_project_snapshot_path(workspace)
+    assert snapshot_path == current_project_snapshot_path(project)
     payload = read_vicon_json_payload(snapshot_path)
     assert payload["metadata"]["source"] == "vicon_import"
     assert payload["metadata"]["source_recording"] == c3d_path.resolve().as_posix()
 
-    recording = load_workspace_vicon_recording(workspace)
+    recording = load_project_vicon_recording(project)
     assert recording.path.is_file()
     assert recording.path.name == "trial.c3d"
-    assert workspace in recording.path.parents
+    assert project in recording.path.parents
     assert recording.xcp_path is not None and recording.xcp_path.is_file()
     assert recording.vsk_path is not None and recording.vsk_path.is_file()
     assert recording.marker_names == ("center", "R_foot")
@@ -53,10 +53,10 @@ def test_import_vicon_workspace_roundtrips_through_workspace_and_expkg(tmp_path:
     assert recording.additional_points is not None
     assert recording.analog is not None
 
-    artifact = pack_project(workspace, out=tmp_path / "Imported Vicon.expkg")
+    artifact = pack_project(project, out=tmp_path / "Imported Vicon.expkg")
     validate_expkg(artifact)
     restored_root = unpack_project(artifact, tmp_path / "Restored Vicon Project")
-    restored = load_workspace_vicon_recording(restored_root)
+    restored = load_project_vicon_recording(restored_root)
 
     assert restored.source_type == recording.source_type
     assert restored.frame_offset == recording.frame_offset
@@ -100,46 +100,46 @@ def test_import_vicon_workspace_roundtrips_through_workspace_and_expkg(tmp_path:
     ]
 
 
-def test_import_vicon_csv_workspace_loads_workspace_native_recording(tmp_path: Path) -> None:
-    from xpkg.workspace import (
+def test_import_vicon_csv_project_loads_project_native_recording(tmp_path: Path) -> None:
+    from xpkg.project import (
         current_project_snapshot_path,
-        import_vicon_csv_workspace,
-        load_workspace_vicon_recording,
+        import_vicon_csv_project,
+        load_project_vicon_recording,
     )
 
     csv_path = tmp_path / "trial.csv"
     write_sample_vicon_csv(csv_path)
     write_sample_vsk(csv_path.with_suffix(".vsk"))
     write_sample_xcp(csv_path.with_suffix(".xcp"))
-    workspace = tmp_path / "Imported CSV Project"
+    project = tmp_path / "Imported CSV Project"
 
-    snapshot_path = import_vicon_csv_workspace(csv_path, workspace)
+    snapshot_path = import_vicon_csv_project(csv_path, project)
 
-    assert snapshot_path == current_project_snapshot_path(workspace)
-    recording = load_workspace_vicon_recording(workspace)
+    assert snapshot_path == current_project_snapshot_path(project)
+    recording = load_project_vicon_recording(project)
     assert recording.source_type == "csv"
     assert recording.path.is_file()
-    assert workspace in recording.path.parents
+    assert project in recording.path.parents
     assert recording.vsk_path is not None and recording.vsk_path.is_file()
     assert recording.xcp_path is not None and recording.xcp_path.is_file()
 
 
-def test_load_workspace_vicon_recording_rebuilds_tampered_snapshot_cache(tmp_path: Path) -> None:
-    from xpkg.workspace import import_vicon_workspace, load_workspace_vicon_recording
+def test_load_project_vicon_recording_rebuilds_tampered_snapshot_cache(tmp_path: Path) -> None:
+    from xpkg.project import import_vicon_project, load_project_vicon_recording
 
     c3d_path = tmp_path / "trial.c3d"
     write_sample_vicon_c3d(c3d_path)
     write_sample_vsk(c3d_path.with_suffix(".vsk"))
     write_sample_xcp(c3d_path.with_suffix(".xcp"))
-    workspace = tmp_path / "Tampered Vicon Project"
+    project = tmp_path / "Tampered Vicon Project"
 
-    snapshot_path = import_vicon_workspace(c3d_path, workspace)
+    snapshot_path = import_vicon_project(c3d_path, project)
     document = json.loads(snapshot_path.read_text(encoding="utf-8"))
     payload = document["payload"]
     payload["path"] = "broken/trial.c3d"
     snapshot_path.write_text(json.dumps(document, indent=2), encoding="utf-8")
 
-    recording = load_workspace_vicon_recording(workspace)
+    recording = load_project_vicon_recording(project)
 
     assert recording.path.is_file()
     assert recording.path.name == "trial.c3d"
@@ -153,31 +153,31 @@ def test_load_workspace_vicon_recording_rebuilds_tampered_snapshot_cache(tmp_pat
     ]
 
 
-def test_validate_workspace_rebuilds_missing_vicon_snapshot_cache(tmp_path: Path) -> None:
-    from xpkg.workspace import import_vicon_workspace, validate_workspace
+def test_validate_project_rebuilds_missing_vicon_snapshot_cache(tmp_path: Path) -> None:
+    from xpkg.project import import_vicon_project, validate_project
 
     c3d_path = tmp_path / "trial.c3d"
     write_sample_vicon_c3d(c3d_path)
-    workspace = tmp_path / "Missing Snapshot Project"
+    project = tmp_path / "Missing Snapshot Project"
 
-    snapshot_path = import_vicon_workspace(c3d_path, workspace)
+    snapshot_path = import_vicon_project(c3d_path, project)
     snapshot_path.unlink()
 
-    validate_workspace(workspace)
+    validate_project(project)
 
     assert snapshot_path.is_file()
 
 
-def test_validate_workspace_rejects_missing_vicon_bundle_files(tmp_path: Path) -> None:
-    from xpkg.workspace import import_vicon_workspace, validate_workspace
+def test_validate_project_rejects_missing_vicon_bundle_files(tmp_path: Path) -> None:
+    from xpkg.project import import_vicon_project, validate_project
 
     c3d_path = tmp_path / "trial.c3d"
     write_sample_vicon_c3d(c3d_path)
-    workspace = tmp_path / "Broken Vicon Project"
+    project = tmp_path / "Broken Vicon Project"
 
-    import_vicon_workspace(c3d_path, workspace)
-    bundled_recording = next((workspace / ".xpkg" / "imports").rglob("trial.c3d"))
+    import_vicon_project(c3d_path, project)
+    bundled_recording = next((project / ".xpkg" / "imports").rglob("trial.c3d"))
     bundled_recording.unlink()
 
     with pytest.raises(FileNotFoundError, match="Vicon recording file missing"):
-        validate_workspace(workspace)
+        validate_project(project)

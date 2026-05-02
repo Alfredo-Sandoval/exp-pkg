@@ -1,4 +1,4 @@
-"""Convert official MMPose top-down demo JSON exports into workspace-ready labels."""
+"""Convert official MMPose top-down demo JSON exports into project-ready labels."""
 
 from __future__ import annotations
 
@@ -23,7 +23,7 @@ from xpkg.io.video import Video
 _MMPOSE_JSON_READ_MARKER = "MMPOSE_JSON_IMPORT STEP: read_json"
 _MMPOSE_JSON_VALIDATE_VIDEO_MARKER = "MMPOSE_JSON_IMPORT STEP: validate_video"
 _MMPOSE_JSON_BUILD_LABELS_MARKER = "MMPOSE_JSON_IMPORT STEP: build_labels"
-_MMPOSE_JSON_PREPARE_RESULT_MARKER = "MMPOSE_JSON_IMPORT STEP: prepare_workspace_state"
+_MMPOSE_JSON_PREPARE_RESULT_MARKER = "MMPOSE_JSON_IMPORT STEP: prepare_project_state"
 _MMPOSE_JSON_DONE_MARKER = "MMPOSE_JSON_IMPORT DONE"
 
 MMPOSE_TOPDOWN_JSON_PROGRESS_MARKERS: tuple[tuple[str, int], ...] = (
@@ -44,7 +44,7 @@ def convert_mmpose_topdown_json(
     likelihood_threshold: float = 0.0,
     progress_callback: ProgressCallback | None = None,
 ) -> ConversionResult:
-    """Convert official MMPose top-down JSON into workspace-ready labels."""
+    """Convert official MMPose top-down JSON into project-ready labels."""
 
     resolved_json_path = _resolve_tracking_path(json_path)
     resolved_video_path = _resolve_video_path(video_path)

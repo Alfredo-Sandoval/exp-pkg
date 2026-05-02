@@ -1,7 +1,7 @@
 """Neutral pose trajectory adapter data.
 
 ``PoseTrajectory`` is a read-only downstream adapter for algorithms that only
-need point trajectories. Workspace storage remains source-native, currently
+need point trajectories. Project storage remains source-native, currently
 ``labels`` or ``vicon``.
 """
 

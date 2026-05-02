@@ -5,15 +5,15 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-from xpkg.io.workspace_snapshot_backend import read_workspace_snapshot_payload
-from xpkg.workspace import (
+from xpkg.project import (
     current_project_snapshot_path,
     init_project,
-    load_workspace_metadata,
-    load_workspace_payload,
-    save_workspace_labels,
-    save_workspace_metadata,
+    load_project_metadata,
+    load_project_payload,
+    save_project_labels,
+    save_project_metadata,
 )
+from xpkg.project.snapshot_backend import read_project_snapshot_payload
 
 
 def _make_labels(tmp_path: Path):
@@ -41,11 +41,11 @@ def _make_labels(tmp_path: Path):
     return labels
 
 
-def test_workspace_metadata_roundtrips_on_workspace_head(tmp_path: Path) -> None:
-    workspace = tmp_path / "Metadata Project"
-    init_project(workspace, title="Metadata Project")
+def test_project_metadata_roundtrips_on_project_head(tmp_path: Path) -> None:
+    project = tmp_path / "Metadata Project"
+    init_project(project, title="Metadata Project")
     labels = _make_labels(tmp_path)
-    save_workspace_labels(workspace, labels, metadata={"project_name": "Metadata Project"})
+    save_project_labels(project, labels, metadata={"project_name": "Metadata Project"})
 
     metadata = {
         "session_json": {"active_frame_idx": 3},
@@ -54,7 +54,7 @@ def test_workspace_metadata_roundtrips_on_workspace_head(tmp_path: Path) -> None
             "latest": {
                 "run_id": "run-1",
                 "created_ns": 1,
-                "output_dir": str(workspace / "models" / "pose" / "run-1"),
+                "output_dir": str(project / "models" / "pose" / "run-1"),
                 "summary": {"status": "completed"},
             },
             "runs": [],
@@ -62,36 +62,36 @@ def test_workspace_metadata_roundtrips_on_workspace_head(tmp_path: Path) -> None
         "manifest_json": {"version": 1, "entries": []},
     }
 
-    state_path = save_workspace_metadata(workspace, metadata)
+    state_path = save_project_metadata(project, metadata)
 
-    assert state_path == current_project_snapshot_path(workspace)
-    loaded_metadata = load_workspace_metadata(workspace)
+    assert state_path == current_project_snapshot_path(project)
+    loaded_metadata = load_project_metadata(project)
     assert loaded_metadata is not None
     assert loaded_metadata["session_json"] == metadata["session_json"]
     assert loaded_metadata["training_state_json"] == metadata["training_state_json"]
     assert loaded_metadata["manifest_json"] == metadata["manifest_json"]
     assert loaded_metadata["preferences"] == {}
 
-    snapshot_payload = read_workspace_snapshot_payload(state_path)
+    snapshot_payload = read_project_snapshot_payload(state_path)
     assert snapshot_payload["metadata"]["session_json"] == metadata["session_json"]
     assert snapshot_payload["metadata"]["training_state_json"] == metadata["training_state_json"]
     assert snapshot_payload["metadata"]["manifest_json"] == metadata["manifest_json"]
 
 
-def test_workspace_metadata_load_returns_empty_before_first_commit(tmp_path: Path) -> None:
-    workspace = tmp_path / "Empty Project"
-    init_project(workspace, title="Empty Project")
+def test_project_metadata_load_returns_empty_before_first_commit(tmp_path: Path) -> None:
+    project = tmp_path / "Empty Project"
+    init_project(project, title="Empty Project")
 
-    assert load_workspace_metadata(workspace) == {}
+    assert load_project_metadata(project) == {}
 
 
-def test_workspace_payload_loads_rebased_workspace_head(tmp_path: Path) -> None:
-    workspace = tmp_path / "Payload Project"
-    init_project(workspace, title="Payload Project")
+def test_project_payload_loads_rebased_project_head(tmp_path: Path) -> None:
+    project = tmp_path / "Payload Project"
+    init_project(project, title="Payload Project")
     labels = _make_labels(tmp_path)
-    save_workspace_labels(workspace, labels, metadata={"project_name": "Payload Project"})
+    save_project_labels(project, labels, metadata={"project_name": "Payload Project"})
 
-    payload = load_workspace_payload(workspace)
+    payload = load_project_payload(project)
 
     assert payload["metadata"]["project_name"] == "Payload Project"
     assert payload["labels"]["frames"]["frame_index"] == [0]

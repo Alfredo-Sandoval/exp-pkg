@@ -2,7 +2,7 @@
 
 <div class="page-intro">
 <p>
-Full API reference for the primary workspace-first service surface.
+Full API reference for the primary project-first service surface.
 See the <a href="../api/services/">guide</a> for the recommended downstream
 workflow.
 </p>
@@ -10,10 +10,10 @@ workflow.
 
 ## Canonical Public Surface
 
-- `WorkspaceService`
-- `WorkspaceImports`
-- `WorkspaceLayout`
-- `WorkspaceFigures`
-- `WorkspaceSegmentation`
+- `ProjectService`
+- `ProjectImports`
+- `ProjectLayout`
+- `ProjectFigures`
+- `ProjectSegmentation`
 
-::: xpkg.services.workspace
+::: xpkg.services.project

@@ -42,7 +42,7 @@ class LabelsVideoRemapProtocol(Protocol):
 
 @dataclass(slots=True)
 class ConversionResult:
-    """Outcome of converting an external data format into workspace state."""
+    """Outcome of converting an external data format into project state."""
 
     source_dir: Path
     project_root: Path

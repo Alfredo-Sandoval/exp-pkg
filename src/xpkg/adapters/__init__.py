@@ -3,11 +3,11 @@
 This surface is intentionally separate from:
 
 - ``xpkg.model`` for the canonical object graph
-- ``xpkg.workspace`` for workspace and project artifacts
+- ``xpkg.project`` for project and project artifacts
 
 Use ``xpkg.adapters`` when another repo needs to transform xpkg objects into
 JSON-friendly payloads, numpy arrays, or tabular structures without coupling
-to workspace or archive internals.
+to project or archive internals.
 """
 
 from __future__ import annotations

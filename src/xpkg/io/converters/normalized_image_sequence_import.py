@@ -1,4 +1,4 @@
-"""Convert normalized image-sequence annotations into workspace-ready labels."""
+"""Convert normalized image-sequence annotations into project-ready labels."""
 
 from __future__ import annotations
 
@@ -315,7 +315,7 @@ def convert_normalized_image_sequence_annotations(
     annotations_json: Path | str,
     out_dir: Path | str,
 ) -> ConversionResult:
-    """Convert a normalized image-sequence JSON payload into workspace-ready labels."""
+    """Convert a normalized image-sequence JSON payload into project-ready labels."""
     annotations_path = resolve_path(annotations_json)
     project_root = resolve_path(out_dir)
     ensure_dir(project_root)

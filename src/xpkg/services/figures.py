@@ -8,22 +8,22 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, overload
 
-from xpkg.workspace.figures import (
+from xpkg.project.figures import (
     FigureArtifact,
     FigureOutputSpec,
-    list_workspace_figures,
-    load_workspace_figure,
-    save_workspace_figure,
-    validate_workspace_figure,
-    validate_workspace_figures,
+    list_project_figures,
+    load_project_figure,
+    save_project_figure,
+    validate_project_figure,
+    validate_project_figures,
 )
 
 
 @dataclass(frozen=True, slots=True)
-class WorkspaceFigures:
-    """Workspace-bound helpers for figure output manifests."""
+class ProjectFigures:
+    """Project-bound helpers for figure output manifests."""
 
-    workspace_root: Path
+    project_root: Path
 
     def save(
         self,
@@ -38,9 +38,9 @@ class WorkspaceFigures:
         namespace: str | None = None,
         overwrite: bool = True,
     ) -> FigureArtifact:
-        """Copy figure outputs into the workspace and write a manifest."""
-        return save_workspace_figure(
-            self.workspace_root,
+        """Copy figure outputs into the project and write a manifest."""
+        return save_project_figure(
+            self.project_root,
             figure_id=figure_id,
             outputs=outputs,
             title=title,
@@ -54,11 +54,11 @@ class WorkspaceFigures:
 
     def load(self, figure_id: str, *, namespace: str | None = None) -> FigureArtifact:
         """Load one saved figure manifest."""
-        return load_workspace_figure(self.workspace_root, figure_id, namespace=namespace)
+        return load_project_figure(self.project_root, figure_id, namespace=namespace)
 
     def list(self, *, namespace: str | None = None) -> builtins.list[FigureArtifact]:
         """List saved figure manifests."""
-        return list_workspace_figures(self.workspace_root, namespace=namespace)
+        return list_project_figures(self.project_root, namespace=namespace)
 
     @overload
     def validate(self, figure_id: str, *, namespace: str | None = None) -> FigureArtifact: ...
@@ -79,14 +79,14 @@ class WorkspaceFigures:
     ) -> FigureArtifact | builtins.list[FigureArtifact]:
         """Validate one saved figure, or every saved figure when omitted."""
         if figure_id is None:
-            return validate_workspace_figures(self.workspace_root, namespace=namespace)
-        return validate_workspace_figure(
-            self.workspace_root,
+            return validate_project_figures(self.project_root, namespace=namespace)
+        return validate_project_figure(
+            self.project_root,
             figure_id,
             namespace=namespace,
         )
 
 
 __all__ = [
-    "WorkspaceFigures",
+    "ProjectFigures",
 ]

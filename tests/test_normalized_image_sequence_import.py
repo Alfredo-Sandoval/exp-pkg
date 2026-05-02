@@ -13,7 +13,7 @@ def _write_frame(path: Path, value: int) -> None:
     assert ok
 
 
-def test_convert_normalized_image_sequence_annotations_builds_workspace_ready_labels(
+def test_convert_normalized_image_sequence_annotations_builds_project_ready_labels(
     tmp_path: Path,
 ) -> None:
     from xpkg.io.converters.normalized_image_sequence_import import (
@@ -53,7 +53,7 @@ def test_convert_normalized_image_sequence_annotations_builds_workspace_ready_la
         )
     )
 
-    project_root = tmp_path / "workspace"
+    project_root = tmp_path / "project"
     result = convert_normalized_image_sequence_annotations(
         annotations_path,
         project_root,

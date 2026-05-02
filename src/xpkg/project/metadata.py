@@ -1,4 +1,4 @@
-"""Workspace metadata helpers owned by the public workspace package."""
+"""Project metadata helpers owned by the public project package."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
-from xpkg.io.project_workspace import load_workspace_metadata, save_workspace_metadata
+from xpkg.project.store import load_project_metadata, save_project_metadata
 
 
 def _require_field_name(field: str) -> str:
@@ -27,32 +27,32 @@ def _require_mapping(value: Any, *, name: str) -> dict[str, Any]:
     return payload
 
 
-def load_workspace_metadata_field(path: str | Path, field: str) -> dict[str, Any] | None:
-    """Load one mapping-valued metadata field from the current workspace head."""
-    metadata = load_workspace_metadata(path)
+def load_project_metadata_field(path: str | Path, field: str) -> dict[str, Any] | None:
+    """Load one mapping-valued metadata field from the current project head."""
+    metadata = load_project_metadata(path)
     if metadata is None:
         return None
     raw_value = metadata.get(_require_field_name(field))
     if raw_value is None:
         return None
-    return _require_mapping(raw_value, name=f"workspace_metadata.{field}")
+    return _require_mapping(raw_value, name=f"project_metadata.{field}")
 
 
-def save_workspace_metadata_field(
+def save_project_metadata_field(
     path: str | Path,
     field: str,
     value: Mapping[str, Any],
     *,
     reason: str,
 ) -> Path:
-    """Persist one mapping-valued metadata field onto the current workspace head."""
+    """Persist one mapping-valued metadata field onto the current project head."""
     attr_key = _require_field_name(field)
-    metadata = load_workspace_metadata(path) or {}
-    metadata[attr_key] = _require_mapping(value, name=f"workspace_metadata.{attr_key}")
-    return save_workspace_metadata(path, metadata, reason=reason)
+    metadata = load_project_metadata(path) or {}
+    metadata[attr_key] = _require_mapping(value, name=f"project_metadata.{attr_key}")
+    return save_project_metadata(path, metadata, reason=reason)
 
 
 __all__ = [
-    "load_workspace_metadata_field",
-    "save_workspace_metadata_field",
+    "load_project_metadata_field",
+    "save_project_metadata_field",
 ]

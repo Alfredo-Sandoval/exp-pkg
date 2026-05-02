@@ -1,13 +1,13 @@
 # Artifact Namespaces
 
 `xpkg` supports optional artifact namespaces so multiple downstream packages can
-write outputs into the same workspace without colliding. A namespace is an
+write outputs into the same project without colliding. A namespace is an
 ordinary caller-owned string. It is not a plugin registry, package registry, or
 list of names known to xpkg.
 
 The split is:
 
-- `xpkg` owns workspace layout, import/export, portable state, artifact
+- `xpkg` owns project layout, import/export, portable state, artifact
   manifests, media references, provenance records, and pack/unpack behavior.
 - Downstream packages own scientific or domain-specific meaning: metrics,
   validation rules, event semantics, model choices, plotting code, and
@@ -44,11 +44,11 @@ Common kinds use readable plural directories:
 For example:
 
 ```python
-from xpkg.services import WorkspaceService
+from xpkg.services import ProjectService
 
-workspace = WorkspaceService.open("./Experiment Workspace")
+project = ProjectService.open("./Experiment Project")
 
-workspace.artifacts.register(
+project.artifacts.register(
     artifact_id="session_summary_figure",
     artifact_type="figure",
     namespace="neuro-analysis",
@@ -73,7 +73,7 @@ That writes:
 For figures, the convenience API is equivalent:
 
 ```python
-workspace.figures.save(
+project.figures.save(
     figure_id="session_summary_figure",
     namespace="neuro-analysis",
     outputs={"figure.svg": "results/session_summary_figure.svg"},
@@ -98,7 +98,7 @@ Rules:
 
 Use this rule of thumb when wiring downstream packages into xpkg:
 
-- Raw/imported data: xpkg import adapters and workspace state.
+- Raw/imported data: xpkg import adapters and project state.
 - Labels, predictions, pose, tracking, and frame masks: xpkg managed state.
 - Domain analysis tables: the downstream package computes them; xpkg stores or
   registers them as claim-carrying artifacts.
@@ -120,10 +120,10 @@ Every saved artifact should answer:
 - Which package/module/command produced it?
 - Which caller-owned namespace, if any, owns the domain semantics?
 
-That contract lets independent packages share one workspace while keeping xpkg
+That contract lets independent packages share one project while keeping xpkg
 as a portable artifact system rather than a domain-specific analysis library.
 
-## Workspace Index
+## Project Index
 
 xpkg maintains a compact index at:
 
@@ -135,5 +135,5 @@ The index is for discovery and CLI listing. The individual `manifest.json`
 files remain authoritative, so the index can be rebuilt:
 
 ```bash
-xpkg artifacts rebuild-index "./Experiment Workspace"
+xpkg artifacts rebuild-index "./Experiment Project"
 ```

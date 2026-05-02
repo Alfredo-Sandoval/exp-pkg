@@ -60,34 +60,34 @@ def test_convert_mmpose_topdown_json_supports_instance_slots(tmp_path: Path) -> 
     assert int(np.count_nonzero(~np.isnan(points["x"]))) == 2
 
 
-def test_import_mmpose_topdown_json_workspace_imports_sequence_into_workspace(
+def test_import_mmpose_topdown_json_project_imports_sequence_into_project(
     tmp_path: Path,
 ) -> None:
-    from xpkg.io.project_workspace import (
-        current_project_snapshot_path,
-        import_mmpose_topdown_json_workspace,
-    )
-    from xpkg.io.workspace_snapshot_backend import read_workspace_snapshot_payload
     from xpkg.model import Labels
+    from xpkg.project.snapshot_backend import read_project_snapshot_payload
+    from xpkg.project.store import (
+        current_project_snapshot_path,
+        import_mmpose_topdown_json_project,
+    )
 
     json_path = _write_mmpose_topdown_json(tmp_path / "results_session.json")
     video_path = tmp_path / "session.avi"
     _write_dummy_video(video_path, frame_count=3)
-    workspace = tmp_path / "Imported MMPose Project"
+    project = tmp_path / "Imported MMPose Project"
 
-    snapshot_path = import_mmpose_topdown_json_workspace(
+    snapshot_path = import_mmpose_topdown_json_project(
         json_path,
         video_path,
-        workspace,
+        project,
         skeleton_name="toy_subject",
     )
 
-    assert snapshot_path == current_project_snapshot_path(workspace)
-    payload = read_workspace_snapshot_payload(snapshot_path)
+    assert snapshot_path == current_project_snapshot_path(project)
+    payload = read_project_snapshot_payload(snapshot_path)
     assert payload["metadata"]["source"] == "mmpose_topdown_json_import"
     assert payload["metadata"]["source_json"] == json_path.as_posix()
 
-    labels = Labels.load_file(workspace.as_posix())
+    labels = Labels.load_file(project.as_posix())
     assert len(labels.skeletons[0].keypoint_names) == 3
     assert labels.skeletons[0].links_ids == [(0, 1), (1, 2)]
     assert len(labels.videos) == 1

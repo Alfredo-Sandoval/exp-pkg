@@ -16,7 +16,7 @@ def test_labels_json_roundtrip_with_image_sequence(tmp_path: Path) -> None:
     from xpkg.adapters import labels_from_json_payload, labels_to_json_payload
     from xpkg.model import Labels, Video, build_keypoint_skeleton
     from xpkg.pose.annotations import Instance, LabeledFrame, Point
-    from xpkg.workspace import read_labels_json_payload
+    from xpkg.project import read_labels_json_payload
 
     frames_dir = tmp_path / "frames"
     frames_dir.mkdir()

@@ -86,16 +86,16 @@ nav:
       - Multimodal Session Model: architecture/multimodal-session.md
       - Media IO Stack: architecture/media-io.md
       - Storage Direction: architecture/storage-direction.md
-      - Workspace Durability: architecture/experimental-store.md
+      - Project Durability: architecture/experimental-store.md
   - Development:
       - Local Quality Gates: development/local-ci.md
   - API Guide:
       - Model: api/model.md
       - Adapters: api/adapters.md
       - Services: api/services.md
-      - Workspace: api/workspace.md
+      - Project: api/project.md
   - Reference:
       - xpkg.model: reference/model.md
       - xpkg.adapters: reference/adapters.md
       - xpkg.services: reference/services.md
-      - xpkg.workspace: reference/workspace.md
+      - xpkg.project: reference/project.md

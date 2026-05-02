@@ -1,4 +1,4 @@
-"""Workspace save/import and store helpers for xpkg v1."""
+"""Project save/import and store helpers for xpkg v1."""
 
 from __future__ import annotations
 
@@ -20,8 +20,8 @@ from xpkg.adapters.vicon import (
     vicon_recording_from_json_payload,
     vicon_recording_to_json_payload,
 )
-from xpkg.io.project_artifact import validate_workspace
-from xpkg.io.project_layout import (
+from xpkg.project.artifact import validate_project
+from xpkg.project.layout import (
     CURRENT_SNAPSHOT_FILENAME,
     EXPORTS_DIRNAME,
     MEDIA_DIRNAME,
@@ -29,68 +29,68 @@ from xpkg.io.project_layout import (
     STORE_DIRNAME,
     STORE_STATE_DIRNAME,
     ProjectDescriptor,
-    _candidate_workspace_root,
+    _candidate_project_root,
     _now_utc_iso,
     load_project_descriptor,
-    resolve_workspace_root,
-    workspace_current_snapshot_path,
-    workspace_exports_root,
-    workspace_media_root,
-    workspace_store_root,
+    project_current_snapshot_path,
+    project_exports_root,
+    project_media_root,
+    project_store_root,
+    resolve_project_root,
     write_project_descriptor,
 )
-from xpkg.io.workspace_snapshot_backend import (
-    WORKSPACE_COMMIT_ID_KEY,
+from xpkg.project.snapshot_backend import (
+    PROJECT_COMMIT_ID_KEY,
     normalize_predictions_payload,
     predictions_payload_from_labels,
-    read_workspace_snapshot,
-    rewrite_workspace_metadata_paths,
-    workspace_snapshot_cache_digest_matches,
-    write_workspace_snapshot,
-    write_workspace_snapshot_cache_digest,
-    write_workspace_snapshot_payload,
+    project_snapshot_cache_digest_matches,
+    read_project_snapshot,
+    rewrite_project_metadata_paths,
+    write_project_snapshot,
+    write_project_snapshot_cache_digest,
+    write_project_snapshot_payload,
 )
-from xpkg.io.workspace_state import (
-    read_workspace_state_document,
-    workspace_state_commit_id_from_document,
-    workspace_state_kind,
-    workspace_state_payload_from_document,
+from xpkg.project.state import (
+    project_state_commit_id_from_document,
+    project_state_kind,
+    project_state_payload_from_document,
+    read_project_state_document,
 )
 
 if TYPE_CHECKING:
     from xpkg.model import Labels, ViconRecording
 
 
-def load_workspace_payload(path: str | Path) -> dict[str, Any]:
-    """Return the current committed workspace payload on the public bundle surface."""
-    root = resolve_workspace_root(path)
+def load_project_payload(path: str | Path) -> dict[str, Any]:
+    """Return the current committed project payload on the public bundle surface."""
+    root = resolve_project_root(path)
     if root is None:
-        raise FileNotFoundError(f"Not an xpkg workspace: {path}")
-    state = _current_workspace_state_payload(root)
+        raise FileNotFoundError(f"Not an xpkg project: {path}")
+    state = _current_project_state_payload(root)
     if state is None:
         return {"metadata": {}}
     payload, source_kind = state
     metadata = _snapshot_metadata_from_state_payload(payload) or {}
     if source_kind == "snapshot_labels":
         public_payload = _public_payload_from_snapshot_labels(payload, metadata=metadata)
-        rebase_workspace_payload_videos(public_payload, root)
+        rebase_project_payload_videos(public_payload, root)
         return public_payload
     if source_kind == "snapshot_vicon":
         return {
             "recording": deepcopy(payload),
             "metadata": metadata,
         }
-    raise ValueError(f"Unsupported workspace state source: {source_kind!r}")
+    raise ValueError(f"Unsupported project state source: {source_kind!r}")
 
 
 def current_project_snapshot_path(path: str | Path) -> Path:
-    """Return the workspace snapshot cache path under `.xpkg/state/current.json`."""
+    """Return the project snapshot cache path under `.xpkg/state/current.json`."""
 
-    return workspace_current_snapshot_path(path)
+    return project_current_snapshot_path(path)
 
 
 def current_project_commit_id(path: str | Path) -> str | None:
-    return _workspace_store(path).current_commit_id()
+    return _project_store(path).current_commit_id()
 
 
 def _public_payload_from_snapshot_labels(
@@ -129,7 +129,7 @@ def _public_labels_payload_from_snapshot(
     frames_info = labels_snapshot.get("frames")
     data_info = labels_snapshot.get("data")
     if not isinstance(frames_info, dict) or not isinstance(data_info, dict):
-        raise TypeError("Workspace snapshot labels payload must contain frames/data mappings")
+        raise TypeError("Project snapshot labels payload must contain frames/data mappings")
 
     skeleton_info = deepcopy(labels_snapshot.get("skeleton") or {})
     skeleton_names = list(skeleton_info.get("names") or [])
@@ -417,25 +417,25 @@ def _public_segmentation_payload_from_snapshot(snapshot_payload: dict[str, Any])
 
 
 def current_project_state_path(path: str | Path) -> Path:
-    """Return the current workspace snapshot cache path."""
+    """Return the current project snapshot cache path."""
 
     snapshot_path = current_project_snapshot_path(path)
     return snapshot_path
 
 
 @dataclass(slots=True)
-class WorkspaceStore:
-    """Private workspace store boundary for `.xpkg/`."""
+class ProjectStore:
+    """Private project store boundary for `.xpkg/`."""
 
-    workspace_root: Path
+    project_root: Path
 
     @property
     def store_root(self) -> Path:
-        return workspace_store_root(self.workspace_root)
+        return project_store_root(self.project_root)
 
     @property
     def staging_root(self) -> Path:
-        return self.store_root / "workspace"
+        return self.store_root / "project"
 
     def has_durable_store(self) -> bool:
         return (self.store_root / "superblock.a.json").exists() or (
@@ -453,13 +453,13 @@ class WorkspaceStore:
         return self.open().load_current_commit().commit_id
 
     def open(self):
-        from xpkg.io.workspace_durable_store import WorkspaceDurableStore
+        from xpkg.project.durable_store import ProjectDurableStore
 
-        return WorkspaceDurableStore.open(self.store_root)
+        return ProjectDurableStore.open(self.store_root)
 
     def current_snapshot_path(self) -> Path:
         if not self.has_durable_store():
-            raise FileNotFoundError(f"Workspace has no durable snapshot root: {self.store_root}")
+            raise FileNotFoundError(f"Project has no durable snapshot root: {self.store_root}")
         return self.open().current_root_path("snapshot")
 
     def commit_snapshot(
@@ -471,16 +471,16 @@ class WorkspaceStore:
     ) -> Path:
         candidate = resolve_path(snapshot_path)
         if not candidate.is_file():
-            raise FileNotFoundError(f"Staged workspace snapshot not found: {candidate}")
+            raise FileNotFoundError(f"Staged project snapshot not found: {candidate}")
 
         if self.has_durable_store():
             store = self.open()
             store.commit_new_roots({"snapshot": candidate}, reason=reason, created_by=created_by)
             return store.current_root_path("snapshot")
 
-        from xpkg.io.workspace_durable_store import WorkspaceDurableStore
+        from xpkg.project.durable_store import ProjectDurableStore
 
-        store = WorkspaceDurableStore.create_from_roots(
+        store = ProjectDurableStore.create_from_roots(
             store_root=self.store_root,
             initial_roots={"snapshot": candidate},
             created_by=created_by,
@@ -489,19 +489,19 @@ class WorkspaceStore:
         return store.current_root_path("snapshot")
 
 
-def _workspace_store(path: str | Path) -> WorkspaceStore:
-    root = resolve_workspace_root(path) or _candidate_workspace_root(path)
-    return WorkspaceStore(workspace_root=root)
+def _project_store(path: str | Path) -> ProjectStore:
+    root = resolve_project_root(path) or _candidate_project_root(path)
+    return ProjectStore(project_root=root)
 
 
 def init_project(
-    workspace: str | Path,
+    project: str | Path,
     *,
     title: str | None = None,
     project_id: str | None = None,
     force: bool = False,
 ) -> ProjectDescriptor:
-    root = _candidate_workspace_root(workspace)
+    root = _candidate_project_root(project)
     if root.exists() and not root.is_dir():
         raise NotADirectoryError(f"Project root is not a directory: {root}")
     if root.exists():
@@ -511,9 +511,9 @@ def init_project(
     else:
         ensure_dir(root)
 
-    ensure_dir(workspace_store_root(root))
-    ensure_dir(workspace_media_root(root))
-    ensure_dir(workspace_exports_root(root))
+    ensure_dir(project_store_root(root))
+    ensure_dir(project_media_root(root))
+    ensure_dir(project_exports_root(root))
 
     descriptor = ProjectDescriptor.new(
         title=(title or root.name or "exp-pkg Project").strip(),
@@ -527,8 +527,8 @@ def _clone_metadata(metadata: dict[str, Any] | None) -> dict[str, Any]:
     return dict(metadata or {})
 
 
-def _stage_workspace_parent(workspace_root: Path) -> Path:
-    return ensure_dir(_workspace_store(workspace_root).staging_root)
+def _stage_project_parent(project_root: Path) -> Path:
+    return ensure_dir(_project_store(project_root).staging_root)
 
 
 def _snapshot_metadata_from_state_payload(
@@ -538,7 +538,7 @@ def _snapshot_metadata_from_state_payload(
     if not isinstance(metadata, dict):
         return None
     normalized = dict(metadata)
-    normalized.pop(WORKSPACE_COMMIT_ID_KEY, None)
+    normalized.pop(PROJECT_COMMIT_ID_KEY, None)
     return normalized
 
 
@@ -629,7 +629,7 @@ def _strip_prediction_instances_from_snapshot_payload(
     frames_info = stripped_payload.get("frames")
     data_info = stripped_payload.get("data")
     if not isinstance(frames_info, dict) or not isinstance(data_info, dict):
-        raise TypeError("Workspace snapshot labels payload must contain frames/data mappings")
+        raise TypeError("Project snapshot labels payload must contain frames/data mappings")
 
     frame_index = np.asarray(frames_info.get("frame_index", []), dtype=np.int32)
     video_index = np.asarray(frames_info.get("video_index", []), dtype=np.int32)
@@ -672,7 +672,7 @@ def _strip_prediction_instances_from_snapshot_payload(
                     break
             if matched_idx is None:
                 raise ValueError(
-                    "Workspace snapshot labels/predictions are inconsistent for "
+                    "Project snapshot labels/predictions are inconsistent for "
                     f"video_index={key[0]}, frame_index={key[1]}"
                 )
             matched_indices.add(matched_idx)
@@ -717,47 +717,47 @@ def _strip_prediction_instances_from_snapshot_payload(
     return stripped_payload
 
 
-def _normalized_workspace_metadata(
+def _normalized_project_metadata(
     metadata: dict[str, Any] | None,
     *,
-    workspace_root: Path,
+    project_root: Path,
     commit_id: str | None,
 ) -> dict[str, Any]:
-    normalized = rewrite_workspace_metadata_paths(
+    normalized = rewrite_project_metadata_paths(
         metadata,
-        workspace_root=workspace_root,
+        project_root=project_root,
     )
     if commit_id is None:
-        normalized.pop(WORKSPACE_COMMIT_ID_KEY, None)
+        normalized.pop(PROJECT_COMMIT_ID_KEY, None)
     else:
-        normalized[WORKSPACE_COMMIT_ID_KEY] = str(commit_id)
+        normalized[PROJECT_COMMIT_ID_KEY] = str(commit_id)
     return normalized
 
 
-def _workspace_snapshot_cache_matches_committed_head(
-    workspace_root: Path,
+def _project_snapshot_cache_matches_committed_head(
+    project_root: Path,
     snapshot_path: Path,
 ) -> bool:
-    from xpkg.io.workspace_durable_store import WorkspaceDurableStore
+    from xpkg.project.durable_store import ProjectDurableStore
 
-    store = WorkspaceDurableStore.open(workspace_store_root(workspace_root))
+    store = ProjectDurableStore.open(project_store_root(project_root))
     commit = store.load_current_commit()
     if not commit.has_root("snapshot"):
         return False
-    if workspace_snapshot_cache_digest_matches(snapshot_path, commit_id=commit.commit_id):
+    if project_snapshot_cache_digest_matches(snapshot_path, commit_id=commit.commit_id):
         return True
     root_entry = commit.root_entry("snapshot")
     committed_snapshot_path = store.paths.object_path(root_entry.object_id, ext=root_entry.ext)
     if not committed_snapshot_path.exists():
         return False
     if f"obj_{sha256_file(snapshot_path)}" == root_entry.object_id:
-        write_workspace_snapshot_cache_digest(snapshot_path, commit_id=commit.commit_id)
+        write_project_snapshot_cache_digest(snapshot_path, commit_id=commit.commit_id)
         return True
 
-    cache_document = read_workspace_state_document(snapshot_path)
-    committed_document = read_workspace_state_document(committed_snapshot_path)
-    if _workspace_state_documents_match_cache(cache_document, committed_document):
-        write_workspace_snapshot_cache_digest(snapshot_path, commit_id=commit.commit_id)
+    cache_document = read_project_state_document(snapshot_path)
+    committed_document = read_project_state_document(committed_snapshot_path)
+    if _project_state_documents_match_cache(cache_document, committed_document):
+        write_project_snapshot_cache_digest(snapshot_path, commit_id=commit.commit_id)
         return True
     return False
 
@@ -768,14 +768,14 @@ def _metadata_matches_without_commit_id(
 ) -> bool:
     cache_keys = set(cache_metadata)
     committed_keys = set(committed_metadata)
-    cache_keys.discard(WORKSPACE_COMMIT_ID_KEY)
-    committed_keys.discard(WORKSPACE_COMMIT_ID_KEY)
+    cache_keys.discard(PROJECT_COMMIT_ID_KEY)
+    committed_keys.discard(PROJECT_COMMIT_ID_KEY)
     if cache_keys != committed_keys:
         return False
     return all(cache_metadata[key] == committed_metadata[key] for key in cache_keys)
 
 
-def _workspace_payload_matches_cache(
+def _project_payload_matches_cache(
     cache_payload: Mapping[str, Any],
     committed_payload: Mapping[str, Any],
 ) -> bool:
@@ -797,12 +797,12 @@ def _workspace_payload_matches_cache(
     return cache_metadata == committed_metadata
 
 
-def _workspace_state_documents_match_cache(
+def _project_state_documents_match_cache(
     cache_document: Mapping[str, Any],
     committed_document: Mapping[str, Any],
 ) -> bool:
-    cache_payload = workspace_state_payload_from_document(cache_document)
-    committed_payload = workspace_state_payload_from_document(committed_document)
+    cache_payload = project_state_payload_from_document(cache_document)
+    committed_payload = project_state_payload_from_document(committed_document)
 
     if cache_payload is not cache_document or committed_payload is not committed_document:
         cache_keys = set(cache_document)
@@ -814,53 +814,53 @@ def _workspace_state_documents_match_cache(
                 continue
             if cache_document[key] != committed_document[key]:
                 return False
-        return _workspace_payload_matches_cache(cache_payload, committed_payload)
+        return _project_payload_matches_cache(cache_payload, committed_payload)
 
-    return _workspace_payload_matches_cache(cache_document, committed_document)
+    return _project_payload_matches_cache(cache_document, committed_document)
 
 
-def ensure_current_workspace_snapshot_cache(workspace_root: Path) -> Path | None:
-    """Materialize the current workspace snapshot cache from the committed head when needed."""
+def ensure_current_project_snapshot_cache(project_root: Path) -> Path | None:
+    """Materialize the current project snapshot cache from the committed head when needed."""
 
-    snapshot_path = workspace_current_snapshot_path(workspace_root)
+    snapshot_path = project_current_snapshot_path(project_root)
     if snapshot_path.exists():
-        current_head = current_project_commit_id(workspace_root)
+        current_head = current_project_commit_id(project_root)
         if current_head is None:
             return snapshot_path
-        snapshot_document = read_workspace_state_document(snapshot_path)
-        snapshot_head = workspace_state_commit_id_from_document(snapshot_document)
+        snapshot_document = read_project_state_document(snapshot_path)
+        snapshot_head = project_state_commit_id_from_document(snapshot_document)
         if (
             snapshot_head == current_head
-            and _workspace_snapshot_cache_matches_committed_head(
-                workspace_root,
+            and _project_snapshot_cache_matches_committed_head(
+                project_root,
                 snapshot_path,
             )
         ):
             return snapshot_path
 
-    state = _current_workspace_state_payload(workspace_root)
+    state = _current_project_state_payload(project_root)
     if state is None:
         return None
-    return rebuild_workspace_snapshot_cache(workspace_root)
+    return rebuild_project_snapshot_cache(project_root)
 
 
-def _current_workspace_state_payload(
-    workspace_root: Path,
+def _current_project_state_payload(
+    project_root: Path,
 ) -> tuple[dict[str, Any], str] | None:
-    store = _workspace_store(workspace_root)
+    store = _project_store(project_root)
     if store.has_durable_store():
         mounted = store.open()
         if mounted.has_current_root("snapshot"):
             snapshot_path = mounted.current_root_path("snapshot")
-            snapshot_kind = workspace_state_kind(snapshot_path)
+            snapshot_kind = project_state_kind(snapshot_path)
             if snapshot_kind == "labels":
-                return read_workspace_snapshot(snapshot_path), "snapshot_labels"
+                return read_project_snapshot(snapshot_path), "snapshot_labels"
             return read_vicon_json_payload(snapshot_path), "snapshot_vicon"
 
     return None
 
 
-def _workspace_state_components(
+def _project_state_components(
     state_payload: dict[str, Any],
     *,
     source_kind: str,
@@ -868,7 +868,7 @@ def _workspace_state_components(
     if source_kind in {"snapshot_labels", "snapshot_vicon"}:
         metadata = _snapshot_metadata_from_state_payload(state_payload)
     else:
-        raise ValueError(f"Unsupported workspace state source: {source_kind!r}")
+        raise ValueError(f"Unsupported project state source: {source_kind!r}")
     predictions = (
         _predictions_payload_from_state_payload(state_payload)
         if source_kind == "snapshot_labels"
@@ -877,27 +877,27 @@ def _workspace_state_components(
     return metadata, predictions
 
 
-def _write_workspace_state(
-    workspace_root: Path,
+def _write_project_state(
+    project_root: Path,
     *,
     labels: Labels,
     metadata: dict[str, Any] | None = None,
     predictions: dict[str, Any] | None = None,
     commit_id: str | None = None,
 ) -> Path:
-    _manage_labels_media(labels, workspace_root)
-    return write_workspace_snapshot(
-        workspace_current_snapshot_path(workspace_root),
+    _manage_labels_media(labels, project_root)
+    return write_project_snapshot(
+        project_current_snapshot_path(project_root),
         labels=labels,
-        workspace_root=workspace_root,
+        project_root=project_root,
         metadata=metadata,
         predictions=predictions,
         commit_id=commit_id,
     )
 
 
-def _write_vicon_workspace_state(
-    workspace_root: Path,
+def _write_vicon_project_state(
+    project_root: Path,
     *,
     recording: ViconRecording,
     metadata: dict[str, Any] | None = None,
@@ -905,14 +905,14 @@ def _write_vicon_workspace_state(
 ) -> Path:
     document = vicon_recording_to_json_payload(
         recording,
-        metadata=_normalized_workspace_metadata(
+        metadata=_normalized_project_metadata(
             metadata,
-            workspace_root=workspace_root,
+            project_root=project_root,
             commit_id=commit_id,
         ),
-        source_root=workspace_root,
+        source_root=project_root,
     )
-    target = workspace_current_snapshot_path(workspace_root)
+    target = project_current_snapshot_path(project_root)
     ensure_dir(target.parent)
     write_json(
         target,
@@ -923,22 +923,22 @@ def _write_vicon_workspace_state(
         compact=True,
     )
     if commit_id is not None:
-        write_workspace_snapshot_cache_digest(target, commit_id=str(commit_id))
+        write_project_snapshot_cache_digest(target, commit_id=str(commit_id))
     return target
 
 
-def _commit_labels_to_workspace(
-    workspace_root: Path,
+def _commit_labels_to_project(
+    project_root: Path,
     *,
     labels: Labels,
     metadata: dict[str, Any] | None = None,
     predictions: dict[str, Any] | None = None,
     reason: str,
 ) -> Path:
-    _manage_labels_media(labels, workspace_root)
-    normalized_metadata = rewrite_workspace_metadata_paths(
+    _manage_labels_media(labels, project_root)
+    normalized_metadata = rewrite_project_metadata_paths(
         metadata,
-        workspace_root=workspace_root,
+        project_root=project_root,
     )
     normalized_predictions = (
         predictions_payload_from_labels(labels)
@@ -946,25 +946,25 @@ def _commit_labels_to_workspace(
         else normalize_predictions_payload(predictions)
     )
 
-    stage_parent = _stage_workspace_parent(workspace_root)
+    stage_parent = _stage_project_parent(project_root)
     with tempfile.TemporaryDirectory(
-        prefix=".workspace_commit_",
+        prefix=".project_commit_",
         dir=str(stage_parent),
     ) as tmp_dir:
         staged_snapshot = Path(tmp_dir) / CURRENT_SNAPSHOT_FILENAME
-        write_workspace_snapshot(
+        write_project_snapshot(
             staged_snapshot,
             labels=labels,
-            workspace_root=workspace_root,
+            project_root=project_root,
             metadata=normalized_metadata,
             predictions=normalized_predictions,
         )
-        store = _workspace_store(workspace_root)
+        store = _project_store(project_root)
         store.commit_snapshot(staged_snapshot, reason=reason)
         commit_id = store.current_commit_id()
 
-    return _write_workspace_state(
-        workspace_root,
+    return _write_project_state(
+        project_root,
         labels=labels,
         metadata=normalized_metadata,
         predictions=normalized_predictions,
@@ -972,16 +972,16 @@ def _commit_labels_to_workspace(
     )
 
 
-def _commit_snapshot_metadata_to_workspace(
-    workspace_root: Path,
+def _commit_snapshot_metadata_to_project(
+    project_root: Path,
     *,
     state_payload: dict[str, Any],
     metadata: dict[str, Any] | None,
     reason: str,
 ) -> Path:
-    normalized_metadata = rewrite_workspace_metadata_paths(
+    normalized_metadata = rewrite_project_metadata_paths(
         metadata,
-        workspace_root=workspace_root,
+        project_root=project_root,
     )
     existing_metadata = state_payload.get("metadata")
     if "preferences" not in normalized_metadata:
@@ -992,58 +992,58 @@ def _commit_snapshot_metadata_to_workspace(
         )
         normalized_metadata["preferences"] = dict(preferences or {})
     staged_payload = deepcopy(state_payload)
-    staged_payload["metadata"] = _normalized_workspace_metadata(
+    staged_payload["metadata"] = _normalized_project_metadata(
         normalized_metadata,
-        workspace_root=workspace_root,
+        project_root=project_root,
         commit_id=None,
     )
 
-    stage_parent = _stage_workspace_parent(workspace_root)
+    stage_parent = _stage_project_parent(project_root)
     with tempfile.TemporaryDirectory(
-        prefix=".workspace_commit_",
+        prefix=".project_commit_",
         dir=str(stage_parent),
     ) as tmp_dir:
         staged_snapshot = Path(tmp_dir) / CURRENT_SNAPSHOT_FILENAME
-        write_workspace_snapshot_payload(staged_snapshot, staged_payload)
-        store = _workspace_store(workspace_root)
+        write_project_snapshot_payload(staged_snapshot, staged_payload)
+        store = _project_store(project_root)
         store.commit_snapshot(staged_snapshot, reason=reason)
         commit_id = store.current_commit_id()
 
     current_payload = deepcopy(state_payload)
     current_payload["metadata"] = normalized_metadata
-    return write_workspace_snapshot_payload(
-        workspace_current_snapshot_path(workspace_root),
+    return write_project_snapshot_payload(
+        project_current_snapshot_path(project_root),
         current_payload,
         commit_id=commit_id,
     )
 
 
-def _commit_vicon_to_workspace(
-    workspace_root: Path,
+def _commit_vicon_to_project(
+    project_root: Path,
     *,
     recording: ViconRecording,
     metadata: dict[str, Any] | None = None,
     reason: str,
 ) -> Path:
-    normalized_metadata = rewrite_workspace_metadata_paths(
+    normalized_metadata = rewrite_project_metadata_paths(
         metadata,
-        workspace_root=workspace_root,
+        project_root=project_root,
     )
 
-    stage_parent = _stage_workspace_parent(workspace_root)
+    stage_parent = _stage_project_parent(project_root)
     with tempfile.TemporaryDirectory(
-        prefix=".workspace_commit_",
+        prefix=".project_commit_",
         dir=str(stage_parent),
     ) as tmp_dir:
         staged_snapshot = Path(tmp_dir) / CURRENT_SNAPSHOT_FILENAME
         document = vicon_recording_to_json_payload(
             recording,
-            metadata=_normalized_workspace_metadata(
+            metadata=_normalized_project_metadata(
                 normalized_metadata,
-                workspace_root=workspace_root,
+                project_root=project_root,
                 commit_id=None,
             ),
-            source_root=workspace_root,
+            source_root=project_root,
         )
         write_json(
             staged_snapshot,
@@ -1053,36 +1053,36 @@ def _commit_vicon_to_workspace(
             ensure_ascii=True,
             compact=True,
         )
-        store = _workspace_store(workspace_root)
+        store = _project_store(project_root)
         store.commit_snapshot(staged_snapshot, reason=reason)
         commit_id = store.current_commit_id()
 
-    return _write_vicon_workspace_state(
-        workspace_root,
+    return _write_vicon_project_state(
+        project_root,
         recording=recording,
         metadata=normalized_metadata,
         commit_id=commit_id,
     )
 
 
-def _import_workspace_from_conversion(
-    workspace: str | Path,
+def _import_project_from_conversion(
+    project: str | Path,
     *,
     force: bool,
     reason: str,
     convert: Callable[[Path], Any],
 ) -> Path:
-    root = _ensure_workspace_for_import(
-        workspace,
+    root = _ensure_project_for_import(
+        project,
         force=force,
     )
-    stage_parent = _stage_workspace_parent(root)
+    stage_parent = _stage_project_parent(root)
     with tempfile.TemporaryDirectory(
-        prefix=".workspace_import_",
+        prefix=".project_import_",
         dir=str(stage_parent),
     ) as tmp_dir:
         result = convert(Path(tmp_dir))
-        snapshot_path = _commit_labels_to_workspace(
+        snapshot_path = _commit_labels_to_project(
             root,
             labels=result.labels,
             metadata=result.metadata,
@@ -1137,105 +1137,105 @@ def _merge_labels_for_import(
     return merged_labels
 
 
-def rebuild_workspace_snapshot_cache(workspace_root: Path) -> Path:
-    state = _current_workspace_state_payload(workspace_root)
+def rebuild_project_snapshot_cache(project_root: Path) -> Path:
+    state = _current_project_state_payload(project_root)
     if state is None:
-        raise FileNotFoundError(f"Workspace has no committed state: {workspace_root}")
+        raise FileNotFoundError(f"Project has no committed state: {project_root}")
 
     state_payload, source_kind = state
-    commit_id = _workspace_store(workspace_root).current_commit_id()
+    commit_id = _project_store(project_root).current_commit_id()
     if source_kind == "snapshot_labels":
-        return write_workspace_snapshot_payload(
-            workspace_current_snapshot_path(workspace_root),
+        return write_project_snapshot_payload(
+            project_current_snapshot_path(project_root),
             state_payload,
             commit_id=commit_id,
         )
     if source_kind == "snapshot_vicon":
-        recording = vicon_recording_from_json_payload(state_payload, source_root=workspace_root)
-        return _write_vicon_workspace_state(
-            workspace_root,
+        recording = vicon_recording_from_json_payload(state_payload, source_root=project_root)
+        return _write_vicon_project_state(
+            project_root,
             recording=recording,
             metadata=_snapshot_metadata_from_state_payload(state_payload),
             commit_id=commit_id,
         )
 
-    raise ValueError(f"Unsupported workspace state source: {source_kind!r}")
+    raise ValueError(f"Unsupported project state source: {source_kind!r}")
 
 
-def load_workspace_vicon_recording(workspace: str | Path) -> ViconRecording:
-    """Load the current Vicon recording from a workspace-managed state snapshot."""
+def load_project_vicon_recording(project: str | Path) -> ViconRecording:
+    """Load the current Vicon recording from a project-managed state snapshot."""
 
-    root = resolve_workspace_root(workspace)
+    root = resolve_project_root(project)
     if root is None:
-        raise FileNotFoundError(f"Not an xpkg workspace: {workspace}")
+        raise FileNotFoundError(f"Not an xpkg project: {project}")
 
-    state_path = ensure_current_workspace_snapshot_cache(root)
+    state_path = ensure_current_project_snapshot_cache(root)
     if state_path is None:
-        raise FileNotFoundError(f"Workspace has no committed state: {root}")
+        raise FileNotFoundError(f"Project has no committed state: {root}")
     if state_path.suffix.lower() != ".json":
         raise ValueError(
-            "Workspace current state is not a Vicon JSON snapshot; "
-            "only workspace-native snapshots can be loaded as Vicon recordings."
+            "Project current state is not a Vicon JSON snapshot; "
+            "only project-native snapshots can be loaded as Vicon recordings."
         )
-    if workspace_state_kind(state_path) != "vicon":
+    if project_state_kind(state_path) != "vicon":
         raise ValueError(
-            "Workspace current state is not a Vicon recording. "
-            "Use Labels.load_file(...) or WorkspaceService.load_labels()."
+            "Project current state is not a Vicon recording. "
+            "Use Labels.load_file(...) or ProjectService.load_labels()."
         )
     return vicon_recording_from_json_payload(
-        read_workspace_state_document(state_path),
+        read_project_state_document(state_path),
         source_root=root,
     )
 
 
-def load_workspace_metadata(workspace: str | Path) -> dict[str, Any]:
-    """Return the current workspace metadata payload from the managed head."""
+def load_project_metadata(project: str | Path) -> dict[str, Any]:
+    """Return the current project metadata payload from the managed head."""
 
-    root = resolve_workspace_root(workspace)
+    root = resolve_project_root(project)
     if root is None:
-        raise FileNotFoundError(f"Not an xpkg workspace: {workspace}")
+        raise FileNotFoundError(f"Not an xpkg project: {project}")
 
-    current_state = _current_workspace_state_payload(root)
+    current_state = _current_project_state_payload(root)
     if current_state is None:
         return {}
 
     state_payload, source_kind = current_state
-    metadata, _predictions = _workspace_state_components(
+    metadata, _predictions = _project_state_components(
         state_payload,
         source_kind=source_kind,
     )
     return _clone_metadata(metadata)
 
 
-def save_workspace_metadata(
-    workspace: str | Path,
+def save_project_metadata(
+    project: str | Path,
     metadata: Mapping[str, Any] | None,
     *,
-    reason: str = "workspace.save.metadata",
+    reason: str = "project.save.metadata",
 ) -> Path:
-    """Commit updated metadata onto the current workspace head."""
+    """Commit updated metadata onto the current project head."""
 
-    root = resolve_workspace_root(workspace)
+    root = resolve_project_root(project)
     if root is None:
-        raise FileNotFoundError(f"Not an xpkg workspace: {workspace}")
+        raise FileNotFoundError(f"Not an xpkg project: {project}")
 
     descriptor = load_project_descriptor(root)
     descriptor.validate()
-    ensure_dir(workspace_store_root(root))
-    ensure_dir(workspace_media_root(root))
-    ensure_dir(workspace_exports_root(root))
+    ensure_dir(project_store_root(root))
+    ensure_dir(project_media_root(root))
+    ensure_dir(project_exports_root(root))
 
-    current_state = _current_workspace_state_payload(root)
+    current_state = _current_project_state_payload(root)
     if current_state is None:
-        raise FileNotFoundError(f"Workspace has no committed state: {root}")
+        raise FileNotFoundError(f"Project has no committed state: {root}")
 
-    normalized_metadata = rewrite_workspace_metadata_paths(
+    normalized_metadata = rewrite_project_metadata_paths(
         None if metadata is None else dict(metadata),
-        workspace_root=root,
+        project_root=root,
     )
     state_payload, source_kind = current_state
     if source_kind == "snapshot_labels":
-        state_path = _commit_snapshot_metadata_to_workspace(
+        state_path = _commit_snapshot_metadata_to_project(
             root,
             state_payload=state_payload,
             metadata=normalized_metadata,
@@ -1245,16 +1245,16 @@ def save_workspace_metadata(
         return state_path
 
     if source_kind == "snapshot_vicon":
-        state_path = _commit_vicon_to_workspace(
+        state_path = _commit_vicon_to_project(
             root,
-            recording=load_workspace_vicon_recording(root),
+            recording=load_project_vicon_recording(root),
             metadata=normalized_metadata,
             reason=reason,
         )
         _touch_descriptor(root)
         return state_path
 
-    raise ValueError(f"Unsupported workspace state source: {source_kind!r}")
+    raise ValueError(f"Unsupported project state source: {source_kind!r}")
 
 
 def _is_within(path: Path, parent: Path) -> bool:
@@ -1311,8 +1311,8 @@ def _copy_vicon_sidecar_into_bundle(sidecar_path: Path | None, bundle_root: Path
     return target.resolve()
 
 
-def _copy_vicon_import_bundle(recording: ViconRecording, workspace_root: Path) -> ViconRecording:
-    imports_root = ensure_dir(workspace_store_root(workspace_root) / "imports" / "vicon")
+def _copy_vicon_import_bundle(recording: ViconRecording, project_root: Path) -> ViconRecording:
+    imports_root = ensure_dir(project_store_root(project_root) / "imports" / "vicon")
     bundle_root = ensure_dir(
         _dedupe_dir_target(imports_root / slugify_path_component(recording.path))
     )
@@ -1382,8 +1382,8 @@ def _copy_sequence_into_media(
     return target_dir.resolve(), copied_frames
 
 
-def _manage_labels_media(labels: Labels, workspace_root: Path) -> None:
-    media_root = ensure_dir(workspace_media_root(workspace_root))
+def _manage_labels_media(labels: Labels, project_root: Path) -> None:
+    media_root = ensure_dir(project_media_root(project_root))
     copied: dict[Path, Path] = {}
 
     for video in labels.videos:
@@ -1406,8 +1406,8 @@ def _manage_labels_media(labels: Labels, workspace_root: Path) -> None:
         video.filename = copied_file.as_posix()
 
 
-def rebase_workspace_payload_videos(payload: dict[str, Any], workspace_root: Path) -> None:
-    workspace_root = workspace_root.resolve()
+def rebase_project_payload_videos(payload: dict[str, Any], project_root: Path) -> None:
+    project_root = project_root.resolve()
 
     def _rebase_videos_info(videos_info: dict[str, Any]) -> None:
         raw_filenames = list(videos_info.get("filenames") or [])
@@ -1428,7 +1428,7 @@ def rebase_workspace_payload_videos(payload: dict[str, Any], workspace_root: Pat
                 resolved_path = (
                     filename_path.resolve()
                     if filename_path.is_absolute()
-                    else (workspace_root / filename_path).resolve()
+                    else (project_root / filename_path).resolve()
                 )
                 rebased_resolved_paths.append(resolved_path.as_posix())
                 rebased_exists.append(resolved_path.exists())
@@ -1444,7 +1444,7 @@ def rebase_workspace_payload_videos(payload: dict[str, Any], workspace_root: Pat
                     resolved_frame = (
                         frame_path.resolve()
                         if frame_path.is_absolute()
-                        else (workspace_root / frame_path).resolve()
+                        else (project_root / frame_path).resolve()
                     )
                     rebased_frames.append(resolved_frame.as_posix())
             rebased_sequences.append(rebased_frames)
@@ -1471,21 +1471,21 @@ def rebase_workspace_payload_videos(payload: dict[str, Any], workspace_root: Pat
             _rebase_videos_info(metadata_videos)
 
 
-def _ensure_workspace_for_import(
-    workspace: str | Path,
+def _ensure_project_for_import(
+    project: str | Path,
     *,
     title: str | None = None,
     force: bool = False,
 ) -> Path:
-    root = resolve_workspace_root(workspace)
+    root = resolve_project_root(project)
     if root is None:
         init_project(
-            workspace,
+            project,
             title=title,
             force=force,
         )
-        return _candidate_workspace_root(workspace)
-    validate_workspace(root)
+        return _candidate_project_root(project)
+    validate_project(root)
     return root
 
 
@@ -1495,9 +1495,9 @@ def _touch_descriptor(root: Path) -> None:
     write_project_descriptor(root, descriptor)
 
 
-def _import_vicon_workspace_recording(
+def _import_vicon_project_recording(
     recording_path: str | Path,
-    workspace: str | Path,
+    project: str | Path,
     *,
     force: bool,
     reason: str,
@@ -1505,15 +1505,15 @@ def _import_vicon_workspace_recording(
     reader: Callable[[str | Path], ViconRecording],
     source_name: str,
 ) -> Path:
-    root = _ensure_workspace_for_import(
-        workspace,
+    root = _ensure_project_for_import(
+        project,
         force=force,
     )
     if progress_callback is not None:
         progress_callback(f"Reading {source_name} recording")
     recording = reader(recording_path)
     if progress_callback is not None:
-        progress_callback("Copying Vicon recording bundle into workspace store")
+        progress_callback("Copying Vicon recording bundle into project store")
     managed_recording = _copy_vicon_import_bundle(recording, root)
     metadata = {
         "source": source_name,
@@ -1523,7 +1523,7 @@ def _import_vicon_workspace_recording(
         metadata["source_xcp"] = resolve_path(recording.xcp_path).as_posix()
     if recording.vsk_path is not None:
         metadata["source_vsk"] = resolve_path(recording.vsk_path).as_posix()
-    snapshot_path = _commit_vicon_to_workspace(
+    snapshot_path = _commit_vicon_to_project(
         root,
         recording=managed_recording,
         metadata=metadata,
@@ -1533,86 +1533,86 @@ def _import_vicon_workspace_recording(
     return snapshot_path
 
 
-def import_vicon_csv_workspace(
+def import_vicon_csv_project(
     csv_path: str | Path,
-    workspace: str | Path,
+    project: str | Path,
     *,
     force: bool = False,
     progress_callback: Any | None = None,
 ) -> Path:
-    """Import a Vicon CSV recording into a workspace."""
+    """Import a Vicon CSV recording into a project."""
     from xpkg.io.readers import read_vicon_csv
 
-    return _import_vicon_workspace_recording(
+    return _import_vicon_project_recording(
         csv_path,
-        workspace,
+        project,
         force=force,
-        reason="workspace.import.vicon_csv",
+        reason="project.import.vicon_csv",
         progress_callback=progress_callback,
         reader=read_vicon_csv,
         source_name="vicon_csv_import",
     )
 
 
-def import_vicon_c3d_workspace(
+def import_vicon_c3d_project(
     c3d_path: str | Path,
-    workspace: str | Path,
+    project: str | Path,
     *,
     force: bool = False,
     progress_callback: Any | None = None,
 ) -> Path:
-    """Import a Vicon C3D recording into a workspace."""
+    """Import a Vicon C3D recording into a project."""
     from xpkg.io.readers import read_vicon_c3d
 
-    return _import_vicon_workspace_recording(
+    return _import_vicon_project_recording(
         c3d_path,
-        workspace,
+        project,
         force=force,
-        reason="workspace.import.vicon_c3d",
+        reason="project.import.vicon_c3d",
         progress_callback=progress_callback,
         reader=read_vicon_c3d,
         source_name="vicon_c3d_import",
     )
 
 
-def import_vicon_workspace(
+def import_vicon_project(
     recording_path: str | Path,
-    workspace: str | Path,
+    project: str | Path,
     *,
     force: bool = False,
     progress_callback: Any | None = None,
 ) -> Path:
-    """Import a Vicon CSV or C3D recording into a workspace."""
+    """Import a Vicon CSV or C3D recording into a project."""
     from xpkg.io.readers import read_vicon_recording
 
-    return _import_vicon_workspace_recording(
+    return _import_vicon_project_recording(
         recording_path,
-        workspace,
+        project,
         force=force,
-        reason="workspace.import.vicon",
+        reason="project.import.vicon",
         progress_callback=progress_callback,
         reader=read_vicon_recording,
         source_name="vicon_import",
     )
 
 
-def import_dlc_csv_workspace(
+def import_dlc_csv_project(
     csv_path: str | Path,
     video_path: str | Path,
-    workspace: str | Path,
+    project: str | Path,
     *,
     skeleton_name: str = "imported",
     likelihood_threshold: float = 0.0,
     force: bool = False,
     progress_callback: Any | None = None,
 ) -> Path:
-    """Import a DeepLabCut CSV plus video into a workspace."""
+    """Import a DeepLabCut CSV plus video into a project."""
     from xpkg.io.converters.dlc_import import convert_dlc_csv
 
-    return _import_workspace_from_conversion(
-        workspace,
+    return _import_project_from_conversion(
+        project,
         force=force,
-        reason="workspace.import.dlc_csv",
+        reason="project.import.dlc_csv",
         convert=lambda _tmp_dir: convert_dlc_csv(
             csv_path,
             video_path,
@@ -1623,23 +1623,23 @@ def import_dlc_csv_workspace(
     )
 
 
-def import_lightning_pose_csv_workspace(
+def import_lightning_pose_csv_project(
     csv_path: str | Path,
     video_path: str | Path,
-    workspace: str | Path,
+    project: str | Path,
     *,
     skeleton_name: str = "imported",
     likelihood_threshold: float = 0.0,
     force: bool = False,
     progress_callback: Any | None = None,
 ) -> Path:
-    """Import a Lightning Pose prediction CSV plus video into a workspace."""
+    """Import a Lightning Pose prediction CSV plus video into a project."""
     from xpkg.io.converters.dlc_import import convert_lightning_pose_csv
 
-    return _import_workspace_from_conversion(
-        workspace,
+    return _import_project_from_conversion(
+        project,
         force=force,
-        reason="workspace.import.lightning_pose_csv",
+        reason="project.import.lightning_pose_csv",
         convert=lambda _tmp_dir: convert_lightning_pose_csv(
             csv_path,
             video_path,
@@ -1650,23 +1650,23 @@ def import_lightning_pose_csv_workspace(
     )
 
 
-def import_dlc_h5_workspace(
+def import_dlc_h5_project(
     h5_path: str | Path,
     video_path: str | Path,
-    workspace: str | Path,
+    project: str | Path,
     *,
     skeleton_name: str = "imported",
     likelihood_threshold: float = 0.0,
     force: bool = False,
     progress_callback: Any | None = None,
 ) -> Path:
-    """Import a DeepLabCut H5 export plus video into a workspace."""
+    """Import a DeepLabCut H5 export plus video into a project."""
     from xpkg.io.converters.dlc_import import convert_dlc_h5
 
-    return _import_workspace_from_conversion(
-        workspace,
+    return _import_project_from_conversion(
+        project,
         force=force,
-        reason="workspace.import.dlc_h5",
+        reason="project.import.dlc_h5",
         convert=lambda _tmp_dir: convert_dlc_h5(
             h5_path,
             video_path,
@@ -1677,16 +1677,16 @@ def import_dlc_h5_workspace(
     )
 
 
-def import_dlc_project_workspace(
+def import_dlc_project_directory(
     project_dir: str | Path,
-    workspace: str | Path,
+    project: str | Path,
     *,
     skeleton_name: str | None = None,
     likelihood_threshold: float = 0.0,
     force: bool = False,
     progress_callback: Any | None = None,
 ) -> Path:
-    """Import a supported DeepLabCut project into one workspace."""
+    """Import a supported DeepLabCut project into one project."""
     from xpkg.io.converters.converter_helpers import ConversionResult
     from xpkg.io.converters.dlc_import import (
         _discover_dlc_project_items,
@@ -1764,30 +1764,30 @@ def import_dlc_project_workspace(
             metadata=metadata,
         )
 
-    return _import_workspace_from_conversion(
-        workspace,
+    return _import_project_from_conversion(
+        project,
         force=force,
-        reason="workspace.import.dlc_project",
+        reason="project.import.dlc_project",
         convert=_convert_project,
     )
 
 
-def import_sleap_package_workspace(
+def import_sleap_package_project(
     slp: str | Path,
-    workspace: str | Path,
+    project: str | Path,
     *,
     fps: int = 30,
     encode_videos: bool | None = None,
     force: bool = False,
     progress_callback: Any | None = None,
 ) -> Path:
-    """Import a SLEAP package into a workspace."""
+    """Import a SLEAP package into a project."""
     from xpkg.io.converters.sleap_import import convert_sleap_package
 
-    return _import_workspace_from_conversion(
-        workspace,
+    return _import_project_from_conversion(
+        project,
         force=force,
-        reason="workspace.import.sleap",
+        reason="project.import.sleap",
         convert=lambda tmp_dir: convert_sleap_package(
             slp,
             tmp_dir,
@@ -1798,23 +1798,23 @@ def import_sleap_package_workspace(
     )
 
 
-def import_sleap_h5_workspace(
+def import_sleap_h5_project(
     h5_path: str | Path,
     video_path: str | Path,
-    workspace: str | Path,
+    project: str | Path,
     *,
     skeleton_name: str = "imported",
     likelihood_threshold: float = 0.0,
     force: bool = False,
     progress_callback: Any | None = None,
 ) -> Path:
-    """Import a SLEAP analysis H5 export plus video into a workspace."""
+    """Import a SLEAP analysis H5 export plus video into a project."""
     from xpkg.io.converters.sleap_import import convert_sleap_h5
 
-    return _import_workspace_from_conversion(
-        workspace,
+    return _import_project_from_conversion(
+        project,
         force=force,
-        reason="workspace.import.sleap_h5",
+        reason="project.import.sleap_h5",
         convert=lambda _tmp_dir: convert_sleap_h5(
             h5_path,
             video_path,
@@ -1825,10 +1825,10 @@ def import_sleap_h5_workspace(
     )
 
 
-def import_mmpose_topdown_json_workspace(
+def import_mmpose_topdown_json_project(
     json_path: str | Path,
     video_path: str | Path,
-    workspace: str | Path,
+    project: str | Path,
     *,
     skeleton_name: str = "imported",
     instance_index: int = 0,
@@ -1836,13 +1836,13 @@ def import_mmpose_topdown_json_workspace(
     force: bool = False,
     progress_callback: Any | None = None,
 ) -> Path:
-    """Import an MMPose top-down JSON export plus video into a workspace."""
+    """Import an MMPose top-down JSON export plus video into a project."""
     from xpkg.io.converters.mmpose_import import convert_mmpose_topdown_json
 
-    return _import_workspace_from_conversion(
-        workspace,
+    return _import_project_from_conversion(
+        project,
         force=force,
-        reason="workspace.import.mmpose_topdown_json",
+        reason="project.import.mmpose_topdown_json",
         convert=lambda _tmp_dir: convert_mmpose_topdown_json(
             json_path,
             video_path,
@@ -1854,23 +1854,23 @@ def import_mmpose_topdown_json_workspace(
     )
 
 
-def import_mediapipe_pose_landmarks_json_workspace(
+def import_mediapipe_pose_landmarks_json_project(
     json_path: str | Path,
     video_path: str | Path,
-    workspace: str | Path,
+    project: str | Path,
     *,
     skeleton_name: str = "mediapipe_pose",
     likelihood_threshold: float = 0.0,
     force: bool = False,
     progress_callback: Any | None = None,
 ) -> Path:
-    """Import MediaPipe pose-landmarks JSON plus video into a workspace."""
+    """Import MediaPipe pose-landmarks JSON plus video into a project."""
     from xpkg.io.converters.mediapipe_import import convert_mediapipe_pose_landmarks_json
 
-    return _import_workspace_from_conversion(
-        workspace,
+    return _import_project_from_conversion(
+        project,
         force=force,
-        reason="workspace.import.mediapipe_pose_landmarks_json",
+        reason="project.import.mediapipe_pose_landmarks_json",
         convert=lambda _tmp_dir: convert_mediapipe_pose_landmarks_json(
             json_path,
             video_path,
@@ -1881,46 +1881,46 @@ def import_mediapipe_pose_landmarks_json_workspace(
     )
 
 
-def save_workspace_labels(
-    workspace: str | Path,
+def save_project_labels(
+    project: str | Path,
     labels: Labels,
     *,
     metadata: dict[str, Any] | None = None,
     journal: bool = True,
     regenerate_predictions: bool = False,
 ) -> Path:
-    """Commit a label save into the workspace's private store."""
-    root = resolve_workspace_root(workspace)
+    """Commit a label save into the project's private store."""
+    root = resolve_project_root(project)
     if root is None:
-        raise FileNotFoundError(f"Not an xpkg workspace: {workspace}")
+        raise FileNotFoundError(f"Not an xpkg project: {project}")
 
     descriptor = load_project_descriptor(root)
     descriptor.validate()
-    ensure_dir(workspace_store_root(root))
-    ensure_dir(workspace_media_root(root))
-    ensure_dir(workspace_exports_root(root))
+    ensure_dir(project_store_root(root))
+    ensure_dir(project_media_root(root))
+    ensure_dir(project_exports_root(root))
 
     snapshot_path = current_project_snapshot_path(root)
-    current_state = _current_workspace_state_payload(root)
+    current_state = _current_project_state_payload(root)
     has_snapshot_cache = snapshot_path.exists()
     has_committed_state = current_state is not None
     if metadata is not None and (has_snapshot_cache or has_committed_state):
         raise ValueError(
-            "Workspace saves with existing history do not accept metadata overrides. "
-            "Update workspace metadata through a dedicated metadata API."
+            "Project saves with existing history do not accept metadata overrides. "
+            "Update project metadata through a dedicated metadata API."
         )
 
     if not has_snapshot_cache and not has_committed_state:
-        initial_metadata = rewrite_workspace_metadata_paths(
+        initial_metadata = rewrite_project_metadata_paths(
             metadata,
-            workspace_root=root,
+            project_root=root,
         )
-        state_path = _commit_labels_to_workspace(
+        state_path = _commit_labels_to_project(
             root,
             labels=labels,
             metadata=initial_metadata,
             predictions=predictions_payload_from_labels(labels),
-            reason="workspace.save.init",
+            reason="project.save.init",
         )
         _touch_descriptor(root)
         labels.path = root
@@ -1931,12 +1931,12 @@ def save_workspace_labels(
     predictions: dict[str, Any] | None = None
     if current_state is not None:
         state_payload, source_kind = current_state
-        state_metadata, predictions = _workspace_state_components(
+        state_metadata, predictions = _project_state_components(
             state_payload,
             source_kind=source_kind,
         )
     elif has_snapshot_cache:
-        snapshot_payload = read_workspace_snapshot(snapshot_path)
+        snapshot_payload = read_project_snapshot(snapshot_path)
         state_metadata = _snapshot_metadata_from_state_payload(snapshot_payload)
         predictions = _predictions_payload_from_state_payload(snapshot_payload)
 
@@ -1949,12 +1949,12 @@ def save_workspace_labels(
     ):
         predictions = candidate_predictions
 
-    state_path = _commit_labels_to_workspace(
+    state_path = _commit_labels_to_project(
         root,
         labels=labels,
         metadata=state_metadata,
         predictions=predictions,
-        reason="workspace.save",
+        reason="project.save",
     )
     _touch_descriptor(root)
     labels.path = root
@@ -1964,17 +1964,17 @@ def save_workspace_labels(
 __all__ = [
     "CURRENT_SNAPSHOT_FILENAME",
     "EXPORTS_DIRNAME",
-    "import_vicon_c3d_workspace",
-    "import_vicon_csv_workspace",
-    "import_vicon_workspace",
-    "import_dlc_csv_workspace",
-    "import_dlc_h5_workspace",
-    "import_dlc_project_workspace",
-    "import_lightning_pose_csv_workspace",
-    "import_mediapipe_pose_landmarks_json_workspace",
-    "import_mmpose_topdown_json_workspace",
-    "import_sleap_h5_workspace",
-    "import_sleap_package_workspace",
+    "import_vicon_c3d_project",
+    "import_vicon_csv_project",
+    "import_vicon_project",
+    "import_dlc_csv_project",
+    "import_dlc_h5_project",
+    "import_dlc_project_directory",
+    "import_lightning_pose_csv_project",
+    "import_mediapipe_pose_landmarks_json_project",
+    "import_mmpose_topdown_json_project",
+    "import_sleap_h5_project",
+    "import_sleap_package_project",
     "MEDIA_DIRNAME",
     "PROJECT_DESCRIPTOR_FILENAME",
     "ProjectDescriptor",
@@ -1983,17 +1983,17 @@ __all__ = [
     "current_project_snapshot_path",
     "current_project_state_path",
     "init_project",
-    "load_workspace_metadata",
-    "load_workspace_payload",
-    "load_workspace_vicon_recording",
+    "load_project_metadata",
+    "load_project_payload",
+    "load_project_vicon_recording",
     "load_project_descriptor",
-    "resolve_workspace_root",
-    "rebase_workspace_payload_videos",
-    "save_workspace_metadata",
-    "save_workspace_labels",
-    "validate_workspace",
-    "workspace_exports_root",
-    "workspace_media_root",
-    "workspace_store_root",
+    "resolve_project_root",
+    "rebase_project_payload_videos",
+    "save_project_metadata",
+    "save_project_labels",
+    "validate_project",
+    "project_exports_root",
+    "project_media_root",
+    "project_store_root",
     "write_project_descriptor",
 ]

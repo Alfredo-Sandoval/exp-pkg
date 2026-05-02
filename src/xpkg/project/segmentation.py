@@ -1,4 +1,4 @@
-"""Workspace-first helpers for frame segmentation masks."""
+"""Project-first helpers for frame segmentation masks."""
 
 from __future__ import annotations
 
@@ -9,11 +9,11 @@ from typing import TYPE_CHECKING, Any, Literal, cast
 
 from xpkg._core.path_registry import resolve_path
 from xpkg.io.labels.model import Labels
-from xpkg.io.project_layout import resolve_workspace_root
-from xpkg.io.project_workspace import save_workspace_labels
 from xpkg.io.video import Video
 from xpkg.pose.annotations import LabeledFrame, SegmentationMask
 from xpkg.pose.skeleton import build_keypoint_skeleton
+from xpkg.project.layout import resolve_project_root
+from xpkg.project.store import save_project_labels
 
 if TYPE_CHECKING:
     from xpkg.io.labels.video_types import VideoProtocol
@@ -25,7 +25,7 @@ type VideoSelector = int | str | Path | Any
 
 @dataclass(frozen=True, slots=True)
 class SegmentationFrame:
-    """Segmentation masks attached to one workspace video frame."""
+    """Segmentation masks attached to one project video frame."""
 
     video_index: int
     frame_index: int
@@ -35,15 +35,15 @@ class SegmentationFrame:
     video_path: str = ""
 
 
-def _workspace_root(path: str | Path) -> Path:
-    root = resolve_workspace_root(path)
+def _project_root(path: str | Path) -> Path:
+    root = resolve_project_root(path)
     if root is None:
-        raise FileNotFoundError(f"Not an xpkg workspace: {path}")
+        raise FileNotFoundError(f"Not an xpkg project: {path}")
     return root
 
 
-def _load_workspace_labels(workspace: str | Path) -> tuple[Path, Labels]:
-    root = _workspace_root(workspace)
+def _load_project_labels(project: str | Path) -> tuple[Path, Labels]:
+    root = _project_root(project)
     labels = Labels.load_file(root.as_posix())
     return root, labels
 
@@ -113,7 +113,7 @@ def _find_video_index(labels: Labels, selector: str | Path) -> int | None:
         if _video_matches_selector(video, selector)
     ]
     if len(matches) > 1:
-        raise ValueError(f"Video selector {selector!r} matched multiple workspace videos")
+        raise ValueError(f"Video selector {selector!r} matched multiple project videos")
     return matches[0] if matches else None
 
 
@@ -148,20 +148,20 @@ def _resolve_video_index(
             return 0
         if len(labels.videos) == 0:
             raise ValueError(
-                "Workspace has no videos yet; pass video=... when saving "
-                "segmentation masks into an empty workspace"
+                "Project has no videos yet; pass video=... when saving "
+                "segmentation masks into an empty project"
             )
-        raise ValueError("Workspace has multiple videos; pass video=... to choose one")
+        raise ValueError("Project has multiple videos; pass video=... to choose one")
 
     if isinstance(video, str | Path):
         existing_index = _find_video_index(labels, video)
         if existing_index is not None:
             return existing_index
         if not allow_create:
-            raise ValueError(f"Video selector {video!r} did not match a workspace video")
+            raise ValueError(f"Video selector {video!r} did not match a project video")
 
     if not allow_create:
-        raise ValueError(f"Video selector {video!r} did not match a workspace video")
+        raise ValueError(f"Video selector {video!r} did not match a project video")
 
     labels.videos.append(_coerce_video(video))
     return len(labels.videos) - 1
@@ -174,7 +174,7 @@ def _ensure_single_skeleton(labels: Labels, *, skeleton_name: str) -> None:
         return
     if len(labels.skeletons) != 1:
         raise ValueError(
-            "Workspace segmentation saves require labels with exactly one skeleton"
+            "Project segmentation saves require labels with exactly one skeleton"
         )
 
 
@@ -238,17 +238,17 @@ def _frame_result(
     )
 
 
-def load_workspace_segmentation_frames(
-    workspace: str | Path,
+def load_project_segmentation_frames(
+    project: str | Path,
     *,
     video: VideoSelector | None = None,
     frame_index: int | None = None,
     predicted: bool | None = None,
     class_name: str | None = None,
 ) -> list[SegmentationFrame]:
-    """Load segmentation masks grouped by workspace video frame."""
+    """Load segmentation masks grouped by project video frame."""
 
-    _, labels = _load_workspace_labels(workspace)
+    _, labels = _load_project_labels(project)
     selected_video_index: int | None = None
     if video is not None:
         selected_video_index = _resolve_video_index(labels, video, allow_create=False)
@@ -274,17 +274,17 @@ def load_workspace_segmentation_frames(
     return results
 
 
-def load_workspace_segmentation_masks(
-    workspace: str | Path,
+def load_project_segmentation_masks(
+    project: str | Path,
     *,
     frame_index: int,
     video: VideoSelector | None = None,
     predicted: bool | None = None,
     class_name: str | None = None,
 ) -> tuple[SegmentationMask, ...]:
-    """Load segmentation masks for one workspace video frame."""
+    """Load segmentation masks for one project video frame."""
 
-    _, labels = _load_workspace_labels(workspace)
+    _, labels = _load_project_labels(project)
     video_index = _resolve_video_index(labels, video, allow_create=False)
     frame = _find_frame(labels, video_index=video_index, frame_index=int(frame_index))
     if frame is None:
@@ -296,8 +296,8 @@ def load_workspace_segmentation_masks(
     )
 
 
-def save_workspace_segmentation_masks(
-    workspace: str | Path,
+def save_project_segmentation_masks(
+    project: str | Path,
     *,
     frame_index: int,
     masks: Sequence[SegmentationMask],
@@ -305,12 +305,12 @@ def save_workspace_segmentation_masks(
     mode: MaskSaveMode = "replace",
     skeleton_name: str = "segmentation",
 ) -> Path:
-    """Save segmentation masks for one workspace video frame."""
+    """Save segmentation masks for one project video frame."""
 
     if mode not in {"replace", "append"}:
         raise ValueError("mode must be either 'replace' or 'append'")
 
-    root, labels = _load_workspace_labels(workspace)
+    root, labels = _load_project_labels(project)
     _ensure_single_skeleton(labels, skeleton_name=skeleton_name)
     copied_masks = _copy_masks(masks)
     video_index = _resolve_video_index(labels, video, allow_create=True)
@@ -331,19 +331,19 @@ def save_workspace_segmentation_masks(
     _sync_segmentation_tracks(labels)
     labels.validate()
     labels.update_cache()
-    return save_workspace_labels(root, labels)
+    return save_project_labels(root, labels)
 
 
-def clear_workspace_segmentation_masks(
-    workspace: str | Path,
+def clear_project_segmentation_masks(
+    project: str | Path,
     *,
     frame_index: int,
     video: VideoSelector | None = None,
 ) -> Path:
-    """Remove all segmentation masks from one workspace video frame."""
+    """Remove all segmentation masks from one project video frame."""
 
-    return save_workspace_segmentation_masks(
-        workspace,
+    return save_project_segmentation_masks(
+        project,
         frame_index=frame_index,
         masks=(),
         video=video,
@@ -355,8 +355,8 @@ __all__ = [
     "MaskSaveMode",
     "SegmentationFrame",
     "VideoSelector",
-    "clear_workspace_segmentation_masks",
-    "load_workspace_segmentation_frames",
-    "load_workspace_segmentation_masks",
-    "save_workspace_segmentation_masks",
+    "clear_project_segmentation_masks",
+    "load_project_segmentation_frames",
+    "load_project_segmentation_masks",
+    "save_project_segmentation_masks",
 ]

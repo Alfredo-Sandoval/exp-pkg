@@ -58,7 +58,7 @@ make docs-serve
 
 ## Start with the v1 artifact model
 
-The public xpkg v1 artifact model is workspace-first:
+The public xpkg v1 artifact model is project-first:
 
 ```text
 My Project/
@@ -69,50 +69,50 @@ My Project/
     My Project.expkg
 ```
 
-- You edit a normal workspace folder.
+- You edit a normal project folder.
 - xpkg owns authoritative mutable state inside `.xpkg/`.
 - You move/share/export a single `.expkg` file.
 - Older single-file HDF5 archives are not part of the ongoing project contract.
 
-This matters because the workspace is the place where media, segmentation,
+This matters because the project is the place where media, segmentation,
 labels, and future experiment-side modalities can live together under one
 contract.
 
 Read [Artifact Contract v1](artifact_contract_v1.md) for the full public
 contract and [CLI Command Spec v1](cli_command_spec_v1.md) for the locked
-workspace command surface.
+project command surface.
 
-## Recommended workspace-first API
+## Recommended project-first API
 
 ```python
-from xpkg.services import WorkspaceService
+from xpkg.services import ProjectService
 
-workspace = WorkspaceService.create("./My Project", title="My Project")
-workspace.imports.dlc_csv(
+project = ProjectService.create("./My Project", title="My Project")
+project.imports.dlc_csv(
     "tracking.csv",
     "video.mp4",
     skeleton_name="subject",
 )
-workspace.validate()
-artifact = workspace.pack()
-restored = WorkspaceService.unpack(artifact, "./Restored Project")
+project.validate()
+artifact = project.pack()
+restored = ProjectService.unpack(artifact, "./Restored Project")
 ```
 
-`WorkspaceService` is the normal project boundary: create or open a workspace,
-import through `workspace.imports`, validate, then pack only when you want a
+`ProjectService` is the normal project boundary: create or open a project,
+import through `project.imports`, validate, then pack only when you want a
 portable artifact. The dedicated guide for that surface lives in
 [Services](api/services.md).
 
-By default `workspace.pack()` includes all managed media. Use
-`workspace.pack(media="package")` or `workspace.pack(media="manifest")` when the
+By default `project.pack()` includes all managed media. Use
+`project.pack(media="package")` or `project.pack(media="manifest")` when the
 project should keep video bytes outside the `.expkg` while still recording the
 managed media manifest.
 
 ## Work With The Session Model
 
 Use `xpkg.model` when you want in-memory multimodal objects without creating a
-workspace yet. The timing, event, signal, photometry, and session classes are
-the foundation for the next direct-reader and workspace-import work.
+project yet. The timing, event, signal, photometry, and session classes are
+the foundation for the next direct-reader and project-import work.
 
 ```python
 from xpkg.model import Event, EventTable, PhotometryRecording, RecordingSession, TimeSeries
@@ -140,21 +140,21 @@ session = session.with_signal("fiber", photometry).with_events(events)
 
 Read [Multimodal Session Model](architecture/multimodal-session.md) for the
 current object contract and [Roadmap](roadmap.md) for the direct-reader and
-workspace-import work still ahead.
+project-import work still ahead.
 
 ## Save figure artifacts
 
-Use `workspace.artifacts` when you want the generic registry for tables,
+Use `project.artifacts` when you want the generic registry for tables,
 analyses, reports, stats, figures, or other output files. Your domain package
 creates the scientific output; `xpkg` stores the files, records portable
-lineage, and keeps a workspace-wide index.
+lineage, and keeps a project-wide index.
 
 ```python
-from xpkg.services import WorkspaceService
+from xpkg.services import ProjectService
 
-workspace = WorkspaceService.open("./My Project")
+project = ProjectService.open("./My Project")
 
-workspace.artifacts.register(
+project.artifacts.register(
     artifact_id="session_001_summary",
     artifact_type="table",
     namespace="neuro-analysis",
@@ -164,15 +164,15 @@ workspace.artifacts.register(
 )
 ```
 
-Use `workspace.figures` as the figure-specific convenience layer after your
+Use `project.figures` as the figure-specific convenience layer after your
 domain package or plotting script has created the actual figure files:
 
 ```python
-from xpkg.services import WorkspaceService
+from xpkg.services import ProjectService
 
-workspace = WorkspaceService.open("./My Project")
+project = ProjectService.open("./My Project")
 
-workspace.figures.save(
+project.figures.save(
     figure_id="session_summary_figure",
     title="Validation against reference annotations",
     namespace="neuro-analysis",
@@ -193,64 +193,64 @@ callers; xpkg does not know or reserve package-specific namespace names.
 
 ## Save segmentation masks
 
-Segmentation masks are workspace state too. Downstream repos can save a mask
+Segmentation masks are project state too. Downstream repos can save a mask
 onto a frame without manually constructing the full labels payload:
 
 ```python
 import numpy as np
 
 from xpkg.model import SegmentationMask
-from xpkg.services import WorkspaceService
+from xpkg.services import ProjectService
 
-workspace = WorkspaceService.open("./My Project")
+project = ProjectService.open("./My Project")
 
 binary = np.zeros((480, 640), dtype=np.uint8)
 binary[120:260, 180:340] = 1
 mask = SegmentationMask.from_binary_mask(binary, class_name="cell")
 
-workspace.segmentation.save_masks(frame_index=42, masks=[mask])
-loaded = workspace.segmentation.load_masks(frame_index=42)
+project.segmentation.save_masks(frame_index=42, masks=[mask])
+loaded = project.segmentation.load_masks(frame_index=42)
 ```
 
 Pick the surface by intent:
 
 | Task | Preferred entrypoint |
 | --- | --- |
-| Workspace lifecycle and service-bound imports | `xpkg.services.WorkspaceService` |
-| Register tables, figures, analyses, reports, or stats | `workspace.artifacts.*` |
-| Save/load figure outputs with lineage | `workspace.figures.*` |
-| Save/load frame segmentation masks | `workspace.segmentation.*` |
-| Function-level workspace imports | `xpkg.workspace.import_*_workspace(...)` |
+| Project lifecycle and service-bound imports | `xpkg.services.ProjectService` |
+| Register tables, figures, analyses, reports, or stats | `project.artifacts.*` |
+| Save/load figure outputs with lineage | `project.figures.*` |
+| Save/load frame segmentation masks | `project.segmentation.*` |
+| Function-level project imports | `xpkg.project.import_*_project(...)` |
 
 ## Lifecycle-only example
 
 ```python
-from xpkg.services import WorkspaceService
+from xpkg.services import ProjectService
 
-workspace = WorkspaceService.open("./My Project")
-layout = workspace.validate()
-artifact = workspace.pack()
+project = ProjectService.open("./My Project")
+layout = project.validate()
+artifact = project.pack()
 ```
 
-Once a workspace already exists, the same service object keeps validation,
+Once a project already exists, the same service object keeps validation,
 packing, and reopen flows on the same public contract.
 
-## Additional workspace import coverage
+## Additional project import coverage
 
-The same workspace-first pattern is available for:
+The same project-first pattern is available for:
 
-- `import_dlc_h5_workspace(...)` and `import_dlc_project_workspace(...)`
-- `import_lightning_pose_csv_workspace(...)`
-- `import_sleap_h5_workspace(...)` and `import_sleap_package_workspace(...)`
-- `import_mmpose_topdown_json_workspace(...)`
-- `import_mediapipe_pose_landmarks_json_workspace(...)`
+- `import_dlc_h5_project(...)` and `import_dlc_project_directory(...)`
+- `import_lightning_pose_csv_project(...)`
+- `import_sleap_h5_project(...)` and `import_sleap_package_project(...)`
+- `import_mmpose_topdown_json_project(...)`
+- `import_mediapipe_pose_landmarks_json_project(...)`
 
-Use those workspace helpers as the primary integration surface for new code.
-The underlying `xpkg.workspace.import_*_workspace(...)` functions remain public
+Use those project helpers as the primary integration surface for new code.
+The underlying `xpkg.project.import_*_project(...)` functions remain public
 when you want the explicit function form.
 
 Photometry and event-table CSV readers are available as direct reader APIs.
-They are not workspace imports yet. Sync CSV and the workspace import methods
+They are not project imports yet. Sync CSV and the project import methods
 are the next planned modality work on top of the timing/events/signals model
 layer.
 
@@ -266,4 +266,4 @@ roundtripped = labels_from_json_payload(payload)
 ```
 
 Use `xpkg.adapters` when another repo needs an in-memory handoff boundary rather
-than a workspace path.
+than a project path.

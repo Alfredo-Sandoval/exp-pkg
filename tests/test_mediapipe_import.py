@@ -98,15 +98,15 @@ def test_convert_mediapipe_pose_landmarks_json_rejects_video_size_mismatch(
         )
 
 
-def test_import_mediapipe_pose_landmarks_json_workspace_imports_sequence_into_workspace(
+def test_import_mediapipe_pose_landmarks_json_project_imports_sequence_into_project(
     tmp_path: Path,
 ) -> None:
-    from xpkg.io.project_workspace import (
-        current_project_snapshot_path,
-        import_mediapipe_pose_landmarks_json_workspace,
-    )
-    from xpkg.io.workspace_snapshot_backend import read_workspace_snapshot_payload
     from xpkg.model import Labels
+    from xpkg.project.snapshot_backend import read_project_snapshot_payload
+    from xpkg.project.store import (
+        current_project_snapshot_path,
+        import_mediapipe_pose_landmarks_json_project,
+    )
 
     json_path = tmp_path / "pose_landmarks.json"
     _write_mediapipe_pose_landmarks_json(
@@ -116,20 +116,20 @@ def test_import_mediapipe_pose_landmarks_json_workspace_imports_sequence_into_wo
     )
     video_path = tmp_path / "session.avi"
     _write_dummy_video(video_path, frame_count=2)
-    workspace = tmp_path / "Imported MediaPipe Project"
+    project = tmp_path / "Imported MediaPipe Project"
 
-    snapshot_path = import_mediapipe_pose_landmarks_json_workspace(
+    snapshot_path = import_mediapipe_pose_landmarks_json_project(
         json_path,
         video_path,
-        workspace,
+        project,
     )
 
-    assert snapshot_path == current_project_snapshot_path(workspace)
-    payload = read_workspace_snapshot_payload(snapshot_path)
+    assert snapshot_path == current_project_snapshot_path(project)
+    payload = read_project_snapshot_payload(snapshot_path)
     assert payload["metadata"]["source"] == "mediapipe_pose_landmarks_json_import"
     assert payload["metadata"]["source_json"] == json_path.as_posix()
 
-    labels = Labels.load_file(workspace.as_posix())
+    labels = Labels.load_file(project.as_posix())
     assert len(labels.skeletons[0].keypoint_names) == 33
     assert len(labels.videos) == 1
     assert len(labels.labeled_frames) == 2

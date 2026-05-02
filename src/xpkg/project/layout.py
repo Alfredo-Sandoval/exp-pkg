@@ -1,4 +1,4 @@
-"""Workspace descriptor and layout helpers."""
+"""Project descriptor and layout helpers."""
 
 from __future__ import annotations
 
@@ -27,7 +27,7 @@ def _now_utc_iso() -> str:
 
 @dataclass(slots=True)
 class ProjectDescriptor:
-    """Public xpkg workspace descriptor."""
+    """Public xpkg project descriptor."""
 
     title: str
     project_id: str
@@ -128,22 +128,22 @@ def _write_json(path: Path, payload: dict[str, Any]) -> None:
     path.write_text(json.dumps(payload, indent=2, sort_keys=False) + "\n", encoding="utf-8")
 
 
-def _candidate_workspace_root(path: str | Path) -> Path:
+def _candidate_project_root(path: str | Path) -> Path:
     return resolve_path(path)
 
 
 def project_descriptor_path(path: str | Path) -> Path:
-    root = resolve_workspace_root(path)
+    root = resolve_project_root(path)
     if root is None:
-        candidate = _candidate_workspace_root(path)
+        candidate = _candidate_project_root(path)
         if candidate.name == PROJECT_DESCRIPTOR_FILENAME:
             return candidate
         return candidate / PROJECT_DESCRIPTOR_FILENAME
     return root / PROJECT_DESCRIPTOR_FILENAME
 
 
-def resolve_workspace_root(path: str | Path) -> Path | None:
-    candidate = _candidate_workspace_root(path)
+def resolve_project_root(path: str | Path) -> Path | None:
+    candidate = _candidate_project_root(path)
     if candidate.is_file() and candidate.name == PROJECT_DESCRIPTOR_FILENAME:
         return candidate.parent
     if candidate.is_dir():
@@ -153,8 +153,8 @@ def resolve_workspace_root(path: str | Path) -> Path | None:
     return None
 
 
-def is_workspace_root(path: str | Path) -> bool:
-    return resolve_workspace_root(path) is not None
+def is_project_root(path: str | Path) -> bool:
+    return resolve_project_root(path) is not None
 
 
 def load_project_descriptor(path: str | Path) -> ProjectDescriptor:
@@ -168,15 +168,15 @@ def load_project_descriptor(path: str | Path) -> ProjectDescriptor:
 
 
 def write_project_descriptor(path: str | Path, descriptor: ProjectDescriptor) -> Path:
-    root = resolve_workspace_root(path) or _candidate_workspace_root(path)
+    root = resolve_project_root(path) or _candidate_project_root(path)
     descriptor.validate()
     descriptor_path = root / PROJECT_DESCRIPTOR_FILENAME
     _write_json(descriptor_path, descriptor.to_dict())
     return descriptor_path
 
 
-def workspace_store_root(path: str | Path) -> Path:
-    root = resolve_workspace_root(path) or _candidate_workspace_root(path)
+def project_store_root(path: str | Path) -> Path:
+    root = resolve_project_root(path) or _candidate_project_root(path)
     try:
         descriptor = load_project_descriptor(root)
         store_name = descriptor.store_path
@@ -185,20 +185,20 @@ def workspace_store_root(path: str | Path) -> Path:
     return root / store_name
 
 
-def workspace_state_root(path: str | Path) -> Path:
-    return workspace_store_root(path) / STORE_STATE_DIRNAME
+def project_state_root(path: str | Path) -> Path:
+    return project_store_root(path) / STORE_STATE_DIRNAME
 
 
-def workspace_artifacts_root(path: str | Path) -> Path:
-    return workspace_store_root(path) / ARTIFACTS_DIRNAME
+def project_artifacts_root(path: str | Path) -> Path:
+    return project_store_root(path) / ARTIFACTS_DIRNAME
 
 
-def workspace_current_snapshot_path(path: str | Path) -> Path:
-    return workspace_state_root(path) / CURRENT_SNAPSHOT_FILENAME
+def project_current_snapshot_path(path: str | Path) -> Path:
+    return project_state_root(path) / CURRENT_SNAPSHOT_FILENAME
 
 
-def workspace_media_root(path: str | Path) -> Path:
-    root = resolve_workspace_root(path) or _candidate_workspace_root(path)
+def project_media_root(path: str | Path) -> Path:
+    root = resolve_project_root(path) or _candidate_project_root(path)
     try:
         descriptor = load_project_descriptor(root)
         media_name = descriptor.media_root
@@ -207,8 +207,8 @@ def workspace_media_root(path: str | Path) -> Path:
     return root / media_name
 
 
-def workspace_exports_root(path: str | Path) -> Path:
-    root = resolve_workspace_root(path) or _candidate_workspace_root(path)
+def project_exports_root(path: str | Path) -> Path:
+    root = resolve_project_root(path) or _candidate_project_root(path)
     try:
         descriptor = load_project_descriptor(root)
         exports_name = descriptor.exports_root
@@ -218,8 +218,8 @@ def workspace_exports_root(path: str | Path) -> Path:
 
 
 def default_expkg_path(path: str | Path) -> Path:
-    root = resolve_workspace_root(path) or _candidate_workspace_root(path)
-    return workspace_exports_root(root) / f"{root.name}{EXPKG_SUFFIX}"
+    root = resolve_project_root(path) or _candidate_project_root(path)
+    return project_exports_root(root) / f"{root.name}{EXPKG_SUFFIX}"
 
 
 __all__ = [
@@ -232,18 +232,18 @@ __all__ = [
     "ProjectDescriptor",
     "STORE_DIRNAME",
     "STORE_STATE_DIRNAME",
-    "_candidate_workspace_root",
+    "_candidate_project_root",
     "_now_utc_iso",
     "default_expkg_path",
-    "is_workspace_root",
+    "is_project_root",
     "load_project_descriptor",
     "project_descriptor_path",
-    "resolve_workspace_root",
-    "workspace_current_snapshot_path",
-    "workspace_artifacts_root",
-    "workspace_exports_root",
-    "workspace_media_root",
-    "workspace_state_root",
-    "workspace_store_root",
+    "resolve_project_root",
+    "project_current_snapshot_path",
+    "project_artifacts_root",
+    "project_exports_root",
+    "project_media_root",
+    "project_state_root",
+    "project_store_root",
     "write_project_descriptor",
 ]

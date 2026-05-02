@@ -147,32 +147,32 @@ def test_convert_dlc_project_skips_incomplete_entries(tmp_path: Path) -> None:
     assert "IMPORT: Skipping session-no-data (no data file)" in progress
 
 
-def test_import_dlc_project_workspace_imports_supported_items_into_one_workspace(
+def test_import_dlc_project_directory_imports_supported_items_into_one_project(
     tmp_path: Path,
 ) -> None:
-    from xpkg.io.workspace_snapshot_backend import read_workspace_snapshot_payload
     from xpkg.model import Labels
-    from xpkg.workspace import (
+    from xpkg.project import (
         current_project_snapshot_path,
-        import_dlc_project_workspace,
-        workspace_media_root,
+        import_dlc_project_directory,
+        project_media_root,
     )
+    from xpkg.project.snapshot_backend import read_project_snapshot_payload
 
     project_root = _make_dlc_project_fixture(tmp_path)
-    workspace = tmp_path / "Imported DLC Project"
+    project = tmp_path / "Imported DLC Project"
     progress: list[str] = []
 
-    snapshot_path = import_dlc_project_workspace(
+    snapshot_path = import_dlc_project_directory(
         project_root,
-        workspace,
+        project,
         progress_callback=progress.append,
     )
 
-    assert snapshot_path == current_project_snapshot_path(workspace)
+    assert snapshot_path == current_project_snapshot_path(project)
     assert "IMPORT: Skipping session-missing-video (no video found)" in progress
     assert "IMPORT: Skipping session-no-data (no data file)" in progress
 
-    payload = read_workspace_snapshot_payload(snapshot_path)
+    payload = read_project_snapshot_payload(snapshot_path)
     assert payload["metadata"]["source"] == "dlc_project_import"
     assert payload["metadata"]["project_name"] == "dlc-project"
     assert payload["metadata"]["source_items"] == [
@@ -194,7 +194,7 @@ def test_import_dlc_project_workspace_imports_supported_items_into_one_workspace
         {"name": "session-no-data", "reason": "no data file"},
     ]
 
-    loaded = Labels.load_file(workspace.as_posix())
+    loaded = Labels.load_file(project.as_posix())
     assert len(loaded.videos) == 2
     assert len(loaded.skeletons) == 1
     assert len(loaded.labeled_frames) == 4
@@ -204,52 +204,52 @@ def test_import_dlc_project_workspace_imports_supported_items_into_one_workspace
         "session-h5.avi": 2,
     }
 
-    media_root = workspace_media_root(workspace).resolve()
+    media_root = project_media_root(project).resolve()
     for video in loaded.videos:
         assert Path(str(video.filename)).resolve().parent == media_root
 
 
-def test_import_lightning_pose_csv_workspace_uses_dlc_style_predictions(
+def test_import_lightning_pose_csv_project_uses_dlc_style_predictions(
     tmp_path: Path,
 ) -> None:
-    from xpkg.io.workspace_snapshot_backend import read_workspace_snapshot_payload
     from xpkg.model import Labels
-    from xpkg.workspace import current_project_snapshot_path, import_lightning_pose_csv_workspace
+    from xpkg.project import current_project_snapshot_path, import_lightning_pose_csv_project
+    from xpkg.project.snapshot_backend import read_project_snapshot_payload
 
     csv_path = tmp_path / "video_preds" / "session0.csv"
     csv_path.parent.mkdir()
     _write_sample_dlc_csv(csv_path)
     video_path = tmp_path / "session0.avi"
     _write_dummy_video(video_path)
-    workspace = tmp_path / "Imported Lightning Pose"
+    project = tmp_path / "Imported Lightning Pose"
     progress: list[str] = []
 
-    snapshot_path = import_lightning_pose_csv_workspace(
+    snapshot_path = import_lightning_pose_csv_project(
         csv_path,
         video_path,
-        workspace,
+        project,
         skeleton_name="lp",
         likelihood_threshold=0.5,
         progress_callback=progress.append,
     )
 
-    assert snapshot_path == current_project_snapshot_path(workspace)
+    assert snapshot_path == current_project_snapshot_path(project)
     assert "IMPORT: Reading Lightning Pose CSV session0.csv" in progress
-    payload = read_workspace_snapshot_payload(snapshot_path)
+    payload = read_project_snapshot_payload(snapshot_path)
     assert payload["metadata"]["source"] == "lightning_pose_csv_import"
     assert payload["metadata"]["source_csv"] == csv_path.as_posix()
-    loaded = Labels.load_file(workspace.as_posix())
+    loaded = Labels.load_file(project.as_posix())
     assert len(loaded.skeletons) == 1
     assert loaded.skeletons[0].keypoint_names == ["nose", "tail"]
     assert len(loaded.labeled_frames) == 2
 
 
-def test_import_dlc_project_workspace_requires_supported_items(tmp_path: Path) -> None:
-    from xpkg.workspace import import_dlc_project_workspace
+def test_import_dlc_project_directory_requires_supported_items(tmp_path: Path) -> None:
+    from xpkg.project import import_dlc_project_directory
 
     project_root = tmp_path / "empty-project"
     (project_root / "labeled-data" / "session-no-data").mkdir(parents=True)
     (project_root / "videos").mkdir()
 
     with pytest.raises(ValueError, match="No supported DLC project items found"):
-        import_dlc_project_workspace(project_root, tmp_path / "workspace")
+        import_dlc_project_directory(project_root, tmp_path / "project")

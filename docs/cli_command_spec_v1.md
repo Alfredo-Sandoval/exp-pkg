@@ -3,29 +3,29 @@
 This document defines the shipped CLI contract for the xpkg v1 project and
 artifact workflow.
 
-The current CLI is workspace-first for project creation, importing, packing,
+The current CLI is project-first for project creation, importing, packing,
 unpacking, validation, and artifact inspection.
 
 ## Command Surface
 
-The workspace-first command surface is:
+The project-first command surface is:
 
 ```text
 xpkg artifacts
 xpkg completion
 xpkg describe
 xpkg import
-xpkg workspace
+xpkg project
 ```
 
 ## Shared Rules
 
-- The primary editable unit is a workspace folder.
+- The primary editable unit is a project folder.
 - `.expkg` is the only portable project artifact.
 - xpkg never edits a `.expkg` file in place.
-- Commands that create a project must produce a valid workspace containing
+- Commands that create a project must produce a valid project containing
   `PROJECT.json` and `.xpkg/`.
-- Project-internal paths are stored relative to the workspace root.
+- Project-internal paths are stored relative to the project root.
 - Pack defaults to `--media full`.
 - Pack must fail loudly if required media are external to `Media/`.
 - Every canonical command supports `--json` for machine-readable output.
@@ -40,47 +40,47 @@ xpkg workspace
 - Shell completion is exposed through `xpkg completion bash`, `xpkg completion
   zsh`, and `xpkg completion fish`.
 
-## `xpkg workspace`
+## `xpkg project`
 
-Manage workspace-first project lifecycle operations.
+Manage project-first project lifecycle operations.
 
 ### Commands
 
-- `xpkg workspace describe`
-- `xpkg workspace init`
-- `xpkg workspace pack`
-- `xpkg workspace unpack`
-- `xpkg workspace validate`
+- `xpkg project describe`
+- `xpkg project init`
+- `xpkg project pack`
+- `xpkg project unpack`
+- `xpkg project validate`
 
-## `xpkg workspace init`
+## `xpkg project init`
 
-Create a new empty workspace with the canonical public layout.
+Create a new empty project with the canonical public layout.
 
 ### Synopsis
 
 ```bash
-xpkg workspace init "./My Project"
-xpkg workspace init "./My Project" --title "My Project"
+xpkg project init "./My Project"
+xpkg project init "./My Project" --title "My Project"
 ```
 
 ### Required behavior
 
-- Creates the workspace root if needed.
+- Creates the project root if needed.
 - Creates `PROJECT.json`.
 - Creates `.xpkg/`.
-- Creates `Media/` and `Exports/` when bootstrapping a new workspace.
+- Creates `Media/` and `Exports/` when bootstrapping a new project.
 - Initializes `project_id`, timestamps, and default descriptor fields.
 - Refuses to overwrite a non-empty target unless an explicit future overwrite
   flag is added.
 
 ### Output
 
-- A valid workspace folder at the requested output path.
+- A valid project folder at the requested output path.
 - `PROJECT.json` conforming to `schemas/project.schema.json`.
 
 ## `xpkg import`
 
-Import supported external data into a workspace.
+Import supported external data into a project.
 
 ### Synopsis
 
@@ -114,9 +114,9 @@ xpkg import mediapipe --input-json pose_landmarks.json --video video.mp4 --out "
 
 ### Required behavior
 
-- Imports into a workspace, never directly into a new opaque single-file native
+- Imports into a project, never directly into a new opaque single-file native
   artifact.
-- Creates the workspace if it does not already exist.
+- Creates the project if it does not already exist.
 - Writes authoritative mutable state into `.xpkg/`.
 - Populates `Media/` when the import produces managed media.
 - Updates `PROJECT.json` metadata and timestamps.
@@ -127,7 +127,7 @@ xpkg import mediapipe --input-json pose_landmarks.json --video video.mp4 --out "
 
 ## `xpkg artifacts`
 
-Inspect and validate registered workspace output artifacts.
+Inspect and validate registered project output artifacts.
 
 ### Synopsis
 
@@ -142,7 +142,7 @@ xpkg artifacts rebuild-index "./My Project"
 
 ### Required behavior
 
-- Reads artifact manifests from a workspace.
+- Reads artifact manifests from a project.
 - Lists compact entries from `.xpkg/artifacts/index.json`, rebuilding the index
   if it is missing.
 - Prints one full manifest for `inspect`.
@@ -154,44 +154,44 @@ xpkg artifacts rebuild-index "./My Project"
 
 - `artifacts` does not render plots, compute statistics, or choose scientific
   models.
-- `artifacts` does not make `.expkg` files mutable; use `xpkg workspace pack` after
-  workspace changes.
+- `artifacts` does not make `.expkg` files mutable; use `xpkg project pack` after
+  project changes.
 
-## `xpkg workspace describe`
+## `xpkg project describe`
 
-Describe the normalized workspace layout and descriptor.
+Describe the normalized project layout and descriptor.
 
 ### Synopsis
 
 ```bash
-xpkg workspace describe "./My Project"
-xpkg workspace describe "./My Project" --json
+xpkg project describe "./My Project"
+xpkg project describe "./My Project" --json
 ```
 
 ### Required behavior
 
-- Resolves the owning workspace root from the supplied path.
+- Resolves the owning project root from the supplied path.
 - Returns the normalized managed paths for `PROJECT.json`, `.xpkg/`, `Media/`,
   `Exports/`, and the current state cache.
 - Emits the current `PROJECT.json` descriptor in JSON mode.
 
-## `xpkg workspace pack`
+## `xpkg project pack`
 
-Create a portable `.expkg` artifact from a workspace.
+Create a portable `.expkg` artifact from a project.
 
 ### Synopsis
 
 ```bash
-xpkg workspace pack "./My Project"
-xpkg workspace pack "./My Project" --out "./release/My Project.expkg"
-xpkg workspace pack "./My Project" --media package
-xpkg workspace pack "./My Project" --media manifest
+xpkg project pack "./My Project"
+xpkg project pack "./My Project" --out "./release/My Project.expkg"
+xpkg project pack "./My Project" --media package
+xpkg project pack "./My Project" --media manifest
 ```
 
 ### Required behavior
 
-- Reads a workspace folder as input.
-- Validates the workspace before packing.
+- Reads a project folder as input.
+- Validates the project before packing.
 - Emits a `.expkg` file.
 - Defaults output to `./My Project/Exports/My Project.expkg` when `--out` is
   omitted.
@@ -207,20 +207,20 @@ xpkg workspace pack "./My Project" --media manifest
 - Stores already-compressed media and common binary containers without
   additional zip compression.
 
-## `xpkg workspace unpack`
+## `xpkg project unpack`
 
-Create a workspace from a `.expkg` artifact.
+Create a project from a `.expkg` artifact.
 
 ### Synopsis
 
 ```bash
-xpkg workspace unpack "./My Project.expkg" --out "./My Project"
+xpkg project unpack "./My Project.expkg" --out "./My Project"
 ```
 
 ### Required behavior
 
 - Accepts a `.expkg` file as input.
-- Creates a workspace folder as output.
+- Creates a project folder as output.
 - Reconstructs `PROJECT.json` and `.xpkg/`.
 - Restores included `Media/` files from the artifact.
 - Creates an empty `Media/` root when media were manifested but not stored.
@@ -228,20 +228,20 @@ xpkg workspace unpack "./My Project.expkg" --out "./My Project"
 - Refuses to unpack into a conflicting non-empty directory unless an explicit
   future overwrite flag is added.
 
-## `xpkg workspace validate`
+## `xpkg project validate`
 
-Validate a workspace or packed `.expkg` artifact.
+Validate a project or packed `.expkg` artifact.
 
 ### Synopsis
 
 ```bash
-xpkg workspace validate "./My Project"
-xpkg workspace validate "./My Project.expkg"
+xpkg project validate "./My Project"
+xpkg project validate "./My Project.expkg"
 ```
 
 ### Required behavior
 
-- Accepts a workspace folder or `.expkg` file.
+- Accepts a project folder or `.expkg` file.
 - Fails loudly when the supplied path does not satisfy the corresponding
   contract.
 - For `.expkg`, verifies `EXPKG.json`, member path safety, duplicate member
@@ -250,16 +250,16 @@ xpkg workspace validate "./My Project.expkg"
 
 ## Open Behavior
 
-GUI and shell tooling should treat the workspace folder as the primary open
+GUI and shell tooling should treat the project folder as the primary open
 target.
 
-- Opening a workspace opens it directly.
+- Opening a project opens it directly.
 - Opening a `.expkg` prompts for an unpack destination, then opens the
-  resulting workspace.
+  resulting project.
 - Packed artifacts remain immutable from the user’s perspective.
 
 ## Transition Guidance
 
-- New project creation follows the workspace + `.expkg` contract.
+- New project creation follows the project + `.expkg` contract.
 - No public command should frame direct `.xpkg` conversion as the native or
   preferred project workflow.

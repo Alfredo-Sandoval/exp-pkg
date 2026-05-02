@@ -1,4 +1,4 @@
-"""Serialization helpers for `Labels` JSON snapshots and workspaces."""
+"""Serialization helpers for `Labels` JSON snapshots and projects."""
 
 from __future__ import annotations
 
@@ -917,30 +917,30 @@ def labels_load_file(
     if path.suffix.lower() == ".expkg":
         raise ValueError("Packed .expkg artifacts must be unpacked before loading labels")
 
-    from xpkg.io.project_layout import resolve_workspace_root, workspace_current_snapshot_path
-    from xpkg.io.project_workspace import (
-        _workspace_snapshot_cache_matches_committed_head,
+    from xpkg.project.layout import project_current_snapshot_path, resolve_project_root
+    from xpkg.project.snapshot_backend import read_project_snapshot, snapshot_commit_id
+    from xpkg.project.store import (
+        _project_snapshot_cache_matches_committed_head,
         current_project_commit_id,
-        rebase_workspace_payload_videos,
-        rebuild_workspace_snapshot_cache,
+        rebase_project_payload_videos,
+        rebuild_project_snapshot_cache,
     )
-    from xpkg.io.workspace_snapshot_backend import read_workspace_snapshot, snapshot_commit_id
 
-    workspace_root = resolve_workspace_root(path)
-    if workspace_root is not None:
-        snapshot_path = workspace_current_snapshot_path(workspace_root)
+    project_root = resolve_project_root(path)
+    if project_root is not None:
+        snapshot_path = project_current_snapshot_path(project_root)
         if snapshot_path.exists():
-            snapshot_payload = read_workspace_snapshot(snapshot_path)
+            snapshot_payload = read_project_snapshot(snapshot_path)
             snapshot_head = snapshot_commit_id(snapshot_payload)
-            current_head = current_project_commit_id(workspace_root)
+            current_head = current_project_commit_id(project_root)
             if current_head is not None and snapshot_head == current_head:
-                if not _workspace_snapshot_cache_matches_committed_head(
-                    workspace_root,
+                if not _project_snapshot_cache_matches_committed_head(
+                    project_root,
                     snapshot_path,
                 ):
-                    rebuilt_snapshot_path = rebuild_workspace_snapshot_cache(workspace_root)
-                    snapshot_payload = read_workspace_snapshot(rebuilt_snapshot_path)
-                rebase_workspace_payload_videos(snapshot_payload, workspace_root)
+                    rebuilt_snapshot_path = rebuild_project_snapshot_cache(project_root)
+                    snapshot_payload = read_project_snapshot(rebuilt_snapshot_path)
+                rebase_project_payload_videos(snapshot_payload, project_root)
                 obj = labels_from_payload(
                     cls,
                     snapshot_payload,
@@ -949,18 +949,18 @@ def labels_load_file(
                     video_finalizer=video_finalizer,
                 )
                 obj.validate()
-                obj.path = workspace_root
+                obj.path = project_root
                 return obj
 
         try:
-            rebuilt_snapshot_path = rebuild_workspace_snapshot_cache(workspace_root)
+            rebuilt_snapshot_path = rebuild_project_snapshot_cache(project_root)
         except FileNotFoundError:
             obj = cls()
-            obj.path = workspace_root
+            obj.path = project_root
             return obj
 
-        rebuilt_payload = read_workspace_snapshot(rebuilt_snapshot_path)
-        rebase_workspace_payload_videos(rebuilt_payload, workspace_root)
+        rebuilt_payload = read_project_snapshot(rebuilt_snapshot_path)
+        rebase_project_payload_videos(rebuilt_payload, project_root)
         obj = labels_from_payload(
             cls,
             rebuilt_payload,
@@ -969,7 +969,7 @@ def labels_load_file(
             video_finalizer=video_finalizer,
         )
         obj.validate()
-        obj.path = workspace_root
+        obj.path = project_root
         return obj
 
     ext = path.suffix.lower()
@@ -998,18 +998,18 @@ def labels_save_file(
 ) -> str:
     """Save labels to disk."""
     path = Path(filename)
-    from xpkg.io.project_layout import resolve_workspace_root
-    from xpkg.io.project_workspace import save_workspace_labels
+    from xpkg.project.layout import resolve_project_root
+    from xpkg.project.store import save_project_labels
 
-    workspace_root = resolve_workspace_root(path)
-    if workspace_root is not None:
-        save_workspace_labels(
-            workspace_root,
+    project_root = resolve_project_root(path)
+    if project_root is not None:
+        save_project_labels(
+            project_root,
             labels,
             metadata=metadata,
         )
-        labels.path = workspace_root
-        return workspace_root.as_posix()
+        labels.path = project_root
+        return project_root.as_posix()
 
     ext = path.suffix.lower() or default_suffix or ".json"
     if ext == ".json":
