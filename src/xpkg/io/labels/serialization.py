@@ -961,7 +961,6 @@ def labels_load_file(
 
     from xpkg.io.project_layout import resolve_workspace_root, workspace_current_snapshot_path
     from xpkg.io.project_workspace import (
-        LegacyWorkspaceMigrationRequiredError,
         _workspace_snapshot_cache_matches_committed_head,
         current_project_commit_id,
         rebase_workspace_payload_videos,
@@ -997,9 +996,7 @@ def labels_load_file(
 
         try:
             rebuilt_snapshot_path = rebuild_workspace_snapshot_cache(workspace_root)
-        except FileNotFoundError as exc:
-            if isinstance(exc, LegacyWorkspaceMigrationRequiredError):
-                raise
+        except FileNotFoundError:
             obj = cls()
             obj.path = workspace_root
             return obj

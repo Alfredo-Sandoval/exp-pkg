@@ -168,7 +168,6 @@ Pick the surface by intent:
 | Save/load figure outputs with lineage | `workspace.figures.*` |
 | Save/load frame segmentation masks | `workspace.segmentation.*` |
 | Function-level workspace imports | `xpkg.formats.import_*_workspace(...)` |
-| Legacy `.xpkg` cutover | `xpkg migrate` or `xpkg.formats.migrate_legacy_archive(...)` |
 
 ## Lifecycle-only example
 
@@ -196,24 +195,6 @@ The same workspace-first pattern is available for:
 Use those workspace helpers as the primary integration surface for new code.
 The underlying `xpkg.formats.import_*_workspace(...)` functions remain public
 when you want the explicit function form.
-
-## Legacy migration example
-
-When you need to cut over an older `.xpkg` archive, use the explicit migration
-helper instead of treating archive IO as a normal downstream contract.
-
-```bash
-xpkg migrate "./legacy.xpkg" --out "./My Project"
-```
-
-```python
-from xpkg.formats import migrate_legacy_archive
-
-snapshot_path = migrate_legacy_archive("./legacy.xpkg", "./My Project")
-```
-
-That migration writes workspace-native state into the private store and refreshes
-the rebuildable `.xpkg/state/current.json` cache for normal workspace use.
 
 ## In-memory Exchange API
 

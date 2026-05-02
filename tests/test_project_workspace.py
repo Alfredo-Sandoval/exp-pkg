@@ -238,51 +238,6 @@ def test_init_project_writes_workspace_contract(tmp_path: Path) -> None:
     assert loaded.labeled_frames == []
 
 
-def test_migrate_legacy_archive_creates_workspace_and_workspace_loads(tmp_path: Path) -> None:
-    from xpkg.formats import (
-        current_project_snapshot_path,
-        migrate_legacy_archive,
-        workspace_media_root,
-        workspace_state_root,
-        workspace_store_root,
-    )
-    from xpkg.io.archive_format import write_archive
-    from xpkg.io.archive_store import ArchiveStore
-    from xpkg.model import Labels
-
-    source_root = tmp_path / "source"
-    source_root.mkdir()
-    labels = _make_labels(source_root, x=3.0, y=4.0)
-    source_archive_path = tmp_path / "tracking.xpkg"
-    workspace = tmp_path / "Migrated Project"
-    write_archive(source_archive_path, labels)
-
-    migrated_archive = migrate_legacy_archive(source_archive_path, workspace)
-
-    assert migrated_archive == current_project_snapshot_path(workspace)
-    assert migrated_archive.exists()
-    assert (workspace_store_root(workspace) / "superblock.a.json").is_file()
-    assert not (workspace_state_root(workspace) / "current.xpkg").exists()
-    assert (workspace_state_root(workspace) / "current.json").is_file()
-    store = ArchiveStore.open(workspace_store_root(workspace))
-    assert store.has_current_root("snapshot")
-    assert not store.has_current_root("archive")
-
-    loaded = Labels.load_file(workspace.as_posix())
-    pts = loaded.labeled_frames[0].instances[0].get_points_array(copy=False, full=True)
-    assert float(pts["x"][0]) == 3.0
-    assert float(pts["y"][0]) == 4.0
-    media_root = workspace_media_root(workspace)
-    managed_files = sorted(path for path in media_root.rglob("*") if path.is_file())
-    assert managed_files
-    for video in loaded.videos:
-        assert _is_within(Path(str(video.filename)), media_root)
-        for frame_path in video.image_filenames or []:
-            resolved = Path(str(frame_path))
-            assert _is_within(resolved, media_root)
-            assert resolved.exists()
-
-
 def test_workspace_metadata_helpers_roundtrip_without_existing_labels(tmp_path: Path) -> None:
     from xpkg.formats import (
         init_project,
@@ -447,100 +402,21 @@ def test_load_workspace_payload_uses_snapshot_without_archive_export(
     assert payload["predictions"]["attrs"]["committed_length"] == 0
 
 
-def test_migrate_legacy_archive_rewrites_stale_project_metadata_paths(tmp_path: Path) -> None:
-    from xpkg.formats import (
-        current_project_snapshot_path,
-        init_project,
-        migrate_legacy_archive,
-    )
-    from xpkg.io.archive_format import write_archive
-    from xpkg.io.workspace_snapshot_backend import read_workspace_snapshot_payload
-
-    legacy_root = tmp_path / "bootstrap_2026-01-13"
-    legacy_root.mkdir()
-    downloads_root = tmp_path / "Downloads"
-    downloads_root.mkdir()
-    source_video = downloads_root / "session_video.avi"
-    _write_test_video(source_video)
-    labels = _make_media_labels(source_video, x=2.0, y=3.0)
-    legacy_output_dir = legacy_root / "models" / "pose" / "run-1"
-    legacy_output_dir.mkdir(parents=True)
-    source_archive_path = legacy_root / "tracking.xpkg"
-    training_state = {
-        "schema_version": 1,
-        "latest": {
-            "run_id": "latest",
-            "created_ns": 2,
-            "source_archive": legacy_root.as_posix(),
-            "output_dir": legacy_output_dir.as_posix(),
-        },
-        "runs": [
-            {
-                "run_id": "rebased",
-                "created_ns": 1,
-                "source_archive": legacy_root.as_posix(),
-                "output_dir": legacy_output_dir.as_posix(),
-            },
-            {
-                "run_id": "cleared",
-                "created_ns": 0,
-                "source_archive": (legacy_root / "missing-archive").as_posix(),
-                "output_dir": (legacy_root / "missing-output").as_posix(),
-            },
-        ],
-    }
-    session_state = {
-        "active_video_path": source_video.as_posix(),
-        "active_frame_idx": 2,
-    }
-    write_archive(
-        source_archive_path,
-        labels,
-        metadata={
-            "training_state_json": training_state,
-            "session_json": session_state,
-        },
-    )
-
-    workspace = tmp_path / "Migrated Project"
-    init_project(workspace, title="Migrated Project", force=True)
-    workspace_output_dir = workspace / "models" / "pose" / "run-1"
-    workspace_output_dir.mkdir(parents=True)
-
-    migrate_legacy_archive(source_archive_path, workspace)
-
-    snapshot_payload = read_workspace_snapshot_payload(current_project_snapshot_path(workspace))
-    migrated_training = snapshot_payload["metadata"]["training_state_json"]
-    migrated_session = snapshot_payload["session"]
-
-    assert migrated_training["latest"]["source_archive"] == workspace.resolve().as_posix()
-    assert migrated_training["latest"]["output_dir"] == workspace_output_dir.resolve().as_posix()
-    assert migrated_training["runs"][0]["source_archive"] == workspace.resolve().as_posix()
-    assert migrated_training["runs"][0]["output_dir"] == workspace_output_dir.resolve().as_posix()
-    assert migrated_training["runs"][1]["source_archive"] == ""
-    assert migrated_training["runs"][1]["output_dir"] == ""
-    assert migrated_session["active_video_path"] == f"Media/{source_video.name}"
-    assert migrated_session["active_frame_idx"] == 2
-
-
 def test_pack_snapshot_and_unpack_roundtrip_workspace(tmp_path: Path) -> None:
     from xpkg.formats import (
         current_project_snapshot_path,
+        init_project,
         pack_project,
         unpack_project,
         validate_artifact,
     )
-    from xpkg.io.archive_format import write_archive
     from xpkg.model import Labels
 
     labels = _make_labels(tmp_path, x=5.0, y=6.0)
-    source_archive_path = tmp_path / "tracking.xpkg"
-    write_archive(source_archive_path, labels)
 
     workspace = tmp_path / "Roundtrip Project"
-    from xpkg.formats import migrate_legacy_archive
-
-    migrate_legacy_archive(source_archive_path, workspace)
+    init_project(workspace, title="Roundtrip Project")
+    Labels.save_file(labels, workspace.as_posix())
     snapshot_path = current_project_snapshot_path(workspace)
     snapshot_doc = json.loads(snapshot_path.read_text(encoding="utf-8"))
     snapshot_doc["payload"]["data"]["keypoints"][0][0][0][0] = 51.0
@@ -562,23 +438,21 @@ def test_pack_snapshot_and_unpack_roundtrip_workspace(tmp_path: Path) -> None:
 
 def test_pack_portable_and_unpack_uses_managed_media_after_source_removal(tmp_path: Path) -> None:
     from xpkg.formats import (
-        migrate_legacy_archive,
+        init_project,
         pack_project,
         unpack_project,
         validate_artifact,
         workspace_media_root,
     )
-    from xpkg.io.archive_format import write_archive
     from xpkg.model import Labels
 
     source_root = tmp_path / "source"
     source_root.mkdir()
     labels = _make_labels(source_root, x=7.0, y=8.0)
-    source_archive_path = tmp_path / "external.xpkg"
-    write_archive(source_archive_path, labels)
 
     workspace = tmp_path / "Portable Project"
-    migrate_legacy_archive(source_archive_path, workspace)
+    init_project(workspace, title="Portable Project")
+    Labels.save_file(labels, workspace.as_posix())
     managed_files = sorted(
         path for path in workspace_media_root(workspace).rglob("*") if path.is_file()
     )
@@ -609,55 +483,6 @@ def test_pack_portable_and_unpack_uses_managed_media_after_source_removal(tmp_pa
             assert resolved.exists()
 
 
-def test_legacy_workspace_current_state_archive_requires_explicit_cutover(tmp_path: Path) -> None:
-    from xpkg.formats import (
-        current_project_state_path,
-        init_project,
-        workspace_state_root,
-        workspace_store_root,
-    )
-    from xpkg.io.archive_format import write_archive
-    from xpkg.io.project_workspace import (
-        LegacyWorkspaceMigrationRequiredError,
-        export_project_archive,
-    )
-    from xpkg.model import Labels
-
-    source_root = tmp_path / "source"
-    source_root.mkdir()
-    legacy_labels = _make_labels(source_root, x=9.0, y=10.0)
-    updated_labels = _make_labels(source_root, x=11.0, y=12.0)
-
-    workspace = tmp_path / "Legacy Workspace"
-    init_project(workspace, title="Legacy Workspace")
-    current_state_archive = workspace_state_root(workspace) / "current.xpkg"
-    current_state_archive.parent.mkdir(parents=True, exist_ok=True)
-    write_archive(current_state_archive, legacy_labels)
-
-    with pytest.raises(
-        LegacyWorkspaceMigrationRequiredError,
-        match="migrate_legacy_archive",
-    ):
-        Labels.load_file(workspace.as_posix())
-
-    with pytest.raises(
-        LegacyWorkspaceMigrationRequiredError,
-        match="migrate_legacy_archive",
-    ):
-        Labels.save_file(updated_labels, workspace.as_posix())
-
-    with pytest.raises(
-        LegacyWorkspaceMigrationRequiredError,
-        match="migrate_legacy_archive",
-    ):
-        export_project_archive(workspace)
-
-    assert current_project_state_path(workspace) == workspace_state_root(workspace) / "current.json"
-    assert not current_project_state_path(workspace).exists()
-    assert current_state_archive.exists()
-    assert not (workspace_store_root(workspace) / "superblock.a.json").exists()
-
-
 def test_labels_save_file_to_workspace_creates_first_committed_state(tmp_path: Path) -> None:
     from xpkg.formats import (
         current_project_snapshot_path,
@@ -679,7 +504,6 @@ def test_labels_save_file_to_workspace_creates_first_committed_state(tmp_path: P
 
     assert saved_target == workspace.as_posix()
     assert current_snapshot.exists()
-    assert not (workspace / ".xpkg" / "state" / "current.xpkg").exists()
     store = ArchiveStore.open(workspace_store_root(workspace))
     assert store.has_current_root("snapshot")
     assert not store.has_current_root("archive")
@@ -694,40 +518,26 @@ def test_labels_save_file_to_workspace_creates_first_committed_state(tmp_path: P
 def test_labels_save_file_to_workspace_preserves_predictions(tmp_path: Path) -> None:
     from xpkg.formats import (
         current_project_snapshot_path,
-        migrate_legacy_archive,
-    )
-    from xpkg.io.archive_format import (
-        PredictionAppendItem,
-        SerializerPredictedInstance,
-        write_archive,
+        init_project,
     )
     from xpkg.io.workspace_snapshot_backend import read_workspace_snapshot_payload
     from xpkg.model import Labels
 
     source_root = tmp_path / "source"
     source_root.mkdir()
-    initial_labels = _make_labels(source_root, x=1.0, y=2.0)
+    initial_labels = _make_predicted_labels(
+        source_root,
+        x=13.0,
+        y=14.0,
+        point_score=0.9,
+        instance_score=0.97,
+        track_id=4,
+    )
     updated_labels = _make_labels(source_root, x=21.0, y=22.0)
-    source_archive_path = tmp_path / "with_predictions.xpkg"
     workspace = tmp_path / "Workspace Save"
 
-    predictions = [
-        PredictionAppendItem(
-            video_index=0,
-            frame_index=0,
-            instances=[
-                SerializerPredictedInstance(
-                    keypoints=[(13.0, 14.0, 0.9)],
-                    keypoint_scores=[0.9],
-                    score=0.97,
-                    track_id=4,
-                )
-            ],
-        )
-    ]
-
-    write_archive(source_archive_path, initial_labels, predictions=predictions)
-    migrate_legacy_archive(source_archive_path, workspace)
+    init_project(workspace, title="Workspace Save")
+    Labels.save_file(initial_labels, workspace.as_posix())
 
     saved_target = Labels.save_file(updated_labels, workspace.as_posix())
     payload = read_workspace_snapshot_payload(current_project_snapshot_path(workspace))
@@ -900,7 +710,7 @@ def test_summarize_project_and_validate_project_read_labels_video_group(tmp_path
     init_project(workspace, title="Summary Project")
 
     saved_target = Labels.save_file(labels, workspace.as_posix())
-    archive = export_project_archive(workspace)
+    archive = export_project_archive(workspace, out=tmp_path / "summary.xpkg")
     labels.save_file(labels, archive.as_posix())
     summary = summarize_project(archive)
 

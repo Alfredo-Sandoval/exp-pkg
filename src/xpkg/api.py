@@ -2,9 +2,7 @@
 
 New integrations should start with ``WorkspaceService`` and
 ``WorkspaceService.imports``. The explicit ``import_*_workspace(...)`` helpers
-remain public for function-level callers, and ``migrate_legacy_archive(...)``
-is the one retained bridge for cutting older ``.xpkg`` archives over to the
-workspace contract.
+remain public for function-level callers.
 """
 
 from __future__ import annotations
@@ -93,7 +91,6 @@ _WORKSPACE_EXPORTS: dict[str, tuple[str, str]] = {
     ),
     "import_sleap_h5_workspace": (".formats.project", "import_sleap_h5_workspace"),
     "import_sleap_package_workspace": (".formats.project", "import_sleap_package_workspace"),
-    "migrate_legacy_archive": (".formats.project", "migrate_legacy_archive"),
 }
 
 _MODEL_EXPORTS: dict[str, tuple[str, str]] = {

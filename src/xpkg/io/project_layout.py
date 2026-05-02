@@ -18,10 +18,6 @@ STORE_DIRNAME = ".xpkg"
 STORE_STATE_DIRNAME = "state"
 ARTIFACTS_DIRNAME = "artifacts"
 CURRENT_SNAPSHOT_FILENAME = "current.json"
-CURRENT_ARCHIVE_FILENAME = f"current{CANONICAL_ARCHIVE_SUFFIX}"
-SUPPORTED_CURRENT_ARCHIVE_FILENAMES = (
-    CURRENT_ARCHIVE_FILENAME,
-)
 MEDIA_DIRNAME = "Media"
 EXPORTS_DIRNAME = "Exports"
 PackMode = Literal["portable", "snapshot"]
@@ -252,7 +248,6 @@ def default_expkg_path(path: str | Path) -> Path:
 __all__ = [
     "CANONICAL_ARCHIVE_SUFFIX",
     "ARTIFACTS_DIRNAME",
-    "CURRENT_ARCHIVE_FILENAME",
     "CURRENT_SNAPSHOT_FILENAME",
     "EXPORTS_DIRNAME",
     "EXPKG_SUFFIX",
@@ -262,7 +257,6 @@ __all__ = [
     "ProjectDescriptor",
     "STORE_DIRNAME",
     "STORE_STATE_DIRNAME",
-    "SUPPORTED_CURRENT_ARCHIVE_FILENAMES",
     "_candidate_workspace_root",
     "_now_utc_iso",
     "default_expkg_path",

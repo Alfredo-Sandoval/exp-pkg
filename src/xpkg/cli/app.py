@@ -75,7 +75,6 @@ def _describe_payload() -> dict[str, object]:
             "import sleap",
             "import vicon",
             "init",
-            "migrate",
             "pack",
             "unpack",
             "validate",

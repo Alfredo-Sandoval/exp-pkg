@@ -24,14 +24,12 @@ from xpkg.io.archive_store.hashing import sha256_file
 from xpkg.io.project_artifact import validate_workspace
 from xpkg.io.project_layout import (
     CANONICAL_ARCHIVE_SUFFIX,
-    CURRENT_ARCHIVE_FILENAME,
     CURRENT_SNAPSHOT_FILENAME,
     EXPORTS_DIRNAME,
     MEDIA_DIRNAME,
     PROJECT_DESCRIPTOR_FILENAME,
     STORE_DIRNAME,
     STORE_STATE_DIRNAME,
-    SUPPORTED_CURRENT_ARCHIVE_FILENAMES,
     PackMode,
     ProjectDescriptor,
     _candidate_workspace_root,
@@ -66,16 +64,12 @@ if TYPE_CHECKING:
     from xpkg.model import Labels, ViconRecording
 
 
-class LegacyWorkspaceMigrationRequiredError(FileNotFoundError):
-    """Raised when a pre-cutover workspace must be migrated explicitly."""
-
-
 def export_project_archive(
     path: str | Path,
     *,
-    out: str | Path | None = None,
+    out: str | Path,
 ) -> Path:
-    """Materialize a compatibility `.xpkg` archive from the committed workspace head."""
+    """Materialize an internal `.xpkg` archive from the committed workspace head."""
 
     return _workspace_store(path).export_archive(out=out)
 
@@ -89,10 +83,6 @@ def load_workspace_payload(path: str | Path) -> dict[str, Any]:
     if state is None:
         return {"metadata": {}}
     payload, source_kind = state
-    if source_kind == "archive":
-        rebase_workspace_payload_videos(payload, root)
-        return payload
-
     metadata = _snapshot_metadata_from_state_payload(payload) or {}
     if source_kind == "snapshot_labels":
         public_payload = _public_payload_from_snapshot_labels(payload, metadata=metadata)
@@ -440,18 +430,9 @@ def _public_segmentation_payload_from_snapshot(snapshot_payload: dict[str, Any])
 
 
 def current_project_state_path(path: str | Path) -> Path:
-    """Return the currently addressable workspace state path.
+    """Return the current workspace snapshot cache path."""
 
-    Normal workspace-first flows use `.xpkg/state/current.json`. Archive roots
-    are returned only for explicit compatibility-backed durable heads.
-    """
-
-    store = _workspace_store(path)
     snapshot_path = current_project_snapshot_path(path)
-    if snapshot_path.exists() or store.has_current_snapshot():
-        return snapshot_path
-    if store.has_current_archive():
-        return store.current_archive_root_path()
     return snapshot_path
 
 
@@ -466,20 +447,6 @@ class WorkspaceStore:
         return workspace_store_root(self.workspace_root)
 
     @property
-    def legacy_state_root(self) -> Path:
-        return self.store_root / STORE_STATE_DIRNAME
-
-    @property
-    def legacy_current_archive_path(self) -> Path:
-        return self.legacy_state_root / CURRENT_ARCHIVE_FILENAME
-
-    @property
-    def legacy_current_archive_paths(self) -> tuple[Path, ...]:
-        return tuple(
-            self.legacy_state_root / filename for filename in SUPPORTED_CURRENT_ARCHIVE_FILENAMES
-        )
-
-    @property
     def staging_root(self) -> Path:
         return self.store_root / "workspace"
 
@@ -487,14 +454,6 @@ class WorkspaceStore:
         return (self.store_root / "superblock.a.json").exists() or (
             self.store_root / "superblock.b.json"
         ).exists()
-
-    def has_legacy_archive(self) -> bool:
-        return self._find_legacy_archive_path() is not None
-
-    def has_current_archive(self) -> bool:
-        if not self.has_durable_store():
-            return False
-        return self.open().has_current_root("archive")
 
     def has_current_snapshot(self) -> bool:
         if not self.has_durable_store():
@@ -511,99 +470,22 @@ class WorkspaceStore:
 
         return ArchiveStore.open(self.store_root)
 
-    def _cleanup_legacy_state(self) -> None:
-        for legacy_archive in self.legacy_current_archive_paths:
-            if legacy_archive.exists():
-                legacy_archive.unlink()
-
-        state_root = self.legacy_state_root
-        if state_root.is_dir():
-            try:
-                state_root.rmdir()
-            except OSError:
-                return
-
-    def _find_legacy_archive_path(self) -> Path | None:
-        for candidate in self.legacy_current_archive_paths:
-            if candidate.is_file():
-                return candidate
-        return None
-
-    def _legacy_migration_required_error(self) -> LegacyWorkspaceMigrationRequiredError:
-        legacy_archive = self._find_legacy_archive_path() or self.legacy_current_archive_path
-        return LegacyWorkspaceMigrationRequiredError(
-            "Workspace still uses legacy archive-backed state at "
-            f"{legacy_archive}. Run migrate_legacy_archive(...) before using "
-            "workspace load/save/archive helpers."
-        )
-
-    def current_archive_path(self) -> Path:
-        return self.export_archive()
-
-    def current_archive_root_path(self) -> Path:
+    def export_archive(self, *, out: str | Path) -> Path:
+        target_archive_path = _archive_export_path(out)
         if self.has_durable_store():
             store = self.open()
-            if store.has_current_root("archive"):
-                return store.current_archive_path()
-        if self.has_legacy_archive():
-            raise self._legacy_migration_required_error()
-        raise FileNotFoundError(f"Workspace has no committed archive root: {self.store_root}")
-
-    def export_archive(self, *, out: str | Path | None = None) -> Path:
-        target_archive_path = (
-            self.legacy_current_archive_path if out is None else _archive_export_path(out)
-        )
-        if self.has_durable_store():
-            store = self.open()
-            if store.has_current_root("archive"):
-                current_archive = store.current_archive_path()
-                if out is None:
-                    return current_archive
-                return _copy_archive_export(current_archive, target_archive_path)
             if store.has_current_root("snapshot"):
                 return _export_archive_from_snapshot(
                     self.workspace_root,
                     store.current_root_path("snapshot"),
                     archive_path=target_archive_path,
                 )
-        if self.has_legacy_archive():
-            raise self._legacy_migration_required_error()
         raise FileNotFoundError(f"Workspace has no committed state to export: {self.store_root}")
 
     def current_snapshot_path(self) -> Path:
         if not self.has_durable_store():
             raise FileNotFoundError(f"Workspace has no durable snapshot root: {self.store_root}")
         return self.open().current_root_path("snapshot")
-
-    def commit_archive(
-        self,
-        archive_path: str | Path,
-        *,
-        reason: str,
-        created_by: dict[str, Any] | None = None,
-    ) -> Path:
-        candidate = resolve_path(archive_path)
-        if not candidate.is_file():
-            raise FileNotFoundError(f"Staged archive not found: {candidate}")
-
-        if self.has_durable_store():
-            store = self.open()
-            store.commit_new_archive(candidate, reason=reason, created_by=created_by)
-            self._cleanup_legacy_state()
-            return store.current_archive_path()
-
-        if self.has_legacy_archive():
-            raise self._legacy_migration_required_error()
-
-        from xpkg.io.archive_store import ArchiveStore
-
-        store = ArchiveStore.create_from_archive(
-            store_root=self.store_root,
-            initial_archive=candidate,
-            created_by=created_by,
-            reason=reason,
-        )
-        return store.current_archive_path()
 
     def commit_snapshot(
         self,
@@ -619,11 +501,7 @@ class WorkspaceStore:
         if self.has_durable_store():
             store = self.open()
             store.commit_new_roots({"snapshot": candidate}, reason=reason, created_by=created_by)
-            self._cleanup_legacy_state()
             return store.current_root_path("snapshot")
-
-        if self.has_legacy_archive():
-            raise self._legacy_migration_required_error()
 
         from xpkg.io.archive_store import ArchiveStore
 
@@ -685,14 +563,6 @@ def _archive_export_path(path: str | Path) -> Path:
     if target.suffix.lower() != CANONICAL_ARCHIVE_SUFFIX:
         raise ValueError(f"Archive exports must use {CANONICAL_ARCHIVE_SUFFIX}: {target}")
     return target
-
-
-def _copy_archive_export(source_archive: Path, target_archive: Path) -> Path:
-    if source_archive.resolve() == target_archive.resolve():
-        return source_archive
-    ensure_dir(target_archive.parent)
-    shutil.copy2(source_archive, target_archive)
-    return target_archive
 
 
 def _snapshot_metadata(archive_payload: dict[str, Any]) -> dict[str, Any] | None:
@@ -1030,11 +900,6 @@ def _current_workspace_state_payload(
             if snapshot_kind == "labels":
                 return read_workspace_snapshot(snapshot_path), "snapshot_labels"
             return read_vicon_json_payload(snapshot_path), "snapshot_vicon"
-        if mounted.has_current_root("archive"):
-            return read_archive(mounted.current_archive_path(), lazy=False), "archive"
-
-    if store.has_legacy_archive():
-        raise store._legacy_migration_required_error()
 
     return None
 
@@ -1046,13 +911,11 @@ def _workspace_state_components(
 ) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
     if source_kind in {"snapshot_labels", "snapshot_vicon"}:
         metadata = _snapshot_metadata_from_state_payload(state_payload)
-    elif source_kind == "archive":
-        metadata = _snapshot_metadata(state_payload)
     else:
         raise ValueError(f"Unsupported workspace state source: {source_kind!r}")
     predictions = (
         _predictions_payload_from_state_payload(state_payload)
-        if source_kind in {"snapshot_labels", "archive"}
+        if source_kind == "snapshot_labels"
         else None
     )
     return metadata, predictions
@@ -1454,21 +1317,7 @@ def rebuild_workspace_snapshot_cache(workspace_root: Path) -> Path:
             commit_id=commit_id,
         )
 
-    from xpkg.model import Labels
-
-    archive_path = _workspace_store(workspace_root).current_archive_root_path()
-    labels = Labels.load_file(archive_path.as_posix())
-    metadata, predictions = _workspace_state_components(
-        state_payload,
-        source_kind=source_kind,
-    )
-    return _write_workspace_state(
-        workspace_root,
-        labels=labels,
-        metadata=metadata,
-        predictions=predictions,
-        commit_id=commit_id,
-    )
+    raise ValueError(f"Unsupported workspace state source: {source_kind!r}")
 
 
 def load_workspace_vicon_recording(workspace: str | Path) -> ViconRecording:
@@ -1563,23 +1412,7 @@ def save_workspace_metadata(
         _touch_descriptor(root)
         return state_path
 
-    from xpkg.model import Labels
-
-    labels = Labels.load_file(root.as_posix())
-    _state_metadata, predictions = _workspace_state_components(
-        state_payload,
-        source_kind=source_kind,
-    )
-    state_path = _commit_labels_to_workspace(
-        root,
-        labels=labels,
-        metadata=normalized_metadata,
-        predictions=predictions,
-        reason=reason,
-    )
-    _touch_descriptor(root)
-    labels.path = root
-    return state_path
+    raise ValueError(f"Unsupported workspace state source: {source_kind!r}")
 
 
 def _is_within(path: Path, parent: Path) -> bool:
@@ -1822,104 +1655,6 @@ def _export_archive_from_snapshot(
         ),
     )
     return target_archive
-
-
-def _absolutize_label_media(labels: Labels, *, source_root: Path) -> None:
-    for video in labels.videos:
-        filename = getattr(video, "filename", None)
-        if filename:
-            path = Path(str(filename))
-            if path.is_absolute():
-                video.filename = resolve_path(path).as_posix()
-            else:
-                video.filename = (source_root / path).resolve().as_posix()
-
-        image_filenames = list(getattr(video, "image_filenames", []) or [])
-        if not image_filenames:
-            continue
-        normalized: list[str] = []
-        for frame in image_filenames:
-            frame_path = Path(str(frame))
-            if frame_path.is_absolute():
-                normalized.append(resolve_path(frame_path).as_posix())
-            else:
-                normalized.append((source_root / frame_path).resolve().as_posix())
-        video._image_filenames = normalized
-        if not getattr(video, "filename", None) and normalized:
-            video.filename = normalized[0]
-
-
-def _apply_resolved_video_paths_from_payload(labels: Labels, payload: dict[str, Any]) -> None:
-    labels_payload = payload.get("labels")
-    if not isinstance(labels_payload, dict):
-        return
-    videos_payload = labels_payload.get("videos")
-    if not isinstance(videos_payload, dict):
-        return
-
-    resolved_paths = list(videos_payload.get("resolved_paths") or [])
-    for idx, video in enumerate(labels.videos):
-        if idx >= len(resolved_paths):
-            continue
-        raw_path = str(resolved_paths[idx]).strip()
-        if not raw_path:
-            continue
-        resolved = resolve_path(raw_path)
-        video.filename = resolved.as_posix()
-
-
-def migrate_legacy_archive(
-    legacy_archive: str | Path,
-    workspace: str | Path,
-    *,
-    title: str | None = None,
-    default_pack_mode: PackMode = "portable",
-    force: bool = False,
-) -> Path:
-    """Migrate an explicit legacy `.xpkg` archive into a workspace."""
-    legacy_path = resolve_path(legacy_archive)
-    if not legacy_path.is_file():
-        raise FileNotFoundError(f"Legacy archive not found: {legacy_path}")
-
-    root = resolve_workspace_root(workspace)
-    if root is None:
-        init_project(
-            workspace,
-            title=title,
-            default_pack_mode=default_pack_mode,
-            force=force,
-        )
-        root = _candidate_workspace_root(workspace)
-    else:
-        validate_workspace(root)
-
-    from xpkg.model import Labels
-
-    labels = Labels.load_file(str(legacy_path))
-    _absolutize_label_media(labels, source_root=legacy_path.parent)
-    payload = read_archive(legacy_path, lazy=False)
-    _apply_resolved_video_paths_from_payload(labels, payload)
-    _manage_labels_media(labels, root)
-    metadata = rewrite_workspace_metadata_paths(
-        _snapshot_metadata(payload),
-        workspace_root=root,
-        legacy_root=legacy_path.parent,
-    )
-    predictions = _predictions_payload_from_state_payload(payload)
-    snapshot_path = _commit_labels_to_workspace(
-        root,
-        labels=labels,
-        metadata=metadata,
-        predictions=predictions,
-        reason="workspace.migrate",
-    )
-
-    descriptor = load_project_descriptor(root)
-    descriptor.updated_at = _now_utc_iso()
-    if title is not None and title.strip():
-        descriptor.title = title.strip()
-    write_project_descriptor(root, descriptor)
-    return snapshot_path
 
 
 def _ensure_workspace_for_import(
@@ -2588,7 +2323,6 @@ def save_workspace_labels(
 
 __all__ = [
     "CANONICAL_ARCHIVE_SUFFIX",
-    "CURRENT_ARCHIVE_FILENAME",
     "CURRENT_SNAPSHOT_FILENAME",
     "EXPORTS_DIRNAME",
     "export_project_archive",
@@ -2615,7 +2349,6 @@ __all__ = [
     "load_workspace_payload",
     "load_workspace_vicon_recording",
     "load_project_descriptor",
-    "migrate_legacy_archive",
     "resolve_workspace_root",
     "rebase_workspace_payload_videos",
     "save_workspace_metadata",

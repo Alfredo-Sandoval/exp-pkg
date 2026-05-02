@@ -25,9 +25,6 @@ import into, validate, pack, or unpack a workspace-first project.
   <code>Labels</code> object.
 - Use <code>xpkg.formats.import_*_workspace(...)</code> when you explicitly
   want the same importers as free functions.
-- Use <code>xpkg.formats.migrate_legacy_archive(...)</code> or
-  <code>xpkg migrate</code> only when you are cutting an older
-  <code>.xpkg</code> archive over to the workspace contract.
 
 ## Recommended Flow
 
@@ -231,5 +228,3 @@ that currently has segmentation masks, with optional filters such as
 
 - Use [Formats](formats.md) when you want the same workspace-first behavior as
   explicit free functions.
-- Use `xpkg.formats.migrate_legacy_archive(...)` or `xpkg migrate` when you
-  need the one retained legacy `.xpkg` cutover seam.

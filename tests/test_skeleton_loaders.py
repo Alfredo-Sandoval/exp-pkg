@@ -186,7 +186,7 @@ def test_load_skeleton_auto_detects_ultralytics_yaml(tmp_path: Path) -> None:
 
 
 def test_load_skeleton_rejects_plain_slp(tmp_path: Path) -> None:
-    slp_file = tmp_path / "legacy.slp"
+    slp_file = tmp_path / "sample.slp"
     slp_file.write_text("invalid", encoding="utf-8")
 
     with pytest.raises(ValueError, match=r"pkg\.slp"):

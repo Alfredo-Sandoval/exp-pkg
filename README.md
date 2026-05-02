@@ -22,7 +22,6 @@ The public product contract is now intentionally narrow:
 - editable project = workspace folder
 - authoritative mutable state = private `.xpkg/`
 - portable artifact = `.expkg`
-- legacy `.xpkg` archives = migration input, not a first-class downstream target
 
 ## Positioning
 
@@ -68,7 +67,6 @@ Choose the public surface by job:
 | Save figure outputs and their lineage manifests | `workspace.figures.*` from `xpkg.services.WorkspaceService` |
 | Save or load frame-level segmentation masks | `workspace.segmentation.*` from `xpkg.services.WorkspaceService` |
 | Import foreign pose data through explicit free functions | `xpkg.formats.import_*_workspace(...)` |
-| Cut over a legacy `.xpkg` archive into the workspace contract | `xpkg migrate` or `xpkg.formats.migrate_legacy_archive(...)` |
 
 The explicit `xpkg.formats.import_*_workspace(...)` helpers remain public when
 you want a function-level API or need to import before reopening a workspace.
@@ -101,7 +99,6 @@ The shipped workspace import surface currently covers:
 - Saves and loads frame-level segmentation masks through `workspace.segmentation`
 - Exposes a clean in-memory exchange layer through `xpkg.exchange`
 - Handles media-aware packaging and workspace-relative project state
-- Ships one explicit legacy migration path for older `.xpkg` archives
 
 ## Current Scope vs Direction
 
@@ -111,7 +108,6 @@ Implemented today:
 - readers and workspace importers for external formats
 - workspace/store/artifact lifecycle operations
 - media-aware packaging and portable exports
-- a narrow legacy archive migration seam
 
 Mission direction:
 
@@ -253,27 +249,6 @@ future aligned modalities have a clear home in one project layout.
 The locked spec lives in `docs/artifact_contract_v1.md`, with the matching
 command surface in `docs/cli_command_spec_v1.md`.
 
-## Legacy Migration
-
-Older `.xpkg` archives are still supported as migration inputs, but they are no
-longer the public project contract.
-
-Use one of these explicit cutover paths:
-
-```bash
-xpkg migrate "./legacy.xpkg" --out "./My Project"
-```
-
-```python
-from xpkg.formats import migrate_legacy_archive
-
-snapshot_path = migrate_legacy_archive("./legacy.xpkg", "./My Project")
-```
-
-That migration writes workspace-native state into `.xpkg/`, refreshes the
-rebuildable `.xpkg/state/current.json` cache, and leaves new work on the normal
-workspace-first path.
-
 ## CLI
 
 The primary workspace-first CLI surface is:
@@ -285,7 +260,6 @@ xpkg import lightning-pose --csv predictions.csv --video video.mp4 --out "./My P
 xpkg pack "./My Project"
 xpkg unpack "./My Project.expkg" --out "./My Project"
 xpkg validate "./My Project"
-xpkg migrate "./legacy.xpkg" --out "./My Project"
 xpkg artifacts list "./My Project" --kind figure
 xpkg artifacts inspect "./My Project" validation-figure-3 --kind figure
 xpkg artifacts validate "./My Project" --kind figure

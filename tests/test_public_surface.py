@@ -64,7 +64,6 @@ from xpkg.formats import (
     load_workspace_segmentation_frames,
     load_workspace_segmentation_masks,
     load_workspace_vicon_recording,
-    migrate_legacy_archive,
     pack_project,
     project_descriptor_path,
     read_labels_json_payload,
@@ -205,7 +204,6 @@ def test_public_exports_are_callable() -> None:
     assert callable(load_workspace_segmentation_frames)
     assert callable(load_workspace_segmentation_masks)
     assert callable(load_workspace_vicon_recording)
-    assert callable(migrate_legacy_archive)
     assert callable(pack_project)
     assert callable(project_descriptor_path)
     assert callable(read_labels_json_payload)
@@ -277,7 +275,6 @@ def test_workspace_imports_surface_covers_supported_workspace_importers() -> Non
     }
 
     assert expected.issubset(set(dir(WorkspaceImports)))
-    assert "legacy_archive" not in dir(WorkspaceImports)
 
 
 def test_model_exports_are_available() -> None:
@@ -319,7 +316,6 @@ def test_formats_surface_is_workspace_first_only() -> None:
     assert "write_xpkg" not in xpkg.formats.__all__
     assert "export_project_archive" not in xpkg.formats.__all__
     assert "current_project_archive_path" not in xpkg.formats.__all__
-    assert "import_legacy_archive" not in xpkg.formats.__all__
     assert "pack_project" in xpkg.formats.__all__
     assert "export_workspace_archive" not in xpkg.formats.__all__
     assert "import_dlc_project_workspace" in xpkg.formats.__all__
@@ -332,7 +328,6 @@ def test_formats_surface_is_workspace_first_only() -> None:
     assert "load_workspace_metadata" in xpkg.formats.__all__
     assert "load_workspace_metadata_field" in xpkg.formats.__all__
     assert "import_vicon_workspace" in xpkg.formats.__all__
-    assert "migrate_legacy_archive" in xpkg.formats.__all__
     assert "save_workspace_metadata" in xpkg.formats.__all__
     assert "save_workspace_metadata_field" in xpkg.formats.__all__
     assert "save_workspace_segmentation_masks" in xpkg.formats.__all__

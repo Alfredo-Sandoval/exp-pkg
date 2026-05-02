@@ -5,8 +5,7 @@
 xpkg now has an <strong>experimental</strong> durable store layer for crash-safe,
 commit-oriented project state. In the locked v1 artifact contract this belongs
 under the workspace-owned <code>.xpkg/</code> directory. Normal workspace
-commits now store workspace-native snapshot roots in that private store, while
-legacy archive roots remain only for explicit compatibility paths.
+commits now store workspace-native snapshot roots in that private store.
 </p>
 </div>
 
@@ -125,8 +124,6 @@ Stable today:
 
 - public workspace contract: `PROJECT.json`, `.xpkg/`, `Media/`, `Exports/`
 - `.expkg` as the portable project artifact
-- the single explicit legacy bridge: `xpkg migrate` /
-  `migrate_legacy_archive(...)`
 
 Experimental today:
 

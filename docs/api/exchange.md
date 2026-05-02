@@ -4,7 +4,7 @@
 <p>
 <code>xpkg.exchange</code> is the in-memory conversion surface for canonical
 xpkg objects. It exists for downstream tools that need arrays, tables, or
-JSON-friendly payloads without coupling to workspace layout or legacy archive
+JSON-friendly payloads without coupling to workspace layout or archive-format
 tooling.
 </p>
 </div>

@@ -17,9 +17,6 @@ def test_cli_rejects_removed_compat_commands() -> None:
         main(["convert", "dlc", "csv"])
 
     with pytest.raises(SystemExit):
-        main(["import", "legacy", "--file", "tracking.xpkg", "--out", "My Project"])
-
-    with pytest.raises(SystemExit):
         main(["import", "detectron2", "--predictions", "coco_instances_results.json"])
 
     with pytest.raises(SystemExit):
@@ -115,56 +112,6 @@ def test_cli_init_json_mode(monkeypatch, capsys) -> None:
         "project_id": None,
         "pack_mode": "portable",
     }
-
-
-def test_cli_routes_migrate(monkeypatch, capsys) -> None:
-    from xpkg.cli import main
-
-    captured: dict[str, object] = {}
-
-    def fake_migrate_legacy_archive(
-        legacy_archive: str,
-        workspace: str,
-        *,
-        title: str | None,
-        default_pack_mode: str = "portable",
-        force: bool,
-    ) -> Path:
-        captured["legacy_archive"] = legacy_archive
-        captured["workspace"] = workspace
-        captured["title"] = title
-        captured["default_pack_mode"] = default_pack_mode
-        captured["force"] = force
-        return _workspace_state_path(workspace)
-
-    monkeypatch.setattr(
-        "xpkg.cli.commands.workspace.migrate_legacy_archive",
-        fake_migrate_legacy_archive,
-    )
-
-    code = main(
-        [
-            "migrate",
-            "tracking.xpkg",
-            "--out",
-            "My Project",
-            "--title",
-            "Migrated",
-            "--force",
-        ]
-    )
-
-    assert code == 0
-    assert captured == {
-        "legacy_archive": "tracking.xpkg",
-        "workspace": "My Project",
-        "title": "Migrated",
-        "default_pack_mode": "portable",
-        "force": True,
-    }
-    stdout = capsys.readouterr().out
-    assert "Migrated tracking.xpkg -> My Project" in stdout
-    assert ".xpkg/state/current.json" in stdout
 
 
 def test_cli_routes_import_dlc_csv_workspace(monkeypatch, capsys) -> None:

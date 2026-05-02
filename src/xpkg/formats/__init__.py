@@ -3,9 +3,7 @@
 This module defines the stable workspace/project boundary. New integrations
 should prefer ``WorkspaceService`` and ``WorkspaceService.imports`` for the
 normal lifecycle and ingestion flow, with ``import_*_workspace(...)`` kept
-public for explicit function-level callers. The only retained legacy bridge on
-this surface is ``migrate_legacy_archive(...)`` for cutting older ``.xpkg``
-archives over to the workspace contract.
+public for explicit function-level callers.
 """
 
 from __future__ import annotations
@@ -60,7 +58,6 @@ from xpkg.formats.project import (
     load_workspace_segmentation_frames,
     load_workspace_segmentation_masks,
     load_workspace_vicon_recording,
-    migrate_legacy_archive,
     pack_project,
     project_descriptor_path,
     rebuild_workspace_artifact_index,
@@ -172,7 +169,6 @@ __all__ = [
     "import_sleap_package_workspace",
     "import_mmpose_topdown_json_workspace",
     "import_mediapipe_pose_landmarks_json_workspace",
-    "migrate_legacy_archive",
     "write_labels_json",
     "read_labels_json_payload",
 ]

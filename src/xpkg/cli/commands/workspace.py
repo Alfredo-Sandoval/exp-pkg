@@ -9,9 +9,8 @@ from typing import Annotated
 import typer
 
 from xpkg.cli.shared import JsonOption, PackMode, run_command, write_path
-from xpkg.formats import init_project, migrate_legacy_archive, pack_project, unpack_project
+from xpkg.formats import init_project, pack_project, unpack_project
 from xpkg.formats import validate_artifact as validate_artifact_target
-from xpkg.io.archive_format.shared import CANONICAL_ARCHIVE_SUFFIX
 
 
 def register(app: typer.Typer) -> None:
@@ -58,45 +57,6 @@ def register(app: typer.Typer) -> None:
 
         def human_output(payload: dict[str, object]) -> None:
             sys.stdout.write(f"Initialized workspace {Path(str(payload['workspace']))}\n")
-
-        run_command(json_output=json_output, action=action, human_output=human_output)
-
-    @app.command("migrate")
-    def migrate(
-        legacy_archive: Annotated[
-            str,
-            typer.Argument(help=f"Path to a canonical {CANONICAL_ARCHIVE_SUFFIX} archive."),
-        ],
-        out: Annotated[str, typer.Option("--out", help="Output workspace directory.")],
-        title: Annotated[
-            str | None,
-            typer.Option("--title", help="Optional project title."),
-        ] = None,
-        force: Annotated[
-            bool,
-            typer.Option("--force", help="Allow initialization into an existing empty directory."),
-        ] = False,
-        json_output: JsonOption = False,
-    ) -> None:
-        """Migrate a legacy .xpkg archive into a workspace-first project."""
-
-        def action() -> dict[str, object]:
-            state_path = migrate_legacy_archive(
-                legacy_archive,
-                out,
-                title=title,
-                force=force,
-            )
-            return {
-                "status": "migrated",
-                "legacy_archive": legacy_archive,
-                "workspace": out,
-                "state_path": str(state_path),
-            }
-
-        def human_output(payload: dict[str, object]) -> None:
-            sys.stdout.write(f"Migrated {payload['legacy_archive']} -> {payload['workspace']}\n")
-            write_path(Path(str(payload["state_path"])))
 
         run_command(json_output=json_output, action=action, human_output=human_output)
 

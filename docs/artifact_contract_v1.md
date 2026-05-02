@@ -196,7 +196,7 @@ xpkg unpack "My Project.expkg" --out "./My Project"
 
 ### Import
 
-Legacy or foreign formats import into a workspace, not directly into an opaque
+Foreign formats import into a workspace, not directly into an opaque
 single-file native archive.
 
 Examples:
@@ -204,7 +204,6 @@ Examples:
 ```bash
 xpkg import dlc csv --csv tracking.csv --video video.mp4 --out "./My Project"
 xpkg import sleap --slp labels.pkg.slp --out "./My Project"
-xpkg migrate tracking.xpkg --out "./My Project"
 ```
 
 The locked command surface is documented in `docs/cli_command_spec_v1.md`.
@@ -243,13 +242,13 @@ The default pack mode is `portable`.
 - Symlinks may exist in user content, but official project validity must not
   depend on them.
 
-## Archive Migration Policy
+## Archive Boundary Policy
 
-`.xpkg` is the canonical edge archive format.
+`.xpkg` is the private workspace store directory name and may still appear in
+internal archive-format code paths, but it is not a public project artifact.
 
 Policy:
 
-- xpkg v1 must read/import `.xpkg`.
 - New projects are created as workspace folders.
 - New portable exports are `.expkg`.
 - No dedicated workspace-to-`.xpkg` export command is part of the locked v1 surface.

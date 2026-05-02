@@ -12,9 +12,7 @@ hide:
 <p class="manual-deck">
 xpkg is the canonical IO and artifact layer for experiment data, built around
 an editable workspace folder, a private <code>.xpkg/</code> store, and portable
-<code>.expkg</code> exports. Legacy <code>.xpkg</code> archives now enter only
-through the explicit migration path instead of acting as a first-class project
-surface.
+<code>.expkg</code> exports.
 The repo and distribution name are <code>exp-pkg</code>; the Python import and CLI name are
 <code>xpkg</code>.
 </p>
@@ -34,7 +32,6 @@ The repo and distribution name are <code>exp-pkg</code>; the Python import and C
 | Service-bound workspace imports | `workspace.imports.*` from `xpkg.services.WorkspaceService` |
 | Output artifact registry | `workspace.artifacts.*` and `.xpkg/artifacts/index.json` |
 | Function-level workspace imports | `xpkg.formats.import_*_workspace(...)` |
-| Legacy migration seam | `xpkg migrate` or `xpkg.formats.migrate_legacy_archive(...)` |
 | External import ecosystems | DeepLabCut, Lightning Pose, SLEAP, MMPose, MediaPipe |
 | Core objects | `xpkg.model` |
 | In-memory exchange | `xpkg.exchange` |
@@ -51,8 +48,6 @@ The repo and distribution name are <code>exp-pkg</code>; the Python import and C
   stats, and other output files with provenance and checksums.
 - Use `xpkg.formats.import_*_workspace(...)` when you want the same
   workspace-first importers as explicit free functions.
-- Use `xpkg.formats.migrate_legacy_archive(...)` or `xpkg migrate` only when
-  you are cutting over an older `.xpkg` archive into the workspace contract.
 - Use `xpkg.model` when you need `Labels`, `Skeleton`, `Instance`, or `Video`.
 - Use `xpkg.exchange` when you need arrays, tables, or JSON payloads without
   touching workspace internals.
@@ -63,8 +58,7 @@ The repo and distribution name are <code>exp-pkg</code>; the Python import and C
 - Read [Services](api/services.md) for the normal downstream
   create/open/import/validate/pack/unpack flow.
 - Read [Storage Direction](architecture/storage-direction.md) when you want the
-  architectural explanation for how the private store and legacy migration seam
-  fit together.
+  architectural explanation for how the private store fits together.
 </div>
 
 </div>
@@ -101,15 +95,6 @@ The repo and distribution name are <code>exp-pkg</code>; the Python import and C
 - `import_mediapipe_pose_landmarks_json_workspace`
 </div>
 
-<div class="spec-panel" markdown="1">
-### Legacy Bridge
-
-- `migrate_legacy_archive`
-- `xpkg migrate`
-- explicit cutover from older `.xpkg` archives into a workspace
-- no public `xpkg convert` or package-level `xpkg.adapters` facade
-</div>
-
 </div>
 
 ## Public Artifact Layout
@@ -134,19 +119,17 @@ single converter output.
 - Read [Artifact Contract v1](artifact_contract_v1.md) for the locked public
   workspace and portable artifact semantics.
 - Read [CLI Command Spec v1](cli_command_spec_v1.md) for `init`, `import`,
-  `pack`, `unpack`, `validate`, and `migrate`.
+  `pack`, `unpack`, and `validate`.
 - Read [Media IO Stack](architecture/media-io.md) for the target ownership split between xpkg and the GUI app.
 - Read [Storage Direction](architecture/storage-direction.md) for the current
-  rationale and cutover status around `.xpkg/`, legacy `.xpkg`, and
-  `.expkg`.
+  rationale around `.xpkg/` and `.expkg`.
 - Read [Experimental Durable Store](architecture/experimental-store.md) for the commit-oriented recovery workflow.
 - Read [Model](api/model.md) for the pose object graph.
 - Read [Exchange](api/exchange.md) for in-memory JSON / dataframe / numpy
   conversions.
 - Read [Services](api/services.md) for the primary consumer-facing workspace
   API.
-- Read [Formats](api/formats.md) for workspace-first lifecycle, import APIs,
-  and the explicit legacy migration helper.
+- Read [Formats](api/formats.md) for workspace-first lifecycle and import APIs.
 - Use the reference pages when you need exact signatures and docstrings.
 
 </div>

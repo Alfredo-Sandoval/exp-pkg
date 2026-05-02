@@ -63,7 +63,6 @@ def test_xpkg_api_exposes_workspace_first_contract() -> None:
         "load_workspace_segmentation_frames",
         "load_workspace_segmentation_masks",
         "load_workspace_vicon_recording",
-        "migrate_legacy_archive",
         "pack_project",
         "read_hdf5_table",
         "read_hdf5_table_group",
@@ -100,7 +99,6 @@ def test_xpkg_api_exposes_workspace_first_contract() -> None:
     assert "current_project_archive_path" not in api.__all__
     assert "export_workspace_archive" not in api.__all__
     assert "export_project_archive" not in api.__all__
-    assert "import_legacy_archive" not in api.__all__
     assert "import_detectron2_coco_workspace" not in api.__all__
     assert "import_openpose_json_workspace" not in api.__all__
     assert "SleapTrack" not in api.__all__
@@ -157,7 +155,6 @@ def test_xpkg_api_exposes_workspace_first_contract() -> None:
     assert callable(api.read_vicon_recording)
     assert callable(api.read_vicon_json_payload)
     assert callable(api.resolve_pose_node_indices)
-    assert callable(api.migrate_legacy_archive)
     assert callable(api.rebuild_workspace_artifact_index)
     assert callable(api.save_workspace_artifact)
     assert callable(api.save_workspace_figure)
@@ -181,5 +178,3 @@ def test_xpkg_api_lists_service_entrypoints_before_free_function_helpers() -> No
     assert exports.index("WorkspaceService") < exports.index("WorkspaceImports")
     assert exports.index("WorkspaceImports") < exports.index("WorkspaceLayout")
     assert exports.index("WorkspaceService") < exports.index("import_dlc_csv_workspace")
-    assert exports.index("WorkspaceService") < exports.index("migrate_legacy_archive")
-    assert exports.index("import_dlc_csv_workspace") < exports.index("migrate_legacy_archive")

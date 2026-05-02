@@ -15,16 +15,13 @@ when you want the explicit function-level form.
 
 !!! note
     <code>xpkg.formats</code> intentionally exposes the workspace contract, not
-    direct archive convenience wrappers. The only retained legacy seam here is
-    <code>migrate_legacy_archive(...)</code> for cutting older
-    <code>.xpkg</code> archives over to the workspace path.
+    direct archive convenience wrappers.
 
 ## Start Here
 
 - Use <code>xpkg.services.WorkspaceService</code> for the normal create/open/import/validate/pack/unpack lifecycle.
 - Use <code>WorkspaceService.imports.*</code> for the preferred service-bound import flow.
 - Use the <code>import_*_workspace(...)</code> helpers below when you want the same importers as explicit free functions.
-- Use <code>migrate_legacy_archive(...)</code> only when you are cutting over an older direct archive into a workspace.
 
 ## Project Contract
 
@@ -157,17 +154,6 @@ into a workspace.
 
 Import the supported MediaPipe pose-landmarks JSON contract plus its matching
 video into a workspace.
-
-## Legacy Migration
-
-### `migrate_legacy_archive(...)`
-
-Cut a canonical legacy `.xpkg` archive over into the workspace-first xpkg
-contract.
-
-This is intentionally the one retained legacy bridge on
-<code>xpkg.formats</code>. Direct archive conversion/export convenience wrappers
-were removed from this public facade during the workspace-first cutover.
 
 ## Save Current Workspace State
 

@@ -185,56 +185,10 @@ def _rewrite_session_state_paths(session_state: dict[str, Any], *, workspace_roo
     )
 
 
-def _rebase_legacy_workspace_path(
-    raw_path: str,
-    *,
-    legacy_root: Path,
-    workspace_root: Path,
-) -> str:
-    candidate = Path(raw_path)
-    if not raw_path.strip() or not candidate.is_absolute():
-        return raw_path
-    try:
-        relative = candidate.resolve().relative_to(legacy_root.resolve())
-    except ValueError:
-        return raw_path
-    rebased = workspace_root.resolve() / relative
-    if not rebased.exists():
-        return ""
-    return rebased.as_posix()
-
-
-def _rewrite_training_state_paths(
-    training_state: dict[str, Any],
-    *,
-    legacy_root: Path,
-    workspace_root: Path,
-) -> None:
-    entries: list[dict[str, Any]] = []
-    latest = training_state.get("latest")
-    if isinstance(latest, dict):
-        entries.append(latest)
-    runs = training_state.get("runs")
-    if isinstance(runs, list):
-        entries.extend(entry for entry in runs if isinstance(entry, dict))
-
-    for entry in entries:
-        for field in ("output_dir", "source_archive"):
-            raw_value = entry.get(field)
-            if not isinstance(raw_value, str):
-                continue
-            entry[field] = _rebase_legacy_workspace_path(
-                raw_value,
-                legacy_root=legacy_root,
-                workspace_root=workspace_root,
-            )
-
-
 def rewrite_workspace_metadata_paths(
     metadata: dict[str, Any] | None,
     *,
     workspace_root: Path,
-    legacy_root: Path | None = None,
 ) -> dict[str, Any]:
     normalized = _materialize_json_value(metadata or {})
     if not isinstance(normalized, dict):
@@ -251,12 +205,6 @@ def rewrite_workspace_metadata_paths(
     if isinstance(training_state, str):
         training_state = parse_json_dict(training_state)
         normalized["training_state_json"] = training_state
-    if isinstance(training_state, dict) and legacy_root is not None:
-        _rewrite_training_state_paths(
-            training_state,
-            legacy_root=legacy_root,
-            workspace_root=workspace_root,
-        )
 
     return normalized
 

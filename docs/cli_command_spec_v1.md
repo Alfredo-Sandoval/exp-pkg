@@ -4,7 +4,7 @@ This document defines the shipped CLI contract for the xpkg v1 project and
 artifact workflow.
 
 The current CLI is workspace-first for project creation, importing, packing,
-unpacking, validation, and legacy cutover.
+unpacking, validation, and artifact inspection.
 
 ## Command Surface
 
@@ -19,7 +19,6 @@ xpkg import
 xpkg pack
 xpkg unpack
 xpkg validate
-xpkg migrate
 ```
 
 ## Shared Rules
@@ -111,7 +110,6 @@ xpkg import mediapipe --input-json pose_landmarks.json --video video.mp4 --out "
 ### Non-goals
 
 - Import is not an in-place update of packed `.expkg` artifacts.
-- Import is not the legacy `.xpkg` cutover command; use `xpkg migrate` for that.
 
 ## `xpkg artifacts`
 
@@ -213,30 +211,6 @@ xpkg validate "./My Project.expkg"
   contract.
 - Leaves the validated artifact unchanged.
 
-## `xpkg migrate`
-
-Migrate a legacy `.xpkg` archive into a workspace-first xpkg project.
-
-### Synopsis
-
-```bash
-xpkg migrate "./tracking.xpkg" --out "./My Project"
-```
-
-### Required behavior
-
-- Accepts a canonical `.xpkg` archive as input.
-- Creates or updates a workspace at the requested output path.
-- Preserves the logical project contents while rewriting them into the
-  workspace-first xpkg layout.
-- Leaves DLC, SLEAP, and other third-party ingestion to `xpkg import`.
-
-### Non-goals
-
-- `migrate` is not currently a general xpkg-to-xpkg upgrade command.
-- `migrate` does not define or freeze the private internal `.xpkg/`
-  sublayout.
-
 ## Open Behavior
 
 GUI and shell tooling should treat the workspace folder as the primary open
@@ -250,6 +224,5 @@ target.
 ## Transition Guidance
 
 - New project creation follows the workspace + `.expkg` contract.
-- Legacy `.xpkg` enters only through `xpkg migrate`.
 - No public command should frame direct `.xpkg` conversion as the native or
   preferred project workflow.

@@ -94,7 +94,6 @@ from xpkg.io.project_workspace import (
     load_workspace_metadata,
     load_workspace_payload,
     load_workspace_vicon_recording,
-    migrate_legacy_archive,
     save_workspace_labels,
     save_workspace_metadata,
 )
@@ -178,5 +177,4 @@ __all__ = [
     "import_sleap_package_workspace",
     "import_mmpose_topdown_json_workspace",
     "import_mediapipe_pose_landmarks_json_workspace",
-    "migrate_legacy_archive",
 ]
