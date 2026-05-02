@@ -1,21 +1,17 @@
-"""Top-level Typer app assembly for the xpkg CLI."""
+"""Main Typer entrypoint for the xpkg CLI."""
 
 from __future__ import annotations
 
-import sys
 from collections.abc import Sequence
 from typing import Annotated
 
-import click
 import typer
 
 from xpkg.cli.commands import artifacts, completion, imports, workspace
 from xpkg.cli.shared import (
     JsonOption,
-    argv_requests_json,
     run_command,
-    usage_error_payload,
-    write_json,
+    run_typer_app,
 )
 from xpkg.version import __version__
 
@@ -147,18 +143,4 @@ app.add_typer(workspace.app, name="workspace")
 
 def main(argv: Sequence[str] | None = None) -> int:
     """Run the xpkg CLI and return a process-style exit code."""
-    args = list(argv) if argv is not None else None
-    try:
-        result = app(args=args, prog_name="xpkg", standalone_mode=False)
-    except typer.Exit as exc:
-        return int(exc.exit_code or 0)
-    except click.ClickException as exc:
-        payload, exit_code = usage_error_payload(exc)
-        if argv_requests_json(args):
-            write_json(payload, stderr=True)
-            raise SystemExit(exit_code) from exc
-        exc.show(file=sys.stderr)
-        raise SystemExit(exit_code) from exc
-    if isinstance(result, int):
-        return result
-    return 0
+    return run_typer_app(app, argv=argv, prog_name="xpkg")

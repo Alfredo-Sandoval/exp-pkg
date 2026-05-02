@@ -2,6 +2,6 @@
 
 from __future__ import annotations
 
-from xpkg.cli.app import app, main
+from xpkg.cli.main import app, main
 
 __all__ = ["app", "main"]

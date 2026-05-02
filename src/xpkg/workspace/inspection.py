@@ -6,11 +6,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from xpkg.io.project_layout import (
-    ProjectDescriptor,
-    load_project_descriptor,
-    resolve_workspace_root,
-)
 from xpkg.io.project_validation import (
     ProjectSummary,
     summarize_loaded_project,
@@ -21,6 +16,11 @@ from xpkg.io.project_workspace import (
     current_project_state_path,
     load_workspace_metadata,
     load_workspace_payload,
+)
+from xpkg.workspace.layout import (
+    ProjectDescriptor,
+    load_project_descriptor,
+    resolve_workspace_root,
 )
 
 

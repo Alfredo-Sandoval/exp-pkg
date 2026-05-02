@@ -11,7 +11,17 @@ from typing import Any, Protocol, cast, overload, runtime_checkable
 
 import numpy as np
 
+import xpkg.io.labels.export_ops as export_ops
+import xpkg.io.labels.serialization as serialization
 from xpkg._core.logging_utils import get_logger
+from xpkg.io.labels.cache import LabelsDataCache
+from xpkg.io.labels.merge import complex_merge_between as _complex_merge_between
+from xpkg.io.labels.merge import finish_complex_merge as _finish_complex_merge
+from xpkg.io.labels.merge import merge_container_dicts as _merge_container_dicts
+from xpkg.io.labels.merge import merge_matching_frames as _merge_matching_frames
+from xpkg.io.labels.query import LabelsQuery
+from xpkg.io.labels.tracks import add_track as _add_track
+from xpkg.io.labels.video_types import VideoProtocol
 from xpkg.pose.annotations import (
     Instance,
     LabeledFrame,
@@ -22,16 +32,6 @@ from xpkg.pose.skeleton import (
     Keypoint,
     Skeleton,
 )
-
-from . import export_ops, serialization
-from .cache import LabelsDataCache
-from .merge import complex_merge_between as _complex_merge_between
-from .merge import finish_complex_merge as _finish_complex_merge
-from .merge import merge_container_dicts as _merge_container_dicts
-from .merge import merge_matching_frames as _merge_matching_frames
-from .query import LabelsQuery
-from .tracks import add_track as _add_track
-from .video_types import VideoProtocol
 
 logger = get_logger(__name__)
 

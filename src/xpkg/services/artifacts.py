@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, overload
 
-from xpkg.io.project_artifacts import (
+from xpkg.workspace.artifacts import (
     ArtifactIndexEntry,
     ArtifactManifest,
     ArtifactOutputSpec,

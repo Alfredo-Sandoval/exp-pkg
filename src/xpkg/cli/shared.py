@@ -1,4 +1,4 @@
-"""Shared CLI output, validation, and error helpers."""
+"""Shared CLI output, invocation, validation, and error helpers."""
 
 from __future__ import annotations
 
@@ -104,6 +104,30 @@ def run_command(
         write_json(payload)
     else:
         human_output(payload)
+
+
+def run_typer_app(
+    app: typer.Typer,
+    *,
+    argv: Sequence[str] | None = None,
+    prog_name: str,
+) -> int:
+    """Run a Typer app and normalize process-style exit handling."""
+    args = list(argv) if argv is not None else None
+    try:
+        result = app(args=args, prog_name=prog_name, standalone_mode=False)
+    except typer.Exit as exc:
+        return int(exc.exit_code or 0)
+    except click.ClickException as exc:
+        payload, exit_code = usage_error_payload(exc)
+        if argv_requests_json(args):
+            write_json(payload, stderr=True)
+            raise SystemExit(exit_code) from exc
+        exc.show(file=sys.stderr)
+        raise SystemExit(exit_code) from exc
+    if isinstance(result, int):
+        return result
+    return 0
 
 
 def require_likelihood_threshold(value: float) -> float:

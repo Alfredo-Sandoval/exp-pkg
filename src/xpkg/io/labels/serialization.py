@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any, Protocol, cast
 import numpy as np
 
 from xpkg._core.logging_utils import get_logger
+from xpkg.io.labels.json_format import read_labels_json_payload, write_labels_json
 from xpkg.io.labels.video_types import VideoProtocol
 from xpkg.io.video import Video, gui_playback_backend_for_path
 from xpkg.pose.annotations import (
@@ -21,8 +22,6 @@ from xpkg.pose.annotations import (
 )
 from xpkg.pose.skeleton import SCHEMA_VERSION as SKELETON_SCHEMA_VERSION
 from xpkg.pose.skeleton import Keypoint, Skeleton
-
-from .json_format import read_labels_json_payload, write_labels_json
 
 if TYPE_CHECKING:
     from xpkg.io.labels.model import Labels, SuggestionFrame
