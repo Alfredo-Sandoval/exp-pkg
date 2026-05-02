@@ -92,21 +92,33 @@ from xpkg.formats import (
     write_labels_json,
     write_project_descriptor,
 )
+from xpkg.io.readers import read_events_csv, read_photometry_csv, read_pyphotometry_ppd
 from xpkg.model import (
     EMGSignalData,
+    Event,
+    EventTable,
     ForcePlateData,
     Instance,
     Keypoint,
     KPFlag,
     LabeledFrame,
     Labels,
+    PhotometryChannel,
+    PhotometryRecording,
     Point,
     PointArray,
     PredictedInstance,
     PredictedPoint,
     PredictedPointArray,
+    RecordingSession,
+    SignalChannel,
     Skeleton,
     SuggestionFrame,
+    SyncEvent,
+    Timebase,
+    Timeline,
+    TimeRange,
+    TimeSeries,
     Track,
     ViconEvent,
     ViconForcePlatformMetadata,
@@ -141,10 +153,23 @@ def test_root_namespace_is_curated_to_workspace_first_modules() -> None:
     reloaded.__dict__.pop("adapters", None)
 
     assert reloaded.__version__
-    assert reloaded.__all__ == ["__version__", "api", "exchange", "formats", "model", "services"]
+    assert reloaded.__all__ == [
+        "__version__",
+        "api",
+        "exchange",
+        "formats",
+        "model",
+        "read_events_csv",
+        "read_photometry_csv",
+        "read_pyphotometry_ppd",
+        "services",
+    ]
     assert reloaded.exchange is not None
     assert reloaded.formats is not None
     assert reloaded.model is not None
+    assert callable(reloaded.read_events_csv)
+    assert callable(reloaded.read_photometry_csv)
+    assert callable(reloaded.read_pyphotometry_ppd)
     assert reloaded.services is not None
 
     with pytest.raises(AttributeError):
@@ -238,6 +263,9 @@ def test_public_exports_are_callable() -> None:
     assert callable(read_vicon_json_payload)
     assert callable(vicon_recording_from_json_payload)
     assert callable(vicon_recording_to_json_payload)
+    assert callable(read_events_csv)
+    assert callable(read_photometry_csv)
+    assert callable(read_pyphotometry_ppd)
     assert WorkspaceImports is not None
     assert WorkspaceArtifacts is not None
     assert WorkspaceFigures is not None
@@ -293,7 +321,18 @@ def test_model_exports_are_available() -> None:
     assert Video is not None
     assert VideoStub is not None
     assert EMGSignalData is not None
+    assert Event is not None
+    assert EventTable is not None
     assert ForcePlateData is not None
+    assert PhotometryChannel is not None
+    assert PhotometryRecording is not None
+    assert RecordingSession is not None
+    assert SignalChannel is not None
+    assert SyncEvent is not None
+    assert Timeline is not None
+    assert TimeRange is not None
+    assert TimeSeries is not None
+    assert Timebase is not None
     assert ViconRecording is not None
     assert ViconEvent is not None
     assert ViconForcePlatformMetadata is not None

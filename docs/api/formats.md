@@ -171,7 +171,7 @@ Copy output files into `.xpkg/artifacts/<kind>/<artifact_id>/` and write a
 portable `manifest.json` with artifact type, title, inputs, producer metadata,
 outputs, stats reports, optional metadata, and checksum-bearing file records.
 
-Pass `namespace="analysis-app"` or any other caller-owned namespace to save
+Pass `namespace="neuro-analysis"` or any other caller-owned namespace to save
 under `.xpkg/<namespace>/<kind>/<artifact_id>/`. xpkg normalizes the namespace
 into a path-safe slug but does not interpret it.
 
@@ -222,7 +222,7 @@ Copy figure outputs into `.xpkg/artifacts/figures/<figure_id>/` and write a
 portable `manifest.json` with the figure title, inputs, producer metadata,
 outputs, stats reports, and optional metadata.
 
-Pass any caller-owned namespace, such as `namespace="analysis-app"`, to save
+Pass any caller-owned namespace, such as `namespace="neuro-analysis"`, to save
 under `.xpkg/<namespace>/figures/<figure_id>/` instead of the generic registry.
 `xpkg` does not reserve or hard-code downstream package names.
 

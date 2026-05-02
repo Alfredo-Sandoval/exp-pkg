@@ -39,15 +39,25 @@ Run the broader local quality pass:
 make ci-local
 ```
 
+Run the package gate before publishing or handing off a wheel:
+
+```bash
+make package-check
+```
+
+That gate builds the sdist and wheel, runs `twine check`, installs the wheel in
+a temporary fresh virtual environment, smoke-tests `xpkg --help`, and verifies
+that `WorkspaceService` imports from the installed package.
+
 Run the release gate before a package handoff or PyPI/TestPyPI cut:
 
 ```bash
 make release-check REAL_DATA_ROOT=/path/to/xpkg-real-data
 ```
 
-`make package-check` builds the sdist and wheel, runs `twine check`, installs
-the built wheel into a temporary fresh venv, and smoke-tests `xpkg --help` plus
-`from xpkg.services import WorkspaceService`.
+The installed wheel should include `xpkg/py.typed` and
+`xpkg/schemas/project.schema.json`, so downstream users get both typing metadata
+and the public workspace schema.
 
 `ci-local` runs:
 

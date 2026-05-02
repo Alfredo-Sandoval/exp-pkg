@@ -2,9 +2,9 @@
 
 <div class="page-intro">
 <p>
-<code>xpkg.model</code> holds the pose-data objects used across the library.
-If you are building tools on top of xpkg, this is usually the first module
-to import.
+<code>xpkg.model</code> holds the canonical in-memory objects used across the
+library: pose labels, media, Vicon payloads, sampled signals, events, and the
+session/time primitives that keep modalities aligned.
 </p>
 </div>
 
@@ -12,6 +12,9 @@ to import.
 
 ```mermaid
 flowchart LR
+    RecordingSession --> EventTable
+    RecordingSession --> TimeSeries
+    RecordingSession --> PhotometryRecording
     Labels --> Skeleton
     Labels --> Video
     Labels --> LabeledFrame
@@ -21,11 +24,20 @@ flowchart LR
     PredictedInstance --> PredictedPoint
     Skeleton --> Keypoint
     Instance --> Track
+    EventTable --> Event
+    TimeSeries --> Timeline
+    Timeline --> Timebase
 ```
 
 ## Overview
 
 <div class="panel-grid panel-grid-3" markdown="1">
+
+<div class="surface-card" markdown="1">
+<div class="surface-kicker">SESSION</div>
+`RecordingSession`, `Timeline`, `EventTable`, and `TimeSeries` provide the
+shared timing contract for multimodal experiment data.
+</div>
 
 <div class="surface-card" markdown="1">
 <div class="surface-kicker">SCHEMA</div>
@@ -52,6 +64,45 @@ model outputs.
 
 - `Labels` is the main dataset container. It owns labeled frames, videos,
   skeletons, tracks, suggestions, preferences, and session metadata.
+- `RecordingSession` is the emerging multimodal session container. It groups
+  pose, video, signals, and events without making xpkg an analysis framework.
+
+### Timing, events, and signals
+
+- `Timebase`, `Timeline`, and `TimeRange` define shared time coordinates.
+- `Event`, `SyncEvent`, and `EventTable` represent behavior and synchronization
+  markers on those timelines.
+- `SignalChannel`, `TimeSeries`, `PhotometryChannel`, and
+  `PhotometryRecording` represent sampled signals such as fiber photometry.
+
+```python
+from xpkg.model import Event, EventTable, PhotometryRecording, RecordingSession, TimeSeries
+
+series = TimeSeries.from_samples(
+    [[1.0, 0.5], [1.1, 0.48], [1.2, 0.47]],
+    sample_rate_hz=20.0,
+    channel_names=["gcamp", "isosbestic"],
+    units=["dff", "dff"],
+    name="fiber",
+)
+photometry = PhotometryRecording(
+    series=series,
+    signal_channel="gcamp",
+    reference_channel="isosbestic",
+)
+events = EventTable.from_events(
+    [Event(kind="trial", start_s=0.0, duration_s=1.0)]
+)
+
+session = RecordingSession(session_id="session-001")
+session = session.with_signal("fiber", photometry).with_events(events)
+```
+
+These objects are direct model primitives today. `xpkg.read_photometry_csv`,
+`xpkg.read_events_csv`, and `xpkg.read_pyphotometry_ppd` are the first direct
+reader APIs on top of this model. They are also available from `xpkg.api`.
+Sync readers and workspace imports are planned next; see
+[Multimodal Session Model](../architecture/multimodal-session.md).
 
 ### Geometry and identity
 

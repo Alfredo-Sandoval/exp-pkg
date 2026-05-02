@@ -119,8 +119,8 @@ records. The compact discovery index lives at `.xpkg/artifacts/index.json` and
 can be rebuilt from individual manifests.
 
 Domain packages may also keep derived outputs under caller-owned namespaces
-such as `.xpkg/analysis-app/figures/` or
-`.xpkg/analysis-app/tables/`. The same artifact manifest contract applies; the
+such as `.xpkg/neuro-analysis/figures/` or
+`.xpkg/neuro-analysis/tables/`. The same artifact manifest contract applies; the
 namespace only controls where the files live inside the workspace. `xpkg` does
 not reserve or hard-code downstream package names.
 

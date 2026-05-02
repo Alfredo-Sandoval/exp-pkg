@@ -5,14 +5,14 @@ hide:
 
 <div class="manual-head" markdown="1">
 
-<div class="manual-kicker">BEHAVIOR WORKSPACE</div>
+<div class="manual-kicker">MULTIMODAL NEUROSCIENCE IO</div>
 
 # xpkg
 
 <p class="manual-deck">
-xpkg is the canonical IO and artifact layer for experiment data, built around
-an editable workspace folder, a private <code>.xpkg/</code> store, and portable
-<code>.expkg</code> exports.
+xpkg is the canonical IO and artifact layer for multimodal neuroscience
+experiment data, built around an editable workspace folder, a private
+<code>.xpkg/</code> store, and portable <code>.expkg</code> exports.
 The repo and distribution name are <code>exp-pkg</code>; the Python import and CLI name are
 <code>xpkg</code>.
 </p>
@@ -26,13 +26,13 @@ The repo and distribution name are <code>exp-pkg</code>; the Python import and C
 
 | Item | Value |
 | --- | --- |
-| Mission | experiment-data IO and artifact contracts |
+| Mission | multimodal neuroscience IO and artifact contracts |
 | Public project contract | workspace folder + private `.xpkg/` + `.expkg` |
 | Primary lifecycle API | `xpkg.services.WorkspaceService` |
 | Service-bound workspace imports | `workspace.imports.*` from `xpkg.services.WorkspaceService` |
 | Output artifact registry | `workspace.artifacts.*` and `.xpkg/artifacts/index.json` |
 | Function-level workspace imports | `xpkg.formats.import_*_workspace(...)` |
-| External import ecosystems | DeepLabCut, Lightning Pose, SLEAP, MMPose, MediaPipe |
+| External import ecosystems | Vicon, DeepLabCut, Lightning Pose, SLEAP, MMPose, MediaPipe |
 | Core objects | `xpkg.model` |
 | In-memory exchange | `xpkg.exchange` |
 </div>
@@ -53,6 +53,10 @@ The repo and distribution name are <code>exp-pkg</code>; the Python import and C
   touching workspace internals.
 - Read [Artifact Contract v1](artifact_contract_v1.md) for the public workspace
   and `.expkg` contract.
+- Read [Roadmap](roadmap.md) for the current baseline and the multimodal work
+  still ahead.
+- Read [Multimodal Session Model](architecture/multimodal-session.md) for the
+  timing, event, signal, photometry, and session primitives.
 - Read [CLI Command Spec v1](cli_command_spec_v1.md) for the locked command
   surface.
 - Read [Services](api/services.md) for the normal downstream
@@ -116,11 +120,14 @@ single converter output.
 <div class="quick-links" markdown="1">
 
 - Start with [Getting Started](getting-started.md) for install and first-use examples.
+- Read [Roadmap](roadmap.md) for what is implemented now versus planned next.
 - Read [Artifact Contract v1](artifact_contract_v1.md) for the locked public
   workspace and portable artifact semantics.
 - Read [CLI Command Spec v1](cli_command_spec_v1.md) for `init`, `import`,
   `pack`, `unpack`, and `validate`.
-- Read [Media IO Stack](architecture/media-io.md) for the target ownership split between xpkg and the GUI app.
+- Read [Media IO Stack](architecture/media-io.md) for the target ownership split between xpkg and downstream GUI apps.
+- Read [Multimodal Session Model](architecture/multimodal-session.md) for the
+  shared timing/events/signals layer.
 - Read [Storage Direction](architecture/storage-direction.md) for the current
   rationale around `.xpkg/` and `.expkg`.
 - Read [Experimental Durable Store](architecture/experimental-store.md) for the commit-oriented recovery workflow.

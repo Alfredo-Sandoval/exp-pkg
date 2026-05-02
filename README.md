@@ -2,16 +2,22 @@
 
 [![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: BSD-3-Clause](https://img.shields.io/badge/license-BSD--3--Clause-blue.svg)](LICENSE)
-[![Version: 0.1.0](https://img.shields.io/badge/version-0.1.0-green.svg)](pyproject.toml)
 
-**Canonical IO and artifact layer for experiment data, managed workspaces, and portable project artifacts.**
+**Workspace-first IO for multimodal neuroscience experiments, managed projects, and portable artifacts.**
 
 Import from `xpkg` in Python and use `xpkg` for the CLI.
 
-exp-pkg exists to give other repos one stable boundary for experiment-data IO.
+exp-pkg exists to give neuroscience repos one stable boundary for
+experiment-data IO. It is built for multimodal sessions: pose estimates,
+synchronized video, behavioral events, signals such as fiber photometry, and
+the metadata needed to keep those modalities aligned.
+
 It imports external formats, normalizes them into canonical `xpkg` objects,
 stores them in a workspace-first project contract, and emits portable `.expkg`
-artifacts.
+artifacts. The implemented import surface is strongest today for pose,
+motion-capture, and video-associated formats; the package direction is a shared
+session/timeline layer that can add photometry and other signals without turning
+into an analysis platform.
 
 This repo is not an analysis platform. It is the IO layer that analysis tools,
 GUIs, and automation can build on when they need a coherent project/workspace
@@ -27,13 +33,14 @@ The public product contract is now intentionally narrow:
 
 The intended stack is:
 
-- external pose / annotation formats at the edge
-- canonical in-memory objects in the middle
+- external neuroscience formats at the edge
+- canonical in-memory session objects in the middle
+- shared timing, event, and signal contracts across modalities
 - in-memory exchange helpers for arrays / tables / JSON payloads
 - editable workspace + private store + portable artifact at the boundary
 
-The current codebase should be read as a generic IO and packaging layer for
-experiment projects, not as an analysis framework.
+The current codebase should be read as a multimodal neuroscience IO and
+packaging layer for experiment projects, not as an analysis framework.
 
 ## Recommended Workspace API
 
@@ -74,7 +81,7 @@ you want a function-level API or need to import before reopening a workspace.
 Artifacts use a generic registry under `.xpkg/artifacts/<kind>/`, with common
 kind directories such as `figures`, `tables`, `analyses`, `reports`, and
 `stats-reports`. Callers may also choose their own app namespace, such as
-`.xpkg/analysis-app/figures/`, by passing `namespace="analysis-app"` to
+`.xpkg/neuro-analysis/figures/`, by passing `namespace="neuro-analysis"` to
 `workspace.artifacts.register(...)` or `workspace.figures.save(...)`. `xpkg`
 treats namespaces as caller-owned strings; it does not reserve or hard-code
 downstream package names.
@@ -90,7 +97,7 @@ The shipped workspace import surface currently covers:
 
 ## What It Does
 
-- Imports external pose / annotation formats into canonical xpkg objects
+- Imports external pose, motion-capture, and media-associated annotation formats into canonical xpkg objects
 - Defines a stable project contract: workspace folder + private `.xpkg/` + `.expkg`
 - Manages workspace lifecycle: create, open, validate, pack, unpack
 - Carries canonical containers such as `Labels`, `Skeleton`, `Instance`, and `Video`
@@ -111,8 +118,10 @@ Implemented today:
 
 Mission direction:
 
-- keep xpkg narrow as the stable IO and artifact boundary
+- keep xpkg narrow as the stable multimodal neuroscience IO and artifact boundary
 - support more external ecosystems through workspace importers
+- add first-class timing, event, and signal models for pose, video,
+  photometry, behavior, and synchronization data
 - make downstream analysis and GUI repos depend on xpkg instead of inventing
   their own project formats
 - keep direct archive handling narrow and clearly secondary to workspace flows
@@ -156,6 +165,20 @@ Then use the local quality gates:
 ```bash
 make qa
 make ci-local
+```
+
+Build and check the Python package:
+
+```bash
+make package-check
+make build
+uv pip install dist/exp_pkg-*.whl
+```
+
+After the first PyPI release, users will install the distribution directly:
+
+```bash
+uv pip install exp-pkg
 ```
 
 Before a PyPI/TestPyPI cut, run the local release gate against real lab data:
@@ -261,7 +284,7 @@ xpkg pack "./My Project"
 xpkg unpack "./My Project.expkg" --out "./My Project"
 xpkg validate "./My Project"
 xpkg artifacts list "./My Project" --kind figure
-xpkg artifacts inspect "./My Project" validation-figure-3 --kind figure
+xpkg artifacts inspect "./My Project" session-summary-figure --kind figure
 xpkg artifacts validate "./My Project" --kind figure
 ```
 

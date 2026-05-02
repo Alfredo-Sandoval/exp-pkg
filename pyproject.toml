@@ -4,23 +4,57 @@ build-backend = "hatchling.build"
 
 [project]
 name = "exp-pkg"
-version = "0.1.0"
-description = "Workspace-first toolkit for behavior-centered experiment data and portable project artifacts."
+dynamic = ["version"]
+description = "Workspace-first IO toolkit for multimodal neuroscience experiment data and portable artifacts."
 readme = "README.md"
 requires-python = ">=3.12"
 license = "BSD-3-Clause"
+license-files = ["LICENSE"]
+authors = [
+  { name = "Alfredo Sandoval" },
+  { name = "Joseph Sandoval" },
+]
+maintainers = [
+  { name = "Alfredo Sandoval" },
+  { name = "Joseph Sandoval" },
+]
+keywords = [
+  "behavior",
+  "fiber-photometry",
+  "io",
+  "neuroscience",
+  "pose-estimation",
+  "sleap",
+  "video",
+  "workspace",
+]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Environment :: Console",
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: BSD License",
+  "Operating System :: MacOS :: MacOS X",
+  "Operating System :: POSIX :: Linux",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Scientific/Engineering",
+  "Topic :: Scientific/Engineering :: Bio-Informatics",
+  "Topic :: Software Development :: Libraries :: Python Modules",
+  "Typing :: Typed",
+]
 dependencies = [
   "c3d>=0.6,<1",
-  "cattrs>=24.1",
+  "cattrs>=24.1,<27",
   "h5py>=3.11,<4",
-  "imageio>=2.36",
-  "imageio-ffmpeg>=0.5",
+  "imageio>=2.36,<3",
+  "imageio-ffmpeg>=0.5,<1",
   "numpy>=1.26,<3",
-  "opencv-python-headless>=4.10",
-  "pandas>=2.2",
-  "pyyaml>=6.0",
-  "rich>=13.7",
-  "tables>=3.9",
+  "opencv-python-headless>=4.10,<5",
+  "pandas>=2.2,<4",
+  "pyyaml>=6.0,<7",
+  "rich>=13.7,<16",
+  "tables>=3.9,<4",
   "typer>=0.16,<1",
 ]
 
@@ -28,31 +62,41 @@ dependencies = [
 Homepage = "https://github.com/Alfredo-Sandoval/exp-pkg"
 Repository = "https://github.com/Alfredo-Sandoval/exp-pkg"
 Documentation = "https://github.com/Alfredo-Sandoval/exp-pkg/tree/main/docs"
+Issues = "https://github.com/Alfredo-Sandoval/exp-pkg/issues"
+Changelog = "https://github.com/Alfredo-Sandoval/exp-pkg/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
 dev = [
-  "pytest>=8.3",
-  "ruff>=0.9",
-  "twine>=6.1",
-  "ty>=0.0.20",
+  "pytest>=8.3,<9",
+  "ruff>=0.9,<1",
+  "twine>=6.1,<7",
+  "ty>=0.0.20,<0.1",
 ]
 docs = [
-  "mkdocs>=1.6",
-  "mkdocs-material>=9.5",
-  "mkdocstrings[python]>=0.24",
+  "mkdocs>=1.6,<2",
+  "mkdocs-material>=9.5,<10",
+  "mkdocstrings[python]>=0.24,<1",
 ]
 
 [project.scripts]
 xpkg = "xpkg.cli:main"
 
+[tool.hatch.version]
+path = "src/xpkg/version.py"
+
 [tool.hatch.build.targets.sdist]
 exclude = [
+  "/.github",
+  "/AGENTS.md",
   "/deep-research-report (1).md",
-  "/refactor.md",
+  "/plan.md",
 ]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/xpkg"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"schemas/project.schema.json" = "xpkg/schemas/project.schema.json"
 
 [tool.ruff]
 line-length = 100

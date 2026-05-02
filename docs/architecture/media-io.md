@@ -2,9 +2,9 @@
 
 <div class="page-intro">
 <p>
-xpkg should own the canonical media IO layer for pose workflows. The GUI app
-should consume that layer and keep only GUI/runtime orchestration that is truly
-app-specific.
+xpkg should own the canonical media IO layer for multimodal neuroscience
+workflows. Downstream GUI apps should consume that layer and keep only
+GUI/runtime orchestration that is truly app-specific.
 </p>
 </div>
 
@@ -21,7 +21,7 @@ alongside labels, manifests, and converters. That means file videos, image
 sequences, frame decode, frame encode, media capability discovery, and
 deterministic backend behavior all belong in xpkg.
 
-The GUI app should remain responsible for application behavior:
+Downstream GUI apps should remain responsible for application behavior:
 
 - GUI playback scheduling
 - Qt worker orchestration
@@ -29,7 +29,7 @@ The GUI app should remain responsible for application behavior:
 - user settings and app preferences
 - progress reporting wired to interactive workflows
 
-The key rule is simple: optimize backends in xpkg, not semantics in the GUI app.
+The key rule is simple: optimize backends in xpkg, not semantics in downstream GUI apps.
 
 ## Why This Spec Exists
 
@@ -38,7 +38,7 @@ Today the repositories are split in an unhealthy way:
 - xpkg already owns canonical labels IO, `.xpkg` compatibility archive IO, and external
   adapter logic.
 - xpkg also has a small media layer in `xpkg.io.video`.
-- the GUI app still owns a richer and partially duplicated media stack for playback,
+- downstream GUI apps still own a richer and partially duplicated media stack for playback,
   writer selection, backend routing, and threaded export.
 
 That duplication creates three recurring problems:
@@ -46,13 +46,13 @@ That duplication creates three recurring problems:
 1. Ownership is unclear. It is not obvious which repository defines the true
    behavior of `Video`, `VideoReader`, or `write_video`.
 2. Performance work lands in the wrong place. Faster CUDA or macOS paths added
-   only in the GUI app do not help the canonical IO layer.
+   only in downstream GUI apps do not help the canonical IO layer.
 3. Semantic drift becomes likely. Two stacks that both claim to read or write
    the same media will eventually disagree on indexing, colors, exact seek
    rules, error behavior, or writer defaults.
 
 The fix is not more wrappers. The fix is one canonical media stack in xpkg
-with explicit app-level consumers in the GUI app.
+with explicit app-level consumers in downstream GUI apps.
 
 ## Ownership Boundary
 
@@ -65,15 +65,15 @@ with explicit app-level consumers in the GUI app.
 | Video writing and codec capability probing | xpkg | Includes CPU and hardware-accelerated paths. |
 | Media backend capability discovery | xpkg | No hidden fallback or app-only backend rules. |
 | Headless transcode/export helpers | xpkg | Reusable outside the GUI. |
-| Qt worker threads and interactive progress UI | GUI app | App orchestration, not canonical IO. |
-| Live playback cache and session buffering | GUI app | UI responsiveness policy stays app-side. |
-| User preferences about app behavior | GUI app | Preferences should map onto xpkg capability requests. |
+| Qt worker threads and interactive progress UI | downstream GUI app | App orchestration, not canonical IO. |
+| Live playback cache and session buffering | downstream GUI app | UI responsiveness policy stays app-side. |
+| User preferences about app behavior | downstream GUI app | Preferences should map onto xpkg capability requests. |
 
-One important split inside the current GUI app code deserves to stay explicit:
-shared decode/container leasing is a media concern, but live latest-frame hub
-state is an application concern. If container sharing remains necessary for
-performance, the headless leasing primitive should move into xpkg. The
-session-level live frame buffer should remain in the GUI app.
+One important split inside downstream GUI applications deserves to stay
+explicit: shared decode/container leasing is a media concern, but live
+latest-frame hub state is an application concern. If container sharing remains
+necessary for performance, the headless leasing primitive should move into
+xpkg. Session-level live frame buffers should remain downstream.
 
 ## Canonical Public Contract
 
@@ -171,8 +171,8 @@ host instead of guessing:
 - whether shared-container decode is supported
 
 The important design point is that capability discovery belongs to xpkg.
-The GUI app should not maintain its own independent truth about which video
-backends exist or how they behave.
+Downstream GUI apps should not maintain their own independent truth about which
+video backends exist or how they behave.
 
 ## Performance Requirements
 
@@ -188,7 +188,7 @@ benefit:
 - archive import/export
 - offline frame sampling
 - future benchmarking tools
-- downstream applications such as the GUI app
+- GUI tools and other downstream applications
 
 ### CUDA goals
 
@@ -216,8 +216,8 @@ Performance can vary by host, but semantics may not.
 
 ## Validation And Quality Gates
 
-xpkg should own a backend conformance suite before the GUI app deletes its
-duplicate stack.
+xpkg should own a backend conformance suite before downstream GUI apps delete
+their duplicate stack.
 
 ### Required conformance checks
 
@@ -250,9 +250,9 @@ to accelerate.
 
 - Keep `Video`, `VideoReader`, `VideoWriter`, and `write_video` as the public
   surface in xpkg.
-- Move or reimplement the generic backend logic currently duplicated in the GUI app.
+- Move or reimplement the generic backend logic currently duplicated in downstream GUI apps.
 - Add capability discovery and explicit backend naming in xpkg.
-- Keep the GUI app consuming its current stack until xpkg parity is demonstrated.
+- Keep downstream GUI apps consuming their current stack until xpkg parity is demonstrated.
 
 ### Phase 2: Port generic performance features
 
@@ -262,15 +262,15 @@ to accelerate.
 - Add conformance tests that compare all supported backends to the reference
   backend.
 
-### Phase 3: Collapse GUI App Duplication
+### Phase 3: Collapse Downstream Duplication
 
-- Switch the GUI app imports from local generic media modules to xpkg.
-- Delete or shrink the GUI app modules that only duplicate canonical media logic.
-- Keep only app-specific orchestration in the GUI app.
+- Switch downstream GUI app imports from local generic media modules to xpkg.
+- Delete or shrink downstream GUI app modules that only duplicate canonical media logic.
+- Keep only app-specific orchestration in downstream GUI apps.
 
-## What Needs To Change In the GUI App
+## What Needs To Change Downstream
 
-The GUI app should move from owning a media engine to consuming one.
+Downstream GUI apps should move from owning a media engine to consuming one.
 
 ### Modules that should stop owning canonical media behavior
 
@@ -286,7 +286,7 @@ after xpkg reaches feature parity:
 
 ### Modules that should remain app-side
 
-These concerns are still GUI-app owned:
+These concerns stay app-side:
 
 - Qt worker orchestration and task lifecycle
 - GUI playback scheduling
@@ -296,18 +296,20 @@ These concerns are still GUI-app owned:
 
 `<gui-app>/io/framehub.py` should likely be split: reusable container leasing
 can move into xpkg if still needed, while the live hub buffer remains in the
-GUI app.
+downstream GUI app.
 
 ### Import strategy
 
-Because the GUI app is still unreleased, the preferred end state is direct imports
-from xpkg rather than long-term compatibility shims. In other words, code
-that needs canonical media IO should eventually import xpkg directly instead
-of pretending the implementation is still local to `<gui-app>.io`.
+Because downstream GUI apps may still be unreleased, the preferred end state is
+direct imports from xpkg rather than long-term compatibility shims. In other
+words, code that needs canonical media IO should eventually import xpkg
+directly instead of pretending the implementation is still local to
+`<gui-app>.io`.
 
 ### Testing strategy
 
-The GUI app should stop testing its own duplicate video semantics and instead test:
+Downstream GUI apps should stop testing their own duplicate video semantics and
+instead test:
 
 - integration with xpkg media contracts
 - GUI-specific orchestration around those contracts
@@ -315,12 +317,12 @@ The GUI app should stop testing its own duplicate video semantics and instead te
 
 ## Decision Summary
 
-xpkg should become the authoritative media IO stack for pose workflows.
-The GUI app should not keep a second general-purpose video subsystem. The right split
-is:
+xpkg should become the authoritative media IO stack for multimodal neuroscience
+workflows. Downstream GUI apps should not keep a second general-purpose video
+subsystem. The right split is:
 
 - xpkg owns canonical media semantics and optimized backends.
-- the GUI app owns application behavior on top of that media layer.
+- downstream GUI apps own application behavior on top of that media layer.
 
 That gives the project one place to optimize CUDA and macOS paths, one place to
 define frame semantics, and one place to test backend parity.

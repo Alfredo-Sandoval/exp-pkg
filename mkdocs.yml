@@ -1,5 +1,5 @@
 site_name: exp-pkg
-site_description: API documentation for exp-pkg and the xpkg Python package.
+site_description: Multimodal neuroscience IO documentation for exp-pkg and the xpkg Python package.
 repo_name: Alfredo-Sandoval/exp-pkg
 repo_url: https://github.com/Alfredo-Sandoval/exp-pkg
 
@@ -78,10 +78,12 @@ extra_css:
 nav:
   - Home: index.md
   - Getting Started: getting-started.md
+  - Roadmap: roadmap.md
   - Artifact Contract v1: artifact_contract_v1.md
   - Artifact Namespaces: artifact-namespaces.md
   - CLI Command Spec v1: cli_command_spec_v1.md
   - Architecture:
+      - Multimodal Session Model: architecture/multimodal-session.md
       - Media IO Stack: architecture/media-io.md
       - Storage Direction: architecture/storage-direction.md
       - Experimental Durable Store: architecture/experimental-store.md

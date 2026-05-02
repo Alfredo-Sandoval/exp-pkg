@@ -12,11 +12,22 @@ def test_xpkg_api_exposes_workspace_first_contract() -> None:
         "ArtifactIndexEntry",
         "ArtifactManifest",
         "EMGSignalData",
+        "Event",
+        "EventTable",
         "ForcePlateData",
         "FigureArtifact",
+        "PhotometryChannel",
+        "PhotometryRecording",
         "ProjectDescriptor",
         "PoseTrack",
+        "RecordingSession",
         "SegmentationFrame",
+        "SignalChannel",
+        "SyncEvent",
+        "Timeline",
+        "TimeRange",
+        "TimeSeries",
+        "Timebase",
         "VideoStub",
         "ViconRecording",
         "ViconEvent",
@@ -64,10 +75,13 @@ def test_xpkg_api_exposes_workspace_first_contract() -> None:
         "load_workspace_segmentation_masks",
         "load_workspace_vicon_recording",
         "pack_project",
+        "read_events_csv",
         "read_hdf5_table",
         "read_hdf5_table_group",
+        "read_photometry_csv",
         "read_pose_node_names",
         "read_pose_track",
+        "read_pyphotometry_ppd",
         "read_vicon_c3d",
         "read_vicon_csv",
         "read_vicon_recording",
@@ -110,10 +124,21 @@ def test_xpkg_api_exposes_workspace_first_contract() -> None:
     assert api.ArtifactIndexEntry.__name__ == "ArtifactIndexEntry"
     assert api.ArtifactManifest.__name__ == "ArtifactManifest"
     assert api.EMGSignalData.__name__ == "EMGSignalData"
+    assert api.Event.__name__ == "Event"
+    assert api.EventTable.__name__ == "EventTable"
     assert api.ForcePlateData.__name__ == "ForcePlateData"
     assert api.FigureArtifact.__name__ == "FigureArtifact"
+    assert api.PhotometryChannel.__name__ == "PhotometryChannel"
+    assert api.PhotometryRecording.__name__ == "PhotometryRecording"
     assert api.ProjectDescriptor.__name__ == "ProjectDescriptor"
     assert api.PoseTrack.__name__ == "PoseTrack"
+    assert api.RecordingSession.__name__ == "RecordingSession"
+    assert api.SignalChannel.__name__ == "SignalChannel"
+    assert api.SyncEvent.__name__ == "SyncEvent"
+    assert api.Timeline.__name__ == "Timeline"
+    assert api.TimeRange.__name__ == "TimeRange"
+    assert api.TimeSeries.__name__ == "TimeSeries"
+    assert api.Timebase.__name__ == "Timebase"
     assert api.VideoStub.__name__ == "VideoStub"
     assert api.ViconEvent.__name__ == "ViconEvent"
     assert api.ViconForcePlatformMetadata.__name__ == "ViconForcePlatformMetadata"
@@ -146,10 +171,13 @@ def test_xpkg_api_exposes_workspace_first_contract() -> None:
     assert callable(api.load_workspace_segmentation_frames)
     assert callable(api.load_workspace_segmentation_masks)
     assert callable(api.load_workspace_vicon_recording)
+    assert callable(api.read_events_csv)
     assert callable(api.read_hdf5_table)
     assert callable(api.read_hdf5_table_group)
+    assert callable(api.read_photometry_csv)
     assert callable(api.read_pose_node_names)
     assert callable(api.read_pose_track)
+    assert callable(api.read_pyphotometry_ppd)
     assert callable(api.read_vicon_c3d)
     assert callable(api.read_vicon_csv)
     assert callable(api.read_vicon_recording)

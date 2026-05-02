@@ -32,8 +32,17 @@ from xpkg.io.skeleton_loaders import (
 )
 from xpkg.io.video import Video
 from xpkg.model.emg import EMGSignalData
+from xpkg.model.events import Event, EventTable, SyncEvent
 from xpkg.model.force import ForcePlateData
+from xpkg.model.session import RecordingSession
+from xpkg.model.signals import (
+    PhotometryChannel,
+    PhotometryRecording,
+    SignalChannel,
+    TimeSeries,
+)
 from xpkg.model.stubs import VideoStub, build_prediction_stub
+from xpkg.model.time import Timebase, Timeline, TimeRange
 from xpkg.model.vicon import (
     ViconAdditionalPointData,
     ViconAnalogData,
@@ -47,6 +56,8 @@ from xpkg.model.vicon import (
 __all__ = [
     "build_keypoint_skeleton",
     "EMGSignalData",
+    "Event",
+    "EventTable",
     "ForcePlateData",
     "Instance",
     "KPFlag",
@@ -59,11 +70,20 @@ __all__ = [
     "PredictedInstance",
     "PredictedPoint",
     "PredictedPointArray",
+    "PhotometryChannel",
+    "PhotometryRecording",
     "PromptType",
+    "RecordingSession",
     "ROI",
     "SegmentationMask",
     "SegmentationPrompt",
+    "SignalChannel",
     "Skeleton",
+    "SyncEvent",
+    "Timeline",
+    "TimeRange",
+    "TimeSeries",
+    "Timebase",
     "SuggestionFrame",
     "Track",
     "Video",

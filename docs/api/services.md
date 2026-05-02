@@ -98,6 +98,35 @@ Each service-bound importer mirrors a public
 The service-bound methods are the preferred path for new project-facing code.
 The free functions remain public for explicit function-level integrations.
 
+## Multimodal Reader And Import Plan
+
+The session/time/events/signals model layer is public. Direct CSV readers are
+available now:
+
+```python
+xpkg.read_photometry_csv(...)
+xpkg.read_events_csv(...)
+xpkg.read_pyphotometry_ppd(...)
+```
+
+These service-bound imports are not implemented yet:
+
+```python
+workspace.imports.photometry_csv(...)
+workspace.imports.events_csv(...)
+workspace.imports.sync_csv(...)
+```
+
+The remaining direct reader planned in this family is:
+
+```python
+xpkg.read_sync_csv(...)
+```
+
+See [Multimodal Session Model](../architecture/multimodal-session.md) for the
+model objects that will back those imports and [Roadmap](../roadmap.md) for the
+implementation order.
+
 ## Generic Artifact Registry
 
 `workspace.artifacts` is the first-class output registry for scientific
@@ -114,18 +143,18 @@ table = workspace.artifacts.register(
     artifact_id="session_001_summary",
     artifact_type="table",
     title="Session 001 summary table",
-    namespace="analysis-app",
+    namespace="neuro-analysis",
     outputs={"summary.csv": "results/session_001_summary.csv"},
-    inputs=[".xpkg/analysis-app/events/session_001/final_events.csv"],
+    inputs=[".xpkg/neuro-analysis/events/session_001/final_events.csv"],
     producer={
-        "package": "analysis-app",
-        "command": "analysis-app make-tables session_001",
+        "package": "neuro-analysis",
+        "command": "neuro-analysis make-tables session_001",
         "git_commit": "...",
     },
     metadata={"unit_of_analysis": "event"},
 )
 
-workspace.artifacts.validate(table.artifact_id, kind="table", namespace="analysis-app")
+workspace.artifacts.validate(table.artifact_id, kind="table", namespace="neuro-analysis")
 ```
 
 Generic artifacts are stored under `.xpkg/artifacts/<kind>/<artifact_id>/`.
@@ -156,25 +185,25 @@ from xpkg.services import WorkspaceService
 workspace = WorkspaceService.open("./My Project")
 
 figure = workspace.figures.save(
-    figure_id="validation_figure_3",
-    title="Validation against reviewer labels",
-    namespace="analysis-app",
+    figure_id="session_summary_figure",
+    title="Validation against reference annotations",
+    namespace="neuro-analysis",
     outputs={
-        "figure.svg": "output/validation_figure_3.svg",
-        "figure.pdf": "output/validation_figure_3.pdf",
-        "source_data.csv": "output/validation_figure_3_source_data.csv",
+        "figure.svg": "output/session_summary_figure.svg",
+        "figure.pdf": "output/session_summary_figure.pdf",
+        "source_data.csv": "output/session_summary_figure_source_data.csv",
     },
     inputs=[
-        ".xpkg/analysis-app/events/session_001/final_events.csv",
-        ".xpkg/analysis-app/labels/session_001/reviewer_labels.csv",
+        ".xpkg/neuro-analysis/events/session_001/final_events.csv",
+        ".xpkg/neuro-analysis/labels/session_001/reference_annotations.csv",
     ],
     stats=[
-        ".xpkg/analysis-app/analysis/validation/stats_report.json",
+        ".xpkg/neuro-analysis/analysis/validation/stats_report.json",
     ],
     producer={
-        "package": "analysis-app",
-        "module": "analysis_app.figures.validation",
-        "command": "analysis-app make-figures --analysis validation",
+        "package": "neuro-analysis",
+        "module": "neuro_analysis.figures.validation",
+        "command": "neuro-analysis make-figures --analysis validation",
         "git_commit": "...",
     },
 )
@@ -182,8 +211,8 @@ figure = workspace.figures.save(
 workspace.figures.validate(figure.artifact_id)
 ```
 
-With `namespace="analysis-app"`, outputs are copied under
-`.xpkg/analysis-app/figures/<figure_id>/`. Omit `namespace` to use the generic
+With `namespace="neuro-analysis"`, outputs are copied under
+`.xpkg/neuro-analysis/figures/<figure_id>/`. Omit `namespace` to use the generic
 `.xpkg/artifacts/figures/<figure_id>/` registry. Namespaces are caller-owned
 strings; `xpkg` does not reserve or hard-code downstream package names. The
 manifest is intentionally generic: `xpkg` tracks and packages the

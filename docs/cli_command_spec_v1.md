@@ -120,9 +120,9 @@ Inspect and validate registered workspace output artifacts.
 ```bash
 xpkg artifacts list "./My Project"
 xpkg artifacts list "./My Project" --kind figure
-xpkg artifacts inspect "./My Project" validation-figure-3 --kind figure
+xpkg artifacts inspect "./My Project" session-summary-figure --kind figure
 xpkg artifacts validate "./My Project" --kind figure
-xpkg artifacts validate "./My Project" validation-figure-3 --kind figure
+xpkg artifacts validate "./My Project" session-summary-figure --kind figure
 xpkg artifacts rebuild-index "./My Project"
 ```
 

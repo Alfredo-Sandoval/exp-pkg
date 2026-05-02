@@ -49,15 +49,15 @@ from xpkg.services import WorkspaceService
 workspace = WorkspaceService.open("./Experiment Workspace")
 
 workspace.artifacts.register(
-    artifact_id="validation_figure_3",
+    artifact_id="session_summary_figure",
     artifact_type="figure",
-    namespace="analysis-app",
-    outputs={"figure.svg": "results/validation_figure_3.svg"},
-    inputs=[".xpkg/analysis-app/analysis/source_data.csv"],
+    namespace="neuro-analysis",
+    outputs={"figure.svg": "results/session_summary_figure.svg"},
+    inputs=[".xpkg/neuro-analysis/analysis/source_data.csv"],
     producer={
-        "package": "analysis-app",
-        "module": "analysis_app.figures.validation",
-        "command": "analysis-app make-figures validation",
+        "package": "neuro-analysis",
+        "module": "neuro_analysis.figures.validation",
+        "command": "neuro-analysis make-figures validation",
     },
 )
 ```
@@ -65,7 +65,7 @@ workspace.artifacts.register(
 That writes:
 
 ```text
-.xpkg/analysis-app/figures/validation-figure-3/
+.xpkg/neuro-analysis/figures/session-summary-figure/
   manifest.json
   figure.svg
 ```
@@ -74,16 +74,16 @@ For figures, the convenience API is equivalent:
 
 ```python
 workspace.figures.save(
-    figure_id="validation_figure_3",
-    namespace="analysis-app",
-    outputs={"figure.svg": "results/validation_figure_3.svg"},
+    figure_id="session_summary_figure",
+    namespace="neuro-analysis",
+    outputs={"figure.svg": "results/session_summary_figure.svg"},
 )
 ```
 
 ## Namespace Rules
 
 Namespace values are normalized into path-safe slugs. A caller may choose names
-like `analysis-app`, `review-ui`, or `qc-runner`; xpkg treats them all the same.
+like `neuro-analysis`, `review-ui`, or `qc-runner`; xpkg treats them all the same.
 
 Rules:
 

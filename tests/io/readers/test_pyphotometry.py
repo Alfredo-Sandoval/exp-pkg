@@ -1,0 +1,92 @@
+from __future__ import annotations
+
+import json
+import struct
+from pathlib import Path
+
+import numpy as np
+import pytest
+
+from xpkg.io.readers import read_pyphotometry_ppd
+from xpkg.model import PhotometryRecording, RecordingSession, TimeSeries
+
+
+def _write_ppd(
+    path: Path,
+    *,
+    fs: float | None = 100.0,
+    n_samples: int = 10,
+    n_channels: int = 2,
+    volts_per_division: float | None = None,
+    odd_payload_byte: bool = False,
+) -> None:
+    header: dict[str, object] = {"n_analog_channels": n_channels}
+    if fs is not None:
+        header["sampling_rate"] = fs
+    if volts_per_division is not None:
+        header["volts_per_division"] = volts_per_division
+    header_bytes = json.dumps(header).encode("utf-8")
+
+    rows = np.zeros((n_samples, n_channels), dtype=np.uint16)
+    for sample in range(n_samples):
+        for channel in range(n_channels):
+            analog = 100 * (channel + 1) + sample
+            digital = channel == 0 and sample in {2, 5}
+            rows[sample, channel] = (analog << 1) | int(digital)
+    payload = rows.ravel().astype("<u2").tobytes()
+    if odd_payload_byte:
+        payload += b"\x00"
+
+    path.write_bytes(struct.pack("<H", len(header_bytes)) + header_bytes + payload)
+
+
+def test_read_pyphotometry_ppd_returns_session_signals_and_events(tmp_path: Path) -> None:
+    path = tmp_path / "recording.ppd"
+    _write_ppd(path, fs=50.0, n_samples=6)
+
+    session = read_pyphotometry_ppd(path)
+
+    assert isinstance(session, RecordingSession)
+    photometry = session.signals["photometry"]
+    digital = session.signals["digital"]
+    assert isinstance(photometry, PhotometryRecording)
+    assert isinstance(digital, TimeSeries)
+    assert photometry.signal_channel == "analog_1"
+    assert photometry.reference_channel == "analog_2"
+    assert photometry.channel_names == ("analog_1", "analog_2")
+    assert digital.channel_names == ("digital_1", "digital_2")
+    assert photometry.series.sample_rate_hz == pytest.approx(50.0)
+    np.testing.assert_allclose(photometry.timeline.timestamps_s[:3], [0.0, 0.02, 0.04])
+    np.testing.assert_allclose(photometry.series.values[:, 0], [100, 101, 102, 103, 104, 105])
+    assert [event.label for event in session.events] == ["digital_1", "digital_1"]
+    np.testing.assert_allclose([event.start_s for event in session.events], [0.04, 0.1])
+
+
+def test_read_pyphotometry_ppd_applies_volts_per_division(tmp_path: Path) -> None:
+    path = tmp_path / "scaled.ppd"
+    _write_ppd(path, fs=100.0, volts_per_division=0.001)
+
+    session = read_pyphotometry_ppd(path)
+    photometry = session.signals["photometry"]
+    assert isinstance(photometry, PhotometryRecording)
+
+    assert photometry.series.channels[0].unit == "V"
+    np.testing.assert_allclose(photometry.series.values[:2, 0], [0.1, 0.101])
+
+
+def test_read_pyphotometry_ppd_rejects_missing_sample_rate(tmp_path: Path) -> None:
+    path = tmp_path / "missing_fs.ppd"
+    _write_ppd(path, fs=None)
+
+    with pytest.raises(ValueError, match="Sampling rate"):
+        read_pyphotometry_ppd(path)
+
+
+def test_read_pyphotometry_ppd_trims_odd_payload_byte(tmp_path: Path) -> None:
+    path = tmp_path / "odd.ppd"
+    _write_ppd(path, fs=10.0, n_samples=3, odd_payload_byte=True)
+
+    session = read_pyphotometry_ppd(path)
+    photometry = session.signals["photometry"]
+    assert isinstance(photometry, PhotometryRecording)
+    assert photometry.series.n_samples == 3
