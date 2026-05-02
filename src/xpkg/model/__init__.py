@@ -34,6 +34,14 @@ from xpkg.io.video import Video
 from xpkg.model.emg import EMGSignalData
 from xpkg.model.events import Event, EventTable, SyncEvent
 from xpkg.model.force import ForcePlateData
+from xpkg.model.pose_adapters import (
+    skeleton_to_vicon_marker_model,
+    vicon_marker_model_to_skeleton,
+)
+from xpkg.model.pose_trajectory import (
+    PoseTrajectory,
+    pose_trajectory_from_vicon_recording,
+)
 from xpkg.model.session import RecordingSession
 from xpkg.model.signals import (
     PhotometryChannel,
@@ -72,6 +80,7 @@ __all__ = [
     "PredictedPointArray",
     "PhotometryChannel",
     "PhotometryRecording",
+    "PoseTrajectory",
     "PromptType",
     "RecordingSession",
     "ROI",
@@ -96,6 +105,9 @@ __all__ = [
     "ViconMarkerModel",
     "ViconRecording",
     "build_prediction_stub",
+    "pose_trajectory_from_vicon_recording",
+    "skeleton_to_vicon_marker_model",
+    "vicon_marker_model_to_skeleton",
     "is_predicted_instance",
     "load_skeleton",
     "load_skeleton_dlc",

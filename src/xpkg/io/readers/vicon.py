@@ -11,6 +11,15 @@ from typing import Any
 
 import numpy as np
 
+from xpkg.model.pose_naming import (
+    normalize_event_side,
+    normalize_event_type,
+    normalize_source_label,
+    strip_subject_prefix,
+)
+from xpkg.model.pose_naming import (
+    normalize_marker_name as _normalize_marker_name,
+)
 from xpkg.model.vicon import (
     ViconAdditionalPointData,
     ViconAnalogData,
@@ -24,19 +33,12 @@ from xpkg.model.vicon import (
 
 def canonical_marker_label(name: str) -> str:
     """Return a marker label without any Vicon subject prefix."""
-    label = str(name).strip()
-    if ":" in label:
-        label = label.split(":", 1)[1]
-    return label
+    return strip_subject_prefix(name)
 
 
 def normalize_marker_name(name: str) -> str:
     """Normalize marker labels for case-insensitive schema matching."""
-    return canonical_marker_label(name).lower()
-
-
-def _normalize_source_label(name: str) -> str:
-    return str(name).strip().lower()
+    return _normalize_marker_name(name)
 
 
 def _unique_names(names: Sequence[str]) -> tuple[str, ...]:
@@ -85,25 +87,12 @@ def _normalize_event_strings(values: Sequence[object]) -> tuple[str, ...]:
     return tuple(str(value).strip() for value in values)
 
 
-def _event_type_from_label(label: str) -> str:
-    normalized = str(label).strip().lower().replace("-", "_").replace(" ", "_")
-    slug = "".join(ch for ch in normalized if ch.isalnum() or ch == "_").strip("_")
-    return slug or "event"
-
-
-def _event_side_from_context(context: str) -> str | None:
-    normalized = str(context).strip().lower()
-    if normalized in {"left", "right"}:
-        return normalized
-    return None
-
-
 def _detected_marker_cloud(marker_names: Sequence[str]) -> ViconMarkerModel:
     seen: set[str] = set()
     ordered: list[str] = []
     for marker_name in marker_names:
         label = str(marker_name).strip()
-        normalized = _normalize_source_label(label)
+        normalized = normalize_source_label(label)
         if not normalized or normalized in seen:
             continue
         seen.add(normalized)
@@ -154,7 +143,7 @@ def select_marker_labels(
         source = str(source_label).strip()
         if not source:
             continue
-        normalized_source = _normalize_source_label(source)
+        normalized_source = normalize_source_label(source)
         if normalized_source in seen_sources:
             continue
         seen_sources.add(normalized_source)
@@ -586,8 +575,8 @@ def _read_c3d_events(
                 frame=frame,
                 source_frame=source_frame,
                 time_seconds=float(time_seconds),
-                event_type=_event_type_from_label(label),
-                side=_event_side_from_context(context),
+                event_type=normalize_event_type(label),
+                side=normalize_event_side(context),
                 subject_label=subject_label,
             )
         )

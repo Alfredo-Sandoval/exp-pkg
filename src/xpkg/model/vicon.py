@@ -8,33 +8,17 @@ from pathlib import Path
 
 import numpy as np
 
-
-def _normalize_label_name(name: str) -> str:
-    return str(name).strip().lower()
-
-
-def _normalize_marker_name(name: str) -> str:
-    label = str(name).strip()
-    if ":" in label:
-        label = label.split(":", 1)[1]
-    return label.lower()
+from xpkg.model.pose_naming import (
+    lookup_unique_label_or_marker,
+    normalize_event_side,
+    normalize_event_type,
+    normalize_label_name,
+    normalize_marker_name,
+)
 
 
 def _tuple_str(items: Sequence[str]) -> tuple[str, ...]:
     return tuple(str(item) for item in items)
-
-
-def _normalize_event_type(label: str) -> str:
-    normalized = str(label).strip().lower().replace("-", "_").replace(" ", "_")
-    slug = "".join(ch for ch in normalized if ch.isalnum() or ch == "_").strip("_")
-    return slug or "event"
-
-
-def _normalize_event_side(context: str) -> str | None:
-    normalized = str(context).strip().lower()
-    if normalized in {"left", "right"}:
-        return normalized
-    return None
 
 
 def _coerce_path(value: str | Path | None) -> Path | None:
@@ -58,27 +42,7 @@ def _bool_array(value: object, *, name: str) -> np.ndarray:
 
 
 def _lookup_unique_index(labels: Sequence[str], name: str, *, kind: str) -> int:
-    normalized_label = _normalize_label_name(name)
-    exact_matches = [
-        idx for idx, label in enumerate(labels) if _normalize_label_name(label) == normalized_label
-    ]
-    if len(exact_matches) == 1:
-        return exact_matches[0]
-    if len(exact_matches) > 1:
-        raise KeyError(f"{kind} {name!r} is ambiguous in {tuple(labels)}.")
-
-    normalized_marker = _normalize_marker_name(name)
-    marker_matches = [
-        idx
-        for idx, label in enumerate(labels)
-        if _normalize_marker_name(label) == normalized_marker
-    ]
-    if len(marker_matches) == 1:
-        return marker_matches[0]
-    if len(marker_matches) > 1:
-        matches = tuple(labels[idx] for idx in marker_matches)
-        raise KeyError(f"{kind} {name!r} is ambiguous; use one of {matches}.")
-    raise KeyError(f"{kind} {name!r} not found in {tuple(labels)}.")
+    return lookup_unique_label_or_marker(labels, name, kind=kind)
 
 
 @dataclass(frozen=True, slots=True)
@@ -180,7 +144,7 @@ class ViconAnalogData:
                 zip(self.channel_names, self.channel_units, strict=True)
             )
             if str(unit).strip().lower() in voltage_units
-            or _normalize_label_name(name).startswith(("emg", "voltage"))
+            or normalize_label_name(name).startswith(("emg", "voltage"))
         )
 
     @property
@@ -380,7 +344,7 @@ class ViconEvent:
         frame = int(self.frame)
         source_frame = int(self.source_frame)
         time_seconds = float(self.time_seconds)
-        event_type = _normalize_event_type(str(self.event_type).strip() or label)
+        event_type = normalize_event_type(str(self.event_type).strip() or label)
         side = self.side
         subject_label = self.subject_label
 
@@ -393,7 +357,7 @@ class ViconEvent:
         if source_frame < 0:
             raise ValueError(f"event.source_frame must be >= 0, got {source_frame}.")
         if side is not None:
-            side = _normalize_event_side(side)
+            side = normalize_event_side(side)
             if side is None:
                 raise ValueError("event.side must be 'left', 'right', or None.")
         if subject_label is not None:
@@ -428,11 +392,11 @@ class ViconMarkerModel:
             raise ValueError("model.display_name cannot be empty.")
         if not marker_names:
             raise ValueError("model.marker_names cannot be empty.")
-        normalized_markers = {_normalize_marker_name(marker_name) for marker_name in marker_names}
+        normalized_markers = {normalize_marker_name(marker_name) for marker_name in marker_names}
         for parent, child in edges:
-            if _normalize_marker_name(parent) not in normalized_markers:
+            if normalize_marker_name(parent) not in normalized_markers:
                 raise ValueError(f"model edge references unknown marker {parent!r}.")
-            if _normalize_marker_name(child) not in normalized_markers:
+            if normalize_marker_name(child) not in normalized_markers:
                 raise ValueError(f"model edge references unknown marker {child!r}.")
         object.__setattr__(self, "name", str(self.name))
         object.__setattr__(self, "display_name", str(self.display_name))
@@ -535,11 +499,11 @@ class ViconRecording:
                     f"{self.analog.n_samples} vs {expected_samples}."
                 )
         if self.model is not None:
-            observed_markers = {_normalize_marker_name(marker_name) for marker_name in marker_names}
+            observed_markers = {normalize_marker_name(marker_name) for marker_name in marker_names}
             missing_model_markers = tuple(
                 marker_name
                 for marker_name in self.model.marker_names
-                if _normalize_marker_name(marker_name) not in observed_markers
+                if normalize_marker_name(marker_name) not in observed_markers
             )
             if missing_model_markers:
                 raise ValueError(
