@@ -399,9 +399,12 @@ def test_model_exports_are_available() -> None:
 def test_media_surface_is_public() -> None:
     assert "media" in xpkg.__all__
     assert xpkg.media.Video is Video
+    assert callable(xpkg.media.available_hardware_accelerators)
+    assert callable(xpkg.media.hardware_acceleration_status)
     assert callable(xpkg.media.read_bgr)
     assert callable(xpkg.media.read_rgb)
     assert callable(xpkg.media.read_rgb_bytes)
+    assert callable(xpkg.media.require_hardware_acceleration)
     assert callable(xpkg.media.write_video)
 
 

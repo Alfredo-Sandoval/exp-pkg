@@ -156,6 +156,7 @@ implementations.
 | `torchcodec` | PyTorch-native video/audio decode and encode | macOS, Linux | Optional `dl` backend for tensor pipelines |
 | `onnxruntime` | Portable exported-model inference | macOS, Linux | Optional `inference` backend |
 | `kornia` | Differentiable computer-vision tensor operations | macOS, Linux | Optional `vision` backend |
+| `mlx` | Apple MLX tensor runtime | macOS, Linux | Optional `mlx` backend for model/tensor acceleration |
 
 PyAV and TorchCodec should be explicit implementation backends, not hidden
 dependencies. PyAV is the better fit for FFmpeg-level media ownership and
@@ -171,7 +172,10 @@ The package extras encode this split:
 | `media-rich` | `av` | Rich FFmpeg media handling |
 | `dl` | `torch`, `torchcodec`, `torchvision` | PyTorch tensor pipelines |
 | `inference` | `onnxruntime` | Exported model inference |
+| `mlx` | `mlx` | Apple/Metal tensor acceleration |
+| `nvidia` | `torch`, `torchcodec`, `torchvision` | NVIDIA CUDA tensor/video pipelines |
 | `vision` | `kornia`, `torch` | Differentiable tensor CV |
+| `hardware-accel` | `mlx`, `torch`, `torchcodec`, `torchvision` | MLX plus NVIDIA optional runtimes |
 | `media-dl` | all of the above | Full media/deep-learning stack |
 
 This choice follows the current upstream direction:
@@ -193,6 +197,15 @@ This choice follows the current upstream direction:
   <https://onnxruntime.ai/docs/get-started/with-python.html>
 - Kornia is the PyTorch-native differentiable computer-vision layer:
   <https://www.kornia.org/>
+- MLX is Apple's array framework for machine learning on Apple silicon and is
+  installed from PyPI with `mlx`:
+  <https://pypi.org/project/mlx/>
+- MLX exposes Metal availability through `mlx.core.metal.is_available()`:
+  <https://ml-explore-mlx.mintlify.app/api/metal>
+- PyTorch exposes CUDA availability through `torch.cuda.is_available()`:
+  <https://docs.pytorch.org/docs/stable/cuda.html>
+- TorchCodec supports CUDA/NVDEC decoding for NVIDIA video workloads:
+  <https://meta-pytorch.org/torchcodec/stable/generated_examples/decoding/basic_cuda_example.html>
 
 ### Capability discovery
 
@@ -213,7 +226,16 @@ video backends exist or how they behave.
 
 The first implementation layer is `xpkg.media.backends`, which reports installed
 core and optional backends without importing heavyweight runtime packages during
-normal package import. PyAV is also available as an explicit reader backend via
+normal package import. It also reports hardware accelerators:
+
+| Accelerator | Meaning |
+| --- | --- |
+| `mlx-metal` | MLX can use Metal on the current host |
+| `torch-cuda` | PyTorch can use NVIDIA CUDA tensors |
+| `torchcodec-cuda` | TorchCodec is importable and PyTorch CUDA is available |
+| `ffmpeg-nvidia` | Host FFmpeg exposes NVDEC/NVENC support |
+
+PyAV is also available as an explicit reader backend via
 `Video.from_filename(..., backend="pyav")` when `exp-pkg[media-rich]` is
 installed. It must remain explicit until conformance coverage proves it can join
 `auto`.
