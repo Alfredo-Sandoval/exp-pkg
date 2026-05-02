@@ -66,6 +66,16 @@ def _read_ppd_words(path: Path) -> tuple[dict[str, Any], np.ndarray]:
             raise RuntimeError("Invalid .ppd: incomplete header JSON.")
         try:
             header = json.loads(header_json.decode("utf-8"))
+        except UnicodeDecodeError:
+            header = {
+                "sampling_rate": int.from_bytes(header_json[32:34], "little"),
+                "n_analog_channels": 2,
+                "n_digital_signals": 2,
+                "volts_per_division": [0.00010122, 0.00010122],
+                "mode": "legacy",
+                "version": "0",
+                "header_format": "legacy_binary",
+            }
         except json.JSONDecodeError as exc:
             raise ValueError(f"Invalid JSON header in .ppd file: {path}") from exc
         payload = handle.read()

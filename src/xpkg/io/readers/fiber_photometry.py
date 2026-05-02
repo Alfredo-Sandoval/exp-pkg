@@ -26,6 +26,23 @@ from xpkg.model import (
 TimeUnit = Literal["s", "sec", "second", "seconds", "ms", "millisecond", "milliseconds"]
 
 _TIME_COLUMNS = ("time", "timestamp", "timestamps", "Time", "TimeStamp", "Timestamp")
+_NPM_TIME_COLUMNS = (
+    "Timestamp",
+    "SystemTimestamp",
+    "ComputerTimestamp",
+    "Time",
+    "TimeStamp",
+)
+_NPM_METADATA_COLUMNS = {
+    "computertimestamp",
+    "framecounter",
+    "flags",
+    "ledstate",
+    "systemtimestamp",
+    "time",
+    "timestamp",
+}
+_NPM_STATE_COLUMNS = ("Flags", "LedState")
 _RWD_SIGNAL_SUFFIXES = ("-470", "_470", "-560", "_560")
 _RWD_REFERENCE_SUFFIXES = ("-410", "_410", "-405", "_405", "-415", "_415")
 _TELEOPTO_EVENT_KEYS = ("ct1", "ct2", "ct3", "ct4", "ar1", "ar2")
@@ -203,17 +220,27 @@ def read_pmat_events_csv(
     )
     scale = _time_scale(time_unit)
     starts = _numeric(frame, resolved_onset) * scale
-    offsets = _numeric(frame, resolved_offset) * scale if resolved_offset else starts
+    if resolved_offset:
+        offsets = (
+            pd.to_numeric(frame[resolved_offset], errors="raise")
+            .to_numpy(dtype=np.float64)
+            * scale
+        )
+    else:
+        offsets = starts
     rows = []
     for index, (start, offset) in enumerate(zip(starts, offsets, strict=True)):
-        duration = max(0.0, float(offset - start))
+        duration = max(0.0, float(offset - start)) if np.isfinite(offset) else 0.0
         rows.append(
             Event(
                 kind="event",
                 start_s=float(start),
                 duration_s=duration,
                 label=str(frame[resolved_label].iloc[index]).strip(),
-                metadata={"source": {"type": "pmat_events_csv", "path": str(source_path)}},
+                metadata={
+                    "source": {"type": "pmat_events_csv", "path": str(source_path)},
+                    "offset_s": float(offset) if np.isfinite(offset) else str(offset),
+                },
             )
         )
     return EventTable.from_events(rows)
@@ -233,12 +260,21 @@ def read_neurophotometrics_csv(
     frame = pd.read_csv(source_path)
     if frame.empty:
         raise ValueError(f"Neurophotometrics CSV '{source_path}' is empty.")
-    resolved_time = _column(frame, time_column) if time_column else _column(frame, "Timestamp")
-    metadata_columns = {"framecounter", "timestamp", "flags"}
+    resolved_time = (
+        _column(frame, time_column)
+        if time_column
+        else _first_column(frame, _NPM_TIME_COLUMNS)
+    )
+    if resolved_time is None:
+        raise ValueError(
+            "Neurophotometrics CSV missing a timestamp column. "
+            f"Available columns: {list(frame.columns)}."
+        )
+    state_column = _first_column(frame, _NPM_STATE_COLUMNS)
     roi_columns = [
         str(column)
         for column in frame.columns
-        if str(column).lower() not in metadata_columns
+        if str(column).lower() not in _NPM_METADATA_COLUMNS
         and pd.api.types.is_numeric_dtype(frame[column])
     ]
     if not roi_columns:
@@ -257,20 +293,23 @@ def read_neurophotometrics_csv(
         reference_channel=resolved_reference,
     )
     signals: dict[str, TimeSeries | PhotometryRecording] = {"photometry": photometry}
-    if "Flags" in frame.columns:
+    if state_column is not None:
         signals["flags"] = TimeSeries(
-            values=_numeric(frame, "Flags"),
-            channels=(SignalChannel(name="Flags", unit="state"),),
+            values=_numeric(frame, state_column),
+            channels=(SignalChannel(name=state_column, unit="state"),),
             timeline=photometry.timeline,
-            name="neurophotometrics_flags",
+            name="neurophotometrics_state",
             provenance={"source": {"type": "neurophotometrics_csv", "path": str(source_path)}},
         )
     metadata: dict[str, Any] = {
         "source": {"type": "neurophotometrics_csv", "path": str(source_path)},
         "columns": [str(column) for column in frame.columns],
+        "time_column": resolved_time,
+        "state_column": state_column,
     }
-    if "FrameCounter" in frame.columns:
-        metadata["frame_counter"] = _numeric(frame, "FrameCounter").astype(int).tolist()
+    frame_counter = _first_column(frame, ("FrameCounter",))
+    if frame_counter is not None:
+        metadata["frame_counter"] = _numeric(frame, frame_counter).astype(int).tolist()
     return RecordingSession(
         session_id=source_path.stem,
         signals=signals,

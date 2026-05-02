@@ -116,4 +116,5 @@ testpaths = ["tests"]
 addopts = "-ra"
 markers = [
   "realdata: opt-in integration tests that require XPKG_REAL_DATA_ROOT",
+  "vendorfixtures: opt-in external vendor fixture tests",
 ]
