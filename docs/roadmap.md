@@ -65,11 +65,23 @@ Simple, low-ceremony CSV readers now exist before the workspace machinery:
 xpkg.read_photometry_csv(...)
 xpkg.read_events_csv(...)
 xpkg.read_pyphotometry_ppd(...)
+xpkg.read_pyphotometry_csv(...)
+xpkg.read_pmat_photometry_csv(...)
+xpkg.read_pmat_events_csv(...)
+xpkg.read_rwd_ofrs_session(...)
+xpkg.read_neurophotometrics_csv(...)
+xpkg.read_doric_photometry(...)
+xpkg.read_teleopto_h5(...)
+xpkg.read_tdt_photometry_block(...)
 ```
 
 These return `PhotometryRecording`, `EventTable`, or session-level objects
 without requiring users to create a workspace first. `read_sync_csv(...)` is
 still the next direct reader in this family.
+
+The fiber-photometry reader set is scoped to fiber/session IO. Inscopix
+miniscope files, Blackrock NEV/NSx, and Neuralynx Cheetah files are deliberately
+excluded from this layer.
 
 ### 2. Workspace Imports
 

@@ -94,6 +94,14 @@ The shipped workspace import surface currently covers:
 - SLEAP analysis H5 and `.pkg.slp`
 - MMPose top-down demo JSON (`--save-predictions`)
 - MediaPipe pose-landmarks JSON
+- Generic photometry CSV and event CSV
+- pMAT-compatible photometry/event CSV
+- pyPhotometry PPD and CSV+JSON
+- RWD OFRS CSV session bundles
+- Neurophotometrics/Bonsai CSV
+- Doric `.doric` photometry containers
+- Teleopto H5 exports
+- TDT tank/block photometry streams through the optional `tdt` package
 
 ## What It Does
 
@@ -140,6 +148,19 @@ Mission direction:
 | SLEAP | `.pkg.slp` | Supported |
 | MMPose | Top-down demo JSON (`--save-predictions`) | Supported |
 | MediaPipe | Pose landmarks JSON | Supported |
+| Generic photometry | CSV | Supported |
+| Generic events | CSV | Supported |
+| pMAT | Photometry/event CSV | Supported |
+| pyPhotometry | PPD, CSV+JSON | Supported |
+| RWD OFRS | CSV session bundle | Supported |
+| Neurophotometrics/Bonsai | CSV | Supported |
+| Doric | `.doric` HDF5 photometry container | Supported |
+| Teleopto | H5 export | Supported |
+| TDT | Tank/block streams | Supported with optional `tdt` dependency |
+
+The fiber-photometry layer intentionally does not claim Inscopix `.isx` /
+`.isxd`, Blackrock NEV/NSx, or Neuralynx Cheetah support. Those are imaging or
+electrophysiology surfaces, not fiber-photometry IO.
 
 ## Install
 

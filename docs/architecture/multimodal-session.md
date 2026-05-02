@@ -120,9 +120,17 @@ Implemented now:
 - source-neutral signal channels and time series
 - photometry recording wrapper
 - session container
-- direct readers for photometry CSV, event CSV, and pyPhotometry PPD
+- direct readers for photometry CSV, event CSV, pMAT CSV, pyPhotometry PPD/CSV,
+  RWD OFRS, Neurophotometrics CSV, Doric `.doric`, Teleopto H5, and optional
+  TDT tank/block streams
 - public exports from `xpkg.model` and `xpkg.api`
 - focused tests for validation, queries, and time ranges
+
+Explicitly not part of the fiber-photometry layer:
+
+- Inscopix `.isx` / `.isxd`, which are miniscope/imaging formats
+- Blackrock NEV/NSx, which are electrophysiology formats
+- Neuralynx Cheetah collections, which are electrophysiology formats
 
 Still ahead:
 

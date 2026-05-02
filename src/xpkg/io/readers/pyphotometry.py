@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
+import pandas as pd
 
 from xpkg.model import (
     Event,
@@ -73,7 +74,25 @@ def _read_ppd_words(path: Path) -> tuple[dict[str, Any], np.ndarray]:
     return header, np.frombuffer(payload, dtype="<u2")
 
 
-def _split_channels(words: np.ndarray, channel_count: int) -> tuple[np.ndarray, np.ndarray]:
+def _version_tuple(value: object) -> tuple[int, ...]:
+    parts: list[int] = []
+    for part in str(value).split("."):
+        digits = "".join(char for char in part if char.isdigit())
+        if not digits:
+            break
+        parts.append(int(digits))
+    return tuple(parts)
+
+
+def _uses_pulsed_v11_layout(header: dict[str, Any]) -> bool:
+    mode = str(header.get("mode", "")).lower()
+    if "pulsed" not in mode:
+        return False
+    version = _version_tuple(header.get("version", "0"))
+    return version >= (1, 1)
+
+
+def _split_old_layout(words: np.ndarray, channel_count: int) -> tuple[np.ndarray, np.ndarray]:
     complete_words = (words.size // channel_count) * channel_count
     if complete_words == 0:
         raise ValueError("PPD file contains no complete samples.")
@@ -81,6 +100,22 @@ def _split_channels(words: np.ndarray, channel_count: int) -> tuple[np.ndarray, 
     analog = (rows >> 1).astype(np.float64)
     digital = (rows & 0x1).astype(np.float64)
     return analog, digital
+
+
+def _split_pulsed_v11_layout(
+    words: np.ndarray,
+    channel_count: int,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    row_width = 2 * channel_count
+    complete_words = (words.size // row_width) * row_width
+    if complete_words == 0:
+        raise ValueError("PPD file contains no complete pulsed-mode samples.")
+    rows = words[:complete_words].reshape((-1, row_width))
+    raw_led_on = (rows[:, 0::2] >> 1).astype(np.float64)
+    raw_baseline = (rows[:, 1::2] >> 1).astype(np.float64)
+    analog = raw_led_on - raw_baseline
+    digital = (rows[:, 0::2] & 0x1).astype(np.float64)
+    return analog, digital, raw_led_on, raw_baseline
 
 
 def _rising_edges(bits: np.ndarray, sample_rate_hz: float) -> np.ndarray:
@@ -114,17 +149,45 @@ def read_pyphotometry_ppd(path: str | Path) -> RecordingSession:
     header, words = _read_ppd_words(source_path)
     sample_rate_hz = _sampling_rate(header)
     channel_count = _channel_count(header)
-    analog, digital = _split_channels(words, channel_count)
+    extra_signals: dict[str, TimeSeries] = {}
+    if _uses_pulsed_v11_layout(header):
+        analog, digital, raw_led_on, raw_baseline = _split_pulsed_v11_layout(
+            words,
+            channel_count,
+        )
+    else:
+        analog, digital = _split_old_layout(words, channel_count)
+        raw_led_on = None
+        raw_baseline = None
     scale = _volts_per_division(header, channel_count)
     unit = "V" if scale is not None else "raw"
     if scale is not None:
         analog = analog * scale
+        if raw_led_on is not None:
+            raw_led_on = raw_led_on * scale
+        if raw_baseline is not None:
+            raw_baseline = raw_baseline * scale
 
     timeline = Timeline.from_sample_rate(
         n_samples=analog.shape[0],
         sample_rate_hz=sample_rate_hz,
     )
     analog_names = tuple(f"analog_{index + 1}" for index in range(channel_count))
+    if raw_led_on is not None and raw_baseline is not None:
+        extra_signals["raw_led_on"] = TimeSeries(
+            values=raw_led_on,
+            channels=tuple(SignalChannel(name=name, unit=unit) for name in analog_names),
+            timeline=timeline,
+            name="pyphotometry_raw_led_on",
+            provenance={"source": {"type": "pyphotometry_ppd", "path": str(source_path)}},
+        )
+        extra_signals["raw_baseline"] = TimeSeries(
+            values=raw_baseline,
+            channels=tuple(SignalChannel(name=name, unit=unit) for name in analog_names),
+            timeline=timeline,
+            name="pyphotometry_raw_baseline",
+            provenance={"source": {"type": "pyphotometry_ppd", "path": str(source_path)}},
+        )
     photometry = PhotometryRecording(
         series=TimeSeries(
             values=analog,
@@ -147,7 +210,7 @@ def read_pyphotometry_ppd(path: str | Path) -> RecordingSession:
     )
     return RecordingSession(
         session_id=source_path.stem,
-        signals={"photometry": photometry, "digital": digital_series},
+        signals={"photometry": photometry, "digital": digital_series, **extra_signals},
         events=_digital_events(digital, sample_rate_hz, source_path),
         metadata={
             "source": {"type": "pyphotometry_ppd", "path": str(source_path)},
@@ -156,4 +219,103 @@ def read_pyphotometry_ppd(path: str | Path) -> RecordingSession:
     )
 
 
-__all__ = ["read_pyphotometry_ppd"]
+def _load_settings(settings_path: Path | None) -> dict[str, Any]:
+    if settings_path is None or not settings_path.is_file():
+        return {}
+    try:
+        return json.loads(settings_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"Invalid JSON settings file: {settings_path}") from exc
+
+
+def _matching_columns(frame: pd.DataFrame, prefix: str) -> tuple[str, ...]:
+    columns: list[str] = []
+    for column in frame.columns:
+        text = str(column).strip()
+        normalized = text.lower().replace("_", "")
+        if normalized.startswith(prefix):
+            columns.append(text)
+    return tuple(columns)
+
+
+def read_pyphotometry_csv(
+    path: str | Path,
+    *,
+    settings_path: str | Path | None = None,
+    sample_rate_hz: float | None = None,
+    volts_per_division: float | None = None,
+) -> RecordingSession:
+    """Read a pyPhotometry CSV export and optional JSON settings sidecar."""
+
+    source_path = Path(path)
+    sidecar_path = (
+        Path(settings_path) if settings_path is not None else source_path.with_suffix(".json")
+    )
+    settings = _load_settings(sidecar_path)
+    header = dict(settings)
+    if sample_rate_hz is not None:
+        header["sampling_rate"] = float(sample_rate_hz)
+    if volts_per_division is not None:
+        header["volts_per_division"] = float(volts_per_division)
+    rate = _sampling_rate(header)
+
+    frame = pd.read_csv(source_path)
+    if frame.empty:
+        raise ValueError(f"pyPhotometry CSV '{source_path}' is empty.")
+    analog_columns = _matching_columns(frame, "analog")
+    digital_columns = _matching_columns(frame, "digital")
+    if not analog_columns:
+        raise ValueError(f"pyPhotometry CSV '{source_path}' has no Analog columns.")
+    analog = frame.loc[:, analog_columns].apply(pd.to_numeric, errors="raise").to_numpy(
+        dtype=np.float64
+    )
+    channel_count = len(analog_columns)
+    scale = _volts_per_division(header, channel_count)
+    unit = "V" if scale is not None else "raw"
+    if scale is not None:
+        analog = analog * scale
+
+    timeline = Timeline.from_sample_rate(n_samples=analog.shape[0], sample_rate_hz=rate)
+    analog_names = tuple(f"analog_{index + 1}" for index in range(channel_count))
+    photometry = PhotometryRecording(
+        series=TimeSeries(
+            values=analog,
+            channels=tuple(PhotometryChannel(name=name, unit=unit) for name in analog_names),
+            timeline=timeline,
+            name="photometry",
+            provenance={"source": {"type": "pyphotometry_csv", "path": str(source_path)}},
+        ),
+        signal_channel=analog_names[0],
+        reference_channel=analog_names[1] if len(analog_names) > 1 else None,
+        metadata={"header": header, "source_type": "pyphotometry_csv"},
+    )
+
+    signals: dict[str, TimeSeries | PhotometryRecording] = {"photometry": photometry}
+    events = EventTable()
+    if digital_columns:
+        digital = frame.loc[:, digital_columns].apply(pd.to_numeric, errors="raise").to_numpy(
+            dtype=np.float64
+        )
+        digital_names = tuple(f"digital_{index + 1}" for index in range(digital.shape[1]))
+        signals["digital"] = TimeSeries(
+            values=digital,
+            channels=tuple(SignalChannel(name=name, unit="state") for name in digital_names),
+            timeline=timeline,
+            name="digital",
+            provenance={"source": {"type": "pyphotometry_csv", "path": str(source_path)}},
+        )
+        events = _digital_events(digital, rate, source_path)
+
+    return RecordingSession(
+        session_id=source_path.stem,
+        signals=signals,
+        events=events,
+        metadata={
+            "source": {"type": "pyphotometry_csv", "path": str(source_path)},
+            "settings_path": str(sidecar_path) if sidecar_path.is_file() else None,
+            "ppd_header": header,
+        },
+    )
+
+
+__all__ = ["read_pyphotometry_csv", "read_pyphotometry_ppd"]

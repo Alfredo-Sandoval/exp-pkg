@@ -12,9 +12,17 @@ __all__ = [
     "exchange",
     "formats",
     "model",
+    "read_doric_photometry",
     "read_events_csv",
+    "read_neurophotometrics_csv",
     "read_photometry_csv",
+    "read_pmat_events_csv",
+    "read_pmat_photometry_csv",
+    "read_pyphotometry_csv",
     "read_pyphotometry_ppd",
+    "read_rwd_ofrs_session",
+    "read_tdt_photometry_block",
+    "read_teleopto_h5",
     "services",
 ]
 
@@ -24,7 +32,20 @@ def __getattr__(name: str):
         module = importlib.import_module(f"xpkg.{name}")
         globals()[name] = module
         return module
-    if name in {"read_events_csv", "read_photometry_csv", "read_pyphotometry_ppd"}:
+    reader_exports = {
+        "read_doric_photometry",
+        "read_events_csv",
+        "read_neurophotometrics_csv",
+        "read_photometry_csv",
+        "read_pmat_events_csv",
+        "read_pmat_photometry_csv",
+        "read_pyphotometry_csv",
+        "read_pyphotometry_ppd",
+        "read_rwd_ofrs_session",
+        "read_tdt_photometry_block",
+        "read_teleopto_h5",
+    }
+    if name in reader_exports:
         module = importlib.import_module("xpkg.io.readers")
         value = getattr(module, name)
         globals()[name] = value

@@ -7,7 +7,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from xpkg.io.readers import read_pyphotometry_ppd
+from xpkg.io.readers import read_pyphotometry_csv, read_pyphotometry_ppd
 from xpkg.model import PhotometryRecording, RecordingSession, TimeSeries
 
 
@@ -90,3 +90,54 @@ def test_read_pyphotometry_ppd_trims_odd_payload_byte(tmp_path: Path) -> None:
     photometry = session.signals["photometry"]
     assert isinstance(photometry, PhotometryRecording)
     assert photometry.series.n_samples == 3
+
+
+def test_read_pyphotometry_ppd_supports_v11_pulsed_baseline_layout(tmp_path: Path) -> None:
+    path = tmp_path / "pulsed.ppd"
+    header = {
+        "sampling_rate": 20.0,
+        "n_analog_channels": 2,
+        "mode": "pulsed",
+        "version": "1.1",
+        "volts_per_division": 0.001,
+    }
+    header_bytes = json.dumps(header).encode("utf-8")
+    rows = np.asarray(
+        [
+            [(100 << 1) | 0, 20 << 1, (200 << 1) | 0, 40 << 1],
+            [(110 << 1) | 1, 30 << 1, (210 << 1) | 0, 50 << 1],
+        ],
+        dtype=np.uint16,
+    )
+    path.write_bytes(struct.pack("<H", len(header_bytes)) + header_bytes + rows.tobytes())
+
+    session = read_pyphotometry_ppd(path)
+    photometry = session.signals["photometry"]
+
+    assert isinstance(photometry, PhotometryRecording)
+    np.testing.assert_allclose(photometry.series.values[:, 0], [0.08, 0.08])
+    np.testing.assert_allclose(photometry.series.values[:, 1], [0.16, 0.16])
+    assert "raw_led_on" in session.signals
+    assert "raw_baseline" in session.signals
+    assert [event.label for event in session.events] == ["digital_1"]
+
+
+def test_read_pyphotometry_csv_uses_json_settings_and_digital_events(tmp_path: Path) -> None:
+    path = tmp_path / "recording.csv"
+    path.write_text(
+        "Analog1,Analog2,Digital1,Digital2\n100,200,0,0\n101,201,1,0\n",
+        encoding="utf-8",
+    )
+    path.with_suffix(".json").write_text(
+        json.dumps({"sampling_rate": 10.0, "volts_per_division": 0.001}),
+        encoding="utf-8",
+    )
+
+    session = read_pyphotometry_csv(path)
+    photometry = session.signals["photometry"]
+
+    assert isinstance(session, RecordingSession)
+    assert isinstance(photometry, PhotometryRecording)
+    assert photometry.series.channels[0].unit == "V"
+    np.testing.assert_allclose(photometry.series.values[:, 0], [0.1, 0.101])
+    assert [event.label for event in session.events] == ["digital_1"]

@@ -99,9 +99,12 @@ session = session.with_signal("fiber", photometry).with_events(events)
 ```
 
 These objects are direct model primitives today. `xpkg.read_photometry_csv`,
-`xpkg.read_events_csv`, and `xpkg.read_pyphotometry_ppd` are the first direct
-reader APIs on top of this model. They are also available from `xpkg.api`.
-Sync readers and workspace imports are planned next; see
+`xpkg.read_events_csv`, `xpkg.read_pyphotometry_ppd`,
+`xpkg.read_pyphotometry_csv`, `xpkg.read_rwd_ofrs_session`,
+`xpkg.read_neurophotometrics_csv`, `xpkg.read_doric_photometry`,
+`xpkg.read_teleopto_h5`, `xpkg.read_tdt_photometry_block`, and the pMAT CSV
+readers are direct APIs on top of this model. They are also available from
+`xpkg.api`. Sync readers and workspace imports are planned next; see
 [Multimodal Session Model](../architecture/multimodal-session.md).
 
 ### Geometry and identity

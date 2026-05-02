@@ -100,13 +100,21 @@ The free functions remain public for explicit function-level integrations.
 
 ## Multimodal Reader And Import Plan
 
-The session/time/events/signals model layer is public. Direct CSV readers are
-available now:
+The session/time/events/signals model layer is public. Direct fiber-photometry
+and event readers are available now:
 
 ```python
 xpkg.read_photometry_csv(...)
 xpkg.read_events_csv(...)
 xpkg.read_pyphotometry_ppd(...)
+xpkg.read_pyphotometry_csv(...)
+xpkg.read_pmat_photometry_csv(...)
+xpkg.read_pmat_events_csv(...)
+xpkg.read_rwd_ofrs_session(...)
+xpkg.read_neurophotometrics_csv(...)
+xpkg.read_doric_photometry(...)
+xpkg.read_teleopto_h5(...)
+xpkg.read_tdt_photometry_block(...)
 ```
 
 These service-bound imports are not implemented yet:
@@ -122,6 +130,10 @@ The remaining direct reader planned in this family is:
 ```python
 xpkg.read_sync_csv(...)
 ```
+
+The fiber-photometry surface intentionally excludes imaging/miniscope and
+electrophysiology formats such as Inscopix `.isx`, Blackrock NEV/NSx, and
+Neuralynx Cheetah. Those belong to separate IO layers.
 
 See [Multimodal Session Model](../architecture/multimodal-session.md) for the
 model objects that will back those imports and [Roadmap](../roadmap.md) for the

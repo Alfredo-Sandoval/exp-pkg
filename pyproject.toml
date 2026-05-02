@@ -77,6 +77,9 @@ docs = [
   "mkdocs-material>=9.5,<10",
   "mkdocstrings[python]>=0.24,<1",
 ]
+tdt = [
+  "tdt>=0.6",
+]
 
 [project.scripts]
 xpkg = "xpkg.cli:main"

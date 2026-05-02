@@ -75,13 +75,21 @@ def test_xpkg_api_exposes_workspace_first_contract() -> None:
         "load_workspace_segmentation_masks",
         "load_workspace_vicon_recording",
         "pack_project",
+        "read_doric_photometry",
         "read_events_csv",
         "read_hdf5_table",
         "read_hdf5_table_group",
+        "read_neurophotometrics_csv",
         "read_photometry_csv",
+        "read_pmat_events_csv",
+        "read_pmat_photometry_csv",
         "read_pose_node_names",
         "read_pose_track",
+        "read_pyphotometry_csv",
         "read_pyphotometry_ppd",
+        "read_rwd_ofrs_session",
+        "read_tdt_photometry_block",
+        "read_teleopto_h5",
         "read_vicon_c3d",
         "read_vicon_csv",
         "read_vicon_recording",
@@ -171,13 +179,21 @@ def test_xpkg_api_exposes_workspace_first_contract() -> None:
     assert callable(api.load_workspace_segmentation_frames)
     assert callable(api.load_workspace_segmentation_masks)
     assert callable(api.load_workspace_vicon_recording)
+    assert callable(api.read_doric_photometry)
     assert callable(api.read_events_csv)
     assert callable(api.read_hdf5_table)
     assert callable(api.read_hdf5_table_group)
+    assert callable(api.read_neurophotometrics_csv)
     assert callable(api.read_photometry_csv)
+    assert callable(api.read_pmat_events_csv)
+    assert callable(api.read_pmat_photometry_csv)
     assert callable(api.read_pose_node_names)
     assert callable(api.read_pose_track)
+    assert callable(api.read_pyphotometry_csv)
     assert callable(api.read_pyphotometry_ppd)
+    assert callable(api.read_rwd_ofrs_session)
+    assert callable(api.read_tdt_photometry_block)
+    assert callable(api.read_teleopto_h5)
     assert callable(api.read_vicon_c3d)
     assert callable(api.read_vicon_csv)
     assert callable(api.read_vicon_recording)

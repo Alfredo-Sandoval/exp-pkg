@@ -92,7 +92,19 @@ from xpkg.formats import (
     write_labels_json,
     write_project_descriptor,
 )
-from xpkg.io.readers import read_events_csv, read_photometry_csv, read_pyphotometry_ppd
+from xpkg.io.readers import (
+    read_doric_photometry,
+    read_events_csv,
+    read_neurophotometrics_csv,
+    read_photometry_csv,
+    read_pmat_events_csv,
+    read_pmat_photometry_csv,
+    read_pyphotometry_csv,
+    read_pyphotometry_ppd,
+    read_rwd_ofrs_session,
+    read_tdt_photometry_block,
+    read_teleopto_h5,
+)
 from xpkg.model import (
     EMGSignalData,
     Event,
@@ -159,17 +171,33 @@ def test_root_namespace_is_curated_to_workspace_first_modules() -> None:
         "exchange",
         "formats",
         "model",
+        "read_doric_photometry",
         "read_events_csv",
+        "read_neurophotometrics_csv",
         "read_photometry_csv",
+        "read_pmat_events_csv",
+        "read_pmat_photometry_csv",
+        "read_pyphotometry_csv",
         "read_pyphotometry_ppd",
+        "read_rwd_ofrs_session",
+        "read_tdt_photometry_block",
+        "read_teleopto_h5",
         "services",
     ]
     assert reloaded.exchange is not None
     assert reloaded.formats is not None
     assert reloaded.model is not None
+    assert callable(reloaded.read_doric_photometry)
     assert callable(reloaded.read_events_csv)
+    assert callable(reloaded.read_neurophotometrics_csv)
     assert callable(reloaded.read_photometry_csv)
+    assert callable(reloaded.read_pmat_events_csv)
+    assert callable(reloaded.read_pmat_photometry_csv)
+    assert callable(reloaded.read_pyphotometry_csv)
     assert callable(reloaded.read_pyphotometry_ppd)
+    assert callable(reloaded.read_rwd_ofrs_session)
+    assert callable(reloaded.read_tdt_photometry_block)
+    assert callable(reloaded.read_teleopto_h5)
     assert reloaded.services is not None
 
     with pytest.raises(AttributeError):
@@ -263,9 +291,17 @@ def test_public_exports_are_callable() -> None:
     assert callable(read_vicon_json_payload)
     assert callable(vicon_recording_from_json_payload)
     assert callable(vicon_recording_to_json_payload)
+    assert callable(read_doric_photometry)
     assert callable(read_events_csv)
+    assert callable(read_neurophotometrics_csv)
     assert callable(read_photometry_csv)
+    assert callable(read_pmat_events_csv)
+    assert callable(read_pmat_photometry_csv)
+    assert callable(read_pyphotometry_csv)
     assert callable(read_pyphotometry_ppd)
+    assert callable(read_rwd_ofrs_session)
+    assert callable(read_tdt_photometry_block)
+    assert callable(read_teleopto_h5)
     assert WorkspaceImports is not None
     assert WorkspaceArtifacts is not None
     assert WorkspaceFigures is not None
