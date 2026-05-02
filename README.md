@@ -29,9 +29,8 @@ The public product contract is now intentionally narrow:
 - authoritative mutable state = private `.xpkg/`
 - portable artifact = `.expkg`
 
-`.expkg` v1 is a zip container with a root `EXPKG.json` manifest. Portable
-packs include managed media; snapshot packs can omit media bytes while keeping
-media path, size, and SHA-256 inventory in the manifest.
+`.expkg` v1 is a portable zip container with a root `EXPKG.json` manifest.
+It includes managed media and records member paths, sizes, and SHA-256 hashes.
 
 ## Positioning
 
@@ -303,13 +302,14 @@ command surface in `docs/cli_command_spec_v1.md`.
 The primary workspace-first CLI surface is:
 
 ```bash
-xpkg init "./My Project"
+xpkg workspace init "./My Project"
 xpkg import dlc csv --csv tracking.csv --video video.mp4 --out "./My Project"
 xpkg import lightning-pose --csv predictions.csv --video video.mp4 --out "./My Project"
-xpkg pack "./My Project"
-xpkg pack "./My Project" --mode snapshot --media manifest
-xpkg unpack "./My Project.expkg" --out "./My Project"
-xpkg validate "./My Project"
+xpkg import sleap package --slp labels.pkg.slp --out "./My Project"
+xpkg workspace pack "./My Project"
+xpkg workspace unpack "./My Project.expkg" --out "./My Project"
+xpkg workspace validate "./My Project"
+xpkg workspace describe "./My Project" --json
 xpkg artifacts list "./My Project" --kind figure
 xpkg artifacts inspect "./My Project" session-summary-figure --kind figure
 xpkg artifacts validate "./My Project" --kind figure
@@ -366,9 +366,9 @@ recording = load_workspace_vicon_recording("./Vicon Project")
 CLI examples:
 
 ```bash
-xpkg import vicon --recording trial.c3d --out "./Vicon Project"
-xpkg import vicon --csv trial.csv --out "./Vicon Project"
-xpkg import vicon --c3d trial.c3d --out "./Vicon Project"
+xpkg import vicon recording --recording trial.c3d --out "./Vicon Project"
+xpkg import vicon csv --csv trial.csv --out "./Vicon Project"
+xpkg import vicon c3d --c3d trial.c3d --out "./Vicon Project"
 ```
 
 ## Development

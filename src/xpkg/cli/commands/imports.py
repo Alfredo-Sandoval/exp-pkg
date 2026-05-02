@@ -43,6 +43,18 @@ dlc_app = typer.Typer(
     no_args_is_help=True,
     rich_markup_mode="rich",
 )
+sleap_app = typer.Typer(
+    add_completion=False,
+    help="Import SLEAP data into a workspace.",
+    no_args_is_help=True,
+    rich_markup_mode="rich",
+)
+vicon_app = typer.Typer(
+    add_completion=False,
+    help="Import Vicon recordings into a workspace.",
+    no_args_is_help=True,
+    rich_markup_mode="rich",
+)
 
 
 def _import_payload(source: str, workspace: str, state_path: Path) -> dict[str, str]:
@@ -273,29 +285,54 @@ def import_mmpose(
     )
 
 
-@app.command("sleap")
-def import_sleap(
+@sleap_app.command("h5")
+def import_sleap_h5(
     out: Annotated[str, typer.Option("--out", help="Output workspace directory.")],
-    slp: Annotated[
-        str | None,
-        typer.Option("--slp", help="Path to the input .pkg.slp archive."),
-    ] = None,
     h5: Annotated[
-        str | None,
+        str,
         typer.Option("--h5", help="Path to the SLEAP analysis H5 export."),
-    ] = None,
+    ],
     video: Annotated[
-        str | None,
-        typer.Option("--video", help="Path to the matching video file when using --h5."),
-    ] = None,
+        str,
+        typer.Option("--video", help="Path to the matching video file."),
+    ],
     skeleton_name: Annotated[
         str,
-        typer.Option("--skeleton-name", help="Skeleton name to store for --h5 imports."),
+        typer.Option("--skeleton-name", help="Skeleton name to store in the workspace."),
     ] = "imported",
     threshold: Annotated[
         float,
         typer.Option("--threshold", callback=require_likelihood_threshold),
     ] = 0.0,
+    json_output: JsonOption = False,
+) -> None:
+    """Import a SLEAP analysis H5 export into a workspace."""
+
+    def action() -> dict[str, str]:
+        state_path = import_sleap_h5_workspace(
+            h5,
+            video,
+            out,
+            skeleton_name=skeleton_name,
+            likelihood_threshold=threshold,
+            progress_callback=progress_callback(json_output),
+        )
+        return _import_payload("sleap_h5", out, state_path)
+
+    run_command(
+        json_output=json_output,
+        action=action,
+        human_output=lambda payload: _emit_import_result(payload, "SLEAP H5"),
+    )
+
+
+@sleap_app.command("package")
+def import_sleap_package(
+    out: Annotated[str, typer.Option("--out", help="Output workspace directory.")],
+    slp: Annotated[
+        str,
+        typer.Option("--slp", help="Path to the input .pkg.slp archive."),
+    ],
     fps: Annotated[int, typer.Option("--fps", callback=require_positive_int)] = 30,
     encode_videos: Annotated[
         bool,
@@ -303,26 +340,11 @@ def import_sleap(
     ] = True,
     json_output: JsonOption = False,
 ) -> None:
-    """Import SLEAP package or analysis H5 data."""
+    """Import a SLEAP package into a workspace."""
 
     def action() -> dict[str, str]:
-        if bool(slp) == bool(h5):
-            raise ValueError("Pass exactly one of --slp or --h5.")
-        if h5:
-            if not video:
-                raise ValueError("--video is required when importing SLEAP --h5 inputs")
-            state_path = import_sleap_h5_workspace(
-                h5,
-                video,
-                out,
-                skeleton_name=skeleton_name,
-                likelihood_threshold=threshold,
-                progress_callback=progress_callback(json_output),
-            )
-            return _import_payload("sleap_h5", out, state_path)
-
         state_path = import_sleap_package_workspace(
-            str(slp),
+            slp,
             out,
             fps=fps,
             encode_videos=encode_videos,
@@ -330,66 +352,91 @@ def import_sleap(
         )
         return _import_payload("sleap_package", out, state_path)
 
-    def human_output(payload: dict[str, Any]) -> None:
-        source = "SLEAP H5" if payload["source"] == "sleap_h5" else "SLEAP package"
-        _emit_import_result(payload, source)
+    run_command(
+        json_output=json_output,
+        action=action,
+        human_output=lambda payload: _emit_import_result(payload, "SLEAP package"),
+    )
 
-    run_command(json_output=json_output, action=action, human_output=human_output)
 
-
-@app.command("vicon")
-def import_vicon(
+@vicon_app.command("c3d")
+def import_vicon_c3d(
     out: Annotated[str, typer.Option("--out", help="Output workspace directory.")],
-    recording: Annotated[
-        str | None,
-        typer.Option("--recording", help="Path to a Vicon recording (.csv or .c3d)."),
-    ] = None,
-    csv: Annotated[
-        str | None,
-        typer.Option("--csv", help="Path to a Vicon Nexus CSV export."),
-    ] = None,
     c3d: Annotated[
-        str | None,
+        str,
         typer.Option("--c3d", help="Path to a Vicon C3D recording."),
-    ] = None,
+    ],
     json_output: JsonOption = False,
 ) -> None:
-    """Import a Vicon CSV or C3D recording into a workspace."""
+    """Import a Vicon C3D recording into a workspace."""
 
     def action() -> dict[str, str]:
-        chosen = [value is not None for value in (recording, csv, c3d)]
-        if sum(chosen) != 1:
-            raise ValueError("Pass exactly one of --recording, --csv, or --c3d.")
-        if csv is not None:
-            state_path = import_vicon_csv_workspace(
-                csv,
-                out,
-                progress_callback=progress_callback(json_output),
-            )
-            return _import_payload("vicon_csv", out, state_path)
-        if c3d is not None:
-            state_path = import_vicon_c3d_workspace(
-                c3d,
-                out,
-                progress_callback=progress_callback(json_output),
-            )
-            return _import_payload("vicon_c3d", out, state_path)
+        state_path = import_vicon_c3d_workspace(
+            c3d,
+            out,
+            progress_callback=progress_callback(json_output),
+        )
+        return _import_payload("vicon_c3d", out, state_path)
+
+    run_command(
+        json_output=json_output,
+        action=action,
+        human_output=lambda payload: _emit_import_result(payload, "Vicon C3D"),
+    )
+
+
+@vicon_app.command("csv")
+def import_vicon_csv(
+    out: Annotated[str, typer.Option("--out", help="Output workspace directory.")],
+    csv: Annotated[
+        str,
+        typer.Option("--csv", help="Path to a Vicon Nexus CSV export."),
+    ],
+    json_output: JsonOption = False,
+) -> None:
+    """Import a Vicon Nexus CSV recording into a workspace."""
+
+    def action() -> dict[str, str]:
+        state_path = import_vicon_csv_workspace(
+            csv,
+            out,
+            progress_callback=progress_callback(json_output),
+        )
+        return _import_payload("vicon_csv", out, state_path)
+
+    run_command(
+        json_output=json_output,
+        action=action,
+        human_output=lambda payload: _emit_import_result(payload, "Vicon CSV"),
+    )
+
+
+@vicon_app.command("recording")
+def import_vicon_recording(
+    out: Annotated[str, typer.Option("--out", help="Output workspace directory.")],
+    recording: Annotated[
+        str,
+        typer.Option("--recording", help="Path to a Vicon recording (.csv or .c3d)."),
+    ],
+    json_output: JsonOption = False,
+) -> None:
+    """Import an auto-detected Vicon recording into a workspace."""
+
+    def action() -> dict[str, str]:
         state_path = import_vicon_workspace(
-            str(recording),
+            recording,
             out,
             progress_callback=progress_callback(json_output),
         )
         return _import_payload("vicon_recording", out, state_path)
 
-    def human_output(payload: dict[str, Any]) -> None:
-        labels = {
-            "vicon_csv": "Vicon CSV",
-            "vicon_c3d": "Vicon C3D",
-            "vicon_recording": "Vicon recording",
-        }
-        _emit_import_result(payload, labels[str(payload["source"])])
-
-    run_command(json_output=json_output, action=action, human_output=human_output)
+    run_command(
+        json_output=json_output,
+        action=action,
+        human_output=lambda payload: _emit_import_result(payload, "Vicon recording"),
+    )
 
 
 app.add_typer(dlc_app, name="dlc")
+app.add_typer(sleap_app, name="sleap")
+app.add_typer(vicon_app, name="vicon")

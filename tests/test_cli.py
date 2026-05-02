@@ -14,6 +14,9 @@ def test_cli_rejects_removed_compat_commands() -> None:
     from xpkg.cli import main
 
     with pytest.raises(SystemExit):
+        main(["init", "My Project"])
+
+    with pytest.raises(SystemExit):
         main(["convert", "dlc", "csv"])
 
     with pytest.raises(SystemExit):
@@ -21,6 +24,12 @@ def test_cli_rejects_removed_compat_commands() -> None:
 
     with pytest.raises(SystemExit):
         main(["import", "openpose", "--json", "openpose_json", "--out", "My Project"])
+
+    with pytest.raises(SystemExit):
+        main(["import", "sleap", "--slp", "labels.pkg.slp", "--out", "My Project"])
+
+    with pytest.raises(SystemExit):
+        main(["import", "vicon", "--csv", "trial.csv", "--out", "My Project"])
 
 
 def test_cli_routes_init_workspace(monkeypatch, capsys) -> None:
@@ -33,13 +42,11 @@ def test_cli_routes_init_workspace(monkeypatch, capsys) -> None:
         *,
         title: str | None,
         project_id: str | None,
-        default_pack_mode: str,
         force: bool,
     ) -> object:
         captured["workspace"] = workspace
         captured["title"] = title
         captured["project_id"] = project_id
-        captured["default_pack_mode"] = default_pack_mode
         captured["force"] = force
         return object()
 
@@ -47,14 +54,13 @@ def test_cli_routes_init_workspace(monkeypatch, capsys) -> None:
 
     code = main(
         [
+            "workspace",
             "init",
             "My Project",
             "--title",
             "My Project",
             "--id",
             "project-123",
-            "--pack-mode",
-            "snapshot",
             "--force",
         ]
     )
@@ -64,7 +70,6 @@ def test_cli_routes_init_workspace(monkeypatch, capsys) -> None:
         "workspace": "My Project",
         "title": "My Project",
         "project_id": "project-123",
-        "default_pack_mode": "snapshot",
         "force": True,
     }
     assert "Initialized workspace My Project" in capsys.readouterr().out
@@ -80,26 +85,23 @@ def test_cli_init_json_mode(monkeypatch, capsys) -> None:
         *,
         title: str | None,
         project_id: str | None,
-        default_pack_mode: str,
         force: bool,
     ) -> object:
         captured["workspace"] = workspace
         captured["title"] = title
         captured["project_id"] = project_id
-        captured["default_pack_mode"] = default_pack_mode
         captured["force"] = force
         return object()
 
     monkeypatch.setattr("xpkg.cli.commands.workspace.init_project", fake_init_project)
 
-    code = main(["init", "My Project", "--title", "My Project", "--json"])
+    code = main(["workspace", "init", "My Project", "--title", "My Project", "--json"])
 
     assert code == 0
     assert captured == {
         "workspace": "My Project",
         "title": "My Project",
         "project_id": None,
-        "default_pack_mode": "portable",
         "force": False,
     }
     captured_streams = capsys.readouterr()
@@ -110,7 +112,6 @@ def test_cli_init_json_mode(monkeypatch, capsys) -> None:
         "workspace": "My Project",
         "title": "My Project",
         "project_id": None,
-        "pack_mode": "portable",
     }
 
 
@@ -126,7 +127,6 @@ def test_cli_routes_import_dlc_csv_workspace(monkeypatch, capsys) -> None:
         *,
         skeleton_name: str,
         likelihood_threshold: float,
-        default_pack_mode: str = "portable",
         force: bool = False,
         progress_callback,
     ) -> Path:
@@ -135,7 +135,6 @@ def test_cli_routes_import_dlc_csv_workspace(monkeypatch, capsys) -> None:
         captured["workspace"] = workspace
         captured["skeleton_name"] = skeleton_name
         captured["likelihood_threshold"] = likelihood_threshold
-        captured["default_pack_mode"] = default_pack_mode
         captured["force"] = force
         progress_callback("import-progress")
         return _workspace_state_path(workspace)
@@ -170,7 +169,6 @@ def test_cli_routes_import_dlc_csv_workspace(monkeypatch, capsys) -> None:
         "workspace": "My Project",
         "skeleton_name": "subject",
         "likelihood_threshold": 0.25,
-        "default_pack_mode": "portable",
         "force": False,
     }
     stdout = capsys.readouterr().out
@@ -189,7 +187,6 @@ def test_cli_import_json_mode_suppresses_progress(monkeypatch, capsys) -> None:
         *,
         skeleton_name: str,
         likelihood_threshold: float,
-        default_pack_mode: str = "portable",
         force: bool = False,
         progress_callback,
     ) -> Path:
@@ -238,13 +235,11 @@ def test_cli_routes_import_vicon_csv_workspace(monkeypatch, capsys) -> None:
         csv_path: str,
         workspace: str,
         *,
-        default_pack_mode: str = "portable",
         force: bool = False,
         progress_callback,
     ) -> Path:
         captured["csv_path"] = csv_path
         captured["workspace"] = workspace
-        captured["default_pack_mode"] = default_pack_mode
         captured["force"] = force
         progress_callback("vicon-csv-progress")
         return _workspace_state_path(workspace)
@@ -258,6 +253,7 @@ def test_cli_routes_import_vicon_csv_workspace(monkeypatch, capsys) -> None:
         [
             "import",
             "vicon",
+            "csv",
             "--csv",
             "trial.csv",
             "--out",
@@ -269,7 +265,6 @@ def test_cli_routes_import_vicon_csv_workspace(monkeypatch, capsys) -> None:
     assert captured == {
         "csv_path": "trial.csv",
         "workspace": "My Project",
-        "default_pack_mode": "portable",
         "force": False,
     }
     stdout = capsys.readouterr().out
@@ -287,13 +282,11 @@ def test_cli_routes_import_vicon_c3d_workspace(monkeypatch, capsys) -> None:
         c3d_path: str,
         workspace: str,
         *,
-        default_pack_mode: str = "portable",
         force: bool = False,
         progress_callback,
     ) -> Path:
         captured["c3d_path"] = c3d_path
         captured["workspace"] = workspace
-        captured["default_pack_mode"] = default_pack_mode
         captured["force"] = force
         progress_callback("vicon-c3d-progress")
         return _workspace_state_path(workspace)
@@ -307,6 +300,7 @@ def test_cli_routes_import_vicon_c3d_workspace(monkeypatch, capsys) -> None:
         [
             "import",
             "vicon",
+            "c3d",
             "--c3d",
             "trial.c3d",
             "--out",
@@ -318,7 +312,6 @@ def test_cli_routes_import_vicon_c3d_workspace(monkeypatch, capsys) -> None:
     assert captured == {
         "c3d_path": "trial.c3d",
         "workspace": "My Project",
-        "default_pack_mode": "portable",
         "force": False,
     }
     stdout = capsys.readouterr().out
@@ -336,13 +329,11 @@ def test_cli_routes_import_vicon_recording_workspace(monkeypatch, capsys) -> Non
         recording_path: str,
         workspace: str,
         *,
-        default_pack_mode: str = "portable",
         force: bool = False,
         progress_callback,
     ) -> Path:
         captured["recording_path"] = recording_path
         captured["workspace"] = workspace
-        captured["default_pack_mode"] = default_pack_mode
         captured["force"] = force
         progress_callback("vicon-auto-progress")
         return _workspace_state_path(workspace)
@@ -356,6 +347,7 @@ def test_cli_routes_import_vicon_recording_workspace(monkeypatch, capsys) -> Non
         [
             "import",
             "vicon",
+            "recording",
             "--recording",
             "trial.csv",
             "--out",
@@ -367,7 +359,6 @@ def test_cli_routes_import_vicon_recording_workspace(monkeypatch, capsys) -> Non
     assert captured == {
         "recording_path": "trial.csv",
         "workspace": "My Project",
-        "default_pack_mode": "portable",
         "force": False,
     }
     stdout = capsys.readouterr().out
@@ -387,7 +378,6 @@ def test_cli_routes_import_dlc_project_workspace(monkeypatch, capsys) -> None:
         *,
         skeleton_name: str | None = None,
         likelihood_threshold: float,
-        default_pack_mode: str = "portable",
         force: bool = False,
         progress_callback,
     ) -> Path:
@@ -395,7 +385,6 @@ def test_cli_routes_import_dlc_project_workspace(monkeypatch, capsys) -> None:
         captured["workspace"] = workspace
         captured["skeleton_name"] = skeleton_name
         captured["likelihood_threshold"] = likelihood_threshold
-        captured["default_pack_mode"] = default_pack_mode
         captured["force"] = force
         progress_callback("project-import-progress")
         return _workspace_state_path(workspace)
@@ -425,7 +414,6 @@ def test_cli_routes_import_dlc_project_workspace(monkeypatch, capsys) -> None:
         "workspace": "My Project",
         "skeleton_name": None,
         "likelihood_threshold": 0.5,
-        "default_pack_mode": "portable",
         "force": False,
     }
     stdout = capsys.readouterr().out
@@ -445,7 +433,6 @@ def test_cli_routes_import_sleap_package_workspace(monkeypatch, capsys) -> None:
         *,
         fps: int,
         encode_videos: bool | None,
-        default_pack_mode: str = "portable",
         force: bool = False,
         progress_callback,
     ) -> Path:
@@ -453,7 +440,6 @@ def test_cli_routes_import_sleap_package_workspace(monkeypatch, capsys) -> None:
         captured["workspace"] = workspace
         captured["fps"] = fps
         captured["encode_videos"] = encode_videos
-        captured["default_pack_mode"] = default_pack_mode
         captured["force"] = force
         progress_callback("sleap-progress")
         return _workspace_state_path(workspace)
@@ -467,6 +453,7 @@ def test_cli_routes_import_sleap_package_workspace(monkeypatch, capsys) -> None:
         [
             "import",
             "sleap",
+            "package",
             "--slp",
             "labels.pkg.slp",
             "--out",
@@ -483,7 +470,6 @@ def test_cli_routes_import_sleap_package_workspace(monkeypatch, capsys) -> None:
         "workspace": "My Project",
         "fps": 24,
         "encode_videos": False,
-        "default_pack_mode": "portable",
         "force": False,
     }
     stdout = capsys.readouterr().out
@@ -504,7 +490,6 @@ def test_cli_routes_import_sleap_h5_workspace(monkeypatch, capsys) -> None:
         *,
         skeleton_name: str,
         likelihood_threshold: float,
-        default_pack_mode: str = "portable",
         force: bool = False,
         progress_callback,
     ) -> Path:
@@ -513,7 +498,6 @@ def test_cli_routes_import_sleap_h5_workspace(monkeypatch, capsys) -> None:
         captured["workspace"] = workspace
         captured["skeleton_name"] = skeleton_name
         captured["likelihood_threshold"] = likelihood_threshold
-        captured["default_pack_mode"] = default_pack_mode
         captured["force"] = force
         progress_callback("sleap-h5-import-progress")
         return _workspace_state_path(workspace)
@@ -527,6 +511,7 @@ def test_cli_routes_import_sleap_h5_workspace(monkeypatch, capsys) -> None:
         [
             "import",
             "sleap",
+            "h5",
             "--h5",
             "analysis.h5",
             "--video",
@@ -547,7 +532,6 @@ def test_cli_routes_import_sleap_h5_workspace(monkeypatch, capsys) -> None:
         "workspace": "My Project",
         "skeleton_name": "subject",
         "likelihood_threshold": 0.25,
-        "default_pack_mode": "portable",
         "force": False,
     }
     stdout = capsys.readouterr().out
@@ -569,7 +553,6 @@ def test_cli_routes_import_mmpose_workspace(monkeypatch, capsys) -> None:
         skeleton_name: str,
         instance_index: int,
         likelihood_threshold: float,
-        default_pack_mode: str = "portable",
         force: bool = False,
         progress_callback,
     ) -> Path:
@@ -579,7 +562,6 @@ def test_cli_routes_import_mmpose_workspace(monkeypatch, capsys) -> None:
         captured["skeleton_name"] = skeleton_name
         captured["instance_index"] = instance_index
         captured["likelihood_threshold"] = likelihood_threshold
-        captured["default_pack_mode"] = default_pack_mode
         captured["force"] = force
         progress_callback("mmpose-import-progress")
         return _workspace_state_path(workspace)
@@ -614,7 +596,6 @@ def test_cli_routes_import_mmpose_workspace(monkeypatch, capsys) -> None:
         "skeleton_name": "imported",
         "instance_index": 1,
         "likelihood_threshold": 0.4,
-        "default_pack_mode": "portable",
         "force": False,
     }
     stdout = capsys.readouterr().out
@@ -635,7 +616,6 @@ def test_cli_routes_import_mediapipe_workspace(monkeypatch, capsys) -> None:
         *,
         skeleton_name: str,
         likelihood_threshold: float,
-        default_pack_mode: str = "portable",
         force: bool = False,
         progress_callback,
     ) -> Path:
@@ -644,7 +624,6 @@ def test_cli_routes_import_mediapipe_workspace(monkeypatch, capsys) -> None:
         captured["workspace"] = workspace
         captured["skeleton_name"] = skeleton_name
         captured["likelihood_threshold"] = likelihood_threshold
-        captured["default_pack_mode"] = default_pack_mode
         captured["force"] = force
         progress_callback("mediapipe-import-progress")
         return _workspace_state_path(workspace)
@@ -676,7 +655,6 @@ def test_cli_routes_import_mediapipe_workspace(monkeypatch, capsys) -> None:
         "workspace": "My Project",
         "skeleton_name": "mediapipe_pose",
         "likelihood_threshold": 0.3,
-        "default_pack_mode": "portable",
         "force": False,
     }
     stdout = capsys.readouterr().out
@@ -697,7 +675,6 @@ def test_cli_routes_import_lightning_pose_workspace(monkeypatch, capsys) -> None
         *,
         skeleton_name: str,
         likelihood_threshold: float,
-        default_pack_mode: str = "portable",
         force: bool = False,
         progress_callback,
     ) -> Path:
@@ -706,7 +683,6 @@ def test_cli_routes_import_lightning_pose_workspace(monkeypatch, capsys) -> None
         captured["workspace"] = workspace
         captured["skeleton_name"] = skeleton_name
         captured["likelihood_threshold"] = likelihood_threshold
-        captured["default_pack_mode"] = default_pack_mode
         captured["force"] = force
         progress_callback("lightning-pose-import-progress")
         return _workspace_state_path(workspace)
@@ -738,7 +714,6 @@ def test_cli_routes_import_lightning_pose_workspace(monkeypatch, capsys) -> None
         "workspace": "My Project",
         "skeleton_name": "imported",
         "likelihood_threshold": 0.4,
-        "default_pack_mode": "portable",
         "force": False,
     }
     stdout = capsys.readouterr().out
@@ -750,17 +725,18 @@ def test_cli_routes_import_lightning_pose_workspace(monkeypatch, capsys) -> None
 def test_cli_json_errors_use_stderr(capsys) -> None:
     from xpkg.cli import main
 
-    code = main(["import", "sleap", "--h5", "analysis.h5", "--out", "My Project", "--json"])
+    with pytest.raises(SystemExit) as exc_info:
+        main(["import", "sleap", "h5", "--h5", "analysis.h5", "--out", "My Project", "--json"])
 
-    assert code == 1
+    assert exc_info.value.code == 1
     captured_streams = capsys.readouterr()
     assert captured_streams.out == ""
     payload = json.loads(captured_streams.err)
     assert payload == {
         "error": {
-            "code": "invalid_input",
-            "message": "--video is required when importing SLEAP --h5 inputs",
-            "hint": "Check the required flags and input format, then rerun the command.",
+            "code": "usage_error",
+            "message": "Missing option '--video'.",
+            "hint": "Run `xpkg --help` or `xpkg describe --json` for the command contract.",
         }
     }
 
@@ -775,14 +751,10 @@ def test_cli_routes_pack_unpack_and_validate(monkeypatch, capsys) -> None:
         workspace: str,
         *,
         out: str | None,
-        mode: str | None,
-        media_policy: str | None,
         overwrite: bool,
     ) -> Path:
         captured["pack_workspace"] = workspace
         captured["pack_out"] = out
-        captured["pack_mode"] = mode
-        captured["pack_media_policy"] = media_policy
         captured["pack_overwrite"] = overwrite
         return Path("My Project.expkg")
 
@@ -811,17 +783,15 @@ def test_cli_routes_pack_unpack_and_validate(monkeypatch, capsys) -> None:
 
     pack_code = main(
         [
+            "workspace",
             "pack",
             "My Project",
-            "--mode",
-            "snapshot",
-            "--media",
-            "manifest",
             "--overwrite",
         ]
     )
     unpack_code = main(
         [
+            "workspace",
             "unpack",
             "My Project.expkg",
             "--out",
@@ -831,7 +801,7 @@ def test_cli_routes_pack_unpack_and_validate(monkeypatch, capsys) -> None:
             "Renamed Project",
         ]
     )
-    validate_code = main(["validate", "My Project.expkg"])
+    validate_code = main(["workspace", "validate", "My Project.expkg"])
 
     assert pack_code == 0
     assert unpack_code == 0
@@ -839,8 +809,6 @@ def test_cli_routes_pack_unpack_and_validate(monkeypatch, capsys) -> None:
     assert captured == {
         "pack_workspace": "My Project",
         "pack_out": None,
-        "pack_mode": "snapshot",
-        "pack_media_policy": "manifest",
         "pack_overwrite": True,
         "unpack_artifact": "My Project.expkg",
         "unpack_out": "Unpacked Project",
@@ -852,6 +820,27 @@ def test_cli_routes_pack_unpack_and_validate(monkeypatch, capsys) -> None:
     assert "Packed My Project" in stdout
     assert "Unpacked My Project.expkg" in stdout
     assert "Valid My Project.expkg" in stdout
+
+
+def test_cli_workspace_describe_json_mode(tmp_path: Path, capsys) -> None:
+    from xpkg.cli import main
+    from xpkg.services import WorkspaceService
+
+    workspace = WorkspaceService.create(tmp_path / "Described Project", title="Described Project")
+
+    code = main(["workspace", "describe", str(workspace.workspace_root), "--json"])
+
+    assert code == 0
+    captured_streams = capsys.readouterr()
+    assert captured_streams.err == ""
+    payload = json.loads(captured_streams.out)
+    assert payload["status"] == "described"
+    assert payload["workspace"] == str(workspace.workspace_root)
+    assert payload["descriptor"]["title"] == "Described Project"
+    assert payload["paths"]["descriptor"].endswith("/PROJECT.json")
+    assert payload["paths"]["store"].endswith("/.xpkg")
+    assert payload["paths"]["current_state"].endswith("/.xpkg/state/current.json")
+    assert payload["has_current_state"] is False
 
 
 def test_cli_artifacts_list_inspect_validate_and_rebuild(tmp_path: Path, capsys) -> None:

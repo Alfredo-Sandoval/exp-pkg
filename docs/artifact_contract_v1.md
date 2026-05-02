@@ -88,8 +88,7 @@ Required fields:
   "updated_at": "2026-03-15T00:00:00Z",
   "store_path": ".xpkg",
   "media_root": "Media",
-  "exports_root": "Exports",
-  "default_pack_mode": "portable"
+  "exports_root": "Exports"
 }
 ```
 
@@ -181,24 +180,23 @@ GUI behavior for `.expkg`:
 
 ### Pack
 
-`pack` creates a packed project artifact from a workspace.
+`workspace pack` creates a packed project artifact from a workspace.
 
 Example:
 
 ```bash
-xpkg pack "My Project"
+xpkg workspace pack "My Project"
 # emits My Project/Exports/My Project.expkg
-xpkg pack "My Project" --mode snapshot --media manifest
 ```
 
 ### Unpack
 
-`unpack` creates a workspace from a portable artifact.
+`workspace unpack` creates a workspace from a portable artifact.
 
 Example:
 
 ```bash
-xpkg unpack "My Project.expkg" --out "./My Project"
+xpkg workspace unpack "My Project.expkg" --out "./My Project"
 ```
 
 ### Import
@@ -210,45 +208,26 @@ Examples:
 
 ```bash
 xpkg import dlc csv --csv tracking.csv --video video.mp4 --out "./My Project"
-xpkg import sleap --slp labels.pkg.slp --out "./My Project"
+xpkg import sleap package --slp labels.pkg.slp --out "./My Project"
 ```
 
 The locked command surface is documented in `docs/cli_command_spec_v1.md`.
 
 ## Media Policy
 
-There are two supported pack modes and three media policies.
-
-### `portable`
-
-This is the default. It produces a genuinely portable artifact.
+`.expkg` exports are portable. There is no state-only or manifest-only pack
+mode in the public artifact contract.
 
 Rules:
 
-- Media policy must be `include`.
 - All required media must be inside `Media/` before pack.
 - If required media are external, pack fails loudly.
 - No silent omission is allowed.
+- Media under `Media/` is stored in the `.expkg`; member sizes and SHA-256
+  digests are recorded in `EXPKG.json`.
 
-### `snapshot`
-
-This is an optional state-focused export.
-
-Rules:
-
-- The default media policy is `manifest`.
-- The resulting `.expkg` is not guaranteed to fully open on another machine.
-- The artifact must declare itself as `snapshot`, not `portable`.
-
-### Media Policies
-
-- `include`: media under `Media/` is stored in the `.expkg`; member sizes and
-  SHA-256 digests are recorded in `EXPKG.json`.
-- `manifest`: media bytes are omitted, but `EXPKG.json` records each
-  workspace media file path, size, and SHA-256 digest.
-- `exclude`: media bytes and media file inventory are both omitted.
-
-The default pack mode is `portable`.
+Cloud or dataset-backed media workflows should be represented by future cloud
+sync/import/export layers, not by weakening the `.expkg` portability contract.
 
 ## Path Rules
 

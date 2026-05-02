@@ -11,14 +11,11 @@ unpacking, validation, and artifact inspection.
 The workspace-first command surface is:
 
 ```text
-xpkg init
 xpkg artifacts
 xpkg completion
 xpkg describe
 xpkg import
-xpkg pack
-xpkg unpack
-xpkg validate
+xpkg workspace
 ```
 
 ## Shared Rules
@@ -43,16 +40,27 @@ xpkg validate
 - Shell completion is exposed through `xpkg completion bash`, `xpkg completion
   zsh`, and `xpkg completion fish`.
 
-## `xpkg init`
+## `xpkg workspace`
+
+Manage workspace-first project lifecycle operations.
+
+### Commands
+
+- `xpkg workspace describe`
+- `xpkg workspace init`
+- `xpkg workspace pack`
+- `xpkg workspace unpack`
+- `xpkg workspace validate`
+
+## `xpkg workspace init`
 
 Create a new empty workspace with the canonical public layout.
 
 ### Synopsis
 
 ```bash
-xpkg init "./My Project"
-xpkg init "./My Project" --title "My Project"
-xpkg init "./My Project" --pack-mode portable
+xpkg workspace init "./My Project"
+xpkg workspace init "./My Project" --title "My Project"
 ```
 
 ### Required behavior
@@ -81,8 +89,11 @@ xpkg import dlc csv --csv tracking.csv --video video.mp4 --out "./My Project"
 xpkg import dlc h5 --h5 tracking.h5 --video video.mp4 --out "./My Project"
 xpkg import dlc project --project dlc_project --out "./My Project"
 xpkg import lightning-pose --csv predictions.csv --video video.mp4 --out "./My Project"
-xpkg import sleap --slp labels.pkg.slp --out "./My Project"
-xpkg import sleap --h5 analysis.h5 --video video.mp4 --out "./My Project"
+xpkg import sleap package --slp labels.pkg.slp --out "./My Project"
+xpkg import sleap h5 --h5 analysis.h5 --video video.mp4 --out "./My Project"
+xpkg import vicon recording --recording trial.c3d --out "./My Project"
+xpkg import vicon csv --csv trial.csv --out "./My Project"
+xpkg import vicon c3d --c3d trial.c3d --out "./My Project"
 xpkg import mmpose --input-json results.json --video video.mp4 --out "./My Project"
 xpkg import mediapipe --input-json pose_landmarks.json --video video.mp4 --out "./My Project"
 ```
@@ -93,8 +104,11 @@ xpkg import mediapipe --input-json pose_landmarks.json --video video.mp4 --out "
 - `xpkg import dlc h5`
 - `xpkg import dlc project`
 - `xpkg import lightning-pose`
-- `xpkg import sleap --slp`
-- `xpkg import sleap --h5`
+- `xpkg import sleap package`
+- `xpkg import sleap h5`
+- `xpkg import vicon recording`
+- `xpkg import vicon csv`
+- `xpkg import vicon c3d`
 - `xpkg import mmpose`
 - `xpkg import mediapipe`
 
@@ -140,20 +154,36 @@ xpkg artifacts rebuild-index "./My Project"
 
 - `artifacts` does not render plots, compute statistics, or choose scientific
   models.
-- `artifacts` does not make `.expkg` files mutable; use `xpkg pack` after
+- `artifacts` does not make `.expkg` files mutable; use `xpkg workspace pack` after
   workspace changes.
 
-## `xpkg pack`
+## `xpkg workspace describe`
+
+Describe the normalized workspace layout and descriptor.
+
+### Synopsis
+
+```bash
+xpkg workspace describe "./My Project"
+xpkg workspace describe "./My Project" --json
+```
+
+### Required behavior
+
+- Resolves the owning workspace root from the supplied path.
+- Returns the normalized managed paths for `PROJECT.json`, `.xpkg/`, `Media/`,
+  `Exports/`, and the current state cache.
+- Emits the current `PROJECT.json` descriptor in JSON mode.
+
+## `xpkg workspace pack`
 
 Create a portable `.expkg` artifact from a workspace.
 
 ### Synopsis
 
 ```bash
-xpkg pack "./My Project"
-xpkg pack "./My Project" --out "./release/My Project.expkg"
-xpkg pack "./My Project" --mode snapshot
-xpkg pack "./My Project" --mode snapshot --media manifest
+xpkg workspace pack "./My Project"
+xpkg workspace pack "./My Project" --out "./release/My Project.expkg"
 ```
 
 ### Required behavior
@@ -163,37 +193,20 @@ xpkg pack "./My Project" --mode snapshot --media manifest
 - Emits a `.expkg` file.
 - Defaults output to `./My Project/Exports/My Project.expkg` when `--out` is
   omitted.
-- Uses `portable` mode by default.
-- Uses `include` media policy for portable packs and `manifest` media policy
-  for snapshot packs unless `--media` is supplied.
-- Fails if required media are external and unavailable for a portable pack.
-- Writes a root `EXPKG.json` manifest declaring the chosen mode, media policy,
-  member paths, member sizes, member SHA-256 digests, and compression policy.
+- Fails if required media are external or unavailable.
+- Writes a root `EXPKG.json` manifest declaring member paths, member sizes,
+  member SHA-256 digests, and compression policy.
 - Stores already-compressed media and common binary containers without
   additional zip compression.
 
-### Mode semantics
-
-- `portable`: includes or internalizes required media so the artifact can move
-  across machines.
-- `snapshot`: allows external media references and is not guaranteed to fully
-  open elsewhere.
-
-### Media policy semantics
-
-- `include`: archive media under `Media/`; required for `portable`.
-- `manifest`: omit media bytes but record workspace media paths, sizes, and
-  SHA-256 digests in `EXPKG.json`.
-- `exclude`: omit media bytes and media inventory.
-
-## `xpkg unpack`
+## `xpkg workspace unpack`
 
 Create a workspace from a `.expkg` artifact.
 
 ### Synopsis
 
 ```bash
-xpkg unpack "./My Project.expkg" --out "./My Project"
+xpkg workspace unpack "./My Project.expkg" --out "./My Project"
 ```
 
 ### Required behavior
@@ -201,22 +214,20 @@ xpkg unpack "./My Project.expkg" --out "./My Project"
 - Accepts a `.expkg` file as input.
 - Creates a workspace folder as output.
 - Reconstructs `PROJECT.json` and `.xpkg/`.
-- Restores `Media/` when it is included in the artifact.
-- Creates an empty `Media/` directory for manifest-only or excluded-media
-  snapshot artifacts.
+- Restores `Media/` from the artifact.
 - Excludes temp files, locks, caches, and machine-local scratch state.
 - Refuses to unpack into a conflicting non-empty directory unless an explicit
   future overwrite flag is added.
 
-## `xpkg validate`
+## `xpkg workspace validate`
 
 Validate a workspace or packed `.expkg` artifact.
 
 ### Synopsis
 
 ```bash
-xpkg validate "./My Project"
-xpkg validate "./My Project.expkg"
+xpkg workspace validate "./My Project"
+xpkg workspace validate "./My Project.expkg"
 ```
 
 ### Required behavior
@@ -225,7 +236,7 @@ xpkg validate "./My Project.expkg"
 - Fails loudly when the supplied path does not satisfy the corresponding
   contract.
 - For `.expkg`, verifies `EXPKG.json`, member path safety, duplicate member
-  absence, member sizes, member SHA-256 digests, and media policy consistency.
+  absence, member sizes, member SHA-256 digests, and media/member consistency.
 - Leaves the validated artifact unchanged.
 
 ## Open Behavior

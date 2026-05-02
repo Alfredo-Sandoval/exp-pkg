@@ -57,6 +57,24 @@ def _describe_payload() -> dict[str, object]:
             "2": "reserved for auth or config failure",
             "3": "not found",
         },
+        "resources": {
+            "artifacts": ["inspect", "list", "rebuild-index", "validate"],
+            "completion": ["bash", "fish", "zsh"],
+            "import": [
+                "dlc csv",
+                "dlc h5",
+                "dlc project",
+                "lightning-pose",
+                "mediapipe",
+                "mmpose",
+                "sleap h5",
+                "sleap package",
+                "vicon c3d",
+                "vicon csv",
+                "vicon recording",
+            ],
+            "workspace": ["describe", "init", "pack", "unpack", "validate"],
+        },
         "commands": [
             "artifacts inspect",
             "artifacts list",
@@ -72,12 +90,16 @@ def _describe_payload() -> dict[str, object]:
             "import lightning-pose",
             "import mediapipe",
             "import mmpose",
-            "import sleap",
-            "import vicon",
-            "init",
-            "pack",
-            "unpack",
-            "validate",
+            "import sleap h5",
+            "import sleap package",
+            "import vicon c3d",
+            "import vicon csv",
+            "import vicon recording",
+            "workspace describe",
+            "workspace init",
+            "workspace pack",
+            "workspace unpack",
+            "workspace validate",
         ],
     }
 
@@ -117,10 +139,10 @@ def describe(json_output: JsonOption = False) -> None:
     run_command(json_output=json_output, action=action, human_output=human_output)
 
 
-workspace.register(app)
 app.add_typer(artifacts.app, name="artifacts")
 app.add_typer(completion.build_app(app), name="completion")
 app.add_typer(imports.app, name="import")
+app.add_typer(workspace.app, name="workspace")
 
 
 def main(argv: Sequence[str] | None = None) -> int:
