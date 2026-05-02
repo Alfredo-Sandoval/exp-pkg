@@ -48,6 +48,11 @@ sequence handling, frame indexing, color policy, and media export rules.
   reader path.
 - Use `torch`, `torchvision`, and `torchcodec` as the PyTorch-aligned
   deep-learning stack, with TorchCodec handling video/audio tensors.
+- Use `mlx` as the Apple/Metal acceleration path for tensor/model pipelines.
+- Use `torch-cuda` and `torchcodec-cuda` as the NVIDIA acceleration path for
+  tensor/model/video pipelines.
+- Treat `ffmpeg-nvidia` as a host capability probe for NVDEC/NVENC exposure,
+  not as a Python package dependency.
 - Use `onnxruntime` as the portable exported-model inference backend.
 - Use `kornia` for differentiable tensor-native computer-vision operations.
 - Do not import heavy optional stacks during `import xpkg` or `import xpkg.media`.

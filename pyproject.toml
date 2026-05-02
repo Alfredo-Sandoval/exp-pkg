@@ -88,13 +88,28 @@ dl = [
 inference = [
   "onnxruntime>=1.24,<2",
 ]
+mlx = [
+  "mlx>=0.31,<1",
+]
+nvidia = [
+  "torch>=2.11,<2.12",
+  "torchcodec>=0.11,<0.12",
+  "torchvision>=0.26,<0.27",
+]
 vision = [
   "kornia>=0.8,<1",
   "torch>=2.11,<2.12",
 ]
+hardware-accel = [
+  "mlx>=0.31,<1",
+  "torch>=2.11,<2.12",
+  "torchcodec>=0.11,<0.12",
+  "torchvision>=0.26,<0.27",
+]
 media-dl = [
   "av>=16,<17",
   "kornia>=0.8,<1",
+  "mlx>=0.31,<1",
   "onnxruntime>=1.24,<2",
   "torch>=2.11,<2.12",
   "torchcodec>=0.11,<0.12",

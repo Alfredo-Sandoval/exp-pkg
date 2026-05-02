@@ -3,11 +3,17 @@
 from __future__ import annotations
 
 from xpkg.media.backends import (
+    HardwareAccelerationStatus,
     MediaBackendStatus,
+    available_hardware_accelerators,
     available_media_backends,
+    hardware_acceleration_status,
+    hardware_acceleration_status_by_name,
     media_backend_status,
     media_backend_status_by_name,
+    missing_hardware_accelerators,
     missing_media_backends,
+    require_hardware_acceleration,
     require_media_backend,
 )
 from xpkg.media.images import read_bgr, read_rgb, read_rgb_bytes
@@ -27,6 +33,7 @@ from xpkg.media.video import (
 )
 
 __all__ = [
+    "HardwareAccelerationStatus",
     "MediaBackendStatus",
     "SingleImageVideo",
     "Video",
@@ -35,15 +42,20 @@ __all__ = [
     "VideoWriterImageio",
     "VideoWriterOpenCV",
     "augment_background",
+    "available_hardware_accelerators",
     "available_video_exts",
     "available_media_backends",
     "gui_playback_backend_for_path",
+    "hardware_acceleration_status",
+    "hardware_acceleration_status_by_name",
     "media_backend_status",
     "media_backend_status_by_name",
     "missing_media_backends",
+    "missing_hardware_accelerators",
     "read_bgr",
     "read_rgb",
     "read_rgb_bytes",
+    "require_hardware_acceleration",
     "require_media_backend",
     "resize_image",
     "resize_images",

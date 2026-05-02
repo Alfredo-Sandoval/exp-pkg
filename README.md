@@ -195,18 +195,28 @@ you need richer media or deep-learning functionality:
 uv pip install -e ".[media-rich]"  # PyAV / rich FFmpeg media handling
 uv pip install -e ".[dl]"          # PyTorch + TorchCodec + TorchVision
 uv pip install -e ".[inference]"   # ONNX Runtime
+uv pip install -e ".[mlx]"         # MLX / Metal acceleration
+uv pip install -e ".[nvidia]"      # PyTorch + TorchCodec for NVIDIA CUDA
 uv pip install -e ".[vision]"      # Kornia + PyTorch
+uv pip install -e ".[hardware-accel]"  # MLX + NVIDIA optional runtimes
 uv pip install -e ".[media-dl]"    # Full optional media/deep-learning stack
 ```
 
 Runtime code can inspect available stacks through `xpkg.media`:
 
 ```python
-from xpkg.media import available_media_backends, require_media_backend
+from xpkg.media import (
+    available_hardware_accelerators,
+    available_media_backends,
+    require_hardware_acceleration,
+    require_media_backend,
+)
 from xpkg.media.video import Video
 
 print(available_media_backends())
+print(available_hardware_accelerators())
 require_media_backend("pyav")
+require_hardware_acceleration("mlx")
 video = Video.from_filename("session.mp4", backend="pyav")
 ```
 
