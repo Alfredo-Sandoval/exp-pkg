@@ -92,9 +92,13 @@ Resolve the default packed artifact destination:
 
 ## Pack / Unpack / Validate
 
-### `pack_project(workspace, *, out=None, mode=None, overwrite=False)`
+### `pack_project(workspace, *, out=None, mode=None, media_policy=None, overwrite=False)`
 
 Pack a workspace into a portable `.expkg` artifact.
+
+`mode` is `portable` or `snapshot`. `media_policy` is `include`, `manifest`, or
+`exclude`; when omitted, portable packs include media and snapshot packs write a
+media manifest without bundling media bytes.
 
 ### `unpack_project(artifact, out, *, force=False, rename_title=None)`
 

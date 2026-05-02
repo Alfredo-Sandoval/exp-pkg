@@ -153,6 +153,7 @@ Create a portable `.expkg` artifact from a workspace.
 xpkg pack "./My Project"
 xpkg pack "./My Project" --out "./release/My Project.expkg"
 xpkg pack "./My Project" --mode snapshot
+xpkg pack "./My Project" --mode snapshot --media manifest
 ```
 
 ### Required behavior
@@ -163,8 +164,13 @@ xpkg pack "./My Project" --mode snapshot
 - Defaults output to `./My Project/Exports/My Project.expkg` when `--out` is
   omitted.
 - Uses `portable` mode by default.
+- Uses `include` media policy for portable packs and `manifest` media policy
+  for snapshot packs unless `--media` is supplied.
 - Fails if required media are external and unavailable for a portable pack.
-- Declares the chosen mode in the packed artifact metadata.
+- Writes a root `EXPKG.json` manifest declaring the chosen mode, media policy,
+  member paths, member sizes, member SHA-256 digests, and compression policy.
+- Stores already-compressed media and common binary containers without
+  additional zip compression.
 
 ### Mode semantics
 
@@ -172,6 +178,13 @@ xpkg pack "./My Project" --mode snapshot
   across machines.
 - `snapshot`: allows external media references and is not guaranteed to fully
   open elsewhere.
+
+### Media policy semantics
+
+- `include`: archive media under `Media/`; required for `portable`.
+- `manifest`: omit media bytes but record workspace media paths, sizes, and
+  SHA-256 digests in `EXPKG.json`.
+- `exclude`: omit media bytes and media inventory.
 
 ## `xpkg unpack`
 
@@ -186,9 +199,11 @@ xpkg unpack "./My Project.expkg" --out "./My Project"
 ### Required behavior
 
 - Accepts a `.expkg` file as input.
-- Creates a valid workspace folder as output.
+- Creates a workspace folder as output.
 - Reconstructs `PROJECT.json` and `.xpkg/`.
 - Restores `Media/` when it is included in the artifact.
+- Creates an empty `Media/` directory for manifest-only or excluded-media
+  snapshot artifacts.
 - Excludes temp files, locks, caches, and machine-local scratch state.
 - Refuses to unpack into a conflicting non-empty directory unless an explicit
   future overwrite flag is added.
@@ -209,6 +224,8 @@ xpkg validate "./My Project.expkg"
 - Accepts a workspace folder or `.expkg` file.
 - Fails loudly when the supplied path does not satisfy the corresponding
   contract.
+- For `.expkg`, verifies `EXPKG.json`, member path safety, duplicate member
+  absence, member sizes, member SHA-256 digests, and media policy consistency.
 - Leaves the validated artifact unchanged.
 
 ## Open Behavior

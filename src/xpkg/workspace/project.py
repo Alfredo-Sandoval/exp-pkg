@@ -10,6 +10,7 @@ workspace storage internals.
 from __future__ import annotations
 
 from xpkg.io.project_artifact import (
+    EXPKG_MANIFEST_FILENAME,
     pack_project,
     unpack_project,
     validate_artifact,
@@ -103,6 +104,7 @@ __all__ = [
     "ARTIFACT_INDEX_FILENAME",
     "ARTIFACT_MANIFEST_FILENAME",
     "ARTIFACT_SCHEMA_VERSION",
+    "EXPKG_MANIFEST_FILENAME",
     "EXPKG_SUFFIX",
     "FIGURE_ARTIFACT_SCHEMA_VERSION",
     "FIGURE_ARTIFACT_TYPE",

@@ -141,11 +141,13 @@ exports.
 Rules:
 
 - It represents a committed, validated workspace snapshot.
-- Unpacking recreates a valid workspace layout.
+- Unpacking recreates a workspace layout with `PROJECT.json`, `.xpkg/`,
+  `Media/`, and `Exports/`.
 - It is a project artifact, not a raw storage engine.
 - Users and third parties must treat it as opaque.
-- Internally it may use zip, tar+zstd, or another transport.
-  That is an implementation detail.
+- v1 uses a zip container with a root `EXPKG.json` export manifest.
+- Already-compressed media and common binary containers are stored without
+  additional zip compression to avoid slow double-compression.
 
 On unpack, xpkg reconstructs:
 
@@ -153,11 +155,15 @@ On unpack, xpkg reconstructs:
 <Project Name>/
   PROJECT.json
   .xpkg/
-  Media/        # if included
+  Media/        # populated only when media was included
+  Exports/
 ```
 
-The result must be logically identical, not byte-identical. Locks, caches,
-temporary files, and machine-local scratch state are excluded.
+For portable artifacts the result must be logically identical, not
+byte-identical. Locks, caches, temporary files, and machine-local scratch state
+are excluded. Snapshot artifacts may intentionally omit media bytes; those
+unpacked workspaces preserve project state and media references but are not
+guaranteed to load media-backed labels on another machine.
 
 ## Open, Pack, Unpack, Import
 
@@ -175,13 +181,14 @@ GUI behavior for `.expkg`:
 
 ### Pack
 
-`pack` creates a portable artifact from a workspace.
+`pack` creates a packed project artifact from a workspace.
 
 Example:
 
 ```bash
 xpkg pack "My Project"
 # emits My Project/Exports/My Project.expkg
+xpkg pack "My Project" --mode snapshot --media manifest
 ```
 
 ### Unpack
@@ -210,7 +217,7 @@ The locked command surface is documented in `docs/cli_command_spec_v1.md`.
 
 ## Media Policy
 
-There are only two supported pack modes.
+There are two supported pack modes and three media policies.
 
 ### `portable`
 
@@ -218,19 +225,28 @@ This is the default. It produces a genuinely portable artifact.
 
 Rules:
 
-- All required media must be inside `Media/`, or copied in during pack.
-- If required media are external and not copied, pack fails loudly.
+- Media policy must be `include`.
+- All required media must be inside `Media/` before pack.
+- If required media are external, pack fails loudly.
 - No silent omission is allowed.
 
 ### `snapshot`
 
-This is an optional state-only export.
+This is an optional state-focused export.
 
 Rules:
 
-- External media references may remain external.
+- The default media policy is `manifest`.
 - The resulting `.expkg` is not guaranteed to fully open on another machine.
 - The artifact must declare itself as `snapshot`, not `portable`.
+
+### Media Policies
+
+- `include`: media under `Media/` is stored in the `.expkg`; member sizes and
+  SHA-256 digests are recorded in `EXPKG.json`.
+- `manifest`: media bytes are omitted, but `EXPKG.json` records each
+  workspace media file path, size, and SHA-256 digest.
+- `exclude`: media bytes and media file inventory are both omitted.
 
 The default pack mode is `portable`.
 

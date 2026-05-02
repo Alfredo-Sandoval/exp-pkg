@@ -28,6 +28,14 @@ class PackMode(StrEnum):
     snapshot = "snapshot"
 
 
+class MediaPolicy(StrEnum):
+    """Supported packed artifact media policies."""
+
+    include = "include"
+    manifest = "manifest"
+    exclude = "exclude"
+
+
 def write_json(payload: object, *, stderr: bool = False) -> None:
     """Write one JSON document to stdout or stderr."""
     stream = sys.stderr if stderr else sys.stdout

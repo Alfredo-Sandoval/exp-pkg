@@ -58,6 +58,7 @@ if TYPE_CHECKING:
     from xpkg.model import Labels, ViconRecording
 
 PackMode = Literal["portable", "snapshot"]
+PackMediaPolicy = Literal["include", "manifest", "exclude"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -483,6 +484,7 @@ class WorkspaceService:
         *,
         out: str | Path | None = None,
         mode: PackMode | None = None,
+        media_policy: PackMediaPolicy | None = None,
         overwrite: bool = False,
     ) -> Path:
         """Pack the workspace into a portable `.expkg` artifact."""
@@ -490,6 +492,7 @@ class WorkspaceService:
             self.workspace_root,
             out=out,
             mode=mode,
+            media_policy=media_policy,
             overwrite=overwrite,
         )
 

@@ -776,11 +776,13 @@ def test_cli_routes_pack_unpack_and_validate(monkeypatch, capsys) -> None:
         *,
         out: str | None,
         mode: str | None,
+        media_policy: str | None,
         overwrite: bool,
     ) -> Path:
         captured["pack_workspace"] = workspace
         captured["pack_out"] = out
         captured["pack_mode"] = mode
+        captured["pack_media_policy"] = media_policy
         captured["pack_overwrite"] = overwrite
         return Path("My Project.expkg")
 
@@ -807,7 +809,17 @@ def test_cli_routes_pack_unpack_and_validate(monkeypatch, capsys) -> None:
         fake_validate_artifact,
     )
 
-    pack_code = main(["pack", "My Project", "--mode", "snapshot", "--overwrite"])
+    pack_code = main(
+        [
+            "pack",
+            "My Project",
+            "--mode",
+            "snapshot",
+            "--media",
+            "manifest",
+            "--overwrite",
+        ]
+    )
     unpack_code = main(
         [
             "unpack",
@@ -828,6 +840,7 @@ def test_cli_routes_pack_unpack_and_validate(monkeypatch, capsys) -> None:
         "pack_workspace": "My Project",
         "pack_out": None,
         "pack_mode": "snapshot",
+        "pack_media_policy": "manifest",
         "pack_overwrite": True,
         "unpack_artifact": "My Project.expkg",
         "unpack_out": "Unpacked Project",

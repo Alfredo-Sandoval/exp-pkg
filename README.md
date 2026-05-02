@@ -29,6 +29,10 @@ The public product contract is now intentionally narrow:
 - authoritative mutable state = private `.xpkg/`
 - portable artifact = `.expkg`
 
+`.expkg` v1 is a zip container with a root `EXPKG.json` manifest. Portable
+packs include managed media; snapshot packs can omit media bytes while keeping
+media path, size, and SHA-256 inventory in the manifest.
+
 ## Positioning
 
 The intended stack is:
@@ -108,6 +112,7 @@ The shipped workspace import surface currently covers:
 - Imports external pose, motion-capture, and media-associated annotation formats into canonical xpkg objects
 - Defines a stable project contract: workspace folder + private `.xpkg/` + `.expkg`
 - Manages workspace lifecycle: create, open, validate, pack, unpack
+- Validates `.expkg` manifests, archive member paths, sizes, and SHA-256 digests
 - Carries canonical containers such as `Labels`, `Skeleton`, `Instance`, and `Video`
 - Registers output artifacts with portable manifests for inputs, producer metadata, stats, checksums, and source data
 - Provides figure convenience helpers on top of the generic artifact registry
@@ -302,6 +307,7 @@ xpkg init "./My Project"
 xpkg import dlc csv --csv tracking.csv --video video.mp4 --out "./My Project"
 xpkg import lightning-pose --csv predictions.csv --video video.mp4 --out "./My Project"
 xpkg pack "./My Project"
+xpkg pack "./My Project" --mode snapshot --media manifest
 xpkg unpack "./My Project.expkg" --out "./My Project"
 xpkg validate "./My Project"
 xpkg artifacts list "./My Project" --kind figure

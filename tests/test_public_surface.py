@@ -84,6 +84,7 @@ from xpkg.workspace import (
     ARTIFACT_MANIFEST_FILENAME,
     ARTIFACT_SCHEMA_VERSION,
     ARTIFACTS_DIRNAME,
+    EXPKG_MANIFEST_FILENAME,
     EXPKG_SUFFIX,
     FIGURE_ARTIFACT_SCHEMA_VERSION,
     FIGURE_ARTIFACT_TYPE,
@@ -218,6 +219,7 @@ def test_public_exports_are_callable() -> None:
     assert ARTIFACT_INDEX_FILENAME == "index.json"
     assert ARTIFACT_MANIFEST_FILENAME == "manifest.json"
     assert ARTIFACT_SCHEMA_VERSION == "1.0.0"
+    assert EXPKG_MANIFEST_FILENAME == "EXPKG.json"
     assert EXPKG_SUFFIX == ".expkg"
     assert FIGURE_ARTIFACT_SCHEMA_VERSION == "1.0.0"
     assert FIGURE_ARTIFACT_TYPE == "figure"

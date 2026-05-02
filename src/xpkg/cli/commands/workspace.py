@@ -8,7 +8,7 @@ from typing import Annotated
 
 import typer
 
-from xpkg.cli.shared import JsonOption, PackMode, run_command, write_path
+from xpkg.cli.shared import JsonOption, MediaPolicy, PackMode, run_command, write_path
 from xpkg.workspace import init_project, pack_project, unpack_project
 from xpkg.workspace import validate_artifact as validate_artifact_target
 
@@ -71,6 +71,16 @@ def register(app: typer.Typer) -> None:
             PackMode | None,
             typer.Option("--mode", help="Pack mode. Defaults to the workspace default."),
         ] = None,
+        media: Annotated[
+            MediaPolicy | None,
+            typer.Option(
+                "--media",
+                help=(
+                    "Media policy. Defaults to include for portable packs and manifest "
+                    "for snapshot packs."
+                ),
+            ),
+        ] = None,
         overwrite: Annotated[
             bool,
             typer.Option("--overwrite", help="Replace an existing output artifact."),
@@ -84,6 +94,7 @@ def register(app: typer.Typer) -> None:
                 workspace,
                 out=out,
                 mode=mode.value if mode is not None else None,
+                media_policy=media.value if media is not None else None,
                 overwrite=overwrite,
             )
             return {
@@ -91,6 +102,7 @@ def register(app: typer.Typer) -> None:
                 "workspace": workspace,
                 "artifact": str(artifact_path),
                 "mode": mode.value if mode is not None else None,
+                "media_policy": media.value if media is not None else None,
             }
 
         def human_output(payload: dict[str, object]) -> None:

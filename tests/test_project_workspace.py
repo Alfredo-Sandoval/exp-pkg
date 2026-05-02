@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import shutil
+import zipfile
 from pathlib import Path
+from typing import Any
 
 import cv2
 import numpy as np
@@ -120,6 +123,22 @@ def _is_within(path: Path, root: Path) -> bool:
         return True
     except ValueError:
         return False
+
+
+def _read_expkg_manifest(artifact: Path) -> dict[str, Any]:
+    from xpkg.workspace import EXPKG_MANIFEST_FILENAME
+
+    with zipfile.ZipFile(artifact) as archive:
+        raw = archive.read(EXPKG_MANIFEST_FILENAME).decode("utf-8")
+    return json.loads(raw)
+
+
+def _archive_member_sha256(archive: zipfile.ZipFile, member: str) -> str:
+    digest = hashlib.sha256()
+    with archive.open(member, mode="r") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def _make_labels(tmp_path: Path, *, x: float, y: float):
@@ -414,17 +433,46 @@ def test_pack_snapshot_and_unpack_roundtrip_workspace(tmp_path: Path) -> None:
     snapshot_doc["payload"]["data"]["keypoints"][0][0][0][1] = 61.0
     snapshot_path.write_text(json.dumps(snapshot_doc, indent=2) + "\n", encoding="utf-8")
 
-    artifact = pack_project(workspace, mode="snapshot")
+    artifact = pack_project(workspace, mode="snapshot", media_policy="include")
     validate_artifact(artifact)
+    manifest = _read_expkg_manifest(artifact)
+    with zipfile.ZipFile(artifact) as archive:
+        archive_names = set(archive.namelist())
+
+    assert manifest["pack_mode"] == "snapshot"
+    assert manifest["media_policy"] == "include"
+    assert manifest["media"]["included_files"] == 1
+    assert any(name.startswith("Media/") for name in archive_names)
 
     unpacked = tmp_path / "Unpacked Project"
     unpack_project(artifact, unpacked)
-    validate_artifact(unpacked)
 
     loaded = Labels.load_file(unpacked.as_posix())
     pts = loaded.labeled_frames[0].instances[0].get_points_array(copy=False, full=True)
     assert float(pts["x"][0]) == 5.0
     assert float(pts["y"][0]) == 6.0
+
+
+def test_pack_snapshot_defaults_to_manifest_media_without_bundling(tmp_path: Path) -> None:
+    from xpkg.model import Labels
+    from xpkg.workspace import init_project, pack_project, validate_artifact
+
+    labels = _make_labels(tmp_path, x=6.0, y=7.0)
+    workspace = tmp_path / "Snapshot Manifest Project"
+    init_project(workspace, title="Snapshot Manifest Project")
+    Labels.save_file(labels, workspace.as_posix())
+
+    artifact = pack_project(workspace, mode="snapshot")
+    validate_artifact(artifact)
+    manifest = _read_expkg_manifest(artifact)
+    with zipfile.ZipFile(artifact) as archive:
+        archive_names = set(archive.namelist())
+
+    assert manifest["pack_mode"] == "snapshot"
+    assert manifest["media_policy"] == "manifest"
+    assert manifest["media"]["external_files"] == 1
+    assert manifest["media"]["external_bytes"] > 0
+    assert not any(name.startswith("Media/") for name in archive_names)
 
 
 def test_pack_portable_and_unpack_uses_managed_media_after_source_removal(tmp_path: Path) -> None:
@@ -452,6 +500,19 @@ def test_pack_portable_and_unpack_uses_managed_media_after_source_removal(tmp_pa
     artifact = tmp_path / "Portable Project.expkg"
     pack_project(workspace, mode="portable", out=artifact)
     validate_artifact(artifact)
+    manifest = _read_expkg_manifest(artifact)
+    with zipfile.ZipFile(artifact) as archive:
+        archive_names = set(archive.namelist())
+        for entry in manifest["members"]:
+            assert _archive_member_sha256(archive, entry["path"]) == entry["sha256"]
+
+    assert manifest["format"] == "xpkg-packed-project"
+    assert manifest["container"] == "zip"
+    assert manifest["pack_mode"] == "portable"
+    assert manifest["media_policy"] == "include"
+    assert manifest["media"]["included_files"] == len(managed_files)
+    assert all(name.startswith("Media/") for name in archive_names if name.startswith("Media/"))
+    assert any(name.startswith("Media/") for name in archive_names)
 
     shutil.rmtree(source_root)
     shutil.rmtree(workspace)
@@ -472,6 +533,46 @@ def test_pack_portable_and_unpack_uses_managed_media_after_source_removal(tmp_pa
             resolved = Path(str(frame_path))
             assert _is_within(resolved, unpacked_media_root)
             assert resolved.exists()
+
+
+def test_pack_portable_rejects_nonportable_media_policy(tmp_path: Path) -> None:
+    from xpkg.model import Labels
+    from xpkg.workspace import init_project, pack_project
+
+    labels = _make_labels(tmp_path, x=9.0, y=10.0)
+    workspace = tmp_path / "Portable Policy Project"
+    init_project(workspace, title="Portable Policy Project")
+    Labels.save_file(labels, workspace.as_posix())
+
+    with pytest.raises(ValueError, match="Portable pack requires media_policy='include'"):
+        pack_project(
+            workspace,
+            mode="portable",
+            media_policy="manifest",
+            out=tmp_path / "bad.expkg",
+        )
+
+
+def test_validate_expkg_rejects_tampered_member_payload(tmp_path: Path) -> None:
+    from xpkg.model import Labels
+    from xpkg.workspace import init_project, pack_project, validate_expkg
+
+    labels = _make_labels(tmp_path, x=11.0, y=12.0)
+    workspace = tmp_path / "Tamper Project"
+    init_project(workspace, title="Tamper Project")
+    Labels.save_file(labels, workspace.as_posix())
+
+    artifact = pack_project(workspace, mode="portable", out=tmp_path / "good.expkg")
+    tampered = tmp_path / "tampered.expkg"
+    with zipfile.ZipFile(artifact) as source, zipfile.ZipFile(tampered, mode="w") as dest:
+        for info in source.infolist():
+            data = source.read(info.filename)
+            if info.filename == "PROJECT.json":
+                data = data.replace(b"Tamper Project", b"Mutant Project")
+            dest.writestr(info, data)
+
+    with pytest.raises(ValueError, match="checksum mismatch"):
+        validate_expkg(tampered)
 
 
 def test_labels_save_file_to_workspace_creates_first_committed_state(tmp_path: Path) -> None:
