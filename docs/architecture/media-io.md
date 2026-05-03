@@ -157,6 +157,7 @@ implementations.
 | `onnxruntime` | Portable exported-model inference | macOS, Linux | Optional `inference` backend |
 | `kornia` | Differentiable computer-vision tensor operations | macOS, Linux | Optional `vision` backend |
 | `mlx` | Apple MLX tensor runtime | macOS, Linux | Optional `mlx` backend for model/tensor acceleration |
+| `nvpkg` | NVIDIA media-stack provisioning and verification | Linux | Optional `nvpkg` bridge for CUDA media packages |
 
 PyAV and TorchCodec should be explicit implementation backends, not hidden
 dependencies. PyAV is the better fit for FFmpeg-level media ownership and
@@ -173,9 +174,10 @@ The package extras encode this split:
 | `dl` | `torch`, `torchcodec`, `torchvision` | PyTorch tensor pipelines |
 | `inference` | `onnxruntime` | Exported model inference |
 | `mlx` | `mlx` | Apple/Metal tensor acceleration |
+| `nvpkg` | `nvpkg` on Linux | nvpkg verification bridge for CUDA media packages |
 | `nvidia` | `torch`, `torchcodec`, `torchvision` | NVIDIA CUDA tensor/video pipelines |
 | `vision` | `kornia`, `torch` | Differentiable tensor CV |
-| `hardware-accel` | `mlx`, `torch`, `torchcodec`, `torchvision` | MLX plus NVIDIA optional runtimes |
+| `hardware-accel` | `mlx`, `nvpkg` on Linux, `torch`, `torchcodec`, `torchvision` | MLX plus NVIDIA optional runtimes |
 | `media-dl` | all of the above | Full media/deep-learning stack |
 
 This choice follows the current upstream direction:
@@ -206,6 +208,9 @@ This choice follows the current upstream direction:
   <https://docs.pytorch.org/docs/stable/cuda.html>
 - TorchCodec supports CUDA/NVDEC decoding for NVIDIA video workloads:
   <https://meta-pytorch.org/torchcodec/stable/generated_examples/decoding/basic_cuda_example.html>
+- nvpkg is the intended Linux NVIDIA provisioning bridge for FFmpeg CUDA,
+  OpenCV CUDA, PyAV CUDA, Decord CUDA, TorchCodec CUDA, and DALI CUDA:
+  <https://github.com/Alfredo-Sandoval/nvpkg>
 
 ### Capability discovery
 
@@ -234,6 +239,10 @@ normal package import. It also reports hardware accelerators:
 | `torch-cuda` | PyTorch can use NVIDIA CUDA tensors |
 | `torchcodec-cuda` | TorchCodec is importable and PyTorch CUDA is available |
 | `ffmpeg-nvidia` | Host FFmpeg exposes NVDEC/NVENC support |
+| `opencv-cuda` | OpenCV exposes `cv2.cuda` with a visible CUDA device |
+| `pyav-cuda` | nvpkg verifies PyAV against the CUDA-capable media stack |
+| `decord-cuda` | nvpkg verifies Decord GPU video loading |
+| `dali-cuda` | nvpkg verifies NVIDIA DALI video-reader/data-loading support |
 
 PyAV is also available as an explicit reader backend via
 `Video.from_filename(..., backend="pyav")` when `exp-pkg[media-rich]` is
@@ -265,6 +274,23 @@ The CUDA backend should prioritize:
 - NVDEC/NVENC-backed transcode and export paths
 - low-copy host handoff into canonical `numpy` frames
 - explicit failure when requested hardware capabilities are not available
+
+`nvpkg` owns the Linux NVIDIA provisioning layer so xpkg does not need to carry
+CUDA build scripts or host-specific wheel logic. The expected setup sequence is:
+
+```bash
+nvpkg system doctor
+nvpkg package install ffmpeg
+nvpkg package install opencv_cuda
+nvpkg package install torchcodec_cuda
+nvpkg package verify opencv_cuda --json
+```
+
+Additional nvpkg packages can be installed when a workflow needs them:
+`pyav_cuda` for FFmpeg-level container control, `decord_cuda` for
+throughput-oriented video loading, and `dali_cuda` for batched data-loading
+pipelines. xpkg should consume those capabilities through explicit accelerator
+names rather than auto-selecting them silently.
 
 ### macOS goals
 

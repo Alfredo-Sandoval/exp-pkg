@@ -49,6 +49,7 @@ def test_media_backend_registry_keeps_heavy_stacks_optional() -> None:
     assert statuses["onnxruntime"].extra == "inference"
     assert statuses["kornia"].extra == "vision"
     assert statuses["mlx"].extra == "mlx"
+    assert statuses["nvpkg"].extra == "nvpkg"
     assert set(missing_media_backends()).isdisjoint({"images", "opencv", "imageio"})
 
 
@@ -66,11 +67,19 @@ def test_hardware_acceleration_registry_reports_supported_paths() -> None:
         "torch-cuda",
         "torchcodec-cuda",
         "ffmpeg-nvidia",
+        "opencv-cuda",
+        "pyav-cuda",
+        "decord-cuda",
+        "dali-cuda",
     } <= set(statuses)
     assert statuses["mlx-metal"].extra == "mlx"
     assert statuses["torch-cuda"].extra == "nvidia"
     assert statuses["torchcodec-cuda"].extra == "nvidia"
     assert statuses["ffmpeg-nvidia"].extra is None
+    assert statuses["opencv-cuda"].extra == "nvidia"
+    assert statuses["pyav-cuda"].extra == "nvidia"
+    assert statuses["decord-cuda"].extra == "nvidia"
+    assert statuses["dali-cuda"].extra == "nvidia"
     assert set(available_hardware_accelerators()).isdisjoint(missing_hardware_accelerators())
 
 
@@ -80,6 +89,10 @@ def test_hardware_acceleration_lookup_normalizes_common_aliases() -> None:
     assert hardware_acceleration_status_by_name("cuda").name == "torch-cuda"
     assert hardware_acceleration_status_by_name("nvidia").name == "torch-cuda"
     assert hardware_acceleration_status_by_name("nvenc").name == "ffmpeg-nvidia"
+    assert hardware_acceleration_status_by_name("opencv_cuda").name == "opencv-cuda"
+    assert hardware_acceleration_status_by_name("pyav_cuda").name == "pyav-cuda"
+    assert hardware_acceleration_status_by_name("decord_cuda").name == "decord-cuda"
+    assert hardware_acceleration_status_by_name("dali_cuda").name == "dali-cuda"
     assert hardware_acceleration_status_by_name("torch-codec").name == "torchcodec-cuda"
 
 
@@ -100,6 +113,15 @@ def test_require_hardware_acceleration_raises_actionable_error_for_missing_accel
 
     with pytest.raises(RuntimeError, match=r"exp-pkg\[nvidia\]"):
         require_hardware_acceleration("torch-cuda")
+
+
+def test_require_hardware_acceleration_reports_nvpkg_install_command() -> None:
+    status = hardware_acceleration_status_by_name("opencv-cuda")
+    if status.available:
+        pytest.skip("OpenCV CUDA is available in this environment")
+
+    with pytest.raises(RuntimeError, match="nvpkg package install opencv_cuda"):
+        require_hardware_acceleration("opencv-cuda")
 
 
 def test_require_media_backend_raises_actionable_error_for_missing_backend() -> None:
@@ -135,7 +157,9 @@ def test_pyproject_declares_media_and_deep_learning_extras() -> None:
     ]
     assert extras["inference"] == ["onnxruntime>=1.24,<2"]
     assert extras["mlx"] == ["mlx>=0.31,<1"]
+    assert extras["nvpkg"] == ["nvpkg>=0.1,<1; platform_system == 'Linux'"]
     assert extras["nvidia"] == [
+        "nvpkg>=0.1,<1; platform_system == 'Linux'",
         "torch>=2.11,<2.12",
         "torchcodec>=0.11,<0.12",
         "torchvision>=0.26,<0.27",
@@ -143,6 +167,7 @@ def test_pyproject_declares_media_and_deep_learning_extras() -> None:
     assert extras["vision"] == ["kornia>=0.8,<1", "torch>=2.11,<2.12"]
     assert extras["hardware-accel"] == [
         "mlx>=0.31,<1",
+        "nvpkg>=0.1,<1; platform_system == 'Linux'",
         "torch>=2.11,<2.12",
         "torchcodec>=0.11,<0.12",
         "torchvision>=0.26,<0.27",
@@ -151,6 +176,7 @@ def test_pyproject_declares_media_and_deep_learning_extras() -> None:
         "av>=16,<17",
         "kornia>=0.8,<1",
         "mlx>=0.31,<1",
+        "nvpkg>=0.1,<1; platform_system == 'Linux'",
         "onnxruntime>=1.24,<2",
         "torch>=2.11,<2.12",
         "torchcodec>=0.11,<0.12",

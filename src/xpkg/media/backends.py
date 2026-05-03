@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import shutil
 import subprocess
 from collections.abc import Callable
@@ -157,6 +158,12 @@ _MEDIA_BACKENDS: tuple[_MediaBackendSpec, ...] = (
         role="Apple MLX tensor runtime for Metal-accelerated model pipelines",
         extra="mlx",
     ),
+    _MediaBackendSpec(
+        name="nvpkg",
+        modules=("nvpkg_core",),
+        role="Linux NVIDIA media-stack provisioning and verification bridge",
+        extra="nvpkg",
+    ),
 )
 
 _HARDWARE_ACCELERATION: tuple[_HardwareAccelerationSpec, ...] = (
@@ -183,6 +190,30 @@ _HARDWARE_ACCELERATION: tuple[_HardwareAccelerationSpec, ...] = (
         role="NVIDIA NVDEC/NVENC support exposed by the host FFmpeg binary",
         detector=lambda: _detect_ffmpeg_nvidia(),
     ),
+    _HardwareAccelerationSpec(
+        name="opencv-cuda",
+        role="NVIDIA CUDA image/video operations through OpenCV",
+        detector=lambda: _detect_opencv_cuda(),
+        extra="nvidia",
+    ),
+    _HardwareAccelerationSpec(
+        name="pyav-cuda",
+        role="PyAV verified against a CUDA-capable FFmpeg stack",
+        detector=lambda: _detect_nvpkg_package("pyav_cuda"),
+        extra="nvidia",
+    ),
+    _HardwareAccelerationSpec(
+        name="decord-cuda",
+        role="NVIDIA GPU video loading through Decord",
+        detector=lambda: _detect_nvpkg_package("decord_cuda"),
+        extra="nvidia",
+    ),
+    _HardwareAccelerationSpec(
+        name="dali-cuda",
+        role="NVIDIA DALI video-reader and data-loading pipelines",
+        detector=lambda: _detect_nvpkg_package("dali_cuda"),
+        extra="nvidia",
+    ),
 )
 
 
@@ -197,10 +228,10 @@ def media_backend_status(*, include_unavailable: bool = True) -> tuple[MediaBack
 def media_backend_status_by_name(name: str) -> MediaBackendStatus:
     """Return backend status by canonical backend name."""
     normalized = _normalize_backend_name(name)
-    for status in media_backend_status():
-        if status.name == normalized:
-            return status
-    known = ", ".join(status.name for status in media_backend_status())
+    for spec in _MEDIA_BACKENDS:
+        if spec.name == normalized:
+            return spec.status()
+    known = ", ".join(spec.name for spec in _MEDIA_BACKENDS)
     raise ValueError(f"Unknown media backend: {name}. Known backends: {known}")
 
 
@@ -247,10 +278,10 @@ def hardware_acceleration_status(
 def hardware_acceleration_status_by_name(name: str) -> HardwareAccelerationStatus:
     """Return hardware acceleration status by canonical accelerator name."""
     normalized = _normalize_hardware_name(name)
-    for status in hardware_acceleration_status():
-        if status.name == normalized:
-            return status
-    known = ", ".join(status.name for status in hardware_acceleration_status())
+    for spec in _HARDWARE_ACCELERATION:
+        if spec.name == normalized:
+            return spec.status()
+    known = ", ".join(spec.name for spec in _HARDWARE_ACCELERATION)
     raise ValueError(f"Unknown hardware accelerator: {name}. Known accelerators: {known}")
 
 
@@ -271,10 +302,13 @@ def require_hardware_acceleration(name: str) -> HardwareAccelerationStatus:
     status = hardware_acceleration_status_by_name(name)
     if status.available:
         return status
+    install_command = status.details.get("install_command")
     if status.extra:
         install_hint = f"Install `exp-pkg[{status.extra}]` and verify host drivers."
     else:
         install_hint = "Verify the required host driver, runtime, or FFmpeg build."
+    if install_command:
+        install_hint = f"{install_hint} Then run `{install_command}`."
     raise RuntimeError(
         f"Hardware accelerator `{status.name}` is unavailable. {status.reason}. {install_hint}"
     )
@@ -299,17 +333,26 @@ def _normalize_hardware_name(name: str) -> str:
         "ffmpeg-cuda": "ffmpeg-nvidia",
         "mlx": "mlx-metal",
         "metal": "mlx-metal",
+        "nvpkg-opencv": "opencv-cuda",
         "nvdec": "ffmpeg-nvidia",
         "nvenc": "ffmpeg-nvidia",
         "nvidia": "torch-cuda",
+        "opencv_cuda": "opencv-cuda",
+        "pyav_cuda": "pyav-cuda",
+        "decord_cuda": "decord-cuda",
+        "dali_cuda": "dali-cuda",
         "torchcodec": "torchcodec-cuda",
         "torch-codec": "torchcodec-cuda",
+        "torchcodec_cuda": "torchcodec-cuda",
     }
     return aliases.get(normalized, normalized)
 
 
 def _module_available(module: str) -> bool:
-    return find_spec(module) is not None
+    try:
+        return find_spec(module) is not None
+    except ModuleNotFoundError:
+        return False
 
 
 def _detect_mlx_metal() -> tuple[bool, str, dict[str, str]]:
@@ -330,13 +373,14 @@ def _detect_torch_cuda() -> tuple[bool, str, dict[str, str]]:
     if not _module_available("torch"):
         return False, "Python module `torch` is not installed", {}
     torch: Any = import_module("torch")
+    torch_version: Any = import_module("torch.version")
 
     if not bool(torch.cuda.is_available()):
         return False, "PyTorch is installed but CUDA is unavailable", {}
     device_count = int(torch.cuda.device_count())
     details = {
         "device_count": str(device_count),
-        "torch_cuda_version": str(getattr(torch.version, "cuda", "") or ""),
+        "torch_cuda_version": str(getattr(torch_version, "cuda", "") or ""),
     }
     for index in range(device_count):
         details[f"device_{index}"] = str(torch.cuda.get_device_name(index))
@@ -368,6 +412,156 @@ def _detect_ffmpeg_nvidia() -> tuple[bool, str, dict[str, str]]:
     if has_nvdecode or has_nvencode:
         return True, "FFmpeg exposes NVIDIA decode or encode support", details
     return False, "FFmpeg is installed but does not expose NVDEC/NVENC support", details
+
+
+def _detect_opencv_cuda() -> tuple[bool, str, dict[str, str]]:
+    details = _nvpkg_command_details("opencv_cuda")
+    if not _module_available("cv2"):
+        return False, "Python module `cv2` is not installed", details
+
+    cv2: Any = import_module("cv2")
+    version = str(getattr(cv2, "__version__", "unknown"))
+    details["opencv_version"] = version
+    if not hasattr(cv2, "cuda"):
+        return False, "OpenCV is installed but `cv2.cuda` is unavailable", details
+
+    try:
+        device_count = int(cv2.cuda.getCudaEnabledDeviceCount())
+    except Exception as exc:  # pragma: no cover - host/OpenCV build dependent.
+        details["opencv_cuda_probe"] = f"{type(exc).__name__}: {exc}"
+        device_count = 0
+
+    details["device_count"] = str(device_count)
+    if device_count > 0:
+        return True, "OpenCV CUDA acceleration is available", details
+
+    nvpkg_available, nvpkg_reason, nvpkg_details = _detect_nvpkg_package("opencv_cuda")
+    details.update(nvpkg_details)
+    if nvpkg_available:
+        return True, nvpkg_reason, details
+    return False, f"OpenCV CUDA is unavailable: {nvpkg_reason}", details
+
+
+def _detect_nvpkg_package(package_name: str) -> tuple[bool, str, dict[str, str]]:
+    details = _nvpkg_command_details(package_name)
+    payload = _nvpkg_verify_payload(package_name)
+    if payload is None:
+        return (
+            False,
+            "`nvpkg` is not installed or not on PATH; install nvpkg before "
+            "verifying this accelerator",
+            details,
+        )
+
+    details.update(_nvpkg_payload_details(payload))
+    if bool(payload.get("ok")):
+        return True, f"nvpkg verified `{package_name}`", details
+
+    failed = _nvpkg_failed_check(payload)
+    if failed:
+        return False, f"nvpkg verification failed for `{package_name}`: {failed}", details
+    return False, f"nvpkg verification failed for `{package_name}`", details
+
+
+def _nvpkg_command_details(package_name: str) -> dict[str, str]:
+    return {
+        "install_command": f"nvpkg package install {package_name}",
+        "verify_command": f"nvpkg package verify {package_name} --json",
+    }
+
+
+def _nvpkg_verify_payload(package_name: str) -> dict[str, Any] | None:
+    if _module_available("nvpkg_core.verify"):
+        try:
+            verify_module: Any = import_module("nvpkg_core.verify")
+            payload = verify_module.verify_package(package_name, include_benchmark=False)
+        except Exception as exc:  # pragma: no cover - optional external package boundary.
+            return {
+                "package": package_name,
+                "ok": False,
+                "checks": [
+                    {
+                        "name": "nvpkg_verify",
+                        "ok": False,
+                        "message": f"{type(exc).__name__}: {exc}",
+                    }
+                ],
+            }
+        if isinstance(payload, dict):
+            return payload
+
+    nvpkg = shutil.which("nvpkg")
+    if nvpkg is None:
+        return None
+
+    result = subprocess.run(
+        [nvpkg, "package", "verify", package_name, "--json"],
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    payload = _nvpkg_parse_json(result.stdout) or _nvpkg_error_details(result.stderr)
+    if payload is not None:
+        return payload
+    return {
+        "package": package_name,
+        "ok": False,
+        "checks": [
+            {
+                "name": "nvpkg_cli",
+                "ok": False,
+                "message": f"nvpkg verify returned {result.returncode} without JSON output",
+            }
+        ],
+    }
+
+
+def _nvpkg_parse_json(text: str) -> dict[str, Any] | None:
+    try:
+        payload = json.loads(text)
+    except json.JSONDecodeError:
+        return None
+    return payload if isinstance(payload, dict) else None
+
+
+def _nvpkg_error_details(text: str) -> dict[str, Any] | None:
+    payload = _nvpkg_parse_json(text)
+    if payload is None:
+        return None
+    error = payload.get("error")
+    if not isinstance(error, dict):
+        return None
+    details = error.get("details")
+    return details if isinstance(details, dict) else None
+
+
+def _nvpkg_payload_details(payload: dict[str, Any]) -> dict[str, str]:
+    details: dict[str, str] = {}
+    checks = payload.get("checks")
+    if not isinstance(checks, list):
+        return details
+    for raw_check in checks:
+        if not isinstance(raw_check, dict):
+            continue
+        name = str(raw_check.get("name", "check"))
+        status = "ok" if bool(raw_check.get("ok")) else "fail"
+        message = str(raw_check.get("message", ""))
+        details[f"nvpkg_{name}"] = f"{status}: {message}"
+    return details
+
+
+def _nvpkg_failed_check(payload: dict[str, Any]) -> str | None:
+    checks = payload.get("checks")
+    if not isinstance(checks, list):
+        return None
+    for raw_check in checks:
+        if not isinstance(raw_check, dict) or bool(raw_check.get("ok")):
+            continue
+        name = str(raw_check.get("name", "check"))
+        message = str(raw_check.get("message", ""))
+        return f"{name}: {message}" if message else name
+    return None
 
 
 def _ffmpeg_table(ffmpeg: str, option: str) -> str:

@@ -196,6 +196,7 @@ uv pip install -e ".[media-rich]"  # PyAV / rich FFmpeg media handling
 uv pip install -e ".[dl]"          # PyTorch + TorchCodec + TorchVision
 uv pip install -e ".[inference]"   # ONNX Runtime
 uv pip install -e ".[mlx]"         # MLX / Metal acceleration
+uv pip install -e ".[nvpkg]"       # nvpkg bridge for Linux NVIDIA media packages
 uv pip install -e ".[nvidia]"      # PyTorch + TorchCodec for NVIDIA CUDA
 uv pip install -e ".[vision]"      # Kornia + PyTorch
 uv pip install -e ".[hardware-accel]"  # MLX + NVIDIA optional runtimes
@@ -217,7 +218,19 @@ print(available_media_backends())
 print(available_hardware_accelerators())
 require_media_backend("pyav")
 require_hardware_acceleration("mlx")
+require_hardware_acceleration("opencv-cuda")
 video = Video.from_filename("session.mp4", backend="pyav")
+```
+
+On Linux NVIDIA hosts, use `nvpkg` as the provisioning layer for CUDA-enabled
+media libraries, then let `xpkg.media` verify the result:
+
+```bash
+nvpkg system doctor
+nvpkg package install ffmpeg
+nvpkg package install opencv_cuda
+nvpkg package install torchcodec_cuda
+nvpkg package verify opencv_cuda --json
 ```
 
 Then use the local quality gates:

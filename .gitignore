@@ -211,6 +211,7 @@ __marimo__/
 .claude/
 logs/agent_swarm/
 tests/vendor_data/
+src/xpkg/media/todo.md
 node_modules/
 *.tsbuildinfo
 .vscode/
