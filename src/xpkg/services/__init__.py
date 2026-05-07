@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from xpkg.services.artifacts import ProjectArtifacts
+from xpkg.services.calibrations import ProjectCalibrations
 from xpkg.services.figures import ProjectFigures
 from xpkg.services.project import (
     ProjectImports,
@@ -18,6 +19,7 @@ __all__ = [
     "ProjectLayout",
     "ProjectInspection",
     "ProjectArtifacts",
+    "ProjectCalibrations",
     "ProjectFigures",
     "ProjectSegmentation",
 ]

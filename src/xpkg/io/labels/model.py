@@ -123,7 +123,7 @@ class Labels:
     tracks: list[Track] = field(default_factory=list)
     suggestions: list[SuggestionFrame] = field(default_factory=list)
     negative_anchors: dict[VideoProtocol, list] = field(default_factory=dict)
-    provenance: dict[str, str | int | float | bool] = field(default_factory=dict)
+    provenance: dict[str, Any] = field(default_factory=dict)
     preferences: dict[str, Any] = field(default_factory=dict)
     session: dict[str, Any] = field(default_factory=dict)
     _path: Path | None = field(default=None, init=False, repr=False)

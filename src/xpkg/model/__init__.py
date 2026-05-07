@@ -11,9 +11,44 @@ from xpkg.io.skeleton_loaders import (
     load_skeleton_xpkg_json,
 )
 from xpkg.media.video import Video
+from xpkg.model.calibration import (
+    CALIBRATION_SCHEMA_VERSION,
+    Calibration,
+    CalibrationQuality,
+    CalibrationSource,
+    Camera,
+    CameraDistortion,
+    CameraExtrinsics,
+    CameraIntrinsics,
+    CameraRotation,
+    WorldFrame,
+)
 from xpkg.model.emg import EMGSignalData
 from xpkg.model.events import Event, EventTable, SyncEvent
 from xpkg.model.force import ForcePlateData
+from xpkg.model.metadata import (
+    AcquisitionMetadata,
+    CameraMetadata,
+    DatasetShareMetadata,
+    PoseModelProvenance,
+)
+from xpkg.model.reporting import (
+    DatasetDatasheet,
+    DatasheetCollection,
+    DatasheetComposition,
+    DatasheetDistribution,
+    DatasheetMaintenance,
+    DatasheetMotivation,
+    DatasheetPreprocessing,
+    DatasheetUses,
+    ModelCard,
+    ModelCardAnalysis,
+    ModelCardData,
+    ModelCardDetails,
+    ModelCardFactors,
+    ModelCardIntendedUse,
+    ModelCardMetrics,
+)
 from xpkg.model.session import RecordingSession
 from xpkg.model.signals import (
     PhotometryChannel,
@@ -64,7 +99,35 @@ from xpkg.segmentation import (
 )
 
 __all__ = [
+    "AcquisitionMetadata",
     "build_keypoint_skeleton",
+    "CALIBRATION_SCHEMA_VERSION",
+    "Calibration",
+    "CalibrationQuality",
+    "CalibrationSource",
+    "Camera",
+    "CameraDistortion",
+    "CameraExtrinsics",
+    "CameraIntrinsics",
+    "CameraMetadata",
+    "CameraRotation",
+    "DatasetDatasheet",
+    "DatasetShareMetadata",
+    "DatasheetCollection",
+    "DatasheetComposition",
+    "DatasheetDistribution",
+    "DatasheetMaintenance",
+    "DatasheetMotivation",
+    "DatasheetPreprocessing",
+    "DatasheetUses",
+    "ModelCard",
+    "ModelCardAnalysis",
+    "ModelCardData",
+    "ModelCardDetails",
+    "ModelCardFactors",
+    "ModelCardIntendedUse",
+    "ModelCardMetrics",
+    "PoseModelProvenance",
     "EMGSignalData",
     "Event",
     "EventTable",
@@ -106,6 +169,7 @@ __all__ = [
     "ViconForcePlatformMetadata",
     "ViconMarkerModel",
     "ViconRecording",
+    "WorldFrame",
     "build_prediction_stub",
     "pose_trajectory_from_vicon_recording",
     "skeleton_to_vicon_marker_model",

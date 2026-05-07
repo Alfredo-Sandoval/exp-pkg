@@ -84,6 +84,54 @@ def test_labels_json_roundtrip_with_image_sequence(tmp_path: Path) -> None:
     )
 
 
+def test_labels_json_payload_preserves_keypoint_scores(tmp_path: Path) -> None:
+    from xpkg.adapters import labels_from_json_payload
+
+    frame_path = tmp_path / "frame_0000.png"
+    _write_test_frame(frame_path, 12)
+
+    payload = {
+        "frames": {
+            "video_index": [0],
+            "frame_index": [0],
+            "num_instances": [1],
+        },
+        "data": {
+            "keypoints": [[[[1.0, 2.0, 0.9], [3.0, 4.0, 0.8]]]],
+            "flags": [[[0, 0]]],
+            "visibility": [[[1, 1]]],
+            "track_ids": [[-1]],
+        },
+        "videos": {
+            "resolved_paths": [""],
+            "filenames": [""],
+            "image_filenames": [[frame_path.as_posix()]],
+            "backends": ["images"],
+            "sha256": [""],
+            "video_ids": ["video_0"],
+            "video_labels": ["video-0"],
+            "shapes": [[1, 12, 16, 3]],
+        },
+        "metadata": {"num_frames": 1, "preferences": {}},
+        "skeleton": {
+            "schema_version": "1.0.0",
+            "name": "subject",
+            "names": ["nose", "tail"],
+            "links": [],
+        },
+    }
+
+    labels = labels_from_json_payload(payload)
+    coords = labels.numpy(
+        labels.videos[0],
+        all_frames=True,
+        untracked=True,
+        return_confidence=True,
+    )
+
+    np.testing.assert_allclose(coords[0, 0], [[1.0, 2.0, 0.9], [3.0, 4.0, 0.8]])
+
+
 def test_labels_json_roundtrip_preserves_tracks_and_segmentation(tmp_path: Path) -> None:
     from xpkg.model import Labels, Video, build_keypoint_skeleton
     from xpkg.pose.annotations import (

@@ -169,10 +169,15 @@ def _expkg_manifest_payload(
     media_mode: PackMediaMode,
     member_entries: list[dict[str, Any]],
     media_entries: list[dict[str, Any]],
+    acquisition: dict[str, Any] | None = None,
+    dataset_share: dict[str, Any] | None = None,
+    pose_provenance: dict[str, Any] | None = None,
+    datasheet: dict[str, Any] | None = None,
+    model_card: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     included_media_entries = [entry for entry in media_entries if bool(entry.get("included"))]
     external_media_entries = [entry for entry in media_entries if not bool(entry.get("included"))]
-    return {
+    payload = {
         "format": EXPKG_FORMAT,
         "artifact_schema_version": EXPKG_SCHEMA_VERSION,
         "container": "zip",
@@ -196,6 +201,48 @@ def _expkg_manifest_payload(
         },
         "members": member_entries,
     }
+    if dataset_share is not None:
+        payload["dataset_share"] = dataset_share
+    if acquisition is not None:
+        payload["acquisition"] = acquisition
+    if pose_provenance is not None:
+        payload["pose_provenance"] = pose_provenance
+    if datasheet is not None:
+        payload["datasheet"] = datasheet
+    if model_card is not None:
+        payload["model_card"] = model_card
+    return payload
+
+
+def _project_manifest_metadata(
+    project_root: Path,
+) -> tuple[
+    dict[str, Any] | None,
+    dict[str, Any] | None,
+    dict[str, Any] | None,
+    dict[str, Any] | None,
+    dict[str, Any] | None,
+]:
+    from xpkg.project.metadata import (
+        load_project_acquisition_metadata,
+        load_project_dataset_share_metadata,
+        load_project_datasheet,
+        load_project_model_card,
+        load_project_pose_provenance,
+    )
+
+    acquisition = load_project_acquisition_metadata(project_root)
+    dataset_share = load_project_dataset_share_metadata(project_root)
+    pose_provenance = load_project_pose_provenance(project_root)
+    datasheet = load_project_datasheet(project_root)
+    model_card = load_project_model_card(project_root)
+    return (
+        None if acquisition is None else acquisition.to_dict(),
+        None if dataset_share is None else dataset_share.to_dict(),
+        None if pose_provenance is None else pose_provenance.to_dict(),
+        None if datasheet is None else datasheet.to_dict(),
+        None if model_card is None else model_card.to_dict(),
+    )
 
 
 def _is_within(path: Path, parent: Path) -> bool:
@@ -327,11 +374,23 @@ def pack_project(
         )
         for source_path in project_media_files
     ]
+    (
+        acquisition,
+        dataset_share,
+        pose_provenance,
+        datasheet,
+        model_card,
+    ) = _project_manifest_metadata(root)
     manifest = _expkg_manifest_payload(
         descriptor=descriptor,
         media_mode=media_mode,
         member_entries=member_entries,
         media_entries=media_entries,
+        pose_provenance=pose_provenance,
+        acquisition=acquisition,
+        dataset_share=dataset_share,
+        datasheet=datasheet,
+        model_card=model_card,
     )
     with tempfile.NamedTemporaryFile(
         prefix=f".{out_path.stem}_",
@@ -500,6 +559,42 @@ def _media_entries(manifest: dict[str, Any]) -> tuple[dict[str, Any], list[dict[
     return media, entries
 
 
+def _validate_expkg_metadata(manifest: dict[str, Any]) -> None:
+    from xpkg.model import (
+        AcquisitionMetadata,
+        DatasetDatasheet,
+        DatasetShareMetadata,
+        ModelCard,
+        PoseModelProvenance,
+    )
+
+    dataset_share = manifest.get("dataset_share")
+    if dataset_share is not None:
+        if not isinstance(dataset_share, dict):
+            raise TypeError(f"Packed {EXPKG_MANIFEST_FILENAME} dataset_share must be an object")
+        DatasetShareMetadata.from_dict(dataset_share)
+    acquisition = manifest.get("acquisition")
+    if acquisition is not None:
+        if not isinstance(acquisition, dict):
+            raise TypeError(f"Packed {EXPKG_MANIFEST_FILENAME} acquisition must be an object")
+        AcquisitionMetadata.from_dict(acquisition)
+    pose_provenance = manifest.get("pose_provenance")
+    if pose_provenance is not None:
+        if not isinstance(pose_provenance, dict):
+            raise TypeError(f"Packed {EXPKG_MANIFEST_FILENAME} pose_provenance must be an object")
+        PoseModelProvenance.from_dict(pose_provenance)
+    datasheet = manifest.get("datasheet")
+    if datasheet is not None:
+        if not isinstance(datasheet, dict):
+            raise TypeError(f"Packed {EXPKG_MANIFEST_FILENAME} datasheet must be an object")
+        DatasetDatasheet.from_dict(datasheet)
+    model_card = manifest.get("model_card")
+    if model_card is not None:
+        if not isinstance(model_card, dict):
+            raise TypeError(f"Packed {EXPKG_MANIFEST_FILENAME} model_card must be an object")
+        ModelCard.from_dict(model_card)
+
+
 def _int_manifest_field(entry: dict[str, Any], field: str, *, path: str) -> int:
     value = entry.get(field)
     if not isinstance(value, int):
@@ -564,6 +659,7 @@ def _validate_expkg_artifact(artifact_path: Path) -> dict[str, Any]:
                 )
             if manifest.get("container") != "zip":
                 raise ValueError("Packed artifact container must be 'zip'")
+            _validate_expkg_metadata(manifest)
 
             entries = _member_entries(manifest)
             member_paths = {str(entry["path"]) for entry in entries}

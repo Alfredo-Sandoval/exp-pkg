@@ -127,6 +127,8 @@ def test_cli_routes_import_dlc_csv_project(monkeypatch, capsys) -> None:
         *,
         skeleton_name: str,
         likelihood_threshold: float,
+        prediction_provenance=None,
+        provenance=None,
         force: bool = False,
         progress_callback,
     ) -> Path:
@@ -177,6 +179,71 @@ def test_cli_routes_import_dlc_csv_project(monkeypatch, capsys) -> None:
     assert ".xpkg/state/current.json" in stdout
 
 
+def test_cli_routes_pose_prediction_provenance_json(monkeypatch, tmp_path: Path) -> None:
+    from xpkg.cli import main
+
+    captured: dict[str, object] = {}
+    provenance_path = tmp_path / "prediction_provenance.json"
+    provenance_path.write_text(
+        json.dumps(
+            {
+                "model_name": "dlc-model",
+                "model_version": "2.0",
+                "training_set": "open-field-training-v1",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    def fake_import_dlc_csv_project(
+        csv_path: str,
+        video_path: str,
+        project: str,
+        *,
+        skeleton_name: str,
+        likelihood_threshold: float,
+        prediction_provenance,
+        provenance=None,
+        force: bool = False,
+        progress_callback,
+    ) -> Path:
+        del csv_path, video_path, skeleton_name, likelihood_threshold, force, provenance
+        captured["project"] = project
+        captured["prediction_provenance"] = prediction_provenance
+        progress_callback("import-progress")
+        return _project_state_path(project)
+
+    monkeypatch.setattr(
+        "xpkg.cli.commands.imports.import_dlc_csv_project",
+        fake_import_dlc_csv_project,
+    )
+
+    code = main(
+        [
+            "import",
+            "dlc",
+            "csv",
+            "--csv",
+            "tracking.csv",
+            "--video",
+            "clip.mp4",
+            "--out",
+            "My Project",
+            "--provenance-json",
+            str(provenance_path),
+        ]
+    )
+
+    assert code == 0
+    assert captured["project"] == "My Project"
+    assert captured["prediction_provenance"] == {
+        "model_name": "dlc-model",
+        "model_version": "2.0",
+        "training_set": "open-field-training-v1",
+    }
+
+
 def test_cli_import_json_mode_suppresses_progress(monkeypatch, capsys) -> None:
     from xpkg.cli import main
 
@@ -187,6 +254,8 @@ def test_cli_import_json_mode_suppresses_progress(monkeypatch, capsys) -> None:
         *,
         skeleton_name: str,
         likelihood_threshold: float,
+        prediction_provenance=None,
+        provenance=None,
         force: bool = False,
         progress_callback,
     ) -> Path:
@@ -378,6 +447,8 @@ def test_cli_routes_import_dlc_project_directory(monkeypatch, capsys) -> None:
         *,
         skeleton_name: str | None = None,
         likelihood_threshold: float,
+        prediction_provenance=None,
+        provenance=None,
         force: bool = False,
         progress_callback,
     ) -> Path:
@@ -433,6 +504,8 @@ def test_cli_routes_import_sleap_package_project(monkeypatch, capsys) -> None:
         *,
         fps: int,
         encode_videos: bool | None,
+        prediction_provenance=None,
+        provenance=None,
         force: bool = False,
         progress_callback,
     ) -> Path:
@@ -490,6 +563,8 @@ def test_cli_routes_import_sleap_h5_project(monkeypatch, capsys) -> None:
         *,
         skeleton_name: str,
         likelihood_threshold: float,
+        prediction_provenance=None,
+        provenance=None,
         force: bool = False,
         progress_callback,
     ) -> Path:
@@ -553,6 +628,8 @@ def test_cli_routes_import_mmpose_project(monkeypatch, capsys) -> None:
         skeleton_name: str,
         instance_index: int,
         likelihood_threshold: float,
+        prediction_provenance=None,
+        provenance=None,
         force: bool = False,
         progress_callback,
     ) -> Path:
@@ -616,6 +693,8 @@ def test_cli_routes_import_mediapipe_project(monkeypatch, capsys) -> None:
         *,
         skeleton_name: str,
         likelihood_threshold: float,
+        prediction_provenance=None,
+        provenance=None,
         force: bool = False,
         progress_callback,
     ) -> Path:
@@ -675,6 +754,8 @@ def test_cli_routes_import_lightning_pose_project(monkeypatch, capsys) -> None:
         *,
         skeleton_name: str,
         likelihood_threshold: float,
+        prediction_provenance=None,
+        provenance=None,
         force: bool = False,
         progress_callback,
     ) -> Path:
@@ -846,6 +927,75 @@ def test_cli_project_describe_json_mode(tmp_path: Path, capsys) -> None:
     assert payload["paths"]["store"].endswith("/.xpkg")
     assert payload["paths"]["current_state"].endswith("/.xpkg/state/current.json")
     assert payload["has_current_state"] is False
+
+
+def test_cli_describe_lists_top_level_inspect(capsys) -> None:
+    from xpkg.cli import main
+
+    code = main(["describe", "--json"])
+
+    assert code == 0
+    captured_streams = capsys.readouterr()
+    assert captured_streams.err == ""
+    payload = json.loads(captured_streams.out)
+    assert payload["resources"]["inspect"] == ["path"]
+    assert "inspect" in payload["commands"]
+
+
+def test_cli_inspect_json_mode(monkeypatch, capsys) -> None:
+    from xpkg.cli import main
+
+    captured: dict[str, object] = {}
+
+    def fake_inspect_path(target: str, *, confidence_threshold: float) -> dict[str, object]:
+        captured["target"] = target
+        captured["confidence_threshold"] = confidence_threshold
+        return {
+            "status": "inspected",
+            "path": target,
+            "kind": "pose_predictions",
+            "description": "pose predictions",
+            "likely_importers": ["dlc_csv"],
+            "summary": {"frames": 2, "keypoints": 3},
+            "warnings": [],
+        }
+
+    monkeypatch.setattr("xpkg.cli.commands.inspect.inspect_path", fake_inspect_path)
+
+    code = main(["inspect", "tracking.csv", "--threshold", "0.7", "--json"])
+
+    assert code == 0
+    assert captured == {"target": "tracking.csv", "confidence_threshold": 0.7}
+    captured_streams = capsys.readouterr()
+    assert captured_streams.err == ""
+    payload = json.loads(captured_streams.out)
+    assert payload["status"] == "inspected"
+    assert payload["likely_importers"] == ["dlc_csv"]
+
+
+def test_cli_inspect_human_mode(monkeypatch, capsys) -> None:
+    from xpkg.cli import main
+
+    def fake_inspect_path(target: str, *, confidence_threshold: float) -> dict[str, object]:
+        return {
+            "status": "inspected",
+            "path": target,
+            "kind": "video",
+            "description": "video",
+            "likely_importers": [],
+            "summary": {"frames": 12, "fps": 30.0, "width": 640, "height": 480},
+            "warnings": ["Frame count is approximate."],
+        }
+
+    monkeypatch.setattr("xpkg.cli.commands.inspect.inspect_path", fake_inspect_path)
+
+    code = main(["inspect", "clip.mp4"])
+
+    assert code == 0
+    stdout = capsys.readouterr().out
+    assert "Kind: video" in stdout
+    assert "frames: 12" in stdout
+    assert "Warning: Frame count is approximate." in stdout
 
 
 def test_cli_artifacts_list_inspect_validate_and_rebuild(tmp_path: Path, capsys) -> None:

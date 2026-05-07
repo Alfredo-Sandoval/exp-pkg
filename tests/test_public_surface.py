@@ -28,6 +28,9 @@ from xpkg.io.readers import (
     read_teleopto_h5,
 )
 from xpkg.model import (
+    AcquisitionMetadata,
+    CameraMetadata,
+    DatasetShareMetadata,
     EMGSignalData,
     Event,
     EventTable,
@@ -69,10 +72,12 @@ from xpkg.model import (
     load_skeleton_xpkg_json,
 )
 from xpkg.project import (
+    ACQUISITION_METADATA_FILENAME,
     ARTIFACT_INDEX_FILENAME,
     ARTIFACT_MANIFEST_FILENAME,
     ARTIFACT_SCHEMA_VERSION,
     ARTIFACTS_DIRNAME,
+    DATASET_SHARE_METADATA_FILENAME,
     EXPKG_MANIFEST_FILENAME,
     EXPKG_SUFFIX,
     FIGURE_ARTIFACT_SCHEMA_VERSION,
@@ -80,6 +85,7 @@ from xpkg.project import (
     FIGURE_MANIFEST_FILENAME,
     FIGURES_DIRNAME,
     PROJECT_DESCRIPTOR_FILENAME,
+    PROJECT_METADATA_DIRNAME,
     ArtifactFile,
     ArtifactIndexEntry,
     ArtifactManifest,
@@ -109,7 +115,9 @@ from xpkg.project import (
     list_project_artifact_index,
     list_project_artifacts,
     list_project_figures,
+    load_project_acquisition_metadata,
     load_project_artifact,
+    load_project_dataset_share_metadata,
     load_project_descriptor,
     load_project_figure,
     load_project_metadata,
@@ -119,17 +127,22 @@ from xpkg.project import (
     load_project_segmentation_masks,
     load_project_vicon_recording,
     pack_project,
+    project_acquisition_metadata_path,
     project_artifact_index_path,
     project_artifact_root,
     project_artifact_type_root,
     project_artifacts_root,
+    project_dataset_share_metadata_path,
     project_descriptor_path,
     project_figure_root,
     project_figures_root,
+    project_metadata_root,
     read_labels_json_payload,
     rebuild_project_artifact_index,
     resolve_project_root,
+    save_project_acquisition_metadata,
     save_project_artifact,
+    save_project_dataset_share_metadata,
     save_project_figure,
     save_project_labels,
     save_project_metadata,
@@ -148,6 +161,7 @@ from xpkg.project import (
 )
 from xpkg.services import (
     ProjectArtifacts,
+    ProjectCalibrations,
     ProjectFigures,
     ProjectImports,
     ProjectLayout,
@@ -239,6 +253,9 @@ def test_public_exports_are_callable() -> None:
     assert ProjectDescriptor is not None
     assert SegmentationFrame is not None
     assert ProjectInspection is not None
+    assert ACQUISITION_METADATA_FILENAME == "acquisition.json"
+    assert DATASET_SHARE_METADATA_FILENAME == "dataset_share.json"
+    assert PROJECT_METADATA_DIRNAME == "metadata"
     assert callable(clear_project_segmentation_masks)
     assert callable(current_project_state_path)
     assert callable(default_expkg_path)
@@ -261,8 +278,10 @@ def test_public_exports_are_callable() -> None:
     assert callable(list_project_artifacts)
     assert callable(list_project_figures)
     assert callable(load_project_artifact)
+    assert callable(load_project_acquisition_metadata)
     assert callable(load_project_figure)
     assert callable(load_project_descriptor)
+    assert callable(load_project_dataset_share_metadata)
     assert callable(load_project_metadata)
     assert callable(load_project_metadata_field)
     assert callable(load_project_payload)
@@ -270,11 +289,14 @@ def test_public_exports_are_callable() -> None:
     assert callable(load_project_segmentation_masks)
     assert callable(load_project_vicon_recording)
     assert callable(pack_project)
+    assert callable(project_acquisition_metadata_path)
     assert callable(project_descriptor_path)
     assert callable(read_labels_json_payload)
     assert callable(resolve_project_root)
     assert callable(rebuild_project_artifact_index)
     assert callable(save_project_artifact)
+    assert callable(save_project_acquisition_metadata)
+    assert callable(save_project_dataset_share_metadata)
     assert callable(save_project_figure)
     assert callable(save_project_metadata)
     assert callable(save_project_labels)
@@ -292,8 +314,10 @@ def test_public_exports_are_callable() -> None:
     assert callable(project_artifact_index_path)
     assert callable(project_artifact_root)
     assert callable(project_artifact_type_root)
+    assert callable(project_dataset_share_metadata_path)
     assert callable(project_figure_root)
     assert callable(project_figures_root)
+    assert callable(project_metadata_root)
     assert callable(write_labels_json)
     assert callable(write_project_descriptor)
     assert callable(labels_from_json_payload)
@@ -316,6 +340,7 @@ def test_public_exports_are_callable() -> None:
     assert callable(read_teleopto_h5)
     assert ProjectImports is not None
     assert ProjectArtifacts is not None
+    assert ProjectCalibrations is not None
     assert ProjectFigures is not None
     assert ServiceProjectInspection is not None
     assert ProjectLayout is not None
@@ -330,6 +355,7 @@ def test_services_surface_lists_project_service_first() -> None:
         "ProjectLayout",
         "ProjectInspection",
         "ProjectArtifacts",
+        "ProjectCalibrations",
         "ProjectFigures",
         "ProjectSegmentation",
     ]
@@ -340,6 +366,7 @@ def test_project_imports_surface_covers_supported_project_importers() -> None:
         "dlc_csv",
         "dlc_h5",
         "dlc_project",
+        "anipose_calibration",
         "lightning_pose_csv",
         "mediapipe_pose_landmarks_json",
         "mmpose_topdown_json",
@@ -354,6 +381,9 @@ def test_project_imports_surface_covers_supported_project_importers() -> None:
 
 
 def test_model_exports_are_available() -> None:
+    assert AcquisitionMetadata is not None
+    assert CameraMetadata is not None
+    assert DatasetShareMetadata is not None
     assert Labels is not None
     assert SuggestionFrame is not None
     assert Skeleton is not None
@@ -425,9 +455,13 @@ def test_project_surface_is_project_first_only() -> None:
     assert "save_project_figure" in xpkg.project.__all__
     assert "project_artifacts_root" in xpkg.project.__all__
     assert "load_project_metadata" in xpkg.project.__all__
+    assert "load_project_acquisition_metadata" in xpkg.project.__all__
+    assert "load_project_dataset_share_metadata" in xpkg.project.__all__
     assert "load_project_metadata_field" in xpkg.project.__all__
     assert "import_vicon_project" in xpkg.project.__all__
     assert "save_project_metadata" in xpkg.project.__all__
+    assert "save_project_acquisition_metadata" in xpkg.project.__all__
+    assert "save_project_dataset_share_metadata" in xpkg.project.__all__
     assert "save_project_metadata_field" in xpkg.project.__all__
     assert "save_project_segmentation_masks" in xpkg.project.__all__
     assert "load_project_segmentation_masks" in xpkg.project.__all__

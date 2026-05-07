@@ -17,6 +17,7 @@ from xpkg.pose.annotations import (
     Instance,
     LabeledFrame,
     PointArray,
+    PredictedPointArray,
     SegmentationMask,
     Track,
 )
@@ -584,7 +585,9 @@ def _build_instance_points(
     *,
     visibility: np.ndarray | None = None,
 ) -> PointArray:
-    points = PointArray.make_default(keypoint_count)
+    has_scores = inst_coords.shape[-1] >= 3 and np.isfinite(inst_coords[..., 2]).any()
+    points_type = PredictedPointArray if has_scores else PointArray
+    points = points_type.make_default(keypoint_count)
     points["x"] = inst_coords[..., 0] if inst_coords.shape[-1] >= 1 else np.nan
     points["y"] = inst_coords[..., 1] if inst_coords.shape[-1] >= 2 else np.nan
     has_coords = np.isfinite(points["x"]) & np.isfinite(points["y"])
@@ -598,6 +601,9 @@ def _build_instance_points(
     points["visible"] = visible
     points["complete"] = has_coords
     points["flags"] = inst_flags & 0xFF
+    if has_scores:
+        score = np.asarray(inst_coords[..., 2], dtype=np.float64)
+        points["score"] = np.where(np.isfinite(score), score, 0.0)
     return points
 
 

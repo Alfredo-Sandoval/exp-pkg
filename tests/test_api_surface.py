@@ -11,6 +11,14 @@ def test_xpkg_api_exposes_project_first_contract() -> None:
         "ArtifactFile",
         "ArtifactIndexEntry",
         "ArtifactManifest",
+        "AcquisitionMetadata",
+        "ACQUISITION_METADATA_FILENAME",
+        "CALIBRATION_FILENAME",
+        "CALIBRATION_SOURCE_DIRNAME",
+        "CALIBRATIONS_DIRNAME",
+        "CameraMetadata",
+        "DATASET_SHARE_METADATA_FILENAME",
+        "DatasetShareMetadata",
         "EMGSignalData",
         "Event",
         "EventTable",
@@ -34,6 +42,7 @@ def test_xpkg_api_exposes_project_first_contract() -> None:
         "ViconForcePlatformMetadata",
         "ProjectImports",
         "ProjectArtifacts",
+        "ProjectCalibrations",
         "ProjectFigures",
         "ProjectInspection",
         "ProjectLayout",
@@ -51,14 +60,17 @@ def test_xpkg_api_exposes_project_first_contract() -> None:
         "import_dlc_csv_project",
         "import_dlc_h5_project",
         "import_dlc_project_directory",
+        "import_anipose_calibration_project",
         "import_lightning_pose_csv_project",
         "import_mediapipe_pose_landmarks_json_project",
         "import_mmpose_topdown_json_project",
         "import_sleap_h5_project",
         "import_sleap_package_project",
+        "inspect_path",
         "inspect_project",
         "list_project_artifact_index",
         "list_project_artifacts",
+        "list_project_calibrations",
         "list_project_figures",
         "labels_from_json_payload",
         "labels_numpy",
@@ -66,6 +78,9 @@ def test_xpkg_api_exposes_project_first_contract() -> None:
         "labels_to_json_payload",
         "load_project_figure",
         "load_project_artifact",
+        "load_project_acquisition_metadata",
+        "load_project_calibration",
+        "load_project_dataset_share_metadata",
         "load_project_metadata",
         "load_project_metadata_field",
         "load_project_payload",
@@ -73,6 +88,16 @@ def test_xpkg_api_exposes_project_first_contract() -> None:
         "load_project_segmentation_masks",
         "load_project_vicon_recording",
         "pack_project",
+        "project_calibration_path",
+        "project_calibration_root",
+        "project_calibration_source_root",
+        "project_calibrations_root",
+        "project_acquisition_metadata_path",
+        "project_dataset_share_metadata_path",
+        "project_metadata_root",
+        "PROJECT_METADATA_DIRNAME",
+        "read_anipose_calibration",
+        "read_calibration_json",
         "read_doric_photometry",
         "read_events_csv",
         "read_neurophotometrics_csv",
@@ -93,6 +118,9 @@ def test_xpkg_api_exposes_project_first_contract() -> None:
         "resolve_pose_node_indices",
         "rebuild_project_artifact_index",
         "save_project_artifact",
+        "save_project_acquisition_metadata",
+        "save_project_calibration",
+        "save_project_dataset_share_metadata",
         "save_project_figure",
         "save_project_metadata",
         "save_project_labels",
@@ -107,6 +135,8 @@ def test_xpkg_api_exposes_project_first_contract() -> None:
         "validate_project",
         "vicon_recording_from_json_payload",
         "vicon_recording_to_json_payload",
+        "write_anipose_calibration",
+        "write_calibration_json",
     }
 
     assert expected.issubset(set(api.__all__))
@@ -125,6 +155,15 @@ def test_xpkg_api_exposes_project_first_contract() -> None:
     assert api.ArtifactFile.__name__ == "ArtifactFile"
     assert api.ArtifactIndexEntry.__name__ == "ArtifactIndexEntry"
     assert api.ArtifactManifest.__name__ == "ArtifactManifest"
+    assert api.CALIBRATION_FILENAME == "calibration.json"
+    assert api.CALIBRATION_SOURCE_DIRNAME == "source"
+    assert api.CALIBRATIONS_DIRNAME == "calibrations"
+    assert api.ACQUISITION_METADATA_FILENAME == "acquisition.json"
+    assert api.DATASET_SHARE_METADATA_FILENAME == "dataset_share.json"
+    assert api.PROJECT_METADATA_DIRNAME == "metadata"
+    assert api.AcquisitionMetadata.__name__ == "AcquisitionMetadata"
+    assert api.CameraMetadata.__name__ == "CameraMetadata"
+    assert api.DatasetShareMetadata.__name__ == "DatasetShareMetadata"
     assert api.EMGSignalData.__name__ == "EMGSignalData"
     assert api.Event.__name__ == "Event"
     assert api.EventTable.__name__ == "EventTable"
@@ -147,6 +186,7 @@ def test_xpkg_api_exposes_project_first_contract() -> None:
     assert api.ViconRecording.__name__ == "ViconRecording"
     assert api.ProjectImports.__name__ == "ProjectImports"
     assert api.ProjectArtifacts.__name__ == "ProjectArtifacts"
+    assert api.ProjectCalibrations.__name__ == "ProjectCalibrations"
     assert api.ProjectFigures.__name__ == "ProjectFigures"
     assert api.ProjectInspection.__name__ == "ProjectInspection"
     assert api.ProjectSegmentation.__name__ == "ProjectSegmentation"
@@ -155,23 +195,38 @@ def test_xpkg_api_exposes_project_first_contract() -> None:
     assert callable(api.build_prediction_stub)
     assert callable(api.build_force_plate_data_from_vicon_recording)
     assert callable(api.candidate_vicon_emg_channels)
+    assert callable(api.inspect_path)
     assert callable(api.inspect_project)
+    assert callable(api.import_anipose_calibration_project)
     assert callable(api.extract_vicon_emg)
     assert callable(api.list_project_artifact_index)
     assert callable(api.list_project_artifacts)
+    assert callable(api.list_project_calibrations)
     assert callable(api.list_project_figures)
     assert callable(api.labels_from_json_payload)
     assert callable(api.labels_numpy)
     assert callable(api.labels_to_dataframe)
     assert callable(api.labels_to_json_payload)
     assert callable(api.load_project_metadata)
+    assert callable(api.load_project_acquisition_metadata)
+    assert callable(api.load_project_dataset_share_metadata)
     assert callable(api.load_project_metadata_field)
     assert callable(api.load_project_payload)
     assert callable(api.load_project_artifact)
+    assert callable(api.load_project_calibration)
     assert callable(api.load_project_figure)
     assert callable(api.load_project_segmentation_frames)
     assert callable(api.load_project_segmentation_masks)
     assert callable(api.load_project_vicon_recording)
+    assert callable(api.project_calibration_path)
+    assert callable(api.project_calibration_root)
+    assert callable(api.project_calibration_source_root)
+    assert callable(api.project_calibrations_root)
+    assert callable(api.project_acquisition_metadata_path)
+    assert callable(api.project_dataset_share_metadata_path)
+    assert callable(api.project_metadata_root)
+    assert callable(api.read_anipose_calibration)
+    assert callable(api.read_calibration_json)
     assert callable(api.read_doric_photometry)
     assert callable(api.read_events_csv)
     assert callable(api.read_neurophotometrics_csv)
@@ -192,6 +247,9 @@ def test_xpkg_api_exposes_project_first_contract() -> None:
     assert callable(api.resolve_pose_node_indices)
     assert callable(api.rebuild_project_artifact_index)
     assert callable(api.save_project_artifact)
+    assert callable(api.save_project_acquisition_metadata)
+    assert callable(api.save_project_calibration)
+    assert callable(api.save_project_dataset_share_metadata)
     assert callable(api.save_project_figure)
     assert callable(api.save_project_metadata)
     assert callable(api.save_project_metadata_field)
@@ -203,6 +261,8 @@ def test_xpkg_api_exposes_project_first_contract() -> None:
     assert callable(api.validate_project_figures)
     assert callable(api.vicon_recording_from_json_payload)
     assert callable(api.vicon_recording_to_json_payload)
+    assert callable(api.write_anipose_calibration)
+    assert callable(api.write_calibration_json)
 
 
 def test_xpkg_api_lists_service_entrypoints_before_free_function_helpers() -> None:

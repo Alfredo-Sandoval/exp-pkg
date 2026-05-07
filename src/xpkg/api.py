@@ -15,10 +15,23 @@ _PROJECT_EXPORTS: dict[str, tuple[str, str]] = {
     "ProjectImports": (".services", "ProjectImports"),
     "ProjectLayout": (".services", "ProjectLayout"),
     "ProjectArtifacts": (".services", "ProjectArtifacts"),
+    "ProjectCalibrations": (".services", "ProjectCalibrations"),
     "ProjectFigures": (".services", "ProjectFigures"),
     "ProjectSegmentation": (".services", "ProjectSegmentation"),
     "ProjectInspection": (".project.inspection", "ProjectInspection"),
     "ProjectDescriptor": (".project.layout", "ProjectDescriptor"),
+    "ACQUISITION_METADATA_FILENAME": (
+        ".project.metadata",
+        "ACQUISITION_METADATA_FILENAME",
+    ),
+    "CALIBRATION_FILENAME": (".project.calibration", "CALIBRATION_FILENAME"),
+    "CALIBRATION_SOURCE_DIRNAME": (".project.calibration", "CALIBRATION_SOURCE_DIRNAME"),
+    "CALIBRATIONS_DIRNAME": (".project.calibration", "CALIBRATIONS_DIRNAME"),
+    "DATASET_SHARE_METADATA_FILENAME": (
+        ".project.metadata",
+        "DATASET_SHARE_METADATA_FILENAME",
+    ),
+    "PROJECT_METADATA_DIRNAME": (".project.metadata", "PROJECT_METADATA_DIRNAME"),
     "ArtifactFile": (".project.artifacts", "ArtifactFile"),
     "ArtifactIndexEntry": (".project.artifacts", "ArtifactIndexEntry"),
     "ArtifactManifest": (".project.artifacts", "ArtifactManifest"),
@@ -27,9 +40,47 @@ _PROJECT_EXPORTS: dict[str, tuple[str, str]] = {
     "init_project": (".project", "init_project"),
     "load_project_descriptor": (".project.layout", "load_project_descriptor"),
     "load_project_vicon_recording": (".project", "load_project_vicon_recording"),
+    "inspect_path": (".inspection", "inspect_path"),
     "inspect_project": (".project.inspection", "inspect_project"),
     "save_project_labels": (".project", "save_project_labels"),
+    "load_project_acquisition_metadata": (
+        ".project.metadata",
+        "load_project_acquisition_metadata",
+    ),
+    "load_project_dataset_share_metadata": (
+        ".project.metadata",
+        "load_project_dataset_share_metadata",
+    ),
+    "load_project_pose_provenance": (
+        ".project.metadata",
+        "load_project_pose_provenance",
+    ),
     "load_project_metadata_field": (".project.metadata", "load_project_metadata_field"),
+    "project_acquisition_metadata_path": (
+        ".project.metadata",
+        "project_acquisition_metadata_path",
+    ),
+    "project_dataset_share_metadata_path": (
+        ".project.metadata",
+        "project_dataset_share_metadata_path",
+    ),
+    "project_pose_provenance_path": (
+        ".project.metadata",
+        "project_pose_provenance_path",
+    ),
+    "project_metadata_root": (".project.metadata", "project_metadata_root"),
+    "save_project_acquisition_metadata": (
+        ".project.metadata",
+        "save_project_acquisition_metadata",
+    ),
+    "save_project_dataset_share_metadata": (
+        ".project.metadata",
+        "save_project_dataset_share_metadata",
+    ),
+    "save_project_pose_provenance": (
+        ".project.metadata",
+        "save_project_pose_provenance",
+    ),
     "save_project_metadata_field": (".project.metadata", "save_project_metadata_field"),
     "save_project_metadata": (".project", "save_project_metadata"),
     "load_project_metadata": (".project", "load_project_metadata"),
@@ -76,6 +127,17 @@ _PROJECT_EXPORTS: dict[str, tuple[str, str]] = {
     "import_dlc_csv_project": (".project", "import_dlc_csv_project"),
     "import_dlc_h5_project": (".project", "import_dlc_h5_project"),
     "import_dlc_project_directory": (".project", "import_dlc_project_directory"),
+    "import_anipose_calibration_project": (
+        ".project",
+        "import_anipose_calibration_project",
+    ),
+    "list_project_calibrations": (".project", "list_project_calibrations"),
+    "load_project_calibration": (".project", "load_project_calibration"),
+    "project_calibration_path": (".project", "project_calibration_path"),
+    "project_calibration_root": (".project", "project_calibration_root"),
+    "project_calibration_source_root": (".project", "project_calibration_source_root"),
+    "project_calibrations_root": (".project", "project_calibrations_root"),
+    "save_project_calibration": (".project", "save_project_calibration"),
     "import_lightning_pose_csv_project": (
         ".project",
         "import_lightning_pose_csv_project",
@@ -93,6 +155,19 @@ _PROJECT_EXPORTS: dict[str, tuple[str, str]] = {
 }
 
 _MODEL_EXPORTS: dict[str, tuple[str, str]] = {
+    "AcquisitionMetadata": (".model", "AcquisitionMetadata"),
+    "CALIBRATION_SCHEMA_VERSION": (".model", "CALIBRATION_SCHEMA_VERSION"),
+    "Calibration": (".model", "Calibration"),
+    "CalibrationQuality": (".model", "CalibrationQuality"),
+    "CalibrationSource": (".model", "CalibrationSource"),
+    "Camera": (".model", "Camera"),
+    "CameraDistortion": (".model", "CameraDistortion"),
+    "CameraExtrinsics": (".model", "CameraExtrinsics"),
+    "CameraIntrinsics": (".model", "CameraIntrinsics"),
+    "CameraMetadata": (".model", "CameraMetadata"),
+    "CameraRotation": (".model", "CameraRotation"),
+    "DatasetShareMetadata": (".model", "DatasetShareMetadata"),
+    "PoseModelProvenance": (".model", "PoseModelProvenance"),
     "EMGSignalData": (".model", "EMGSignalData"),
     "Event": (".model", "Event"),
     "EventTable": (".model", "EventTable"),
@@ -123,6 +198,7 @@ _MODEL_EXPORTS: dict[str, tuple[str, str]] = {
     "ViconForcePlatformMetadata": (".model", "ViconForcePlatformMetadata"),
     "ViconMarkerModel": (".model", "ViconMarkerModel"),
     "ViconRecording": (".model", "ViconRecording"),
+    "WorldFrame": (".model", "WorldFrame"),
 }
 
 _ADAPTER_AND_READER_EXPORTS: dict[str, tuple[str, str]] = {
@@ -139,6 +215,9 @@ _ADAPTER_AND_READER_EXPORTS: dict[str, tuple[str, str]] = {
     "labels_to_dataframe": (".adapters", "labels_to_dataframe"),
     "labels_to_json_payload": (".adapters", "labels_to_json_payload"),
     "read_doric_photometry": (".io.readers", "read_doric_photometry"),
+    "read_anipose_calibration": (".io.readers", "read_anipose_calibration"),
+    "read_calibration_json": (".io.calibration", "read_calibration_json"),
+    "write_calibration_json": (".io.calibration", "write_calibration_json"),
     "read_events_csv": (".io.readers", "read_events_csv"),
     "read_neurophotometrics_csv": (".io.readers", "read_neurophotometrics_csv"),
     "read_pmat_events_csv": (".io.readers", "read_pmat_events_csv"),
@@ -158,6 +237,7 @@ _ADAPTER_AND_READER_EXPORTS: dict[str, tuple[str, str]] = {
     "read_vicon_recording": (".io.readers", "read_vicon_recording"),
     "resolve_pose_node_indices": (".io.readers", "resolve_pose_node_indices"),
     "read_photometry_csv": (".io.readers", "read_photometry_csv"),
+    "write_anipose_calibration": (".io.readers", "write_anipose_calibration"),
 }
 
 _LAZY_EXPORTS: dict[str, tuple[str, str]] = {

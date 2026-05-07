@@ -14,6 +14,7 @@ The project-first command surface is:
 xpkg artifacts
 xpkg completion
 xpkg describe
+xpkg inspect
 xpkg import
 xpkg project
 ```
@@ -39,6 +40,28 @@ xpkg project
 - `xpkg describe --json` exposes the current command contract for agents.
 - Shell completion is exposed through `xpkg completion bash`, `xpkg completion
   zsh`, and `xpkg completion fish`.
+
+## `xpkg inspect`
+
+Inspect a file, folder, project, or `.expkg` artifact before import.
+
+### Synopsis
+
+```bash
+xpkg inspect tracking.csv
+xpkg inspect tracking.csv --json
+xpkg inspect "./My Project" --json
+```
+
+### Required behavior
+
+- Does not mutate projects or input files.
+- Reports the inferred input kind and likely importer names when available.
+- Reports lightweight media, table, project, or pose-QC summaries when the
+  metadata can be read safely.
+- Emits warnings for missing metadata, unknown formats, failed QC reads, or
+  unavailable media backends.
+- Uses `--confidence-threshold` / `--threshold` only for pose-confidence QC.
 
 ## `xpkg project`
 

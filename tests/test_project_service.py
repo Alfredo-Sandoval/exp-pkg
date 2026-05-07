@@ -159,3 +159,35 @@ def test_project_service_metadata_field_roundtrip_uses_current_head(tmp_path: Pa
     assert project.load_metadata_field("session_json") == {"active_frame_idx": 7}
     assert metadata is not None
     assert metadata["session_json"] == {"active_frame_idx": 7}
+
+
+def test_project_service_scoped_metadata_roundtrip_without_current_head(tmp_path: Path) -> None:
+    project = ProjectService.create(
+        tmp_path / "Service Scoped Metadata Project",
+        title="Service Scoped Metadata Project",
+    )
+
+    acquisition_path = project.save_acquisition_metadata(
+        {
+            "acquisition_id": "acq-service",
+            "cameras": [{"camera_id": "cam-top", "frame_rate_hz": 120.0}],
+        }
+    )
+    share_path = project.save_dataset_share_metadata(
+        {
+            "title": "Service metadata dataset",
+            "creators": ["Sandoval Lab"],
+            "doi": "10.0000/service",
+            "license": "BSD-3-Clause",
+        }
+    )
+
+    acquisition = project.load_acquisition_metadata()
+    dataset_share = project.load_dataset_share_metadata()
+
+    assert acquisition_path.is_file()
+    assert share_path.is_file()
+    assert acquisition is not None
+    assert acquisition.acquisition_id == "acq-service"
+    assert dataset_share is not None
+    assert dataset_share.doi == "10.0000/service"

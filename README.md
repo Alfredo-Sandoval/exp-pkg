@@ -354,6 +354,7 @@ xpkg project init "./My Project"
 xpkg import dlc csv --csv tracking.csv --video video.mp4 --out "./My Project"
 xpkg import lightning-pose --csv predictions.csv --video video.mp4 --out "./My Project"
 xpkg import sleap package --slp labels.pkg.slp --out "./My Project"
+xpkg inspect tracking.csv --json
 xpkg project pack "./My Project"
 xpkg project pack "./My Project" --media package
 xpkg project unpack "./My Project.expkg" --out "./My Project"
@@ -368,6 +369,8 @@ The same `xpkg import` command also ships source-specific project imports for
 Vicon recordings, Lightning Pose CSV, SLEAP, MMPose JSON, and MediaPipe JSON.
 Every canonical command supports `--json` for machine-readable output, and
 `xpkg describe --json` reports the current command contract for agents.
+Use `xpkg inspect PATH --json` before import to identify likely formats,
+importers, media metadata, and QC warnings without mutating a project.
 Input files that are themselves JSON use `--input-json` so `--json` is reserved
 for output mode.
 

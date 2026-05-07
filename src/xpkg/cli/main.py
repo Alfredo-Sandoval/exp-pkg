@@ -7,7 +7,13 @@ from typing import Annotated
 
 import typer
 
-from xpkg.cli.commands import artifacts, completion, imports, project
+from xpkg.cli.commands import (
+    artifacts,
+    completion,
+    imports,
+    project,
+)
+from xpkg.cli.commands.inspect import inspect_target
 from xpkg.cli.shared import (
     JsonOption,
     run_command,
@@ -56,7 +62,9 @@ def _describe_payload() -> dict[str, object]:
         "resources": {
             "artifacts": ["inspect", "list", "rebuild-index", "validate"],
             "completion": ["bash", "fish", "zsh"],
+            "inspect": ["path"],
             "import": [
+                "anipose calibration",
                 "dlc csv",
                 "dlc h5",
                 "dlc project",
@@ -80,7 +88,9 @@ def _describe_payload() -> dict[str, object]:
             "completion fish",
             "completion zsh",
             "describe",
+            "inspect",
             "import dlc csv",
+            "import anipose calibration",
             "import dlc h5",
             "import dlc project",
             "import lightning-pose",
@@ -135,6 +145,7 @@ def describe(json_output: JsonOption = False) -> None:
     run_command(json_output=json_output, action=action, human_output=human_output)
 
 
+app.command("inspect")(inspect_target)
 app.add_typer(artifacts.app, name="artifacts")
 app.add_typer(completion.build_app(app), name="completion")
 app.add_typer(imports.app, name="import")

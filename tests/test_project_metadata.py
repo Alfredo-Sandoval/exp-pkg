@@ -1,17 +1,28 @@
 from __future__ import annotations
 
+import json
+import zipfile
 from pathlib import Path
 
 import cv2
 import numpy as np
 
+from xpkg.model import AcquisitionMetadata, CameraMetadata, DatasetShareMetadata
 from xpkg.project import (
     current_project_state_path,
     init_project,
+    load_project_acquisition_metadata,
+    load_project_dataset_share_metadata,
     load_project_metadata,
     load_project_payload,
+    pack_project,
+    project_acquisition_metadata_path,
+    project_dataset_share_metadata_path,
+    save_project_acquisition_metadata,
+    save_project_dataset_share_metadata,
     save_project_labels,
     save_project_metadata,
+    unpack_project,
 )
 from xpkg.project.state_io import read_project_state_payload
 
@@ -83,6 +94,93 @@ def test_project_metadata_load_returns_empty_before_first_commit(tmp_path: Path)
     init_project(project, title="Empty Project")
 
     assert load_project_metadata(project) == {}
+
+
+def test_project_scoped_metadata_slots_roundtrip_without_project_head(tmp_path: Path) -> None:
+    project = tmp_path / "Scoped Metadata Project"
+    init_project(project, title="Scoped Metadata Project")
+    acquisition = AcquisitionMetadata(
+        acquisition_id="acq-001",
+        system="open field rig",
+        arena_size="40 x 40 cm",
+        arena_material="matte acrylic",
+        arena_color="gray",
+        lighting="overhead visible plus IR",
+        ir_lighting=True,
+        cameras=(
+            CameraMetadata(
+                camera_id="cam-top",
+                model="FastCam",
+                lens="12 mm",
+                distance_to_arena_mm=350.0,
+                frame_rate_hz=120.0,
+                resolution_px=(1920, 1080),
+            ),
+        ),
+    )
+    dataset_share = DatasetShareMetadata(
+        title="Scoped behavior dataset",
+        creators=("Sandoval Lab",),
+        license="BSD-3-Clause",
+        doi="10.0000/scoped",
+        funders=("NIH",),
+        related_publications=("Example et al. 2024",),
+    )
+
+    acquisition_path = save_project_acquisition_metadata(project, acquisition)
+    share_path = save_project_dataset_share_metadata(project, dataset_share)
+
+    assert acquisition_path == project_acquisition_metadata_path(project)
+    assert share_path == project_dataset_share_metadata_path(project)
+    assert load_project_acquisition_metadata(project) == acquisition
+    assert load_project_dataset_share_metadata(project) == dataset_share
+
+
+def test_project_scoped_metadata_slots_pack_into_expkg_manifest(tmp_path: Path) -> None:
+    project = tmp_path / "Scoped Metadata Pack Project"
+    init_project(project, title="Scoped Metadata Pack Project")
+    save_project_acquisition_metadata(
+        project,
+        {
+            "acquisition_id": "acq-pack",
+            "system": "multi-camera rig",
+            "cameras": [{"camera_id": "cam-top", "frame_rate_hz": 120.0}],
+        },
+    )
+    save_project_dataset_share_metadata(
+        project,
+        {
+            "title": "Packable behavior dataset",
+            "creators": ["Sandoval Lab"],
+            "license": "BSD-3-Clause",
+            "doi": "10.0000/packable",
+            "funders": ["NIH"],
+            "related_publications": ["Example et al. 2024"],
+        },
+    )
+
+    artifact = pack_project(project, out=tmp_path / "scoped-metadata.expkg")
+
+    with zipfile.ZipFile(artifact, mode="r") as archive:
+        names = set(archive.namelist())
+        manifest = json.loads(archive.read("EXPKG.json").decode("utf-8"))
+
+    assert ".xpkg/metadata/acquisition.json" in names
+    assert ".xpkg/metadata/dataset_share.json" in names
+    assert manifest["acquisition"]["acquisition_id"] == "acq-pack"
+    assert manifest["dataset_share"]["doi"] == "10.0000/packable"
+    assert manifest["dataset_share"]["license"] == "BSD-3-Clause"
+    assert manifest["dataset_share"]["funders"] == ["NIH"]
+    assert manifest["dataset_share"]["related_publications"] == ["Example et al. 2024"]
+
+    restored = unpack_project(artifact, tmp_path / "Restored Scoped Metadata Project")
+    restored_acquisition = load_project_acquisition_metadata(restored)
+    restored_dataset_share = load_project_dataset_share_metadata(restored)
+
+    assert restored_acquisition is not None
+    assert restored_acquisition.acquisition_id == "acq-pack"
+    assert restored_dataset_share is not None
+    assert restored_dataset_share.doi == "10.0000/packable"
 
 
 def test_project_payload_loads_rebased_project_head(tmp_path: Path) -> None:

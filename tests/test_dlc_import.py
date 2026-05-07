@@ -212,6 +212,7 @@ def test_import_dlc_project_directory_imports_supported_items_into_one_project(
 def test_import_lightning_pose_csv_project_uses_dlc_style_predictions(
     tmp_path: Path,
 ) -> None:
+    from xpkg._core.hashing import sha256_file
     from xpkg.model import Labels
     from xpkg.project import current_project_state_path, import_lightning_pose_csv_project
     from xpkg.project.state_io import read_project_state_payload
@@ -221,6 +222,8 @@ def test_import_lightning_pose_csv_project_uses_dlc_style_predictions(
     _write_sample_dlc_csv(csv_path)
     video_path = tmp_path / "session0.avi"
     _write_dummy_video(video_path)
+    config_path = tmp_path / "lightning_pose_config.yaml"
+    config_path.write_text("model: lp-demo\n", encoding="utf-8")
     project = tmp_path / "Imported Lightning Pose"
     progress: list[str] = []
 
@@ -230,6 +233,12 @@ def test_import_lightning_pose_csv_project_uses_dlc_style_predictions(
         project,
         skeleton_name="lp",
         likelihood_threshold=0.5,
+        prediction_provenance={
+            "model_name": "lp-demo-model",
+            "model_version": "1.2.3",
+            "training_set": "open-field-training-v1",
+            "config_snapshot_path": config_path,
+        },
         progress_callback=progress.append,
     )
 
@@ -238,7 +247,22 @@ def test_import_lightning_pose_csv_project_uses_dlc_style_predictions(
     payload = read_project_state_payload(state_path)
     assert payload["metadata"]["source"] == "lightning_pose_csv_import"
     assert payload["metadata"]["source_csv"] == csv_path.as_posix()
+    provenance = payload["provenance"]["pose_prediction"]
+    assert provenance["tool"]["name"] == "Lightning Pose"
+    assert provenance["source_format"] == "csv"
+    assert provenance["inputs"]["source_csv"] == csv_path.as_posix()
+    assert provenance["model"] == {
+        "name": "lp-demo-model",
+        "version": "1.2.3",
+        "training_set": "open-field-training-v1",
+    }
+    assert provenance["config_snapshot"] == {
+        "path": config_path.as_posix(),
+        "sha256": sha256_file(config_path),
+    }
+    assert payload["metadata"]["prediction_provenance"] == provenance
     loaded = Labels.load_file(project.as_posix())
+    assert loaded.provenance["pose_prediction"] == provenance
     assert len(loaded.skeletons) == 1
     assert loaded.skeletons[0].keypoint_names == ["nose", "tail"]
     assert len(loaded.labeled_frames) == 2

@@ -26,6 +26,12 @@ raw lab files
 The direct reader layer should stay pleasant and lightweight. The project
 layer adds durable storage, validation, provenance, and packaging.
 
+Luxem et al. 2023 makes the same architectural pressure practical: labs need
+common formats, FAIR/share metadata, acquisition context, and accessible
+interfaces before downstream behavioral video methods can be compared or reused
+confidently. In this repository, that means the session model is an IO contract,
+not an analysis framework.
+
 ## Current Public Objects
 
 ### Timing
@@ -123,6 +129,9 @@ Implemented now:
 - direct readers for photometry CSV, event CSV, pMAT CSV, pyPhotometry PPD/CSV,
   RWD OFRS, Neurophotometrics CSV, Doric `.doric`, Teleopto H5, and optional
   TDT tank/block streams
+- read-only `xpkg inspect PATH --json` summaries for projects, common files,
+  pose exports, media, and `.expkg` artifacts
+- acquisition and dataset-share metadata model primitives
 - public exports from `xpkg.model` and `xpkg.api`
 - focused tests for validation, queries, and time ranges
 
@@ -139,7 +148,14 @@ Still ahead:
 - `project.imports.events_csv(...)`
 - `project.imports.sync_csv(...)`
 - session manifest storage under the project contract
-- `xpkg inspect --json`
+- richer `xpkg inspect --json` associated-media and sync checks
+- acquisition metadata capture for cameras, frame rates, resolution,
+  compression, dropped frames, hardware sync, and timing uncertainty
+- import-time QC for timestamp monotonicity, frame/sample counts, associated
+  media, missing columns, keypoint identity/confidence fields, and sync coverage
+- FAIR/share metadata for source files, software producers, parameter summaries,
+  checksums, units, coordinate systems, and experimental context
+- behavior segmentation output imports from upstream tools or lab workflows
 
 ## Design Constraints
 
@@ -150,6 +166,27 @@ Still ahead:
 - Preserve provenance and time alignment.
 - Do not overfit the model to one photometry vendor, one camera stack, or one
   lab's file naming scheme.
+- Treat behavior segmentation as imported interval or label data. `xpkg` may
+  store outputs from tools such as SimBA, MARS, B-SOID, VAME, MoSeq, or local
+  classifiers, but should not claim to train or run those algorithms.
+
+## Session Contract Priorities
+
+A useful session package should answer basic inspection questions without
+requiring a user to run analysis code:
+
+- What raw files and derived files are present?
+- Which modality does each file represent?
+- Which timeline does each file use?
+- Which camera, acquisition, or synchronization assumptions affect alignment?
+- Which software and parameters produced each derived output?
+- Which QC warnings were observed during import?
+- Which behavior labels, motifs, or intervals were imported, and what source
+  pose/video/session do they reference?
+
+These questions define the near-term manifest work. The manifest should make
+session contents findable and reusable across tools, while leaving heavier
+analysis libraries as optional consumers.
 
 This gives `xpkg` a practical adoption path: direct neuroscience IO first,
 portable project/session contracts second, optional analysis bridges later.

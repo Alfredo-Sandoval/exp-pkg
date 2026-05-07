@@ -8,6 +8,7 @@ from typing import Annotated, Any
 
 import typer
 
+from xpkg._core.json_utils import load_json_dict
 from xpkg.cli.shared import (
     JsonOption,
     progress_callback,
@@ -18,7 +19,9 @@ from xpkg.cli.shared import (
     run_command,
     write_path,
 )
+from xpkg.model.calibration import WorldFrame
 from xpkg.project import (
+    import_anipose_calibration_project,
     import_dlc_csv_project,
     import_dlc_h5_project,
     import_dlc_project_directory,
@@ -56,6 +59,12 @@ vicon_app = typer.Typer(
     no_args_is_help=True,
     rich_markup_mode="rich",
 )
+anipose_app = typer.Typer(
+    add_completion=False,
+    help="Import Anipose calibration data into a project.",
+    no_args_is_help=True,
+    rich_markup_mode="rich",
+)
 
 
 def _import_payload(source: str, project: str, state_path: Path) -> dict[str, str]:
@@ -72,6 +81,103 @@ def _emit_import_result(payload: dict[str, Any], label: str) -> None:
     write_path(Path(str(payload["state_path"])))
 
 
+def _emit_calibration_import_result(payload: dict[str, Any], label: str) -> None:
+    sys.stdout.write(f"Imported {label} into {payload['project']}\n")
+    write_path(Path(str(payload["calibration_path"])))
+
+
+def _load_prediction_provenance(path: str | None) -> dict[str, Any] | None:
+    if path is None:
+        return None
+    return load_json_dict(require_option_value(path, "--provenance-json"))
+
+
+def _load_model_provenance(path: str | None) -> dict[str, Any] | None:
+    if path is None:
+        return None
+    return load_json_dict(require_option_value(path, "--model-provenance-json"))
+
+
+_MODEL_PROVENANCE_HELP = (
+    "Optional JSON block with PoseModelProvenance fields "
+    "(tool_version, model_name, checkpoint_id, training_set_reference, ...)."
+)
+
+
+@anipose_app.command("calibration")
+def import_anipose_calibration(
+    toml: Annotated[
+        str,
+        typer.Option("--toml", help="Path to an Anipose calibration.toml file."),
+    ],
+    out: Annotated[str, typer.Option("--out", help="Output project directory.")],
+    calibration_id: Annotated[
+        str | None,
+        typer.Option("--calibration-id", help="Managed calibration ID to write."),
+    ] = None,
+    name: Annotated[
+        str | None,
+        typer.Option("--name", help="Human-readable calibration name."),
+    ] = None,
+    units: Annotated[
+        str,
+        typer.Option("--units", help="World-coordinate units for translations."),
+    ] = "unknown",
+    captured_at: Annotated[
+        str | None,
+        typer.Option("--captured-at", help="Calibration capture timestamp."),
+    ] = None,
+    world_anchor: Annotated[
+        str | None,
+        typer.Option("--world-anchor", help="Short tag for the calibration world frame."),
+    ] = None,
+    world_description: Annotated[
+        str | None,
+        typer.Option("--world-description", help="Description of the calibration world frame."),
+    ] = None,
+    force: Annotated[
+        bool,
+        typer.Option("--force", help="Overwrite an existing calibration JSON file."),
+    ] = False,
+    json_output: JsonOption = False,
+) -> None:
+    """Import an Anipose camera calibration into a project."""
+    toml = require_option_value(toml, "--toml")
+    out = require_option_value(out, "--out")
+
+    def action() -> dict[str, str]:
+        world_frame = (
+            None
+            if world_anchor is None and world_description is None
+            else WorldFrame(anchor=world_anchor, description=world_description)
+        )
+        calibration_path = import_anipose_calibration_project(
+            toml,
+            out,
+            calibration_id=calibration_id,
+            name=name,
+            units=units,
+            captured_at=captured_at,
+            world_frame=world_frame,
+            force=force,
+        )
+        return {
+            "status": "imported",
+            "source": "anipose_calibration",
+            "project": out,
+            "calibration_path": str(calibration_path),
+        }
+
+    run_command(
+        json_output=json_output,
+        action=action,
+        human_output=lambda payload: _emit_calibration_import_result(
+            payload,
+            "Anipose calibration",
+        ),
+    )
+
+
 @dlc_app.command("csv")
 def import_dlc_csv(
     csv: Annotated[str, typer.Option("--csv", help="Path to a DLC CSV tracking file.")],
@@ -85,6 +191,20 @@ def import_dlc_csv(
         float,
         typer.Option("--threshold", callback=require_likelihood_threshold),
     ] = 0.0,
+    provenance_json: Annotated[
+        str | None,
+        typer.Option(
+            "--provenance-json",
+            help="Optional JSON block with upstream model/prediction provenance.",
+        ),
+    ] = None,
+    model_provenance_json: Annotated[
+        str | None,
+        typer.Option(
+            "--model-provenance-json",
+            help=_MODEL_PROVENANCE_HELP,
+        ),
+    ] = None,
     json_output: JsonOption = False,
 ) -> None:
     """Import a DLC CSV tracking file."""
@@ -99,6 +219,8 @@ def import_dlc_csv(
             out,
             skeleton_name=skeleton_name,
             likelihood_threshold=threshold,
+            prediction_provenance=_load_prediction_provenance(provenance_json),
+            provenance=_load_model_provenance(model_provenance_json),
             progress_callback=progress_callback(json_output),
         )
         return _import_payload("dlc_csv", out, state_path)
@@ -123,6 +245,20 @@ def import_dlc_h5(
         float,
         typer.Option("--threshold", callback=require_likelihood_threshold),
     ] = 0.0,
+    provenance_json: Annotated[
+        str | None,
+        typer.Option(
+            "--provenance-json",
+            help="Optional JSON block with upstream model/prediction provenance.",
+        ),
+    ] = None,
+    model_provenance_json: Annotated[
+        str | None,
+        typer.Option(
+            "--model-provenance-json",
+            help=_MODEL_PROVENANCE_HELP,
+        ),
+    ] = None,
     json_output: JsonOption = False,
 ) -> None:
     """Import a DLC H5 tracking file."""
@@ -137,6 +273,8 @@ def import_dlc_h5(
             out,
             skeleton_name=skeleton_name,
             likelihood_threshold=threshold,
+            prediction_provenance=_load_prediction_provenance(provenance_json),
+            provenance=_load_model_provenance(model_provenance_json),
             progress_callback=progress_callback(json_output),
         )
         return _import_payload("dlc_h5", out, state_path)
@@ -156,6 +294,20 @@ def import_dlc_project(
         float,
         typer.Option("--threshold", callback=require_likelihood_threshold),
     ] = 0.0,
+    provenance_json: Annotated[
+        str | None,
+        typer.Option(
+            "--provenance-json",
+            help="Optional JSON block with upstream model/prediction provenance.",
+        ),
+    ] = None,
+    model_provenance_json: Annotated[
+        str | None,
+        typer.Option(
+            "--model-provenance-json",
+            help=_MODEL_PROVENANCE_HELP,
+        ),
+    ] = None,
     json_output: JsonOption = False,
 ) -> None:
     """Import an entire DLC project into one project."""
@@ -167,6 +319,8 @@ def import_dlc_project(
             project,
             out,
             likelihood_threshold=threshold,
+            prediction_provenance=_load_prediction_provenance(provenance_json),
+            provenance=_load_model_provenance(model_provenance_json),
             progress_callback=progress_callback(json_output),
         )
         return _import_payload("dlc_project", out, state_path)
@@ -194,6 +348,20 @@ def import_lightning_pose(
         float,
         typer.Option("--threshold", callback=require_likelihood_threshold),
     ] = 0.0,
+    provenance_json: Annotated[
+        str | None,
+        typer.Option(
+            "--provenance-json",
+            help="Optional JSON block with upstream model/prediction provenance.",
+        ),
+    ] = None,
+    model_provenance_json: Annotated[
+        str | None,
+        typer.Option(
+            "--model-provenance-json",
+            help=_MODEL_PROVENANCE_HELP,
+        ),
+    ] = None,
     json_output: JsonOption = False,
 ) -> None:
     """Import Lightning Pose CSV predictions into a project."""
@@ -208,6 +376,8 @@ def import_lightning_pose(
             out,
             skeleton_name=skeleton_name,
             likelihood_threshold=threshold,
+            prediction_provenance=_load_prediction_provenance(provenance_json),
+            provenance=_load_model_provenance(model_provenance_json),
             progress_callback=progress_callback(json_output),
         )
         return _import_payload("lightning_pose_csv", out, state_path)
@@ -235,6 +405,20 @@ def import_mediapipe(
         float,
         typer.Option("--threshold", callback=require_likelihood_threshold),
     ] = 0.0,
+    provenance_json: Annotated[
+        str | None,
+        typer.Option(
+            "--provenance-json",
+            help="Optional JSON block with upstream model/prediction provenance.",
+        ),
+    ] = None,
+    model_provenance_json: Annotated[
+        str | None,
+        typer.Option(
+            "--model-provenance-json",
+            help=_MODEL_PROVENANCE_HELP,
+        ),
+    ] = None,
     json_output: JsonOption = False,
 ) -> None:
     """Import MediaPipe pose-landmarks JSON into a project."""
@@ -249,6 +433,8 @@ def import_mediapipe(
             out,
             skeleton_name=skeleton_name,
             likelihood_threshold=threshold,
+            prediction_provenance=_load_prediction_provenance(provenance_json),
+            provenance=_load_model_provenance(model_provenance_json),
             progress_callback=progress_callback(json_output),
         )
         return _import_payload("mediapipe_pose_landmarks_json", out, state_path)
@@ -280,6 +466,20 @@ def import_mmpose(
         float,
         typer.Option("--threshold", callback=require_likelihood_threshold),
     ] = 0.0,
+    provenance_json: Annotated[
+        str | None,
+        typer.Option(
+            "--provenance-json",
+            help="Optional JSON block with upstream model/prediction provenance.",
+        ),
+    ] = None,
+    model_provenance_json: Annotated[
+        str | None,
+        typer.Option(
+            "--model-provenance-json",
+            help=_MODEL_PROVENANCE_HELP,
+        ),
+    ] = None,
     json_output: JsonOption = False,
 ) -> None:
     """Import MMPose top-down demo JSON predictions into a project."""
@@ -295,6 +495,8 @@ def import_mmpose(
             skeleton_name=skeleton_name,
             instance_index=instance_index,
             likelihood_threshold=threshold,
+            prediction_provenance=_load_prediction_provenance(provenance_json),
+            provenance=_load_model_provenance(model_provenance_json),
             progress_callback=progress_callback(json_output),
         )
         return _import_payload("mmpose_topdown_json", out, state_path)
@@ -325,6 +527,20 @@ def import_sleap_h5(
         float,
         typer.Option("--threshold", callback=require_likelihood_threshold),
     ] = 0.0,
+    provenance_json: Annotated[
+        str | None,
+        typer.Option(
+            "--provenance-json",
+            help="Optional JSON block with upstream model/prediction provenance.",
+        ),
+    ] = None,
+    model_provenance_json: Annotated[
+        str | None,
+        typer.Option(
+            "--model-provenance-json",
+            help=_MODEL_PROVENANCE_HELP,
+        ),
+    ] = None,
     json_output: JsonOption = False,
 ) -> None:
     """Import a SLEAP analysis H5 export into a project."""
@@ -339,6 +555,8 @@ def import_sleap_h5(
             out,
             skeleton_name=skeleton_name,
             likelihood_threshold=threshold,
+            prediction_provenance=_load_prediction_provenance(provenance_json),
+            provenance=_load_model_provenance(model_provenance_json),
             progress_callback=progress_callback(json_output),
         )
         return _import_payload("sleap_h5", out, state_path)
@@ -362,6 +580,20 @@ def import_sleap_package(
         bool,
         typer.Option("--videos/--no-videos", help="Encode MP4 videos into the internal store."),
     ] = True,
+    provenance_json: Annotated[
+        str | None,
+        typer.Option(
+            "--provenance-json",
+            help="Optional JSON block with upstream model/prediction provenance.",
+        ),
+    ] = None,
+    model_provenance_json: Annotated[
+        str | None,
+        typer.Option(
+            "--model-provenance-json",
+            help=_MODEL_PROVENANCE_HELP,
+        ),
+    ] = None,
     json_output: JsonOption = False,
 ) -> None:
     """Import a SLEAP package into a project."""
@@ -374,6 +606,8 @@ def import_sleap_package(
             out,
             fps=fps,
             encode_videos=encode_videos,
+            prediction_provenance=_load_prediction_provenance(provenance_json),
+            provenance=_load_model_provenance(model_provenance_json),
             progress_callback=progress_callback(json_output),
         )
         return _import_payload("sleap_package", out, state_path)
@@ -470,5 +704,6 @@ def import_vicon_recording(
 
 
 app.add_typer(dlc_app, name="dlc")
+app.add_typer(anipose_app, name="anipose")
 app.add_typer(sleap_app, name="sleap")
 app.add_typer(vicon_app, name="vicon")

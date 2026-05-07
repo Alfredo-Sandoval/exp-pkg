@@ -18,6 +18,7 @@ from xpkg.project import (
     ProjectDescriptor,
     ProjectInspection,
     current_project_state_path,
+    import_anipose_calibration_project,
     import_dlc_csv_project,
     import_dlc_h5_project,
     import_dlc_project_directory,
@@ -31,6 +32,11 @@ from xpkg.project import (
     import_vicon_project,
     init_project,
     inspect_project,
+    load_project_acquisition_metadata,
+    load_project_dataset_share_metadata,
+    load_project_datasheet,
+    load_project_model_card,
+    load_project_pose_provenance,
     load_project_descriptor,
     load_project_metadata,
     load_project_metadata_field,
@@ -44,6 +50,11 @@ from xpkg.project import (
     project_state_root,
     project_store_root,
     resolve_project_root,
+    save_project_acquisition_metadata,
+    save_project_dataset_share_metadata,
+    save_project_datasheet,
+    save_project_model_card,
+    save_project_pose_provenance,
     save_project_labels,
     save_project_metadata,
     save_project_metadata_field,
@@ -53,11 +64,20 @@ from xpkg.project import (
 from xpkg.project.state import project_state_kind
 from xpkg.project.store import ensure_current_project_state_cache
 from xpkg.services.artifacts import ProjectArtifacts
+from xpkg.services.calibrations import ProjectCalibrations
 from xpkg.services.figures import ProjectFigures
 from xpkg.services.segmentation import ProjectSegmentation
 
 if TYPE_CHECKING:
-    from xpkg.model import Labels, ViconRecording
+    from xpkg.model import (
+        AcquisitionMetadata,
+        DatasetDatasheet,
+        DatasetShareMetadata,
+        Labels,
+        ModelCard,
+        PoseModelProvenance,
+        ViconRecording,
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -121,6 +141,8 @@ class ProjectImports:
         *,
         skeleton_name: str = "imported",
         likelihood_threshold: float = 0.0,
+        prediction_provenance: Mapping[str, Any] | None = None,
+        provenance: PoseModelProvenance | Mapping[str, Any] | None = None,
         force: bool = False,
         progress_callback: Any | None = None,
     ) -> Path:
@@ -131,6 +153,8 @@ class ProjectImports:
             video_path,
             skeleton_name=skeleton_name,
             likelihood_threshold=likelihood_threshold,
+            prediction_provenance=prediction_provenance,
+            provenance=provenance,
             force=force,
             progress_callback=progress_callback,
         )
@@ -142,6 +166,8 @@ class ProjectImports:
         *,
         skeleton_name: str = "imported",
         likelihood_threshold: float = 0.0,
+        prediction_provenance: Mapping[str, Any] | None = None,
+        provenance: PoseModelProvenance | Mapping[str, Any] | None = None,
         force: bool = False,
         progress_callback: Any | None = None,
     ) -> Path:
@@ -152,6 +178,8 @@ class ProjectImports:
             video_path,
             skeleton_name=skeleton_name,
             likelihood_threshold=likelihood_threshold,
+            prediction_provenance=prediction_provenance,
+            provenance=provenance,
             force=force,
             progress_callback=progress_callback,
         )
@@ -162,6 +190,8 @@ class ProjectImports:
         *,
         skeleton_name: str | None = None,
         likelihood_threshold: float = 0.0,
+        prediction_provenance: Mapping[str, Any] | None = None,
+        provenance: PoseModelProvenance | Mapping[str, Any] | None = None,
         force: bool = False,
         progress_callback: Any | None = None,
     ) -> Path:
@@ -171,6 +201,8 @@ class ProjectImports:
             project_dir,
             skeleton_name=skeleton_name,
             likelihood_threshold=likelihood_threshold,
+            prediction_provenance=prediction_provenance,
+            provenance=provenance,
             force=force,
             progress_callback=progress_callback,
         )
@@ -182,6 +214,8 @@ class ProjectImports:
         *,
         skeleton_name: str = "imported",
         likelihood_threshold: float = 0.0,
+        prediction_provenance: Mapping[str, Any] | None = None,
+        provenance: PoseModelProvenance | Mapping[str, Any] | None = None,
         force: bool = False,
         progress_callback: Any | None = None,
     ) -> Path:
@@ -192,6 +226,8 @@ class ProjectImports:
             video_path,
             skeleton_name=skeleton_name,
             likelihood_threshold=likelihood_threshold,
+            prediction_provenance=prediction_provenance,
+            provenance=provenance,
             force=force,
             progress_callback=progress_callback,
         )
@@ -203,6 +239,8 @@ class ProjectImports:
         *,
         skeleton_name: str = "imported",
         likelihood_threshold: float = 0.0,
+        prediction_provenance: Mapping[str, Any] | None = None,
+        provenance: PoseModelProvenance | Mapping[str, Any] | None = None,
         force: bool = False,
         progress_callback: Any | None = None,
     ) -> Path:
@@ -213,6 +251,8 @@ class ProjectImports:
             video_path,
             skeleton_name=skeleton_name,
             likelihood_threshold=likelihood_threshold,
+            prediction_provenance=prediction_provenance,
+            provenance=provenance,
             force=force,
             progress_callback=progress_callback,
         )
@@ -223,6 +263,8 @@ class ProjectImports:
         *,
         fps: int = 30,
         encode_videos: bool | None = None,
+        prediction_provenance: Mapping[str, Any] | None = None,
+        provenance: PoseModelProvenance | Mapping[str, Any] | None = None,
         force: bool = False,
         progress_callback: Any | None = None,
     ) -> Path:
@@ -232,6 +274,8 @@ class ProjectImports:
             slp,
             fps=int(fps),
             encode_videos=encode_videos,
+            prediction_provenance=prediction_provenance,
+            provenance=provenance,
             force=force,
             progress_callback=progress_callback,
         )
@@ -244,6 +288,8 @@ class ProjectImports:
         skeleton_name: str = "imported",
         instance_index: int = 0,
         likelihood_threshold: float = 0.0,
+        prediction_provenance: Mapping[str, Any] | None = None,
+        provenance: PoseModelProvenance | Mapping[str, Any] | None = None,
         force: bool = False,
         progress_callback: Any | None = None,
     ) -> Path:
@@ -255,6 +301,8 @@ class ProjectImports:
             skeleton_name=skeleton_name,
             instance_index=int(instance_index),
             likelihood_threshold=likelihood_threshold,
+            prediction_provenance=prediction_provenance,
+            provenance=provenance,
             force=force,
             progress_callback=progress_callback,
         )
@@ -266,6 +314,8 @@ class ProjectImports:
         *,
         skeleton_name: str = "mediapipe_pose",
         likelihood_threshold: float = 0.0,
+        prediction_provenance: Mapping[str, Any] | None = None,
+        provenance: PoseModelProvenance | Mapping[str, Any] | None = None,
         force: bool = False,
         progress_callback: Any | None = None,
     ) -> Path:
@@ -276,8 +326,31 @@ class ProjectImports:
             video_path,
             skeleton_name=skeleton_name,
             likelihood_threshold=likelihood_threshold,
+            prediction_provenance=prediction_provenance,
+            provenance=provenance,
             force=force,
             progress_callback=progress_callback,
+        )
+
+    def anipose_calibration(
+        self,
+        toml_path: str | Path,
+        *,
+        calibration_id: str | None = None,
+        name: str | None = None,
+        units: str = "unknown",
+        captured_at: str | None = None,
+        force: bool = False,
+    ) -> Path:
+        """Import an Anipose calibration TOML into this project."""
+        return self._import(
+            import_anipose_calibration_project,
+            toml_path,
+            calibration_id=calibration_id,
+            name=name,
+            units=units,
+            captured_at=captured_at,
+            force=force,
         )
 
 
@@ -371,6 +444,11 @@ class ProjectService:
         """Return project-bound figure artifact registry commands."""
         return ProjectFigures(project_root=self.project_root)
 
+    @property
+    def calibrations(self) -> ProjectCalibrations:
+        """Return project-bound camera-calibration storage commands."""
+        return ProjectCalibrations(project_root=self.project_root)
+
     def describe(self) -> ProjectLayout:
         """Return the normalized managed paths for this project."""
         descriptor = self.descriptor()
@@ -424,6 +502,26 @@ class ProjectService:
         """Load one mapping-valued metadata field from the current project head."""
         return load_project_metadata_field(self.project_root, field)
 
+    def load_acquisition_metadata(self) -> AcquisitionMetadata | None:
+        """Load project-scoped acquisition metadata."""
+        return load_project_acquisition_metadata(self.project_root)
+
+    def load_dataset_share_metadata(self) -> DatasetShareMetadata | None:
+        """Load project-scoped dataset sharing metadata."""
+        return load_project_dataset_share_metadata(self.project_root)
+
+    def load_pose_provenance(self) -> PoseModelProvenance | None:
+        """Load project-scoped pose-model provenance."""
+        return load_project_pose_provenance(self.project_root)
+
+    def load_datasheet(self) -> DatasetDatasheet | None:
+        """Load the project Datasheet for Datasets (Gebru et al. 2021)."""
+        return load_project_datasheet(self.project_root)
+
+    def load_model_card(self) -> ModelCard | None:
+        """Load the project Model Card (Mitchell et al. 2019)."""
+        return load_project_model_card(self.project_root)
+
     def load_payload(self) -> dict[str, Any]:
         """Load the current project payload with project-relative media rebased."""
         return load_project_payload(self.project_root)
@@ -455,6 +553,41 @@ class ProjectService:
             value,
             reason=reason,
         )
+
+    def save_acquisition_metadata(
+        self,
+        acquisition: AcquisitionMetadata | Mapping[str, Any],
+    ) -> Path:
+        """Persist project-scoped acquisition metadata."""
+        return save_project_acquisition_metadata(self.project_root, acquisition)
+
+    def save_dataset_share_metadata(
+        self,
+        dataset_share: DatasetShareMetadata | Mapping[str, Any],
+    ) -> Path:
+        """Persist project-scoped dataset sharing metadata."""
+        return save_project_dataset_share_metadata(self.project_root, dataset_share)
+
+    def save_pose_provenance(
+        self,
+        provenance: PoseModelProvenance | Mapping[str, Any],
+    ) -> Path:
+        """Persist project-scoped pose-model provenance."""
+        return save_project_pose_provenance(self.project_root, provenance)
+
+    def save_datasheet(
+        self,
+        datasheet: DatasetDatasheet | Mapping[str, Any],
+    ) -> Path:
+        """Persist a Datasheet for Datasets (Gebru et al. 2021)."""
+        return save_project_datasheet(self.project_root, datasheet)
+
+    def save_model_card(
+        self,
+        model_card: ModelCard | Mapping[str, Any],
+    ) -> Path:
+        """Persist a Model Card (Mitchell et al. 2019)."""
+        return save_project_model_card(self.project_root, model_card)
 
     def save_labels(
         self,
@@ -495,6 +628,7 @@ __all__ = [
     "ProjectLayout",
     "ProjectInspection",
     "ProjectArtifacts",
+    "ProjectCalibrations",
     "ProjectFigures",
     "ProjectSegmentation",
 ]
