@@ -38,11 +38,22 @@ def test_cli_sets_and_shows_acquisition_metadata_json_mode(
         encoding="utf-8",
     )
 
-    set_code = main(["project", "set-acquisition", str(project), "--from", str(source), "--json"])
+    set_code = main(
+        [
+            "project",
+            "metadata",
+            "set",
+            "acquisition",
+            str(project),
+            "--from",
+            str(source),
+            "--json",
+        ]
+    )
     set_envelope = json.loads(capsys.readouterr().out)
     assert set_envelope["ok"] is True
     set_payload = set_envelope["data"]
-    show_code = main(["project", "show-acquisition", str(project), "--json"])
+    show_code = main(["project", "metadata", "show", "acquisition", str(project), "--json"])
     show_envelope = json.loads(capsys.readouterr().out)
     assert show_envelope["ok"] is True
     show_payload = show_envelope["data"]
@@ -80,12 +91,21 @@ def test_cli_sets_and_shows_dataset_share_metadata_json_mode(
     )
 
     set_code = main(
-        ["project", "set-dataset-share", str(project), "--from", str(source), "--json"]
+        [
+            "project",
+            "metadata",
+            "set",
+            "dataset-share",
+            str(project),
+            "--from",
+            str(source),
+            "--json",
+        ]
     )
     set_envelope = json.loads(capsys.readouterr().out)
     assert set_envelope["ok"] is True
     set_payload = set_envelope["data"]
-    show_code = main(["project", "show-dataset-share", str(project), "--json"])
+    show_code = main(["project", "metadata", "show", "dataset-share", str(project), "--json"])
     show_envelope = json.loads(capsys.readouterr().out)
     assert show_envelope["ok"] is True
     show_payload = show_envelope["data"]

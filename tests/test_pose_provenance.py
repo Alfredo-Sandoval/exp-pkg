@@ -202,15 +202,15 @@ def test_cli_dlc_csv_with_model_provenance_json(
     code = main(
         [
             "import",
-            "dlc",
-            "csv",
-            "--csv",
+            "pose",
+            "dlc-csv",
+            "--path",
             str(csv),
             "--video",
             str(video),
             "--out",
             str(project),
-            "--model-provenance-json",
+            "--provenance-json",
             str(provenance_json),
             "--json",
         ]

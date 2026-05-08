@@ -99,7 +99,9 @@ def test_cli_set_and_show_datasheet_round_trip(
     code = main(
         [
             "project",
-            "set-datasheet",
+            "metadata",
+            "set",
+            "datasheet",
             str(project),
             "--from",
             str(payload_path),
@@ -112,7 +114,7 @@ def test_cli_set_and_show_datasheet_round_trip(
     assert saved["metadata"] == "datasheet"
     assert saved["datasheet"]["distribution"]["doi"] == "10.5281/zenodo.42"
 
-    code = main(["project", "show-datasheet", str(project), "--json"])
+    code = main(["project", "metadata", "show", "datasheet", str(project), "--json"])
     assert code == 0
     shown = _capture_json(capsys)
     assert shown["status"] == "loaded"
@@ -129,7 +131,7 @@ def test_cli_show_datasheet_reports_missing_when_unset(
     project = tmp_path / "No Datasheet CLI Project"
     init_project(project, title="No Datasheet CLI Project")
 
-    code = main(["project", "show-datasheet", str(project), "--json"])
+    code = main(["project", "metadata", "show", "datasheet", str(project), "--json"])
     assert code == 0
     shown = _capture_json(capsys)
     assert shown["status"] == "missing"

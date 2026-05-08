@@ -36,7 +36,12 @@ def _as_int(value: Any, *, field: str) -> int:
 
 
 def rle_encode(mask: np.ndarray) -> tuple[np.ndarray, int]:
-    """Encode a 2D binary mask as row-major run lengths.
+    """Encode a 2D binary mask as row-major run lengths (low-level numpy API).
+
+    This is the low-level counterpart to :func:`encode_mask_rle`. Use this when
+    you want the raw arrays without the JSON-payload wrapper; use
+    :func:`encode_mask_rle` when you want the canonical xpkg RLE dict that
+    embeds the encoding tag, ordering, and size metadata for serialization.
 
     Returns:
         ``(counts, start)`` where counts is a ``uint32`` array and start is
@@ -60,7 +65,12 @@ def rle_decode(
     height: int,
     width: int,
 ) -> np.ndarray:
-    """Decode row-major RLE counts into a ``uint8`` binary mask."""
+    """Decode row-major RLE counts into a ``uint8`` binary mask (low-level API).
+
+    Low-level counterpart to :func:`decode_mask_rle`: takes the raw
+    ``(counts, start, height, width)`` tuple form rather than the canonical
+    xpkg RLE payload dict.
+    """
 
     if start not in (0, 1):
         raise ValueError("RLE start must be 0 or 1.")
@@ -92,7 +102,12 @@ def rle_decode(
 
 
 def encode_mask_rle(mask: np.ndarray) -> dict[str, Any]:
-    """Encode a binary mask into the canonical xpkg RLE payload."""
+    """Encode a binary mask into the canonical xpkg RLE payload (JSON dict API).
+
+    This is the JSON-serializable counterpart to :func:`rle_encode`. The result
+    is the dict form embedded in :class:`SegmentationMask` payloads and on disk
+    (encoding tag, ``size``, ``order``, ``start``, ``counts``).
+    """
 
     binary = _binary_mask(mask)
     counts, start = rle_encode(binary)
@@ -113,7 +128,12 @@ def encode_masks_rle(masks: Sequence[np.ndarray]) -> list[dict[str, Any]]:
 
 
 def decode_mask_rle(mask_rle: Mapping[str, Any]) -> np.ndarray:
-    """Decode an xpkg RLE payload into a ``uint8`` binary mask."""
+    """Decode an xpkg RLE payload dict into a ``uint8`` binary mask (JSON dict API).
+
+    JSON-payload counterpart to :func:`rle_decode`: takes the canonical xpkg RLE
+    dict produced by :func:`encode_mask_rle` rather than the low-level
+    ``(counts, start, height, width)`` tuple form.
+    """
 
     size = mask_rle.get("size")
     if size is None and "height" in mask_rle and "width" in mask_rle:

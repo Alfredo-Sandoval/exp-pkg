@@ -34,9 +34,9 @@ def test_cli_imports_anipose_calibration_json_mode(tmp_path: Path, capsys) -> No
     code = main(
         [
             "import",
-            "anipose",
             "calibration",
-            "--toml",
+            "anipose",
+            "--path",
             str(source),
             "--out",
             str(project),
@@ -57,7 +57,7 @@ def test_cli_imports_anipose_calibration_json_mode(tmp_path: Path, capsys) -> No
     assert envelope["ok"] is True
     payload = envelope["data"]
     assert payload["status"] == "imported"
-    assert payload["source"] == "anipose_calibration"
+    assert payload["source"] == "anipose"
     assert payload["project"] == str(project)
     assert payload["calibration_path"].endswith("/.xpkg/calibrations/rig/calibration.json")
     assert (project / ".xpkg" / "calibrations" / "rig" / "source" / "calibration.toml").is_file()

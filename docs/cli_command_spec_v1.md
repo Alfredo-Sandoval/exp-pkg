@@ -74,6 +74,8 @@ Manage project-first project lifecycle operations.
 
 - `xpkg project describe`
 - `xpkg project init`
+- `xpkg project metadata set <slot>`
+- `xpkg project metadata show <slot>`
 - `xpkg project pack`
 - `xpkg project unpack`
 - `xpkg project validate`
@@ -106,37 +108,45 @@ xpkg project init "./My Project" --title "My Project"
 
 ## `xpkg import`
 
-Import supported external data into a project.
+Import supported external data into a project. The CLI mirrors the
+``ProjectService`` Python dispatch surface and exposes three families
+(``pose``, ``calibration``, ``motion``); each takes a kebab-case ``format``
+positional argument that matches ``ProjectService.import_pose``,
+``ProjectService.import_calibration``, or ``ProjectService.import_motion``.
 
 ### Synopsis
 
 ```bash
-xpkg import dlc csv --csv tracking.csv --video video.mp4 --out "./My Project"
-xpkg import dlc h5 --h5 tracking.h5 --video video.mp4 --out "./My Project"
-xpkg import dlc project --project dlc_project --out "./My Project"
-xpkg import lightning-pose --csv predictions.csv --video video.mp4 --out "./My Project"
-xpkg import sleap package --slp labels.pkg.slp --out "./My Project"
-xpkg import sleap h5 --h5 analysis.h5 --video video.mp4 --out "./My Project"
-xpkg import vicon recording --recording trial.c3d --out "./My Project"
-xpkg import vicon csv --csv trial.csv --out "./My Project"
-xpkg import vicon c3d --c3d trial.c3d --out "./My Project"
-xpkg import mmpose --input-json results.json --video video.mp4 --out "./My Project"
-xpkg import mediapipe --input-json pose_landmarks.json --video video.mp4 --out "./My Project"
+xpkg import pose dlc-csv --path tracking.csv --video video.mp4 --out "./My Project"
+xpkg import pose dlc-h5 --path tracking.h5 --video video.mp4 --out "./My Project"
+xpkg import pose dlc-project --path dlc_project --out "./My Project"
+xpkg import pose lightning-pose-csv --path predictions.csv --video video.mp4 --out "./My Project"
+xpkg import pose sleap-h5 --path analysis.h5 --video video.mp4 --out "./My Project"
+xpkg import pose sleap-package --path labels.pkg.slp --out "./My Project"
+xpkg import pose mmpose-topdown-json --input-json results.json --video video.mp4 --out "./My Project"
+xpkg import pose mediapipe-pose-landmarks-json --input-json pose_landmarks.json --video video.mp4 --out "./My Project"
+
+xpkg import calibration anipose --path rig.toml --out "./My Project"
+
+xpkg import motion vicon --path trial.c3d --out "./My Project"
+xpkg import motion vicon-csv --path trial.csv --out "./My Project"
+xpkg import motion vicon-c3d --path trial.c3d --out "./My Project"
 ```
 
-### Supported families today
+### Supported formats today
 
-- `xpkg import dlc csv`
-- `xpkg import dlc h5`
-- `xpkg import dlc project`
-- `xpkg import lightning-pose`
-- `xpkg import sleap package`
-- `xpkg import sleap h5`
-- `xpkg import vicon recording`
-- `xpkg import vicon csv`
-- `xpkg import vicon c3d`
-- `xpkg import mmpose`
-- `xpkg import mediapipe`
+- `xpkg import pose dlc-csv`
+- `xpkg import pose dlc-h5`
+- `xpkg import pose dlc-project`
+- `xpkg import pose lightning-pose-csv`
+- `xpkg import pose mediapipe-pose-landmarks-json`
+- `xpkg import pose mmpose-topdown-json`
+- `xpkg import pose sleap-h5`
+- `xpkg import pose sleap-package`
+- `xpkg import calibration anipose`
+- `xpkg import motion vicon`
+- `xpkg import motion vicon-csv`
+- `xpkg import motion vicon-c3d`
 
 ### Required behavior
 
@@ -182,6 +192,38 @@ xpkg artifacts rebuild-index "./My Project"
   models.
 - `artifacts` does not make `.expkg` files mutable; use `xpkg project pack` after
   project changes.
+
+## `xpkg project metadata`
+
+Read or write the durable typed metadata slots stored under
+`.xpkg/metadata/`. The CLI mirrors `ProjectService.metadata` on the Python
+side: each slot is a kebab-case positional argument matching the typed
+accessor.
+
+### Supported slots
+
+- `acquisition` — `AcquisitionMetadata` (acquisition.json)
+- `dataset-share` — `DatasetShareMetadata` (dataset_share.json), FAIR sharing fields
+- `datasheet` — `DatasetDatasheet` (datasheet.json), Gebru et al. 2021
+- `model-card` — `ModelCard` (model_card.json), Mitchell et al. 2019
+
+### Synopsis
+
+```bash
+xpkg project metadata set acquisition "./My Project" --from acquisition.json
+xpkg project metadata set dataset-share "./My Project" --from share.json --json
+xpkg project metadata show acquisition "./My Project"
+xpkg project metadata show datasheet "./My Project" --json
+```
+
+### Required behavior
+
+- `set <slot>` reads a JSON object from `--from FILE`, validates it through the
+  slot's typed `from_dict`, and writes it under `.xpkg/metadata/<slot>.json`.
+- `show <slot>` reads the slot's JSON if present and emits the typed payload;
+  returns `status: "missing"` when the slot has not been written.
+- Unknown slot names produce a `usage_error` with a helpful "choose from:"
+  hint and exit code `1`.
 
 ## `xpkg project describe`
 

@@ -61,10 +61,10 @@ def test_video_facade_reexports_split_media_modules() -> None:
 
 
 def test_explicit_pyav_backend_requires_optional_extra_when_missing(tmp_path: Path) -> None:
-    from xpkg.media import media_backend_status_by_name
+    from xpkg.media import media_backend_status
     from xpkg.media.video import Video
 
-    pyav_status = media_backend_status_by_name("pyav")
+    pyav_status = media_backend_status("pyav")
     if pyav_status.available:
         pytest.skip("pyav is installed in this environment")
 

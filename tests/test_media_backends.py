@@ -10,9 +10,7 @@ from xpkg.media import (
     available_hardware_accelerators,
     available_media_backends,
     hardware_acceleration_status,
-    hardware_acceleration_status_by_name,
     media_backend_status,
-    media_backend_status_by_name,
     missing_hardware_accelerators,
     missing_media_backends,
     require_hardware_acceleration,
@@ -54,9 +52,9 @@ def test_media_backend_registry_keeps_heavy_stacks_optional() -> None:
 
 
 def test_media_backend_lookup_normalizes_common_aliases() -> None:
-    assert media_backend_status_by_name("av").name == "pyav"
-    assert media_backend_status_by_name("onnx").name == "onnxruntime"
-    assert media_backend_status_by_name("torch-codec").name == "torchcodec"
+    assert media_backend_status("av").name == "pyav"
+    assert media_backend_status("onnx").name == "onnxruntime"
+    assert media_backend_status("torch-codec").name == "torchcodec"
 
 
 def test_hardware_acceleration_registry_reports_supported_paths() -> None:
@@ -84,16 +82,16 @@ def test_hardware_acceleration_registry_reports_supported_paths() -> None:
 
 
 def test_hardware_acceleration_lookup_normalizes_common_aliases() -> None:
-    assert hardware_acceleration_status_by_name("mlx").name == "mlx-metal"
-    assert hardware_acceleration_status_by_name("metal").name == "mlx-metal"
-    assert hardware_acceleration_status_by_name("cuda").name == "torch-cuda"
-    assert hardware_acceleration_status_by_name("nvidia").name == "torch-cuda"
-    assert hardware_acceleration_status_by_name("nvenc").name == "ffmpeg-nvidia"
-    assert hardware_acceleration_status_by_name("opencv_cuda").name == "opencv-cuda"
-    assert hardware_acceleration_status_by_name("pyav_cuda").name == "pyav-cuda"
-    assert hardware_acceleration_status_by_name("decord_cuda").name == "decord-cuda"
-    assert hardware_acceleration_status_by_name("dali_cuda").name == "dali-cuda"
-    assert hardware_acceleration_status_by_name("torch-codec").name == "torchcodec-cuda"
+    assert hardware_acceleration_status("mlx").name == "mlx-metal"
+    assert hardware_acceleration_status("metal").name == "mlx-metal"
+    assert hardware_acceleration_status("cuda").name == "torch-cuda"
+    assert hardware_acceleration_status("nvidia").name == "torch-cuda"
+    assert hardware_acceleration_status("nvenc").name == "ffmpeg-nvidia"
+    assert hardware_acceleration_status("opencv_cuda").name == "opencv-cuda"
+    assert hardware_acceleration_status("pyav_cuda").name == "pyav-cuda"
+    assert hardware_acceleration_status("decord_cuda").name == "decord-cuda"
+    assert hardware_acceleration_status("dali_cuda").name == "dali-cuda"
+    assert hardware_acceleration_status("torch-codec").name == "torchcodec-cuda"
 
 
 def test_require_media_backend_raises_actionable_error_for_unknown_backend() -> None:
@@ -107,7 +105,7 @@ def test_require_hardware_acceleration_raises_for_unknown_accelerator() -> None:
 
 
 def test_require_hardware_acceleration_raises_actionable_error_for_missing_accelerator() -> None:
-    status = hardware_acceleration_status_by_name("torch-cuda")
+    status = hardware_acceleration_status("torch-cuda")
     if status.available:
         pytest.skip("NVIDIA CUDA is available in this environment")
 
@@ -116,7 +114,7 @@ def test_require_hardware_acceleration_raises_actionable_error_for_missing_accel
 
 
 def test_require_hardware_acceleration_reports_nvpkg_install_command() -> None:
-    status = hardware_acceleration_status_by_name("opencv-cuda")
+    status = hardware_acceleration_status("opencv-cuda")
     if status.available:
         pytest.skip("OpenCV CUDA is available in this environment")
 
@@ -125,7 +123,7 @@ def test_require_hardware_acceleration_reports_nvpkg_install_command() -> None:
 
 
 def test_require_media_backend_raises_actionable_error_for_missing_backend() -> None:
-    status = media_backend_status_by_name("pyav")
+    status = media_backend_status("pyav")
     if status.available:
         pytest.skip("pyav is installed in this environment")
 
@@ -135,12 +133,10 @@ def test_require_media_backend_raises_actionable_error_for_missing_backend() -> 
 
 def test_media_surface_exports_backend_registry() -> None:
     assert callable(xpkg.media.hardware_acceleration_status)
-    assert callable(xpkg.media.hardware_acceleration_status_by_name)
     assert callable(xpkg.media.available_hardware_accelerators)
     assert callable(xpkg.media.missing_hardware_accelerators)
     assert callable(xpkg.media.require_hardware_acceleration)
     assert callable(xpkg.media.media_backend_status)
-    assert callable(xpkg.media.media_backend_status_by_name)
     assert callable(xpkg.media.available_media_backends)
     assert callable(xpkg.media.missing_media_backends)
     assert callable(xpkg.media.require_media_backend)

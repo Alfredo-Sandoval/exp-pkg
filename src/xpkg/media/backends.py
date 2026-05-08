@@ -9,7 +9,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from importlib import import_module
 from importlib.util import find_spec
-from typing import Any
+from typing import Any, overload
 
 __all__ = [
     "HardwareAccelerationStatus",
@@ -17,9 +17,7 @@ __all__ = [
     "available_media_backends",
     "available_hardware_accelerators",
     "hardware_acceleration_status",
-    "hardware_acceleration_status_by_name",
     "media_backend_status",
-    "media_backend_status_by_name",
     "missing_media_backends",
     "missing_hardware_accelerators",
     "require_hardware_acceleration",
@@ -217,22 +215,40 @@ _HARDWARE_ACCELERATION: tuple[_HardwareAccelerationSpec, ...] = (
 )
 
 
-def media_backend_status(*, include_unavailable: bool = True) -> tuple[MediaBackendStatus, ...]:
-    """Return installation status for known xpkg media/model backends."""
+@overload
+def media_backend_status(
+    name: str, *, include_unavailable: bool = ...
+) -> MediaBackendStatus: ...
+
+
+@overload
+def media_backend_status(
+    name: None = ..., *, include_unavailable: bool = ...
+) -> tuple[MediaBackendStatus, ...]: ...
+
+
+def media_backend_status(
+    name: str | None = None, *, include_unavailable: bool = True
+) -> MediaBackendStatus | tuple[MediaBackendStatus, ...]:
+    """Return installation status for known xpkg media/model backends.
+
+    When ``name`` is ``None`` (the default), returns the tuple of all backend
+    statuses. When ``name`` is given, returns the single :class:`MediaBackendStatus`
+    for that canonical backend name (aliases like ``"av"`` and ``"onnx"`` are
+    accepted) and raises ``ValueError`` if it is unknown.
+    """
+    if name is not None:
+        normalized = _normalize_backend_name(name)
+        for spec in _MEDIA_BACKENDS:
+            if spec.name == normalized:
+                return spec.status()
+        known = ", ".join(spec.name for spec in _MEDIA_BACKENDS)
+        raise ValueError(f"Unknown media backend: {name}. Known backends: {known}")
+
     statuses = tuple(spec.status() for spec in _MEDIA_BACKENDS)
     if include_unavailable:
         return statuses
     return tuple(status for status in statuses if status.available)
-
-
-def media_backend_status_by_name(name: str) -> MediaBackendStatus:
-    """Return backend status by canonical backend name."""
-    normalized = _normalize_backend_name(name)
-    for spec in _MEDIA_BACKENDS:
-        if spec.name == normalized:
-            return spec.status()
-    known = ", ".join(spec.name for spec in _MEDIA_BACKENDS)
-    raise ValueError(f"Unknown media backend: {name}. Known backends: {known}")
 
 
 def available_media_backends() -> tuple[str, ...]:
@@ -251,7 +267,7 @@ def missing_media_backends() -> tuple[str, ...]:
 
 def require_media_backend(name: str) -> MediaBackendStatus:
     """Return backend status or raise an actionable ImportError."""
-    status = media_backend_status_by_name(name)
+    status = media_backend_status(name)
     if status.available:
         return status
     missing = ", ".join(status.missing_modules)
@@ -265,24 +281,41 @@ def require_media_backend(name: str) -> MediaBackendStatus:
     )
 
 
+@overload
 def hardware_acceleration_status(
-    *, include_unavailable: bool = True
-) -> tuple[HardwareAccelerationStatus, ...]:
-    """Return runtime status for known xpkg hardware acceleration paths."""
+    name: str, *, include_unavailable: bool = ...
+) -> HardwareAccelerationStatus: ...
+
+
+@overload
+def hardware_acceleration_status(
+    name: None = ..., *, include_unavailable: bool = ...
+) -> tuple[HardwareAccelerationStatus, ...]: ...
+
+
+def hardware_acceleration_status(
+    name: str | None = None, *, include_unavailable: bool = True
+) -> HardwareAccelerationStatus | tuple[HardwareAccelerationStatus, ...]:
+    """Return runtime status for known xpkg hardware acceleration paths.
+
+    When ``name`` is ``None`` (the default), returns the tuple of all
+    accelerator statuses. When ``name`` is given, returns the single
+    :class:`HardwareAccelerationStatus` for that canonical accelerator name
+    (aliases like ``"cuda"``, ``"metal"``, and ``"nvenc"`` are accepted) and
+    raises ``ValueError`` if it is unknown.
+    """
+    if name is not None:
+        normalized = _normalize_hardware_name(name)
+        for spec in _HARDWARE_ACCELERATION:
+            if spec.name == normalized:
+                return spec.status()
+        known = ", ".join(spec.name for spec in _HARDWARE_ACCELERATION)
+        raise ValueError(f"Unknown hardware accelerator: {name}. Known accelerators: {known}")
+
     statuses = tuple(spec.status() for spec in _HARDWARE_ACCELERATION)
     if include_unavailable:
         return statuses
     return tuple(status for status in statuses if status.available)
-
-
-def hardware_acceleration_status_by_name(name: str) -> HardwareAccelerationStatus:
-    """Return hardware acceleration status by canonical accelerator name."""
-    normalized = _normalize_hardware_name(name)
-    for spec in _HARDWARE_ACCELERATION:
-        if spec.name == normalized:
-            return spec.status()
-    known = ", ".join(spec.name for spec in _HARDWARE_ACCELERATION)
-    raise ValueError(f"Unknown hardware accelerator: {name}. Known accelerators: {known}")
 
 
 def available_hardware_accelerators() -> tuple[str, ...]:
@@ -299,7 +332,7 @@ def missing_hardware_accelerators() -> tuple[str, ...]:
 
 def require_hardware_acceleration(name: str) -> HardwareAccelerationStatus:
     """Return hardware acceleration status or raise an actionable RuntimeError."""
-    status = hardware_acceleration_status_by_name(name)
+    status = hardware_acceleration_status(name)
     if status.available:
         return status
     install_command = status.details.get("install_command")

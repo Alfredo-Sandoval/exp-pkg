@@ -9,7 +9,7 @@ importer based on a kebab-case ``format`` string.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
@@ -107,13 +107,92 @@ force the matching reader.
 
 
 @dataclass(frozen=True, slots=True)
+class _PoseImporter:
+    """Per-format dispatch entry for ``ProjectService.import_pose``.
+
+    Captures the per-format quirks (video requirement, skeleton-name default,
+    extra kwargs, omitted common kwargs) so the dispatch method can stay a
+    single thin pass over the registry.
+    """
+
+    fn: Callable[..., Path]
+    requires_video: bool
+    accepts_skeleton_name: bool = True
+    default_skeleton_name: str | None = None
+    accepts_likelihood_threshold: bool = True
+    accepts_instance_index: bool = False
+    accepts_fps: bool = False
+    accepts_encode_videos: bool = False
+
+
+_POSE_IMPORTERS: dict[str, _PoseImporter] = {
+    "dlc-csv": _PoseImporter(
+        fn=import_dlc_csv_project,
+        requires_video=True,
+        default_skeleton_name="imported",
+    ),
+    "dlc-h5": _PoseImporter(
+        fn=import_dlc_h5_project,
+        requires_video=True,
+        default_skeleton_name="imported",
+    ),
+    "dlc-project": _PoseImporter(
+        fn=import_dlc_project_directory,
+        requires_video=False,
+    ),
+    "lightning-pose-csv": _PoseImporter(
+        fn=import_lightning_pose_csv_project,
+        requires_video=True,
+        default_skeleton_name="imported",
+    ),
+    "mediapipe-pose-landmarks-json": _PoseImporter(
+        fn=import_mediapipe_pose_landmarks_json_project,
+        requires_video=True,
+        default_skeleton_name="mediapipe_pose",
+    ),
+    "mmpose-topdown-json": _PoseImporter(
+        fn=import_mmpose_topdown_json_project,
+        requires_video=True,
+        default_skeleton_name="imported",
+        accepts_instance_index=True,
+    ),
+    "sleap-h5": _PoseImporter(
+        fn=import_sleap_h5_project,
+        requires_video=True,
+        default_skeleton_name="imported",
+    ),
+    "sleap-package": _PoseImporter(
+        fn=import_sleap_package_project,
+        requires_video=False,
+        accepts_skeleton_name=False,
+        accepts_likelihood_threshold=False,
+        accepts_fps=True,
+        accepts_encode_videos=True,
+    ),
+}
+
+
+_MOTION_IMPORTERS: dict[str, Callable[..., Path]] = {
+    "vicon": import_vicon_project,
+    "vicon-csv": import_vicon_csv_project,
+    "vicon-c3d": import_vicon_c3d_project,
+}
+
+
+_CALIBRATION_IMPORTERS: dict[str, Callable[..., Path]] = {
+    "anipose": import_anipose_calibration_project,
+}
+
+
+@dataclass(frozen=True, slots=True)
 class ProjectMetadata:
     """Accessor for the durable typed metadata slots under ``.xpkg/metadata/``.
 
     Read each slot as an attribute (returns ``None`` when unset) and write one
     or more slots in a single call via :meth:`update`. The state-bound free-form
     metadata dict on the current project head is a separate concept and is
-    accessed through ``ProjectService.load_metadata`` / ``save_metadata``.
+    accessed through ``ProjectService.load_state_metadata`` /
+    ``save_state_metadata``.
     """
 
     project_root: Path
@@ -301,69 +380,34 @@ class ProjectService:
         ``instance_index`` only applies to ``mmpose-topdown-json``;
         ``fps`` and ``encode_videos`` only apply to ``sleap-package``.
         """
-        common: dict[str, Any] = {
+        importer = _POSE_IMPORTERS.get(format)
+        if importer is None:
+            raise ValueError(f"Unknown pose format: {format!r}")
+        if importer.requires_video and video is None:
+            raise ValueError(f"import_pose(format={format!r}) requires `video=`.")
+
+        kwargs: dict[str, Any] = {
             "project": self.project_root,
-            "likelihood_threshold": likelihood_threshold,
             "prediction_provenance": prediction_provenance,
             "provenance": provenance,
             "force": force,
             "progress_callback": progress_callback,
         }
+        if importer.accepts_likelihood_threshold:
+            kwargs["likelihood_threshold"] = likelihood_threshold
+        if importer.accepts_skeleton_name:
+            kwargs["skeleton_name"] = skeleton_name or importer.default_skeleton_name
+        if importer.accepts_instance_index:
+            kwargs["instance_index"] = int(instance_index)
+        if importer.accepts_fps:
+            kwargs["fps"] = int(fps)
+        if importer.accepts_encode_videos:
+            kwargs["encode_videos"] = encode_videos
 
-        # Formats that don't need a video are dispatched first so the per-clip
-        # branches below can rely on `video` being non-None.
-        if format == "dlc-project":
-            return import_dlc_project_directory(
-                path, skeleton_name=skeleton_name, **common
-            )
-        if format == "sleap-package":
-            sleap_kwargs = {
-                key: value
-                for key, value in common.items()
-                if key != "likelihood_threshold"
-            }
-            return import_sleap_package_project(
-                path,
-                fps=int(fps),
-                encode_videos=encode_videos,
-                **sleap_kwargs,
-            )
-
-        if video is None:
-            raise ValueError(f"import_pose(format={format!r}) requires `video=`.")
-
-        if format == "dlc-csv":
-            return import_dlc_csv_project(
-                path, video, skeleton_name=skeleton_name or "imported", **common
-            )
-        if format == "dlc-h5":
-            return import_dlc_h5_project(
-                path, video, skeleton_name=skeleton_name or "imported", **common
-            )
-        if format == "lightning-pose-csv":
-            return import_lightning_pose_csv_project(
-                path, video, skeleton_name=skeleton_name or "imported", **common
-            )
-        if format == "mediapipe-pose-landmarks-json":
-            return import_mediapipe_pose_landmarks_json_project(
-                path,
-                video,
-                skeleton_name=skeleton_name or "mediapipe_pose",
-                **common,
-            )
-        if format == "mmpose-topdown-json":
-            return import_mmpose_topdown_json_project(
-                path,
-                video,
-                skeleton_name=skeleton_name or "imported",
-                instance_index=int(instance_index),
-                **common,
-            )
-        if format == "sleap-h5":
-            return import_sleap_h5_project(
-                path, video, skeleton_name=skeleton_name or "imported", **common
-            )
-        raise ValueError(f"Unknown pose format: {format!r}")
+        if importer.requires_video:
+            assert video is not None  # narrowed above
+            return importer.fn(path, video, **kwargs)
+        return importer.fn(path, **kwargs)
 
     def import_calibration(
         self,
@@ -377,17 +421,18 @@ class ProjectService:
         force: bool = False,
     ) -> Path:
         """Import a camera calibration from one of the supported formats."""
-        if format == "anipose":
-            return import_anipose_calibration_project(
-                path,
-                project=self.project_root,
-                calibration_id=calibration_id,
-                name=name,
-                units=units,
-                captured_at=captured_at,
-                force=force,
-            )
-        raise ValueError(f"Unknown calibration format: {format!r}")
+        importer = _CALIBRATION_IMPORTERS.get(format)
+        if importer is None:
+            raise ValueError(f"Unknown calibration format: {format!r}")
+        return importer(
+            path,
+            project=self.project_root,
+            calibration_id=calibration_id,
+            name=name,
+            units=units,
+            captured_at=captured_at,
+            force=force,
+        )
 
     def import_motion(
         self,
@@ -402,28 +447,15 @@ class ProjectService:
         ``"vicon"`` auto-detects CSV vs C3D from the path; the dashed forms
         force the matching reader.
         """
-        if format == "vicon":
-            return import_vicon_project(
-                path,
-                project=self.project_root,
-                force=force,
-                progress_callback=progress_callback,
-            )
-        if format == "vicon-csv":
-            return import_vicon_csv_project(
-                path,
-                project=self.project_root,
-                force=force,
-                progress_callback=progress_callback,
-            )
-        if format == "vicon-c3d":
-            return import_vicon_c3d_project(
-                path,
-                project=self.project_root,
-                force=force,
-                progress_callback=progress_callback,
-            )
-        raise ValueError(f"Unknown motion format: {format!r}")
+        importer = _MOTION_IMPORTERS.get(format)
+        if importer is None:
+            raise ValueError(f"Unknown motion format: {format!r}")
+        return importer(
+            path,
+            project=self.project_root,
+            force=force,
+            progress_callback=progress_callback,
+        )
 
     def describe(self) -> ProjectLayout:
         """Return the normalized managed paths for this project."""
@@ -470,11 +502,16 @@ class ProjectService:
         """Load the current project Vicon recording."""
         return load_project_vicon_recording(self.project_root)
 
-    def load_metadata(self) -> dict[str, Any] | None:
-        """Load the current project state's free-form metadata dict."""
+    def load_state_metadata(self) -> dict[str, Any] | None:
+        """Load the current project state's free-form metadata dict.
+
+        This is distinct from :attr:`metadata` — that accessor reads typed
+        durable slots under ``.xpkg/metadata/``; this method reads the
+        free-form ``metadata`` field on the current project state head.
+        """
         return load_project_metadata(self.project_root)
 
-    def load_metadata_field(self, field: str) -> dict[str, Any] | None:
+    def load_state_metadata_field(self, field: str) -> dict[str, Any] | None:
         """Load one mapping-valued field from the current project state metadata."""
         return load_project_metadata_field(self.project_root, field)
 
@@ -482,7 +519,7 @@ class ProjectService:
         """Load the current project payload with project-relative media rebased."""
         return load_project_payload(self.project_root)
 
-    def save_metadata(
+    def save_state_metadata(
         self,
         metadata: dict[str, Any] | None,
         *,
@@ -495,7 +532,7 @@ class ProjectService:
             reason=reason,
         )
 
-    def save_metadata_field(
+    def save_state_metadata_field(
         self,
         field: str,
         value: Mapping[str, Any],

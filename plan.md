@@ -5,13 +5,16 @@
 `exp-pkg` should become a workspace-first IO toolkit for multimodal
 neuroscience experiment sessions.
 
-The public identity should be:
+The public identity is:
 
-> sleap-io for the whole experiment.
+> One stable IO and project boundary for multimodal neuroscience experiments —
+> pose, video, sampled signals (photometry and patch-clamp ephys), behavioral
+> events, synchronization, and portable artifacts.
 
 That means practical, low-ceremony Python IO for pose, synchronized video,
-fiber photometry and other signals, behavioral events, synchronization data,
-metadata, workspaces, and portable artifacts.
+fiber photometry, whole-cell patch-clamp electrophysiology, other sampled
+signals, behavioral events, synchronization data, metadata, workspaces, and
+portable artifacts.
 
 This should not become "NWB but smaller" or an analysis platform. The package
 should stay one layer lower: read lab files, normalize them into useful Python
@@ -67,6 +70,9 @@ The package should name the real neuroscience modalities:
 - pose estimation
 - synchronized video
 - fiber photometry and other sampled signals
+- whole-cell patch-clamp electrophysiology (current-clamp first; voltage-clamp
+  follow). Extracellular ephys (MEAs, Blackrock, Neuralynx, Open Ephys) stays
+  out of scope — different sample-rate, channel-count, and analysis surface.
 - behavioral events
 - synchronization pulses and time alignment
 - motion capture, force, and EMG where supported
@@ -156,7 +162,82 @@ Do not bake in a single rig. Later readers can support TDT, Doric,
 Neurophotometrics, pyPhotometry, or lab-specific exports, but the core data
 model should remain vendor-neutral.
 
-### 3. Make Pose, Video, Photometry, And Events Alignable
+### 3. Add Patch-Clamp Ephys As First-Class Data
+
+Patch-clamp recordings are sampled signals with an explicit stimulus protocol,
+which is the same shape the signal model already serves for photometry. Extend
+the model so an ABF, HEKA, or NWB ICEphys file lands as a normalized session
+object without a separate parallel framework:
+
+```text
+src/xpkg/model/ephys.py        # SweepSet, Sweep, StimulusEpoch (if not in signals.py)
+src/xpkg/io/readers/ephys/abf.py
+src/xpkg/io/readers/ephys/ephys_csv.py
+src/xpkg/io/readers/ephys/heka.py        # follow-up
+src/xpkg/io/readers/ephys/nwb_icephys.py # follow-up
+```
+
+Candidate public objects (audit `model.signals` first; reuse where it fits):
+
+```python
+SweepSet
+Sweep
+StimulusEpoch
+EphysRecording
+RecordingMode      # "current_clamp" | "voltage_clamp"
+ChannelRole        # "electrode" | "stimulus_monitor" | "ttl" | ...
+```
+
+Anchor decisions:
+
+- `pyABF` is the byte parser for ABF1/ABF2; xpkg wraps it. Do not reach for
+  `neo.io.AxonIO` — it loses pCLAMP-specific protocol metadata.
+- The protocol section (epoch table, durations, command waveform, units) is
+  preserved as recorded. `xpkg` does **not** classify protocols ("current_step
+  FI", "ramp", "rheobase") — that is semantic and lives in downstream analysis
+  tools such as `rheo`.
+- Units are normalized to canonical SI-prefixed values (mV, pA, ms, kHz) at
+  the model boundary, with every conversion recorded in the per-recording
+  conversion log. Silent unit conversion is the single most common ephys bug.
+- Mode (current-clamp vs voltage-clamp) and channel role are detected with
+  explicit, documented rules; the user can override and the override is
+  persisted to the manifest.
+- Provenance (file hash, mtime, parser version) is captured at load time, the
+  same way pose and photometry recordings already do it.
+- Multi-file projects (one cell across several ABFs) join through the existing
+  workspace metadata-CSV pattern, the same way pose sessions assemble cameras.
+
+Direct reader shape:
+
+```python
+recording = xpkg.read_abf(
+    "cell01_fi.abf",
+    channel_roles={"IN 0": "electrode", "IN 1": "stimulus_monitor"},
+    units={"electrode": "mV", "stimulus_monitor": "pA"},
+)
+```
+
+Workspace import shape:
+
+```python
+workspace.imports.ephys_abf(
+    "cell01_fi.abf",
+    cell_id="cell01",
+    animal_id="m042",
+)
+```
+
+Out of scope for the patch-clamp surface (matches the existing exclusion line):
+
+- multi-electrode arrays (MCS, Maxwell)
+- Blackrock NEV/NSx, Neuralynx Cheetah
+- Open Ephys / spike sorting workflows
+- Inscopix `.isx` / `.isxd` imaging
+
+Those are separate analysis surfaces and should not be folded in via patch-clamp
+readers.
+
+### 4. Make Pose, Video, Photometry, Ephys, And Events Alignable
 
 The target user-facing shape should be session-oriented:
 
@@ -173,7 +254,7 @@ The important feature is not merely "we can read several file types." The
 important feature is that those file types can live in one coherent experiment
 session.
 
-### 4. Add `xpkg inspect`
+### 5. Add `xpkg inspect`
 
 Add an agent-friendly inspection command before forcing users to import:
 
@@ -200,7 +281,7 @@ It should report:
 This becomes the first thing agents, scripts, and users run against unknown lab
 files.
 
-### 5. Extend Workspace Imports
+### 6. Extend Workspace Imports
 
 After the models exist, add service imports:
 
@@ -208,6 +289,8 @@ After the models exist, add service imports:
 workspace.imports.photometry_csv(...)
 workspace.imports.events_csv(...)
 workspace.imports.sync_csv(...)
+workspace.imports.ephys_abf(...)
+workspace.imports.ephys_csv(...)
 ```
 
 And CLI commands:
@@ -216,14 +299,15 @@ And CLI commands:
 xpkg import photometry-csv photometry.csv --time time --signal gcamp --out project
 xpkg import events-csv events.csv --out project
 xpkg import sync-csv sync.csv --out project
+xpkg import ephys-abf cell01.abf --cell cell01 --animal m042 --out project
 ```
 
 Keep direct readers and workspace imports side by side:
 
-- direct readers make the package pleasant like `sleap-io`
+- direct readers make the package pleasant for one-off scripts and notebooks
 - workspace imports make it useful for durable projects and artifacts
 
-### 6. Version The Session Manifest
+### 7. Version The Session Manifest
 
 Add or extend schemas for:
 
@@ -233,6 +317,7 @@ recordings
 videos
 poses
 signals
+ephys
 events
 sync
 artifacts
@@ -242,7 +327,7 @@ The manifest should be versioned, plain, and boring. Outside labs should be
 able to depend on it without feeling like they are buying into a whole
 framework.
 
-### 7. Add Exchange Bridges Later
+### 8. Add Exchange Bridges Later
 
 Keep the core IO package dependency-light. Add optional exchange helpers for
 downstream use:
@@ -316,7 +401,33 @@ Deliverables:
 - CLI commands for photometry, events, and sync imports
 - test fixtures for realistic messy CSVs
 
-### 0.4 - Inspection And Agent-Friendly Workflows
+### 0.4 - Patch-Clamp Ephys Importers
+
+Focus:
+
+- make whole-cell patch-clamp a real first-class modality in the package
+- ABF first; HEKA and NWB ICEphys follow
+- preserve protocol metadata as recorded; do not classify protocols here
+- normalize units, mode, and channel roles at the model boundary
+
+Deliverables:
+
+- `xpkg.read_abf(...)` direct reader (via `pyABF`)
+- `xpkg.read_ephys_csv(...)` generic escape hatch
+- `xpkg.model.ephys` (or extensions to `xpkg.model.signals`) for `Sweep`,
+  `SweepSet`, `StimulusEpoch`, `EphysRecording`
+- `workspace.imports.ephys_abf(...)` and `ephys_csv(...)`
+- CLI commands: `xpkg import ephys-abf ...`, `xpkg import ephys-csv ...`
+- `xpkg inspect cell01.abf --json` reports duration, sample rate, sweep count,
+  channel roles, mode, protocol epochs, and provenance hash
+- Test fixtures: synthetic ABFs and small public examples covering
+  current-clamp current-step, ramp, and resting-baseline protocols
+- Optional `exp-pkg[ephys]` extra pinning `pyABF`
+
+Out of scope for this milestone: HEKA `.dat`, NWB ICEphys, voltage-clamp
+event detection. Plan those as later follow-ups once the canonical model holds.
+
+### 0.5 - Inspection And Agent-Friendly Workflows
 
 Focus:
 
@@ -358,6 +469,8 @@ pose + video + events
 photometry + events
 photometry + sync
 pose + video + photometry + sync
+ephys (current-clamp ABF) standalone
+ephys + events
 Vicon / force / EMG where available
 ```
 
@@ -389,10 +502,14 @@ Do this first:
 1. Add `xpkg.model.time`.
 2. Add `xpkg.model.events`.
 3. Add `xpkg.model.signals`.
-4. Add minimal serialization and validation tests.
-5. Add docs for the timing/events/signals contract.
-6. Add a short README example showing pose, video, photometry, and events as
-   one aligned session concept.
+4. Audit `model.signals` to decide whether sweep + stimulus epoch needs a
+   dedicated `xpkg.model.ephys` extension or fits the existing signal model.
+5. Add minimal serialization and validation tests.
+6. Add docs for the timing/events/signals contract (and ephys, if it lands as
+   a sibling module).
+7. Add a short README example showing pose, video, photometry, ephys, and
+   events as one aligned session concept.
 
-Do not start with a vendor-specific photometry importer until the shared model
-exists. The model should shape the readers, not the first available file.
+Do not start with a vendor-specific photometry or ephys importer until the
+shared model exists. The model should shape the readers, not the first
+available file.

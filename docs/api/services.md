@@ -71,11 +71,13 @@ object:
 - `project.describe()`
 - `project.validate()`
 - `project.load_labels()`
-- `project.load_metadata()`
-- `project.load_metadata_field(...)`
+- `project.metadata.acquisition` / `dataset_share` / `pose_provenance` / `datasheet` / `model_card` (typed durable slots)
+- `project.metadata.update(...)` (write one or more typed slots)
+- `project.load_state_metadata()` (free-form dict on the current state head)
+- `project.load_state_metadata_field(...)`
 - `project.save_labels(...)`
-- `project.save_metadata(...)`
-- `project.save_metadata_field(...)`
+- `project.save_state_metadata(...)`
+- `project.save_state_metadata_field(...)`
 - `project.artifacts.register(...)`
 - `project.artifacts.load(...)`
 - `project.artifacts.list(...)`
@@ -93,19 +95,22 @@ object:
 paths and descriptor for the project.
 
 For mapping-valued metadata blobs that callers update independently, prefer the
-service-bound field helpers instead of rewriting the whole metadata payload:
+service-bound field helpers instead of rewriting the whole metadata payload.
+These read and write the free-form ``metadata`` dict carried on the project
+state head — distinct from the durable typed slots accessed via
+``project.metadata``:
 
 ```python
 from xpkg.services import ProjectService
 
 project = ProjectService.open("./My Project")
 
-project.save_metadata_field(
+project.save_state_metadata_field(
     "session_json",
     {"active_frame_idx": 7},
     reason="app.save.session_state",
 )
-session_state = project.load_metadata_field("session_json")
+session_state = project.load_state_metadata_field("session_json")
 ```
 
 ## Service-Bound Import Surface

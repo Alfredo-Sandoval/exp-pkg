@@ -1,4 +1,4 @@
-"""CLI smoke tests for ``xpkg project set/show-dataset-share`` and acquisition."""
+"""CLI smoke tests for ``xpkg project metadata set/show`` (dataset-share, acquisition)."""
 
 from __future__ import annotations
 
@@ -71,7 +71,9 @@ def test_cli_set_and_show_dataset_share_round_trip(
     code = main(
         [
             "project",
-            "set-dataset-share",
+            "metadata",
+            "set",
+            "dataset-share",
             str(project),
             "--from",
             str(payload),
@@ -84,7 +86,7 @@ def test_cli_set_and_show_dataset_share_round_trip(
     assert saved["metadata"] == "dataset_share"
     assert saved["dataset_share"]["doi"] == "10.5281/zenodo.42"
 
-    code = main(["project", "show-dataset-share", str(project), "--json"])
+    code = main(["project", "metadata", "show", "dataset-share", str(project), "--json"])
     assert code == 0
     shown = _capture_json(capsys)
     assert shown["status"] == "loaded"
@@ -101,7 +103,7 @@ def test_cli_show_dataset_share_reports_missing_when_unset(
     project = tmp_path / "No Share Project"
     init_project(project, title="No Share Project")
 
-    code = main(["project", "show-dataset-share", str(project), "--json"])
+    code = main(["project", "metadata", "show", "dataset-share", str(project), "--json"])
     assert code == 0
     shown = _capture_json(capsys)
     assert shown["status"] == "missing"
@@ -120,7 +122,9 @@ def test_cli_set_and_show_acquisition_round_trip(
     code = main(
         [
             "project",
-            "set-acquisition",
+            "metadata",
+            "set",
+            "acquisition",
             str(project),
             "--from",
             str(payload),
@@ -133,7 +137,7 @@ def test_cli_set_and_show_acquisition_round_trip(
     assert saved["acquisition"]["site"] == "Lab Rig 2"
     assert saved["acquisition"]["cameras"][0]["camera_id"] == "cam_top"
 
-    code = main(["project", "show-acquisition", str(project), "--json"])
+    code = main(["project", "metadata", "show", "acquisition", str(project), "--json"])
     assert code == 0
     shown = _capture_json(capsys)
     assert shown["status"] == "loaded"

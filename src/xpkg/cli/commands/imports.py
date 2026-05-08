@@ -1,10 +1,16 @@
-"""CLI commands that import external data into project-first xpkg projects."""
+"""CLI commands that import external data into project-first xpkg projects.
+
+The CLI mirrors the ``ProjectService`` Python dispatch surface. The user picks
+one of three families (``pose``, ``calibration``, ``motion``) and a kebab-case
+``format`` positional argument that matches ``ProjectService.import_pose``,
+``ProjectService.import_calibration``, or ``ProjectService.import_motion``.
+"""
 
 from __future__ import annotations
 
 import sys
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated, Any, get_args
 
 import typer
 
@@ -19,7 +25,6 @@ from xpkg.cli.shared import (
     run_command,
     write_path,
 )
-from xpkg.model.calibration import WorldFrame
 from xpkg.project import (
     import_anipose_calibration_project,
     import_dlc_csv_project,
@@ -34,37 +39,64 @@ from xpkg.project import (
     import_vicon_csv_project,
     import_vicon_project,
 )
+from xpkg.services.project import CalibrationFormat, MotionFormat, PoseFormat
 
 app = typer.Typer(
     add_completion=False,
-    help="Import external tracking data into a project-first exp-pkg project.",
+    help="Import external tracking, calibration, and motion data into a project.",
     no_args_is_help=True,
     rich_markup_mode="rich",
 )
-dlc_app = typer.Typer(
-    add_completion=False,
-    help="Import DeepLabCut tracking data into a project.",
-    no_args_is_help=True,
-    rich_markup_mode="rich",
+
+
+_POSE_FORMATS: tuple[str, ...] = get_args(PoseFormat)
+_CALIBRATION_FORMATS: tuple[str, ...] = get_args(CalibrationFormat)
+_MOTION_FORMATS: tuple[str, ...] = get_args(MotionFormat)
+
+_PER_CLIP_POSE_FORMATS: frozenset[str] = frozenset(
+    {
+        "dlc-csv",
+        "dlc-h5",
+        "lightning-pose-csv",
+        "mediapipe-pose-landmarks-json",
+        "mmpose-topdown-json",
+        "sleap-h5",
+    }
 )
-sleap_app = typer.Typer(
-    add_completion=False,
-    help="Import SLEAP data into a project.",
-    no_args_is_help=True,
-    rich_markup_mode="rich",
+
+
+_POSE_FORMAT_LABELS: dict[str, str] = {
+    "dlc-csv": "DLC CSV",
+    "dlc-h5": "DLC H5",
+    "dlc-project": "DLC project",
+    "lightning-pose-csv": "Lightning Pose CSV",
+    "mediapipe-pose-landmarks-json": "MediaPipe JSON",
+    "mmpose-topdown-json": "MMPose JSON",
+    "sleap-h5": "SLEAP H5",
+    "sleap-package": "SLEAP package",
+}
+
+
+_MOTION_FORMAT_LABELS: dict[str, str] = {
+    "vicon": "Vicon recording",
+    "vicon-csv": "Vicon CSV",
+    "vicon-c3d": "Vicon C3D",
+}
+
+
+_MODEL_PROVENANCE_HELP = (
+    "Optional JSON block with PoseModelProvenance fields "
+    "(tool_version, model_name, checkpoint_id, training_set_reference, ...)."
 )
-vicon_app = typer.Typer(
-    add_completion=False,
-    help="Import Vicon recordings into a project.",
-    no_args_is_help=True,
-    rich_markup_mode="rich",
-)
-anipose_app = typer.Typer(
-    add_completion=False,
-    help="Import Anipose calibration data into a project.",
-    no_args_is_help=True,
-    rich_markup_mode="rich",
-)
+
+
+def _validate_format(format_value: str, allowed: tuple[str, ...], family: str) -> str:
+    if format_value not in allowed:
+        choices = ", ".join(allowed)
+        raise typer.BadParameter(
+            f"unknown {family} format {format_value!r}. Choose from: {choices}"
+        )
+    return format_value
 
 
 def _import_payload(source: str, project: str, state_path: Path) -> dict[str, str]:
@@ -73,6 +105,15 @@ def _import_payload(source: str, project: str, state_path: Path) -> dict[str, st
         "source": source,
         "project": project,
         "state_path": str(state_path),
+    }
+
+
+def _calibration_payload(source: str, project: str, calibration_path: Path) -> dict[str, str]:
+    return {
+        "status": "imported",
+        "source": source,
+        "project": project,
+        "calibration_path": str(calibration_path),
     }
 
 
@@ -86,31 +127,211 @@ def _emit_calibration_import_result(payload: dict[str, Any], label: str) -> None
     write_path(Path(str(payload["calibration_path"])))
 
 
-def _load_prediction_provenance(path: str | None) -> dict[str, Any] | None:
+def _load_provenance_json(path: str | None, option_name: str) -> dict[str, Any] | None:
     if path is None:
         return None
-    return load_json_dict(require_option_value(path, "--provenance-json"))
+    return load_json_dict(require_option_value(path, option_name))
 
 
-def _load_model_provenance(path: str | None) -> dict[str, Any] | None:
-    if path is None:
-        return None
-    return load_json_dict(require_option_value(path, "--model-provenance-json"))
-
-
-_MODEL_PROVENANCE_HELP = (
-    "Optional JSON block with PoseModelProvenance fields "
-    "(tool_version, model_name, checkpoint_id, training_set_reference, ...)."
-)
-
-
-@anipose_app.command("calibration")
-def import_anipose_calibration(
-    toml: Annotated[
+@app.command("pose")
+def import_pose(
+    format: Annotated[
         str,
-        typer.Option("--toml", help="Path to an Anipose calibration.toml file."),
+        typer.Argument(
+            help="Pose format to import (e.g. dlc-csv, sleap-h5, sleap-package).",
+        ),
     ],
     out: Annotated[str, typer.Option("--out", help="Output project directory.")],
+    path: Annotated[
+        str | None,
+        typer.Option(
+            "--path",
+            "--input-json",
+            help=(
+                "Path to the input file or directory (CSV/H5/JSON/.pkg.slp/DLC project)."
+            ),
+        ),
+    ] = None,
+    video: Annotated[
+        str | None,
+        typer.Option("--video", help="Path to the matching video file (per-clip formats)."),
+    ] = None,
+    skeleton_name: Annotated[
+        str | None,
+        typer.Option("--skeleton-name", help="Skeleton name to store in the project."),
+    ] = None,
+    likelihood_threshold: Annotated[
+        float,
+        typer.Option(
+            "--likelihood-threshold",
+            "--threshold",
+            callback=require_likelihood_threshold,
+            help="Drop keypoints below this likelihood (0.0-1.0).",
+        ),
+    ] = 0.0,
+    instance_index: Annotated[
+        int,
+        typer.Option(
+            "--instance-index",
+            callback=require_nonnegative_int,
+            help="Instance index for multi-person formats (mmpose-topdown-json only).",
+        ),
+    ] = 0,
+    fps: Annotated[
+        int,
+        typer.Option(
+            "--fps",
+            callback=require_positive_int,
+            help="Frames per second for sleap-package video re-encoding.",
+        ),
+    ] = 30,
+    encode_videos: Annotated[
+        bool,
+        typer.Option(
+            "--encode-videos/--no-encode-videos",
+            help="Encode MP4 videos into the internal store (sleap-package only).",
+        ),
+    ] = True,
+    prediction_provenance: Annotated[
+        str | None,
+        typer.Option(
+            "--prediction-provenance",
+            "--provenance",
+            help="Path to a JSON block with upstream prediction provenance.",
+        ),
+    ] = None,
+    provenance_json: Annotated[
+        str | None,
+        typer.Option(
+            "--provenance-json",
+            help=_MODEL_PROVENANCE_HELP,
+        ),
+    ] = None,
+    force: Annotated[
+        bool,
+        typer.Option("--force", help="Overwrite an existing project state."),
+    ] = False,
+    json_output: JsonOption = False,
+) -> None:
+    """Import a pose track using the kebab-case dispatch format string."""
+    format = _validate_format(format, _POSE_FORMATS, "pose")
+    out = require_option_value(out, "--out")
+    path = require_option_value(path, "--path")
+
+    needs_video = format in _PER_CLIP_POSE_FORMATS
+    if needs_video:
+        video = require_option_value(video, "--video")
+
+    def action() -> dict[str, str]:
+        prediction = _load_provenance_json(prediction_provenance, "--prediction-provenance")
+        model_provenance = _load_provenance_json(provenance_json, "--provenance-json")
+        progress = progress_callback(json_output)
+
+        common: dict[str, Any] = {
+            "prediction_provenance": prediction,
+            "provenance": model_provenance,
+            "force": force,
+            "progress_callback": progress,
+        }
+
+        if format == "dlc-csv":
+            state_path = import_dlc_csv_project(
+                path,
+                video,
+                out,
+                skeleton_name=skeleton_name or "imported",
+                likelihood_threshold=likelihood_threshold,
+                **common,
+            )
+        elif format == "dlc-h5":
+            state_path = import_dlc_h5_project(
+                path,
+                video,
+                out,
+                skeleton_name=skeleton_name or "imported",
+                likelihood_threshold=likelihood_threshold,
+                **common,
+            )
+        elif format == "dlc-project":
+            state_path = import_dlc_project_directory(
+                path,
+                out,
+                skeleton_name=skeleton_name,
+                likelihood_threshold=likelihood_threshold,
+                **common,
+            )
+        elif format == "lightning-pose-csv":
+            state_path = import_lightning_pose_csv_project(
+                path,
+                video,
+                out,
+                skeleton_name=skeleton_name or "imported",
+                likelihood_threshold=likelihood_threshold,
+                **common,
+            )
+        elif format == "mediapipe-pose-landmarks-json":
+            state_path = import_mediapipe_pose_landmarks_json_project(
+                path,
+                video,
+                out,
+                skeleton_name=skeleton_name or "mediapipe_pose",
+                likelihood_threshold=likelihood_threshold,
+                **common,
+            )
+        elif format == "mmpose-topdown-json":
+            state_path = import_mmpose_topdown_json_project(
+                path,
+                video,
+                out,
+                skeleton_name=skeleton_name or "imported",
+                instance_index=instance_index,
+                likelihood_threshold=likelihood_threshold,
+                **common,
+            )
+        elif format == "sleap-h5":
+            state_path = import_sleap_h5_project(
+                path,
+                video,
+                out,
+                skeleton_name=skeleton_name or "imported",
+                likelihood_threshold=likelihood_threshold,
+                **common,
+            )
+        elif format == "sleap-package":
+            sleap_kwargs = {
+                key: value for key, value in common.items()
+            }
+            state_path = import_sleap_package_project(
+                path,
+                out,
+                fps=fps,
+                encode_videos=encode_videos,
+                **sleap_kwargs,
+            )
+        else:  # pragma: no cover - defended above
+            raise ValueError(f"Unknown pose format: {format!r}")
+
+        return _import_payload(format, out, state_path)
+
+    label = _POSE_FORMAT_LABELS[format]
+    run_command(
+        json_output=json_output,
+        action=action,
+        human_output=lambda payload: _emit_import_result(payload, label),
+    )
+
+
+@app.command("calibration")
+def import_calibration(
+    format: Annotated[
+        str,
+        typer.Argument(help="Calibration format to import (e.g. anipose)."),
+    ],
+    out: Annotated[str, typer.Option("--out", help="Output project directory.")],
+    path: Annotated[
+        str | None,
+        typer.Option("--path", help="Path to the calibration source file."),
+    ] = None,
     calibration_id: Annotated[
         str | None,
         typer.Option("--calibration-id", help="Managed calibration ID to write."),
@@ -127,583 +348,83 @@ def import_anipose_calibration(
         str | None,
         typer.Option("--captured-at", help="Calibration capture timestamp."),
     ] = None,
-    world_anchor: Annotated[
-        str | None,
-        typer.Option("--world-anchor", help="Short tag for the calibration world frame."),
-    ] = None,
-    world_description: Annotated[
-        str | None,
-        typer.Option("--world-description", help="Description of the calibration world frame."),
-    ] = None,
     force: Annotated[
         bool,
         typer.Option("--force", help="Overwrite an existing calibration JSON file."),
     ] = False,
     json_output: JsonOption = False,
 ) -> None:
-    """Import an Anipose camera calibration into a project."""
-    toml = require_option_value(toml, "--toml")
+    """Import a camera calibration using the kebab-case dispatch format string."""
+    format = _validate_format(format, _CALIBRATION_FORMATS, "calibration")
     out = require_option_value(out, "--out")
+    path = require_option_value(path, "--path")
 
     def action() -> dict[str, str]:
-        world_frame = (
-            None
-            if world_anchor is None and world_description is None
-            else WorldFrame(anchor=world_anchor, description=world_description)
-        )
-        calibration_path = import_anipose_calibration_project(
-            toml,
-            out,
-            calibration_id=calibration_id,
-            name=name,
-            units=units,
-            captured_at=captured_at,
-            world_frame=world_frame,
-            force=force,
-        )
-        return {
-            "status": "imported",
-            "source": "anipose_calibration",
-            "project": out,
-            "calibration_path": str(calibration_path),
-        }
+        if format == "anipose":
+            calibration_path = import_anipose_calibration_project(
+                path,
+                out,
+                calibration_id=calibration_id,
+                name=name,
+                units=units,
+                captured_at=captured_at,
+                force=force,
+            )
+        else:  # pragma: no cover - defended above
+            raise ValueError(f"Unknown calibration format: {format!r}")
+        return _calibration_payload(format, out, calibration_path)
 
+    label = "Anipose calibration" if format == "anipose" else format
     run_command(
         json_output=json_output,
         action=action,
-        human_output=lambda payload: _emit_calibration_import_result(
-            payload,
-            "Anipose calibration",
-        ),
+        human_output=lambda payload: _emit_calibration_import_result(payload, label),
     )
 
 
-@dlc_app.command("csv")
-def import_dlc_csv(
-    csv: Annotated[str, typer.Option("--csv", help="Path to a DLC CSV tracking file.")],
-    video: Annotated[str, typer.Option("--video", help="Path to the matching video file.")],
-    out: Annotated[str, typer.Option("--out", help="Output project directory.")],
-    skeleton_name: Annotated[
+@app.command("motion")
+def import_motion(
+    format: Annotated[
         str,
-        typer.Option("--skeleton-name", help="Skeleton name to store in the project."),
-    ] = "imported",
-    threshold: Annotated[
-        float,
-        typer.Option("--threshold", callback=require_likelihood_threshold),
-    ] = 0.0,
-    provenance_json: Annotated[
-        str | None,
-        typer.Option(
-            "--provenance-json",
-            help="Optional JSON block with upstream model/prediction provenance.",
-        ),
-    ] = None,
-    model_provenance_json: Annotated[
-        str | None,
-        typer.Option(
-            "--model-provenance-json",
-            help=_MODEL_PROVENANCE_HELP,
-        ),
-    ] = None,
-    json_output: JsonOption = False,
-) -> None:
-    """Import a DLC CSV tracking file."""
-    csv = require_option_value(csv, "--csv")
-    video = require_option_value(video, "--video")
-    out = require_option_value(out, "--out")
-
-    def action() -> dict[str, str]:
-        state_path = import_dlc_csv_project(
-            csv,
-            video,
-            out,
-            skeleton_name=skeleton_name,
-            likelihood_threshold=threshold,
-            prediction_provenance=_load_prediction_provenance(provenance_json),
-            provenance=_load_model_provenance(model_provenance_json),
-            progress_callback=progress_callback(json_output),
-        )
-        return _import_payload("dlc_csv", out, state_path)
-
-    run_command(
-        json_output=json_output,
-        action=action,
-        human_output=lambda payload: _emit_import_result(payload, "DLC CSV"),
-    )
-
-
-@dlc_app.command("h5")
-def import_dlc_h5(
-    h5: Annotated[str, typer.Option("--h5", help="Path to a DLC H5 tracking file.")],
-    video: Annotated[str, typer.Option("--video", help="Path to the matching video file.")],
-    out: Annotated[str, typer.Option("--out", help="Output project directory.")],
-    skeleton_name: Annotated[
-        str,
-        typer.Option("--skeleton-name", help="Skeleton name to store in the project."),
-    ] = "imported",
-    threshold: Annotated[
-        float,
-        typer.Option("--threshold", callback=require_likelihood_threshold),
-    ] = 0.0,
-    provenance_json: Annotated[
-        str | None,
-        typer.Option(
-            "--provenance-json",
-            help="Optional JSON block with upstream model/prediction provenance.",
-        ),
-    ] = None,
-    model_provenance_json: Annotated[
-        str | None,
-        typer.Option(
-            "--model-provenance-json",
-            help=_MODEL_PROVENANCE_HELP,
-        ),
-    ] = None,
-    json_output: JsonOption = False,
-) -> None:
-    """Import a DLC H5 tracking file."""
-    h5 = require_option_value(h5, "--h5")
-    video = require_option_value(video, "--video")
-    out = require_option_value(out, "--out")
-
-    def action() -> dict[str, str]:
-        state_path = import_dlc_h5_project(
-            h5,
-            video,
-            out,
-            skeleton_name=skeleton_name,
-            likelihood_threshold=threshold,
-            prediction_provenance=_load_prediction_provenance(provenance_json),
-            provenance=_load_model_provenance(model_provenance_json),
-            progress_callback=progress_callback(json_output),
-        )
-        return _import_payload("dlc_h5", out, state_path)
-
-    run_command(
-        json_output=json_output,
-        action=action,
-        human_output=lambda payload: _emit_import_result(payload, "DLC H5"),
-    )
-
-
-@dlc_app.command("project")
-def import_dlc_project(
-    project: Annotated[str, typer.Option("--project", help="Path to the DLC project root.")],
-    out: Annotated[str, typer.Option("--out", help="Output project directory.")],
-    threshold: Annotated[
-        float,
-        typer.Option("--threshold", callback=require_likelihood_threshold),
-    ] = 0.0,
-    provenance_json: Annotated[
-        str | None,
-        typer.Option(
-            "--provenance-json",
-            help="Optional JSON block with upstream model/prediction provenance.",
-        ),
-    ] = None,
-    model_provenance_json: Annotated[
-        str | None,
-        typer.Option(
-            "--model-provenance-json",
-            help=_MODEL_PROVENANCE_HELP,
-        ),
-    ] = None,
-    json_output: JsonOption = False,
-) -> None:
-    """Import an entire DLC project into one project."""
-    project = require_option_value(project, "--project")
-    out = require_option_value(out, "--out")
-
-    def action() -> dict[str, str]:
-        state_path = import_dlc_project_directory(
-            project,
-            out,
-            likelihood_threshold=threshold,
-            prediction_provenance=_load_prediction_provenance(provenance_json),
-            provenance=_load_model_provenance(model_provenance_json),
-            progress_callback=progress_callback(json_output),
-        )
-        return _import_payload("dlc_project", out, state_path)
-
-    run_command(
-        json_output=json_output,
-        action=action,
-        human_output=lambda payload: _emit_import_result(payload, "DLC project"),
-    )
-
-
-@app.command("lightning-pose")
-def import_lightning_pose(
-    csv: Annotated[
-        str,
-        typer.Option("--csv", help="Path to a Lightning Pose prediction CSV."),
+        typer.Argument(help="Motion format to import (vicon, vicon-csv, vicon-c3d)."),
     ],
-    video: Annotated[str, typer.Option("--video", help="Path to the matching video file.")],
     out: Annotated[str, typer.Option("--out", help="Output project directory.")],
-    skeleton_name: Annotated[
-        str,
-        typer.Option("--skeleton-name", help="Skeleton name to store in the project."),
-    ] = "imported",
-    threshold: Annotated[
-        float,
-        typer.Option("--threshold", callback=require_likelihood_threshold),
-    ] = 0.0,
-    provenance_json: Annotated[
+    path: Annotated[
         str | None,
-        typer.Option(
-            "--provenance-json",
-            help="Optional JSON block with upstream model/prediction provenance.",
-        ),
+        typer.Option("--path", help="Path to the motion-capture recording."),
     ] = None,
-    model_provenance_json: Annotated[
-        str | None,
-        typer.Option(
-            "--model-provenance-json",
-            help=_MODEL_PROVENANCE_HELP,
-        ),
-    ] = None,
-    json_output: JsonOption = False,
-) -> None:
-    """Import Lightning Pose CSV predictions into a project."""
-    csv = require_option_value(csv, "--csv")
-    video = require_option_value(video, "--video")
-    out = require_option_value(out, "--out")
-
-    def action() -> dict[str, str]:
-        state_path = import_lightning_pose_csv_project(
-            csv,
-            video,
-            out,
-            skeleton_name=skeleton_name,
-            likelihood_threshold=threshold,
-            prediction_provenance=_load_prediction_provenance(provenance_json),
-            provenance=_load_model_provenance(model_provenance_json),
-            progress_callback=progress_callback(json_output),
-        )
-        return _import_payload("lightning_pose_csv", out, state_path)
-
-    run_command(
-        json_output=json_output,
-        action=action,
-        human_output=lambda payload: _emit_import_result(payload, "Lightning Pose CSV"),
-    )
-
-
-@app.command("mediapipe")
-def import_mediapipe(
-    json_path: Annotated[
-        str,
-        typer.Option("--input-json", help="Path to MediaPipe pose-landmarks JSON."),
-    ],
-    video: Annotated[str, typer.Option("--video", help="Path to the matching video file.")],
-    out: Annotated[str, typer.Option("--out", help="Output project directory.")],
-    skeleton_name: Annotated[
-        str,
-        typer.Option("--skeleton-name", help="Skeleton name to store in the project."),
-    ] = "mediapipe_pose",
-    threshold: Annotated[
-        float,
-        typer.Option("--threshold", callback=require_likelihood_threshold),
-    ] = 0.0,
-    provenance_json: Annotated[
-        str | None,
-        typer.Option(
-            "--provenance-json",
-            help="Optional JSON block with upstream model/prediction provenance.",
-        ),
-    ] = None,
-    model_provenance_json: Annotated[
-        str | None,
-        typer.Option(
-            "--model-provenance-json",
-            help=_MODEL_PROVENANCE_HELP,
-        ),
-    ] = None,
-    json_output: JsonOption = False,
-) -> None:
-    """Import MediaPipe pose-landmarks JSON into a project."""
-    json_path = require_option_value(json_path, "--input-json")
-    video = require_option_value(video, "--video")
-    out = require_option_value(out, "--out")
-
-    def action() -> dict[str, str]:
-        state_path = import_mediapipe_pose_landmarks_json_project(
-            json_path,
-            video,
-            out,
-            skeleton_name=skeleton_name,
-            likelihood_threshold=threshold,
-            prediction_provenance=_load_prediction_provenance(provenance_json),
-            provenance=_load_model_provenance(model_provenance_json),
-            progress_callback=progress_callback(json_output),
-        )
-        return _import_payload("mediapipe_pose_landmarks_json", out, state_path)
-
-    run_command(
-        json_output=json_output,
-        action=action,
-        human_output=lambda payload: _emit_import_result(payload, "MediaPipe JSON"),
-    )
-
-
-@app.command("mmpose")
-def import_mmpose(
-    json_path: Annotated[
-        str,
-        typer.Option("--input-json", help="Path to an MMPose JSON export."),
-    ],
-    video: Annotated[str, typer.Option("--video", help="Path to the matching video file.")],
-    out: Annotated[str, typer.Option("--out", help="Output project directory.")],
-    skeleton_name: Annotated[
-        str,
-        typer.Option("--skeleton-name", help="Skeleton name to store in the project."),
-    ] = "imported",
-    instance_index: Annotated[
-        int,
-        typer.Option("--instance-index", callback=require_nonnegative_int),
-    ] = 0,
-    threshold: Annotated[
-        float,
-        typer.Option("--threshold", callback=require_likelihood_threshold),
-    ] = 0.0,
-    provenance_json: Annotated[
-        str | None,
-        typer.Option(
-            "--provenance-json",
-            help="Optional JSON block with upstream model/prediction provenance.",
-        ),
-    ] = None,
-    model_provenance_json: Annotated[
-        str | None,
-        typer.Option(
-            "--model-provenance-json",
-            help=_MODEL_PROVENANCE_HELP,
-        ),
-    ] = None,
-    json_output: JsonOption = False,
-) -> None:
-    """Import MMPose top-down demo JSON predictions into a project."""
-    json_path = require_option_value(json_path, "--input-json")
-    video = require_option_value(video, "--video")
-    out = require_option_value(out, "--out")
-
-    def action() -> dict[str, str]:
-        state_path = import_mmpose_topdown_json_project(
-            json_path,
-            video,
-            out,
-            skeleton_name=skeleton_name,
-            instance_index=instance_index,
-            likelihood_threshold=threshold,
-            prediction_provenance=_load_prediction_provenance(provenance_json),
-            provenance=_load_model_provenance(model_provenance_json),
-            progress_callback=progress_callback(json_output),
-        )
-        return _import_payload("mmpose_topdown_json", out, state_path)
-
-    run_command(
-        json_output=json_output,
-        action=action,
-        human_output=lambda payload: _emit_import_result(payload, "MMPose JSON"),
-    )
-
-
-@sleap_app.command("h5")
-def import_sleap_h5(
-    out: Annotated[str, typer.Option("--out", help="Output project directory.")],
-    h5: Annotated[
-        str,
-        typer.Option("--h5", help="Path to the SLEAP analysis H5 export."),
-    ],
-    video: Annotated[
-        str,
-        typer.Option("--video", help="Path to the matching video file."),
-    ],
-    skeleton_name: Annotated[
-        str,
-        typer.Option("--skeleton-name", help="Skeleton name to store in the project."),
-    ] = "imported",
-    threshold: Annotated[
-        float,
-        typer.Option("--threshold", callback=require_likelihood_threshold),
-    ] = 0.0,
-    provenance_json: Annotated[
-        str | None,
-        typer.Option(
-            "--provenance-json",
-            help="Optional JSON block with upstream model/prediction provenance.",
-        ),
-    ] = None,
-    model_provenance_json: Annotated[
-        str | None,
-        typer.Option(
-            "--model-provenance-json",
-            help=_MODEL_PROVENANCE_HELP,
-        ),
-    ] = None,
-    json_output: JsonOption = False,
-) -> None:
-    """Import a SLEAP analysis H5 export into a project."""
-    out = require_option_value(out, "--out")
-    h5 = require_option_value(h5, "--h5")
-    video = require_option_value(video, "--video")
-
-    def action() -> dict[str, str]:
-        state_path = import_sleap_h5_project(
-            h5,
-            video,
-            out,
-            skeleton_name=skeleton_name,
-            likelihood_threshold=threshold,
-            prediction_provenance=_load_prediction_provenance(provenance_json),
-            provenance=_load_model_provenance(model_provenance_json),
-            progress_callback=progress_callback(json_output),
-        )
-        return _import_payload("sleap_h5", out, state_path)
-
-    run_command(
-        json_output=json_output,
-        action=action,
-        human_output=lambda payload: _emit_import_result(payload, "SLEAP H5"),
-    )
-
-
-@sleap_app.command("package")
-def import_sleap_package(
-    out: Annotated[str, typer.Option("--out", help="Output project directory.")],
-    slp: Annotated[
-        str,
-        typer.Option("--slp", help="Path to the input .pkg.slp archive."),
-    ],
-    fps: Annotated[int, typer.Option("--fps", callback=require_positive_int)] = 30,
-    encode_videos: Annotated[
+    force: Annotated[
         bool,
-        typer.Option("--videos/--no-videos", help="Encode MP4 videos into the internal store."),
-    ] = True,
-    provenance_json: Annotated[
-        str | None,
-        typer.Option(
-            "--provenance-json",
-            help="Optional JSON block with upstream model/prediction provenance.",
-        ),
-    ] = None,
-    model_provenance_json: Annotated[
-        str | None,
-        typer.Option(
-            "--model-provenance-json",
-            help=_MODEL_PROVENANCE_HELP,
-        ),
-    ] = None,
+        typer.Option("--force", help="Overwrite an existing project state."),
+    ] = False,
     json_output: JsonOption = False,
 ) -> None:
-    """Import a SLEAP package into a project."""
+    """Import a motion-capture recording using the kebab-case dispatch format string."""
+    format = _validate_format(format, _MOTION_FORMATS, "motion")
     out = require_option_value(out, "--out")
-    slp = require_option_value(slp, "--slp")
+    path = require_option_value(path, "--path")
 
     def action() -> dict[str, str]:
-        state_path = import_sleap_package_project(
-            slp,
-            out,
-            fps=fps,
-            encode_videos=encode_videos,
-            prediction_provenance=_load_prediction_provenance(provenance_json),
-            provenance=_load_model_provenance(model_provenance_json),
-            progress_callback=progress_callback(json_output),
-        )
-        return _import_payload("sleap_package", out, state_path)
+        progress = progress_callback(json_output)
+        if format == "vicon":
+            state_path = import_vicon_project(
+                path, out, force=force, progress_callback=progress
+            )
+        elif format == "vicon-csv":
+            state_path = import_vicon_csv_project(
+                path, out, force=force, progress_callback=progress
+            )
+        elif format == "vicon-c3d":
+            state_path = import_vicon_c3d_project(
+                path, out, force=force, progress_callback=progress
+            )
+        else:  # pragma: no cover - defended above
+            raise ValueError(f"Unknown motion format: {format!r}")
+        return _import_payload(format, out, state_path)
 
+    label = _MOTION_FORMAT_LABELS[format]
     run_command(
         json_output=json_output,
         action=action,
-        human_output=lambda payload: _emit_import_result(payload, "SLEAP package"),
+        human_output=lambda payload: _emit_import_result(payload, label),
     )
-
-
-@vicon_app.command("c3d")
-def import_vicon_c3d(
-    out: Annotated[str, typer.Option("--out", help="Output project directory.")],
-    c3d: Annotated[
-        str,
-        typer.Option("--c3d", help="Path to a Vicon C3D recording."),
-    ],
-    json_output: JsonOption = False,
-) -> None:
-    """Import a Vicon C3D recording into a project."""
-    out = require_option_value(out, "--out")
-    c3d = require_option_value(c3d, "--c3d")
-
-    def action() -> dict[str, str]:
-        state_path = import_vicon_c3d_project(
-            c3d,
-            out,
-            progress_callback=progress_callback(json_output),
-        )
-        return _import_payload("vicon_c3d", out, state_path)
-
-    run_command(
-        json_output=json_output,
-        action=action,
-        human_output=lambda payload: _emit_import_result(payload, "Vicon C3D"),
-    )
-
-
-@vicon_app.command("csv")
-def import_vicon_csv(
-    out: Annotated[str, typer.Option("--out", help="Output project directory.")],
-    csv: Annotated[
-        str,
-        typer.Option("--csv", help="Path to a Vicon Nexus CSV export."),
-    ],
-    json_output: JsonOption = False,
-) -> None:
-    """Import a Vicon Nexus CSV recording into a project."""
-    out = require_option_value(out, "--out")
-    csv = require_option_value(csv, "--csv")
-
-    def action() -> dict[str, str]:
-        state_path = import_vicon_csv_project(
-            csv,
-            out,
-            progress_callback=progress_callback(json_output),
-        )
-        return _import_payload("vicon_csv", out, state_path)
-
-    run_command(
-        json_output=json_output,
-        action=action,
-        human_output=lambda payload: _emit_import_result(payload, "Vicon CSV"),
-    )
-
-
-@vicon_app.command("recording")
-def import_vicon_recording(
-    out: Annotated[str, typer.Option("--out", help="Output project directory.")],
-    recording: Annotated[
-        str,
-        typer.Option("--recording", help="Path to a Vicon recording (.csv or .c3d)."),
-    ],
-    json_output: JsonOption = False,
-) -> None:
-    """Import an auto-detected Vicon recording into a project."""
-    out = require_option_value(out, "--out")
-    recording = require_option_value(recording, "--recording")
-
-    def action() -> dict[str, str]:
-        state_path = import_vicon_project(
-            recording,
-            out,
-            progress_callback=progress_callback(json_output),
-        )
-        return _import_payload("vicon_recording", out, state_path)
-
-    run_command(
-        json_output=json_output,
-        action=action,
-        human_output=lambda payload: _emit_import_result(payload, "Vicon recording"),
-    )
-
-
-app.add_typer(dlc_app, name="dlc")
-app.add_typer(anipose_app, name="anipose")
-app.add_typer(sleap_app, name="sleap")
-app.add_typer(vicon_app, name="vicon")

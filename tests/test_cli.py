@@ -152,9 +152,9 @@ def test_cli_routes_import_dlc_csv_project(monkeypatch, capsys) -> None:
     code = main(
         [
             "import",
-            "dlc",
-            "csv",
-            "--csv",
+            "pose",
+            "dlc-csv",
+            "--path",
             "tracking.csv",
             "--video",
             "clip.mp4",
@@ -225,15 +225,15 @@ def test_cli_routes_pose_prediction_provenance_json(monkeypatch, tmp_path: Path)
     code = main(
         [
             "import",
-            "dlc",
-            "csv",
-            "--csv",
+            "pose",
+            "dlc-csv",
+            "--path",
             "tracking.csv",
             "--video",
             "clip.mp4",
             "--out",
             "My Project",
-            "--provenance-json",
+            "--prediction-provenance",
             str(provenance_path),
         ]
     )
@@ -273,9 +273,9 @@ def test_cli_import_json_mode_suppresses_progress(monkeypatch, capsys) -> None:
     code = main(
         [
             "import",
-            "dlc",
-            "csv",
-            "--csv",
+            "pose",
+            "dlc-csv",
+            "--path",
             "tracking.csv",
             "--video",
             "clip.mp4",
@@ -294,7 +294,7 @@ def test_cli_import_json_mode_suppresses_progress(monkeypatch, capsys) -> None:
         "ok": True,
         "data": {
             "status": "imported",
-            "source": "dlc_csv",
+            "source": "dlc-csv",
             "project": "My Project",
             "state_path": "My Project/.xpkg/state/current.json",
         },
@@ -327,9 +327,9 @@ def test_cli_routes_import_vicon_csv_project(monkeypatch, capsys) -> None:
     code = main(
         [
             "import",
-            "vicon",
-            "csv",
-            "--csv",
+            "motion",
+            "vicon-csv",
+            "--path",
             "trial.csv",
             "--out",
             "My Project",
@@ -374,9 +374,9 @@ def test_cli_routes_import_vicon_c3d_project(monkeypatch, capsys) -> None:
     code = main(
         [
             "import",
-            "vicon",
-            "c3d",
-            "--c3d",
+            "motion",
+            "vicon-c3d",
+            "--path",
             "trial.c3d",
             "--out",
             "My Project",
@@ -421,9 +421,9 @@ def test_cli_routes_import_vicon_recording_project(monkeypatch, capsys) -> None:
     code = main(
         [
             "import",
+            "motion",
             "vicon",
-            "recording",
-            "--recording",
+            "--path",
             "trial.csv",
             "--out",
             "My Project",
@@ -474,9 +474,9 @@ def test_cli_routes_import_dlc_project_directory(monkeypatch, capsys) -> None:
     code = main(
         [
             "import",
-            "dlc",
-            "project",
-            "--project",
+            "pose",
+            "dlc-project",
+            "--path",
             "dlc-project",
             "--out",
             "My Project",
@@ -531,15 +531,15 @@ def test_cli_routes_import_sleap_package_project(monkeypatch, capsys) -> None:
     code = main(
         [
             "import",
-            "sleap",
-            "package",
-            "--slp",
+            "pose",
+            "sleap-package",
+            "--path",
             "labels.pkg.slp",
             "--out",
             "My Project",
             "--fps",
             "24",
-            "--no-videos",
+            "--no-encode-videos",
         ]
     )
 
@@ -591,9 +591,9 @@ def test_cli_routes_import_sleap_h5_project(monkeypatch, capsys) -> None:
     code = main(
         [
             "import",
-            "sleap",
-            "h5",
-            "--h5",
+            "pose",
+            "sleap-h5",
+            "--path",
             "analysis.h5",
             "--video",
             "clip.mp4",
@@ -657,7 +657,8 @@ def test_cli_routes_import_mmpose_project(monkeypatch, capsys) -> None:
     code = main(
         [
             "import",
-            "mmpose",
+            "pose",
+            "mmpose-topdown-json",
             "--input-json",
             "results.json",
             "--video",
@@ -721,7 +722,8 @@ def test_cli_routes_import_mediapipe_project(monkeypatch, capsys) -> None:
     code = main(
         [
             "import",
-            "mediapipe",
+            "pose",
+            "mediapipe-pose-landmarks-json",
             "--input-json",
             "pose_landmarks.json",
             "--video",
@@ -782,8 +784,9 @@ def test_cli_routes_import_lightning_pose_project(monkeypatch, capsys) -> None:
     code = main(
         [
             "import",
-            "lightning-pose",
-            "--csv",
+            "pose",
+            "lightning-pose-csv",
+            "--path",
             "video_preds/session0.csv",
             "--video",
             "clip.mp4",
@@ -813,7 +816,18 @@ def test_cli_json_errors_use_stderr(capsys) -> None:
     from xpkg.cli import main
 
     with pytest.raises(SystemExit) as exc_info:
-        main(["import", "sleap", "h5", "--h5", "analysis.h5", "--out", "My Project", "--json"])
+        main(
+            [
+                "import",
+                "pose",
+                "sleap-h5",
+                "--path",
+                "analysis.h5",
+                "--out",
+                "My Project",
+                "--json",
+            ]
+        )
 
     assert exc_info.value.code == 1
     captured_streams = capsys.readouterr()

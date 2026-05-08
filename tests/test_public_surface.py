@@ -444,34 +444,67 @@ def test_media_surface_is_public() -> None:
 
 
 def test_project_surface_is_project_first_only() -> None:
+    # Removed compat / archive surface (never were public)
     assert "read_archive" not in xpkg.project.__all__
     assert "write_archive" not in xpkg.project.__all__
     assert "read_xpkg" not in xpkg.project.__all__
     assert "write_xpkg" not in xpkg.project.__all__
     assert "export_project_archive" not in xpkg.project.__all__
     assert "current_project_archive_path" not in xpkg.project.__all__
+    assert "import_detectron2_coco_project" not in xpkg.project.__all__
+    assert "import_openpose_json_project" not in xpkg.project.__all__
+
+    # Curated stable public surface
     assert "pack_project" in xpkg.project.__all__
-    assert "export_project_archive" not in xpkg.project.__all__
-    assert "import_dlc_project_directory" in xpkg.project.__all__
-    assert "import_lightning_pose_csv_project" in xpkg.project.__all__
+    assert "unpack_project" in xpkg.project.__all__
+    assert "init_project" in xpkg.project.__all__
+    assert "validate_project" in xpkg.project.__all__
+    assert "validate_expkg" in xpkg.project.__all__
     assert "inspect_project" in xpkg.project.__all__
     assert "load_project_payload" in xpkg.project.__all__
+    assert "save_project_labels" in xpkg.project.__all__
     assert "list_project_figures" in xpkg.project.__all__
     assert "save_project_figure" in xpkg.project.__all__
     assert "project_artifacts_root" in xpkg.project.__all__
-    assert "load_project_metadata" in xpkg.project.__all__
-    assert "load_project_acquisition_metadata" in xpkg.project.__all__
-    assert "load_project_dataset_share_metadata" in xpkg.project.__all__
-    assert "load_project_metadata_field" in xpkg.project.__all__
-    assert "import_vicon_project" in xpkg.project.__all__
-    assert "save_project_metadata" in xpkg.project.__all__
-    assert "save_project_acquisition_metadata" in xpkg.project.__all__
-    assert "save_project_dataset_share_metadata" in xpkg.project.__all__
-    assert "save_project_metadata_field" in xpkg.project.__all__
     assert "save_project_segmentation_masks" in xpkg.project.__all__
     assert "load_project_segmentation_masks" in xpkg.project.__all__
-    assert "import_detectron2_coco_project" not in xpkg.project.__all__
-    assert "import_openpose_json_project" not in xpkg.project.__all__
+
+    # The verbose import_*_project / save+load typed-metadata / state-metadata
+    # helpers are intentionally NOT in __all__: ProjectService.import_pose,
+    # ProjectService.metadata, and ProjectService.{load,save}_state_metadata
+    # are the public path. The names remain importable for path-level callers.
+    not_in_curated_surface = {
+        "import_anipose_calibration_project",
+        "import_dlc_csv_project",
+        "import_dlc_h5_project",
+        "import_dlc_project_directory",
+        "import_lightning_pose_csv_project",
+        "import_mediapipe_pose_landmarks_json_project",
+        "import_mmpose_topdown_json_project",
+        "import_sleap_h5_project",
+        "import_sleap_package_project",
+        "import_vicon_c3d_project",
+        "import_vicon_csv_project",
+        "import_vicon_project",
+        "load_project_acquisition_metadata",
+        "load_project_dataset_share_metadata",
+        "load_project_datasheet",
+        "load_project_metadata",
+        "load_project_metadata_field",
+        "load_project_model_card",
+        "load_project_pose_provenance",
+        "save_project_acquisition_metadata",
+        "save_project_dataset_share_metadata",
+        "save_project_datasheet",
+        "save_project_metadata",
+        "save_project_metadata_field",
+        "save_project_model_card",
+        "save_project_pose_provenance",
+    }
+    assert not_in_curated_surface.isdisjoint(set(xpkg.project.__all__))
+    # ...but each of them is still importable as a path-level seam.
+    for name in not_in_curated_surface:
+        assert hasattr(xpkg.project, name), f"{name} should remain importable"
 
     with pytest.raises(AttributeError):
         xpkg.project.__getattribute__("read_archive")

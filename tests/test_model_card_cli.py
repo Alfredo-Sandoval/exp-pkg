@@ -105,7 +105,9 @@ def test_cli_set_and_show_model_card_round_trip(
     code = main(
         [
             "project",
-            "set-model-card",
+            "metadata",
+            "set",
+            "model-card",
             str(project),
             "--from",
             str(payload_path),
@@ -118,7 +120,7 @@ def test_cli_set_and_show_model_card_round_trip(
     assert saved["metadata"] == "model_card"
     assert saved["model_card"]["details"]["name"] == "dlc-mouse-reach"
 
-    code = main(["project", "show-model-card", str(project), "--json"])
+    code = main(["project", "metadata", "show", "model-card", str(project), "--json"])
     assert code == 0
     shown = _capture_json(capsys)
     assert shown["status"] == "loaded"
@@ -135,7 +137,7 @@ def test_cli_show_model_card_reports_missing_when_unset(
     project = tmp_path / "No Card CLI Project"
     init_project(project, title="No Card CLI Project")
 
-    code = main(["project", "show-model-card", str(project), "--json"])
+    code = main(["project", "metadata", "show", "model-card", str(project), "--json"])
     assert code == 0
     shown = _capture_json(capsys)
     assert shown["status"] == "missing"

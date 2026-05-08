@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import sys
+from collections.abc import Callable, Mapping
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Annotated, Any
 
@@ -155,204 +157,143 @@ def init(
     run_command(json_output=json_output, action=action, human_output=human_output)
 
 
-@app.command("set-acquisition")
-def set_acquisition(
+@dataclass(frozen=True, slots=True)
+class _MetadataSlot:
+    """Per-slot dispatch entry for ``xpkg project metadata`` set/show."""
+
+    name: str  # canonical kebab-case slot name in the CLI surface
+    payload_key: str  # snake_case key under which the slot value lives in JSON output
+    coerce: Callable[[Mapping[str, Any]], Any]
+    save: Callable[[str, Any], Path]
+    load: Callable[[str], Any]
+    path_for: Callable[[str], Path]
+
+
+_METADATA_SLOTS: dict[str, _MetadataSlot] = {
+    "acquisition": _MetadataSlot(
+        name="acquisition",
+        payload_key="acquisition",
+        coerce=AcquisitionMetadata.from_dict,
+        save=save_project_acquisition_metadata,
+        load=load_project_acquisition_metadata,
+        path_for=project_acquisition_metadata_path,
+    ),
+    "dataset-share": _MetadataSlot(
+        name="dataset-share",
+        payload_key="dataset_share",
+        coerce=DatasetShareMetadata.from_dict,
+        save=save_project_dataset_share_metadata,
+        load=load_project_dataset_share_metadata,
+        path_for=project_dataset_share_metadata_path,
+    ),
+    "datasheet": _MetadataSlot(
+        name="datasheet",
+        payload_key="datasheet",
+        coerce=DatasetDatasheet.from_dict,
+        save=save_project_datasheet,
+        load=load_project_datasheet,
+        path_for=project_datasheet_path,
+    ),
+    "model-card": _MetadataSlot(
+        name="model-card",
+        payload_key="model_card",
+        coerce=ModelCard.from_dict,
+        save=save_project_model_card,
+        load=load_project_model_card,
+        path_for=project_model_card_path,
+    ),
+}
+
+
+def _resolve_metadata_slot(slot: str) -> _MetadataSlot:
+    if slot not in _METADATA_SLOTS:
+        choices = ", ".join(sorted(_METADATA_SLOTS))
+        raise typer.BadParameter(
+            f"Unknown metadata slot {slot!r}. Choose from: {choices}.",
+            param_hint="SLOT",
+        )
+    return _METADATA_SLOTS[slot]
+
+
+metadata_app = typer.Typer(
+    add_completion=False,
+    help="Show or update typed durable metadata slots stored under .xpkg/metadata/.",
+    no_args_is_help=True,
+    rich_markup_mode="rich",
+)
+
+
+@metadata_app.command("set")
+def metadata_set(
+    slot: Annotated[
+        str,
+        typer.Argument(
+            help=(
+                "Metadata slot to write: acquisition, dataset-share, datasheet, "
+                "or model-card."
+            ),
+        ),
+    ],
     project: Annotated[str, typer.Argument(help="Project directory to update.")],
     source: Annotated[
         str | None,
         typer.Option(
             "--from",
             "--input",
-            help="Path to an acquisition metadata JSON object.",
+            help="Path to a JSON object matching the slot's typed schema.",
         ),
     ] = None,
     json_output: JsonOption = False,
 ) -> None:
-    """Attach generic acquisition metadata to a project."""
+    """Write one typed metadata slot from a JSON file."""
+    entry = _resolve_metadata_slot(slot)
     source = require_option_value(source, "--from")
 
     def action() -> dict[str, object]:
-        acquisition = AcquisitionMetadata.from_dict(_load_metadata_payload(source))
-        saved_path = save_project_acquisition_metadata(project, acquisition)
+        record = entry.coerce(_load_metadata_payload(source))
+        saved_path = entry.save(project, record)
         return {
             "status": "saved",
-            "metadata": "acquisition",
+            "metadata": entry.payload_key,
             "project": project,
             "path": str(saved_path),
-            "acquisition": acquisition.to_dict(),
+            entry.payload_key: record.to_dict(),
         }
 
     run_command(json_output=json_output, action=action, human_output=_emit_saved_metadata)
 
 
-@app.command("show-acquisition")
-def show_acquisition(
-    project: Annotated[str, typer.Argument(help="Project directory to inspect.")],
-    json_output: JsonOption = False,
-) -> None:
-    """Show project acquisition metadata."""
-
-    def action() -> dict[str, object]:
-        acquisition = load_project_acquisition_metadata(project)
-        return {
-            "status": "loaded" if acquisition is not None else "missing",
-            "metadata": "acquisition",
-            "project": project,
-            "path": str(project_acquisition_metadata_path(project)),
-            "acquisition": None if acquisition is None else acquisition.to_dict(),
-        }
-
-    run_command(json_output=json_output, action=action, human_output=_emit_loaded_metadata)
-
-
-@app.command("set-dataset-share")
-def set_dataset_share(
-    project: Annotated[str, typer.Argument(help="Project directory to update.")],
-    source: Annotated[
-        str | None,
-        typer.Option(
-            "--from",
-            "--input",
-            help="Path to a dataset sharing metadata JSON object.",
+@metadata_app.command("show")
+def metadata_show(
+    slot: Annotated[
+        str,
+        typer.Argument(
+            help=(
+                "Metadata slot to read: acquisition, dataset-share, datasheet, "
+                "or model-card."
+            ),
         ),
-    ] = None,
-    json_output: JsonOption = False,
-) -> None:
-    """Attach FAIR dataset sharing metadata to a project."""
-    source = require_option_value(source, "--from")
-
-    def action() -> dict[str, object]:
-        dataset_share = DatasetShareMetadata.from_dict(_load_metadata_payload(source))
-        saved_path = save_project_dataset_share_metadata(project, dataset_share)
-        return {
-            "status": "saved",
-            "metadata": "dataset_share",
-            "project": project,
-            "path": str(saved_path),
-            "dataset_share": dataset_share.to_dict(),
-        }
-
-    run_command(json_output=json_output, action=action, human_output=_emit_saved_metadata)
-
-
-@app.command("show-dataset-share")
-def show_dataset_share(
+    ],
     project: Annotated[str, typer.Argument(help="Project directory to inspect.")],
     json_output: JsonOption = False,
 ) -> None:
-    """Show project FAIR dataset sharing metadata."""
+    """Show one typed metadata slot."""
+    entry = _resolve_metadata_slot(slot)
 
     def action() -> dict[str, object]:
-        dataset_share = load_project_dataset_share_metadata(project)
+        record = entry.load(project)
         return {
-            "status": "loaded" if dataset_share is not None else "missing",
-            "metadata": "dataset_share",
+            "status": "loaded" if record is not None else "missing",
+            "metadata": entry.payload_key,
             "project": project,
-            "path": str(project_dataset_share_metadata_path(project)),
-            "dataset_share": None if dataset_share is None else dataset_share.to_dict(),
+            "path": str(entry.path_for(project)),
+            entry.payload_key: None if record is None else record.to_dict(),
         }
 
     run_command(json_output=json_output, action=action, human_output=_emit_loaded_metadata)
 
 
-@app.command("set-datasheet")
-def set_datasheet(
-    project: Annotated[str, typer.Argument(help="Project directory to update.")],
-    source: Annotated[
-        str | None,
-        typer.Option(
-            "--from",
-            "--input",
-            help="Path to a Datasheet for Datasets (Gebru et al. 2021) JSON object.",
-        ),
-    ] = None,
-    json_output: JsonOption = False,
-) -> None:
-    """Attach a Datasheet for Datasets (Gebru et al. 2021) to a project."""
-    source = require_option_value(source, "--from")
-
-    def action() -> dict[str, object]:
-        datasheet = DatasetDatasheet.from_dict(_load_metadata_payload(source))
-        saved_path = save_project_datasheet(project, datasheet)
-        return {
-            "status": "saved",
-            "metadata": "datasheet",
-            "project": project,
-            "path": str(saved_path),
-            "datasheet": datasheet.to_dict(),
-        }
-
-    run_command(json_output=json_output, action=action, human_output=_emit_saved_metadata)
-
-
-@app.command("show-datasheet")
-def show_datasheet(
-    project: Annotated[str, typer.Argument(help="Project directory to inspect.")],
-    json_output: JsonOption = False,
-) -> None:
-    """Show the project Datasheet for Datasets (Gebru et al. 2021)."""
-
-    def action() -> dict[str, object]:
-        datasheet = load_project_datasheet(project)
-        return {
-            "status": "loaded" if datasheet is not None else "missing",
-            "metadata": "datasheet",
-            "project": project,
-            "path": str(project_datasheet_path(project)),
-            "datasheet": None if datasheet is None else datasheet.to_dict(),
-        }
-
-    run_command(json_output=json_output, action=action, human_output=_emit_loaded_metadata)
-
-
-@app.command("set-model-card")
-def set_model_card(
-    project: Annotated[str, typer.Argument(help="Project directory to update.")],
-    source: Annotated[
-        str | None,
-        typer.Option(
-            "--from",
-            "--input",
-            help="Path to a Model Card (Mitchell et al. 2019) JSON object.",
-        ),
-    ] = None,
-    json_output: JsonOption = False,
-) -> None:
-    """Attach a Model Card (Mitchell et al. 2019) to a project."""
-    source = require_option_value(source, "--from")
-
-    def action() -> dict[str, object]:
-        model_card = ModelCard.from_dict(_load_metadata_payload(source))
-        saved_path = save_project_model_card(project, model_card)
-        return {
-            "status": "saved",
-            "metadata": "model_card",
-            "project": project,
-            "path": str(saved_path),
-            "model_card": model_card.to_dict(),
-        }
-
-    run_command(json_output=json_output, action=action, human_output=_emit_saved_metadata)
-
-
-@app.command("show-model-card")
-def show_model_card(
-    project: Annotated[str, typer.Argument(help="Project directory to inspect.")],
-    json_output: JsonOption = False,
-) -> None:
-    """Show the project Model Card (Mitchell et al. 2019)."""
-
-    def action() -> dict[str, object]:
-        model_card = load_project_model_card(project)
-        return {
-            "status": "loaded" if model_card is not None else "missing",
-            "metadata": "model_card",
-            "project": project,
-            "path": str(project_model_card_path(project)),
-            "model_card": None if model_card is None else model_card.to_dict(),
-        }
-
-    run_command(json_output=json_output, action=action, human_output=_emit_loaded_metadata)
+app.add_typer(metadata_app, name="metadata")
 
 
 @app.command("pack")

@@ -116,14 +116,10 @@ def write_video(
     fps: int = 15,
     scale: float = 1.0,
     background: str | None = None,
-    in_queue: Any | None = None,
-    out_queue: Any | None = None,
-    intermediate_threads: Any | None = None,
     progress_callback: Any | None = None,
     stop_event: Event | None = None,
 ) -> None:
     """Write selected frames from `video` into a new video file."""
-    del in_queue, out_queue, intermediate_threads
     if fps <= 0:
         raise ValueError("fps must be positive")
     if not frames:
