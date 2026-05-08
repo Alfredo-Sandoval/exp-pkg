@@ -190,3 +190,39 @@ def test_project_service_scoped_metadata_roundtrip_without_current_head(tmp_path
     assert acquisition.acquisition_id == "acq-service"
     assert dataset_share is not None
     assert dataset_share.doi == "10.0000/service"
+
+
+
+def test_pose_importer_registry_covers_all_pose_formats() -> None:
+    """Adding a PoseFormat literal without a registry entry (or vice versa) must fail loudly."""
+    from typing import get_args
+
+    from xpkg.services.project import _POSE_IMPORTERS, PoseFormat
+
+    expected = set(get_args(PoseFormat))
+    actual = set(_POSE_IMPORTERS.keys())
+    assert expected == actual, (
+        f"PoseFormat literal and _POSE_IMPORTERS registry are out of sync: "
+        f"missing from registry {expected - actual!r}, "
+        f"missing from literal {actual - expected!r}"
+    )
+
+
+def test_motion_importer_registry_covers_all_motion_formats() -> None:
+    from typing import get_args
+
+    from xpkg.services.project import _MOTION_IMPORTERS, MotionFormat
+
+    expected = set(get_args(MotionFormat))
+    actual = set(_MOTION_IMPORTERS.keys())
+    assert expected == actual
+
+
+def test_calibration_importer_registry_covers_all_calibration_formats() -> None:
+    from typing import get_args
+
+    from xpkg.services.project import _CALIBRATION_IMPORTERS, CalibrationFormat
+
+    expected = set(get_args(CalibrationFormat))
+    actual = set(_CALIBRATION_IMPORTERS.keys())
+    assert expected == actual

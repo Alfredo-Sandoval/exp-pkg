@@ -54,7 +54,6 @@ from xpkg.project.calibration import (
     CALIBRATION_FILENAME,
     CALIBRATION_SOURCE_DIRNAME,
     CALIBRATIONS_DIRNAME,
-    import_anipose_calibration_project,
     list_project_calibrations,
     load_project_calibration,
     project_calibration_path,
@@ -62,6 +61,9 @@ from xpkg.project.calibration import (
     project_calibration_source_root,
     project_calibrations_root,
     save_project_calibration,
+)
+from xpkg.project.calibration import (
+    import_anipose_calibration_project as import_anipose_calibration_project,
 )
 from xpkg.project.inspection import ProjectInspection, inspect_project
 from xpkg.project.layout import (
@@ -88,24 +90,52 @@ from xpkg.project.metadata import (
     MODEL_CARD_FILENAME,
     POSE_PROVENANCE_FILENAME,
     PROJECT_METADATA_DIRNAME,
-    load_project_acquisition_metadata,
-    load_project_dataset_share_metadata,
-    load_project_datasheet,
-    load_project_metadata_field,
-    load_project_model_card,
-    load_project_pose_provenance,
     project_acquisition_metadata_path,
     project_dataset_share_metadata_path,
     project_datasheet_path,
     project_metadata_root,
     project_model_card_path,
     project_pose_provenance_path,
-    save_project_acquisition_metadata,
-    save_project_dataset_share_metadata,
-    save_project_datasheet,
-    save_project_metadata_field,
-    save_project_model_card,
-    save_project_pose_provenance,
+)
+
+# Path-level metadata helpers re-exported for callers that need a function-level
+# seam; deliberately omitted from ``__all__`` since ``ProjectService.metadata``
+# is the public path. Redundant aliases mark these as intentional re-exports.
+from xpkg.project.metadata import (
+    load_project_acquisition_metadata as load_project_acquisition_metadata,
+)
+from xpkg.project.metadata import (
+    load_project_dataset_share_metadata as load_project_dataset_share_metadata,
+)
+from xpkg.project.metadata import (
+    load_project_datasheet as load_project_datasheet,
+)
+from xpkg.project.metadata import (
+    load_project_metadata_field as load_project_metadata_field,
+)
+from xpkg.project.metadata import (
+    load_project_model_card as load_project_model_card,
+)
+from xpkg.project.metadata import (
+    load_project_pose_provenance as load_project_pose_provenance,
+)
+from xpkg.project.metadata import (
+    save_project_acquisition_metadata as save_project_acquisition_metadata,
+)
+from xpkg.project.metadata import (
+    save_project_dataset_share_metadata as save_project_dataset_share_metadata,
+)
+from xpkg.project.metadata import (
+    save_project_datasheet as save_project_datasheet,
+)
+from xpkg.project.metadata import (
+    save_project_metadata_field as save_project_metadata_field,
+)
+from xpkg.project.metadata import (
+    save_project_model_card as save_project_model_card,
+)
+from xpkg.project.metadata import (
+    save_project_pose_provenance as save_project_pose_provenance,
 )
 from xpkg.project.segmentation import (
     SegmentationFrame,
@@ -116,23 +146,55 @@ from xpkg.project.segmentation import (
 )
 from xpkg.project.store import (
     current_project_state_path,
-    import_dlc_csv_project,
-    import_dlc_h5_project,
-    import_dlc_project_directory,
-    import_lightning_pose_csv_project,
-    import_mediapipe_pose_landmarks_json_project,
-    import_mmpose_topdown_json_project,
-    import_sleap_h5_project,
-    import_sleap_package_project,
-    import_vicon_c3d_project,
-    import_vicon_csv_project,
-    import_vicon_project,
     init_project,
-    load_project_metadata,
     load_project_payload,
     load_project_vicon_recording,
     save_project_labels,
-    save_project_metadata,
+)
+
+# Path-level import and metadata-state helpers re-exported for callers that
+# need a function-level seam; deliberately omitted from ``__all__`` since
+# ``ProjectService.import_pose`` / ``import_calibration`` / ``import_motion``
+# and ``ProjectService.load_state_metadata`` / ``save_state_metadata`` are the
+# public path. Redundant aliases mark these as intentional re-exports.
+from xpkg.project.store import (
+    import_dlc_csv_project as import_dlc_csv_project,
+)
+from xpkg.project.store import (
+    import_dlc_h5_project as import_dlc_h5_project,
+)
+from xpkg.project.store import (
+    import_dlc_project_directory as import_dlc_project_directory,
+)
+from xpkg.project.store import (
+    import_lightning_pose_csv_project as import_lightning_pose_csv_project,
+)
+from xpkg.project.store import (
+    import_mediapipe_pose_landmarks_json_project as import_mediapipe_pose_landmarks_json_project,
+)
+from xpkg.project.store import (
+    import_mmpose_topdown_json_project as import_mmpose_topdown_json_project,
+)
+from xpkg.project.store import (
+    import_sleap_h5_project as import_sleap_h5_project,
+)
+from xpkg.project.store import (
+    import_sleap_package_project as import_sleap_package_project,
+)
+from xpkg.project.store import (
+    import_vicon_c3d_project as import_vicon_c3d_project,
+)
+from xpkg.project.store import (
+    import_vicon_csv_project as import_vicon_csv_project,
+)
+from xpkg.project.store import (
+    import_vicon_project as import_vicon_project,
+)
+from xpkg.project.store import (
+    load_project_metadata as load_project_metadata,
+)
+from xpkg.project.store import (
+    save_project_metadata as save_project_metadata,
 )
 
 # Curated stable public surface.

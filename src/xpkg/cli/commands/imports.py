@@ -218,9 +218,10 @@ def import_pose(
     out = require_option_value(out, "--out")
     path = require_option_value(path, "--path")
 
-    needs_video = format in _PER_CLIP_POSE_FORMATS
-    if needs_video:
-        video = require_option_value(video, "--video")
+    if format in _PER_CLIP_POSE_FORMATS:
+        video_path: str | None = require_option_value(video, "--video")
+    else:
+        video_path = video
 
     def action() -> dict[str, str]:
         prediction = _load_provenance_json(prediction_provenance, "--prediction-provenance")
@@ -234,25 +235,9 @@ def import_pose(
             "progress_callback": progress,
         }
 
-        if format == "dlc-csv":
-            state_path = import_dlc_csv_project(
-                path,
-                video,
-                out,
-                skeleton_name=skeleton_name or "imported",
-                likelihood_threshold=likelihood_threshold,
-                **common,
-            )
-        elif format == "dlc-h5":
-            state_path = import_dlc_h5_project(
-                path,
-                video,
-                out,
-                skeleton_name=skeleton_name or "imported",
-                likelihood_threshold=likelihood_threshold,
-                **common,
-            )
-        elif format == "dlc-project":
+        # No-video formats dispatch first so the per-clip branches can rely
+        # on `video_path` being non-None.
+        if format == "dlc-project":
             state_path = import_dlc_project_directory(
                 path,
                 out,
@@ -260,56 +245,73 @@ def import_pose(
                 likelihood_threshold=likelihood_threshold,
                 **common,
             )
-        elif format == "lightning-pose-csv":
-            state_path = import_lightning_pose_csv_project(
-                path,
-                video,
-                out,
-                skeleton_name=skeleton_name or "imported",
-                likelihood_threshold=likelihood_threshold,
-                **common,
-            )
-        elif format == "mediapipe-pose-landmarks-json":
-            state_path = import_mediapipe_pose_landmarks_json_project(
-                path,
-                video,
-                out,
-                skeleton_name=skeleton_name or "mediapipe_pose",
-                likelihood_threshold=likelihood_threshold,
-                **common,
-            )
-        elif format == "mmpose-topdown-json":
-            state_path = import_mmpose_topdown_json_project(
-                path,
-                video,
-                out,
-                skeleton_name=skeleton_name or "imported",
-                instance_index=instance_index,
-                likelihood_threshold=likelihood_threshold,
-                **common,
-            )
-        elif format == "sleap-h5":
-            state_path = import_sleap_h5_project(
-                path,
-                video,
-                out,
-                skeleton_name=skeleton_name or "imported",
-                likelihood_threshold=likelihood_threshold,
-                **common,
-            )
         elif format == "sleap-package":
-            sleap_kwargs = {
-                key: value for key, value in common.items()
-            }
             state_path = import_sleap_package_project(
                 path,
                 out,
                 fps=fps,
                 encode_videos=encode_videos,
-                **sleap_kwargs,
+                **common,
             )
-        else:  # pragma: no cover - defended above
-            raise ValueError(f"Unknown pose format: {format!r}")
+        else:
+            assert video_path is not None  # narrowed via _PER_CLIP_POSE_FORMATS above
+            if format == "dlc-csv":
+                state_path = import_dlc_csv_project(
+                    path,
+                    video_path,
+                    out,
+                    skeleton_name=skeleton_name or "imported",
+                    likelihood_threshold=likelihood_threshold,
+                    **common,
+                )
+            elif format == "dlc-h5":
+                state_path = import_dlc_h5_project(
+                    path,
+                    video_path,
+                    out,
+                    skeleton_name=skeleton_name or "imported",
+                    likelihood_threshold=likelihood_threshold,
+                    **common,
+                )
+            elif format == "lightning-pose-csv":
+                state_path = import_lightning_pose_csv_project(
+                    path,
+                    video_path,
+                    out,
+                    skeleton_name=skeleton_name or "imported",
+                    likelihood_threshold=likelihood_threshold,
+                    **common,
+                )
+            elif format == "mediapipe-pose-landmarks-json":
+                state_path = import_mediapipe_pose_landmarks_json_project(
+                    path,
+                    video_path,
+                    out,
+                    skeleton_name=skeleton_name or "mediapipe_pose",
+                    likelihood_threshold=likelihood_threshold,
+                    **common,
+                )
+            elif format == "mmpose-topdown-json":
+                state_path = import_mmpose_topdown_json_project(
+                    path,
+                    video_path,
+                    out,
+                    skeleton_name=skeleton_name or "imported",
+                    instance_index=instance_index,
+                    likelihood_threshold=likelihood_threshold,
+                    **common,
+                )
+            elif format == "sleap-h5":
+                state_path = import_sleap_h5_project(
+                    path,
+                    video_path,
+                    out,
+                    skeleton_name=skeleton_name or "imported",
+                    likelihood_threshold=likelihood_threshold,
+                    **common,
+                )
+            else:  # pragma: no cover - defended above
+                raise ValueError(f"Unknown pose format: {format!r}")
 
         return _import_payload(format, out, state_path)
 
