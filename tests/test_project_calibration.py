@@ -109,13 +109,14 @@ def test_project_service_imports_anipose_calibration(tmp_path: Path) -> None:
     )
     assert load_project_calibration(project.project_root, "rig").name == "service-rig"
 
-    imported_via_imports = project.imports.anipose_calibration(
-        source,
+    imported_via_dispatch = project.import_calibration(
+        "anipose",
+        path=source,
         calibration_id="rig-from-imports",
         name="service-rig-from-imports",
         units="mm",
     )
-    assert imported_via_imports == (
+    assert imported_via_dispatch == (
         project.project_root
         / ".xpkg"
         / "calibrations"

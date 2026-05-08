@@ -18,32 +18,58 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass, field
-from typing import Any, TypeVar
+from typing import Any, Final, Protocol, Self
 
 from xpkg.model._metadata_validation import (
     metadata_dict as _metadata,
+)
+from xpkg.model._metadata_validation import (
     optional_bool as _optional_bool,
+)
+from xpkg.model._metadata_validation import (
     optional_non_negative_int as _optional_int,
+)
+from xpkg.model._metadata_validation import (
     optional_text as _optional_text,
+)
+from xpkg.model._metadata_validation import (
     required_text as _required_text,
+)
+from xpkg.model._metadata_validation import (
     text_mapping as _text_mapping,
+)
+from xpkg.model._metadata_validation import (
     text_tuple as _text_tuple,
 )
 
 
-_TSection = TypeVar("_TSection")
+class _MissingValue:
+    __slots__ = ()
 
 
-def _coerce_section(
-    value: Any,
-    cls: type[_TSection],
+_MISSING: Final = _MissingValue()
+
+
+class _SectionFactory(Protocol):
+    @classmethod
+    def from_dict(cls, payload: Mapping[str, Any]) -> Self: ...
+
+
+def _coerce_section[TSection: _SectionFactory](
+    value: object,
+    cls: type[TSection],
     *,
     name: str,
-) -> _TSection:
+) -> TSection:
     if isinstance(value, cls):
         return value
     if isinstance(value, Mapping):
-        return cls.from_dict(value)  # type: ignore[attr-defined]
+        payload: dict[str, Any] = {}
+        for key, item in value.items():
+            if not isinstance(key, str):
+                raise TypeError(f"{name} mapping keys must be strings.")
+            payload[key] = item
+        return cls.from_dict(payload)
     raise TypeError(
         f"{name} must be {cls.__name__} or mapping, got {type(value).__name__}."
     )
@@ -116,7 +142,11 @@ class DatasheetComposition:
             "instance_count",
             _optional_int(self.instance_count, name="composition.instance_count"),
         )
-        object.__setattr__(self, "sampling", _optional_text(self.sampling, name="composition.sampling"))
+        object.__setattr__(
+            self,
+            "sampling",
+            _optional_text(self.sampling, name="composition.sampling"),
+        )
         object.__setattr__(self, "splits", _text_mapping(self.splits, name="composition.splits"))
         object.__setattr__(
             self,
@@ -326,14 +356,22 @@ class DatasheetDistribution:
             "distribution_plan",
             _optional_text(self.distribution_plan, name="distribution.distribution_plan"),
         )
-        object.__setattr__(self, "license", _optional_text(self.license, name="distribution.license"))
+        object.__setattr__(
+            self,
+            "license",
+            _optional_text(self.license, name="distribution.license"),
+        )
         object.__setattr__(
             self,
             "repository_url",
             _optional_text(self.repository_url, name="distribution.repository_url"),
         )
         object.__setattr__(self, "doi", _optional_text(self.doi, name="distribution.doi"))
-        object.__setattr__(self, "embargo", _optional_text(self.embargo, name="distribution.embargo"))
+        object.__setattr__(
+            self,
+            "embargo",
+            _optional_text(self.embargo, name="distribution.embargo"),
+        )
         object.__setattr__(
             self,
             "ip_terms",
@@ -389,8 +427,16 @@ class DatasheetMaintenance:
             "maintainer",
             _optional_text(self.maintainer, name="maintenance.maintainer"),
         )
-        object.__setattr__(self, "contact", _optional_text(self.contact, name="maintenance.contact"))
-        object.__setattr__(self, "erratum", _optional_text(self.erratum, name="maintenance.erratum"))
+        object.__setattr__(
+            self,
+            "contact",
+            _optional_text(self.contact, name="maintenance.contact"),
+        )
+        object.__setattr__(
+            self,
+            "erratum",
+            _optional_text(self.erratum, name="maintenance.erratum"),
+        )
         object.__setattr__(
             self,
             "update_policy",
@@ -432,7 +478,7 @@ class DatasheetMaintenance:
         )
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True, init=False)
 class DatasetDatasheet:
     """Datasheet for Datasets (Gebru et al. 2021) for an exp-pkg dataset.
 
@@ -454,6 +500,59 @@ class DatasetDatasheet:
     distribution: DatasheetDistribution = field(default_factory=DatasheetDistribution)
     maintenance: DatasheetMaintenance = field(default_factory=DatasheetMaintenance)
     metadata: dict[str, Any] = field(default_factory=dict)
+
+    def __init__(
+        self,
+        title: str,
+        dataset_id: str | None = None,
+        version: str | None = None,
+        summary: str | None = None,
+        motivation: DatasheetMotivation | Mapping[str, Any] | _MissingValue = _MISSING,
+        composition: DatasheetComposition | Mapping[str, Any] | _MissingValue = _MISSING,
+        collection: DatasheetCollection | Mapping[str, Any] | _MissingValue = _MISSING,
+        preprocessing: DatasheetPreprocessing | Mapping[str, Any] | _MissingValue = _MISSING,
+        uses: DatasheetUses | Mapping[str, Any] | _MissingValue = _MISSING,
+        distribution: DatasheetDistribution | Mapping[str, Any] | _MissingValue = _MISSING,
+        maintenance: DatasheetMaintenance | Mapping[str, Any] | _MissingValue = _MISSING,
+        metadata: Mapping[str, Any] | None = None,
+    ) -> None:
+        object.__setattr__(self, "title", title)
+        object.__setattr__(self, "dataset_id", dataset_id)
+        object.__setattr__(self, "version", version)
+        object.__setattr__(self, "summary", summary)
+        object.__setattr__(
+            self,
+            "motivation",
+            DatasheetMotivation() if motivation is _MISSING else motivation,
+        )
+        object.__setattr__(
+            self,
+            "composition",
+            DatasheetComposition() if composition is _MISSING else composition,
+        )
+        object.__setattr__(
+            self,
+            "collection",
+            DatasheetCollection() if collection is _MISSING else collection,
+        )
+        object.__setattr__(
+            self,
+            "preprocessing",
+            DatasheetPreprocessing() if preprocessing is _MISSING else preprocessing,
+        )
+        object.__setattr__(self, "uses", DatasheetUses() if uses is _MISSING else uses)
+        object.__setattr__(
+            self,
+            "distribution",
+            DatasheetDistribution() if distribution is _MISSING else distribution,
+        )
+        object.__setattr__(
+            self,
+            "maintenance",
+            DatasheetMaintenance() if maintenance is _MISSING else maintenance,
+        )
+        object.__setattr__(self, "metadata", {} if metadata is None else metadata)
+        self.__post_init__()
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "title", _required_text(self.title, name="datasheet.title"))
@@ -492,7 +591,11 @@ class DatasetDatasheet:
         object.__setattr__(
             self,
             "distribution",
-            _coerce_section(self.distribution, DatasheetDistribution, name="datasheet.distribution"),
+            _coerce_section(
+                self.distribution,
+                DatasheetDistribution,
+                name="datasheet.distribution",
+            ),
         )
         object.__setattr__(
             self,
@@ -777,14 +880,22 @@ class ModelCardData:
     notes: str | None = None
 
     def __post_init__(self) -> None:
-        object.__setattr__(self, "description", _optional_text(self.description, name="data.description"))
+        object.__setattr__(
+            self,
+            "description",
+            _optional_text(self.description, name="data.description"),
+        )
         object.__setattr__(self, "source", _optional_text(self.source, name="data.source"))
         object.__setattr__(
             self,
             "preprocessing",
             _optional_text(self.preprocessing, name="data.preprocessing"),
         )
-        object.__setattr__(self, "motivation", _optional_text(self.motivation, name="data.motivation"))
+        object.__setattr__(
+            self,
+            "motivation",
+            _optional_text(self.motivation, name="data.motivation"),
+        )
         object.__setattr__(self, "notes", _optional_text(self.notes, name="data.notes"))
 
     def to_dict(self) -> dict[str, Any]:
@@ -855,7 +966,7 @@ class ModelCardAnalysis:
         )
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True, init=False)
 class ModelCard:
     """Model Card (Mitchell et al. 2019) for an exp-pkg model artifact.
 
@@ -876,6 +987,59 @@ class ModelCard:
     caveats: tuple[str, ...] = ()
     recommendations: tuple[str, ...] = ()
     metadata: dict[str, Any] = field(default_factory=dict)
+
+    def __init__(
+        self,
+        details: ModelCardDetails | Mapping[str, Any],
+        intended_use: ModelCardIntendedUse | Mapping[str, Any] | _MissingValue = _MISSING,
+        factors: ModelCardFactors | Mapping[str, Any] | _MissingValue = _MISSING,
+        metrics: ModelCardMetrics | Mapping[str, Any] | _MissingValue = _MISSING,
+        evaluation_data: ModelCardData | Mapping[str, Any] | _MissingValue = _MISSING,
+        training_data: ModelCardData | Mapping[str, Any] | _MissingValue = _MISSING,
+        quantitative_analyses: ModelCardAnalysis | Mapping[str, Any] | _MissingValue = _MISSING,
+        ethical_considerations: str | None = None,
+        caveats: tuple[str, ...] = (),
+        recommendations: tuple[str, ...] = (),
+        metadata: Mapping[str, Any] | None = None,
+    ) -> None:
+        object.__setattr__(self, "details", details)
+        object.__setattr__(
+            self,
+            "intended_use",
+            ModelCardIntendedUse() if intended_use is _MISSING else intended_use,
+        )
+        object.__setattr__(
+            self,
+            "factors",
+            ModelCardFactors() if factors is _MISSING else factors,
+        )
+        object.__setattr__(
+            self,
+            "metrics",
+            ModelCardMetrics() if metrics is _MISSING else metrics,
+        )
+        object.__setattr__(
+            self,
+            "evaluation_data",
+            ModelCardData() if evaluation_data is _MISSING else evaluation_data,
+        )
+        object.__setattr__(
+            self,
+            "training_data",
+            ModelCardData() if training_data is _MISSING else training_data,
+        )
+        object.__setattr__(
+            self,
+            "quantitative_analyses",
+            ModelCardAnalysis()
+            if quantitative_analyses is _MISSING
+            else quantitative_analyses,
+        )
+        object.__setattr__(self, "ethical_considerations", ethical_considerations)
+        object.__setattr__(self, "caveats", caveats)
+        object.__setattr__(self, "recommendations", recommendations)
+        object.__setattr__(self, "metadata", {} if metadata is None else metadata)
+        self.__post_init__()
 
     def __post_init__(self) -> None:
         object.__setattr__(

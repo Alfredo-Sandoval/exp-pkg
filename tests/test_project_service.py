@@ -54,9 +54,10 @@ def test_readme_recommended_project_service_flow_roundtrips_imported_artifact(
     _write_dummy_video(video_path)
 
     project = ProjectService.create(tmp_path / "Imported Project", title="Imported Project")
-    state_path = project.imports.dlc_csv(
-        csv_path,
-        video_path,
+    state_path = project.import_pose(
+        "dlc-csv",
+        path=csv_path,
+        video=video_path,
         skeleton_name="subject",
     )
 
@@ -98,7 +99,7 @@ def test_project_service_imports_and_loads_vicon_recording(tmp_path: Path) -> No
     write_sample_xcp(c3d_path.with_suffix(".xcp"))
 
     project = ProjectService.create(tmp_path / "Vicon Project", title="Vicon Project")
-    state_path = project.imports.vicon(c3d_path)
+    state_path = project.import_motion("vicon", path=c3d_path)
 
     assert state_path == current_project_state_path(project.project_root)
     loaded = project.load_vicon_recording()
@@ -114,7 +115,7 @@ def test_project_service_imports_vicon_csv_recording(tmp_path: Path) -> None:
     write_sample_xcp(csv_path.with_suffix(".xcp"))
 
     project = ProjectService.create(tmp_path / "Vicon CSV Project", title="Vicon CSV Project")
-    state_path = project.imports.vicon_csv(csv_path)
+    state_path = project.import_motion("vicon-csv", path=csv_path)
 
     assert state_path == current_project_state_path(project.project_root)
     loaded = project.load_vicon_recording()
@@ -133,7 +134,7 @@ def test_project_service_load_labels_guides_to_vicon_loader_when_state_cache_reb
         tmp_path / "Guided Vicon Project",
         title="Guided Vicon Project",
     )
-    state_path = project.imports.vicon(c3d_path)
+    state_path = project.import_motion("vicon", path=c3d_path)
     state_path.unlink()
 
     with pytest.raises(ValueError, match="load_vicon_recording"):
@@ -167,26 +168,24 @@ def test_project_service_scoped_metadata_roundtrip_without_current_head(tmp_path
         title="Service Scoped Metadata Project",
     )
 
-    acquisition_path = project.save_acquisition_metadata(
-        {
+    written = project.metadata.update(
+        acquisition={
             "acquisition_id": "acq-service",
             "cameras": [{"camera_id": "cam-top", "frame_rate_hz": 120.0}],
-        }
-    )
-    share_path = project.save_dataset_share_metadata(
-        {
+        },
+        dataset_share={
             "title": "Service metadata dataset",
             "creators": ["Sandoval Lab"],
             "doi": "10.0000/service",
             "license": "BSD-3-Clause",
-        }
+        },
     )
 
-    acquisition = project.load_acquisition_metadata()
-    dataset_share = project.load_dataset_share_metadata()
+    acquisition = project.metadata.acquisition
+    dataset_share = project.metadata.dataset_share
 
-    assert acquisition_path.is_file()
-    assert share_path.is_file()
+    assert written["acquisition"].is_file()
+    assert written["dataset_share"].is_file()
     assert acquisition is not None
     assert acquisition.acquisition_id == "acq-service"
     assert dataset_share is not None

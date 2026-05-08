@@ -27,7 +27,7 @@ def inspect_target(
     """Inspect an input path and suggest likely xpkg importers."""
 
     def action() -> dict[str, Any]:
-        return inspect_path(target, confidence_threshold=confidence_threshold)
+        return inspect_path(target, confidence_threshold=confidence_threshold).to_dict()
 
     def human_output(payload: dict[str, Any]) -> None:
         sys.stdout.write(f"{payload['path']}\n")

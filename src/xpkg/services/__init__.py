@@ -6,20 +6,26 @@ from xpkg.services.artifacts import ProjectArtifacts
 from xpkg.services.calibrations import ProjectCalibrations
 from xpkg.services.figures import ProjectFigures
 from xpkg.services.project import (
-    ProjectImports,
+    CalibrationFormat,
+    MotionFormat,
+    PoseFormat,
     ProjectInspection,
     ProjectLayout,
+    ProjectMetadata,
     ProjectSegmentation,
     ProjectService,
 )
 
 __all__ = [
     "ProjectService",
-    "ProjectImports",
     "ProjectLayout",
     "ProjectInspection",
     "ProjectArtifacts",
     "ProjectCalibrations",
     "ProjectFigures",
+    "ProjectMetadata",
     "ProjectSegmentation",
+    "PoseFormat",
+    "CalibrationFormat",
+    "MotionFormat",
 ]

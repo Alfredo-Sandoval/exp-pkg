@@ -14,19 +14,6 @@ from xpkg.adapters import (
     vicon_recording_from_json_payload,
     vicon_recording_to_json_payload,
 )
-from xpkg.io.readers import (
-    read_doric_photometry,
-    read_events_csv,
-    read_neurophotometrics_csv,
-    read_photometry_csv,
-    read_pmat_events_csv,
-    read_pmat_photometry_csv,
-    read_pyphotometry_csv,
-    read_pyphotometry_ppd,
-    read_rwd_ofrs_session,
-    read_tdt_photometry_block,
-    read_teleopto_h5,
-)
 from xpkg.model import (
     AcquisitionMetadata,
     CameraMetadata,
@@ -159,12 +146,25 @@ from xpkg.project import (
     write_labels_json,
     write_project_descriptor,
 )
+from xpkg.readers import (
+    read_doric_photometry,
+    read_events_csv,
+    read_neurophotometrics_csv,
+    read_photometry_csv,
+    read_pmat_events_csv,
+    read_pmat_photometry_csv,
+    read_pyphotometry_csv,
+    read_pyphotometry_ppd,
+    read_rwd_ofrs_session,
+    read_tdt_photometry_block,
+    read_teleopto_h5,
+)
 from xpkg.services import (
     ProjectArtifacts,
     ProjectCalibrations,
     ProjectFigures,
-    ProjectImports,
     ProjectLayout,
+    ProjectMetadata,
     ProjectSegmentation,
     ProjectService,
 )
@@ -180,52 +180,50 @@ def test_root_namespace_is_curated_to_project_first_modules() -> None:
     reloaded.__dict__.pop("media", None)
     reloaded.__dict__.pop("pose", None)
     reloaded.__dict__.pop("project", None)
+    reloaded.__dict__.pop("readers", None)
     reloaded.__dict__.pop("segmentation", None)
 
     assert reloaded.__version__
     assert reloaded.__all__ == [
         "__version__",
-        "api",
         "adapters",
         "media",
         "model",
         "pose",
-        "segmentation",
-        "read_doric_photometry",
-        "read_events_csv",
-        "read_neurophotometrics_csv",
-        "read_photometry_csv",
-        "read_pmat_events_csv",
-        "read_pmat_photometry_csv",
-        "read_pyphotometry_csv",
-        "read_pyphotometry_ppd",
-        "read_rwd_ofrs_session",
-        "read_tdt_photometry_block",
-        "read_teleopto_h5",
-        "services",
         "project",
+        "readers",
+        "segmentation",
+        "services",
     ]
     assert reloaded.adapters is not None
     assert reloaded.media is not None
     assert reloaded.project is not None
     assert reloaded.model is not None
     assert reloaded.pose is not None
+    assert reloaded.readers is not None
     assert reloaded.segmentation is not None
-    assert callable(reloaded.read_doric_photometry)
-    assert callable(reloaded.read_events_csv)
-    assert callable(reloaded.read_neurophotometrics_csv)
-    assert callable(reloaded.read_photometry_csv)
-    assert callable(reloaded.read_pmat_events_csv)
-    assert callable(reloaded.read_pmat_photometry_csv)
-    assert callable(reloaded.read_pyphotometry_csv)
-    assert callable(reloaded.read_pyphotometry_ppd)
-    assert callable(reloaded.read_rwd_ofrs_session)
-    assert callable(reloaded.read_tdt_photometry_block)
-    assert callable(reloaded.read_teleopto_h5)
     assert reloaded.services is not None
+
+    assert callable(reloaded.readers.read_doric_photometry)
+    assert callable(reloaded.readers.read_events_csv)
+    assert callable(reloaded.readers.read_neurophotometrics_csv)
+    assert callable(reloaded.readers.read_photometry_csv)
+    assert callable(reloaded.readers.read_pmat_events_csv)
+    assert callable(reloaded.readers.read_pmat_photometry_csv)
+    assert callable(reloaded.readers.read_pyphotometry_csv)
+    assert callable(reloaded.readers.read_pyphotometry_ppd)
+    assert callable(reloaded.readers.read_rwd_ofrs_session)
+    assert callable(reloaded.readers.read_tdt_photometry_block)
+    assert callable(reloaded.readers.read_teleopto_h5)
 
     with pytest.raises(AttributeError):
         reloaded.__getattribute__("compat")
+
+    with pytest.raises(AttributeError):
+        reloaded.__getattribute__("api")
+
+    with pytest.raises(AttributeError):
+        reloaded.__getattribute__("read_doric_photometry")
 
     with pytest.raises(AttributeError):
         reloaded.__getattribute__("exchange")
@@ -338,10 +336,10 @@ def test_public_exports_are_callable() -> None:
     assert callable(read_rwd_ofrs_session)
     assert callable(read_tdt_photometry_block)
     assert callable(read_teleopto_h5)
-    assert ProjectImports is not None
     assert ProjectArtifacts is not None
     assert ProjectCalibrations is not None
     assert ProjectFigures is not None
+    assert ProjectMetadata is not None
     assert ServiceProjectInspection is not None
     assert ProjectLayout is not None
     assert ProjectSegmentation is not None
@@ -351,33 +349,40 @@ def test_public_exports_are_callable() -> None:
 def test_services_surface_lists_project_service_first() -> None:
     assert xpkg.services.__all__ == [
         "ProjectService",
-        "ProjectImports",
         "ProjectLayout",
         "ProjectInspection",
         "ProjectArtifacts",
         "ProjectCalibrations",
         "ProjectFigures",
+        "ProjectMetadata",
         "ProjectSegmentation",
+        "PoseFormat",
+        "CalibrationFormat",
+        "MotionFormat",
     ]
 
 
-def test_project_imports_surface_covers_supported_project_importers() -> None:
-    expected = {
-        "dlc_csv",
-        "dlc_h5",
-        "dlc_project",
-        "anipose_calibration",
-        "lightning_pose_csv",
-        "mediapipe_pose_landmarks_json",
-        "mmpose_topdown_json",
-        "sleap_h5",
-        "sleap_package",
-        "vicon",
-        "vicon_c3d",
-        "vicon_csv",
+def test_project_service_dispatches_supported_pose_calibration_and_motion_formats() -> None:
+    pose_formats: set[str] = {
+        "dlc-csv",
+        "dlc-h5",
+        "dlc-project",
+        "lightning-pose-csv",
+        "mediapipe-pose-landmarks-json",
+        "mmpose-topdown-json",
+        "sleap-h5",
+        "sleap-package",
     }
+    calibration_formats: set[str] = {"anipose"}
+    motion_formats: set[str] = {"vicon", "vicon-csv", "vicon-c3d"}
 
-    assert expected.issubset(set(dir(ProjectImports)))
+    from typing import get_args
+
+    from xpkg.services import CalibrationFormat, MotionFormat, PoseFormat
+
+    assert pose_formats == set(get_args(PoseFormat))
+    assert calibration_formats == set(get_args(CalibrationFormat))
+    assert motion_formats == set(get_args(MotionFormat))
 
 
 def test_model_exports_are_available() -> None:

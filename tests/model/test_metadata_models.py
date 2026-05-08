@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-import xpkg.api as api
+import xpkg.model as model
 from xpkg.model import AcquisitionMetadata, CameraMetadata, DatasetShareMetadata
 
 
@@ -139,6 +139,6 @@ def test_dataset_share_metadata_requires_title_and_creator() -> None:
 
 
 def test_metadata_models_are_available_from_public_surfaces() -> None:
-    assert api.AcquisitionMetadata is AcquisitionMetadata
-    assert api.CameraMetadata is CameraMetadata
-    assert api.DatasetShareMetadata is DatasetShareMetadata
+    assert model.AcquisitionMetadata is AcquisitionMetadata
+    assert model.CameraMetadata is CameraMetadata
+    assert model.DatasetShareMetadata is DatasetShareMetadata

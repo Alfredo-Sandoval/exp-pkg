@@ -2,17 +2,17 @@
 
 ``ProjectService`` is the stable consumer-facing boundary for downstream
 integrations that need to create, open, import into, validate, pack, or unpack
-an xpkg project. ``ProjectImports`` mirrors the public
-``xpkg.project.import_*_project(...)`` functions on a project-bound object so
-new code can stay on the same service path end to end.
+an xpkg project. The ``import_pose`` / ``import_calibration`` /
+``import_motion`` dispatch methods select the underlying free-function
+importer based on a kebab-case ``format`` string.
 """
 
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 from xpkg.project import (
     ProjectDescriptor,
@@ -35,29 +35,30 @@ from xpkg.project import (
     load_project_acquisition_metadata,
     load_project_dataset_share_metadata,
     load_project_datasheet,
-    load_project_model_card,
-    load_project_pose_provenance,
     load_project_descriptor,
     load_project_metadata,
     load_project_metadata_field,
+    load_project_model_card,
     load_project_payload,
+    load_project_pose_provenance,
     load_project_vicon_recording,
     pack_project,
     project_artifacts_root,
     project_descriptor_path,
     project_exports_root,
     project_media_root,
+    project_metadata_root,
     project_state_root,
     project_store_root,
     resolve_project_root,
     save_project_acquisition_metadata,
     save_project_dataset_share_metadata,
     save_project_datasheet,
-    save_project_model_card,
-    save_project_pose_provenance,
     save_project_labels,
     save_project_metadata,
     save_project_metadata_field,
+    save_project_model_card,
+    save_project_pose_provenance,
     unpack_project,
     validate_project,
 )
@@ -80,278 +81,104 @@ if TYPE_CHECKING:
     )
 
 
+PoseFormat = Literal[
+    "dlc-csv",
+    "dlc-h5",
+    "dlc-project",
+    "lightning-pose-csv",
+    "mediapipe-pose-landmarks-json",
+    "mmpose-topdown-json",
+    "sleap-h5",
+    "sleap-package",
+]
+"""Supported `format` values for ``ProjectService.import_pose``."""
+
+
+CalibrationFormat = Literal["anipose"]
+"""Supported `format` values for ``ProjectService.import_calibration``."""
+
+
+MotionFormat = Literal["vicon", "vicon-csv", "vicon-c3d"]
+"""Supported `format` values for ``ProjectService.import_motion``.
+
+``"vicon"`` auto-detects CSV vs C3D from the input path; the dashed forms
+force the matching reader.
+"""
+
+
 @dataclass(frozen=True, slots=True)
-class ProjectImports:
-    """Service-bound import surface for supported external tracking formats."""
+class ProjectMetadata:
+    """Accessor for the durable typed metadata slots under ``.xpkg/metadata/``.
+
+    Read each slot as an attribute (returns ``None`` when unset) and write one
+    or more slots in a single call via :meth:`update`. The state-bound free-form
+    metadata dict on the current project head is a separate concept and is
+    accessed through ``ProjectService.load_metadata`` / ``save_metadata``.
+    """
 
     project_root: Path
 
-    def _import(self, importer: Callable[..., Path], /, *args: Any, **kwargs: Any) -> Path:
-        return importer(*args, project=self.project_root, **kwargs)
+    @property
+    def root(self) -> Path:
+        """Return the ``.xpkg/metadata/`` directory for this project."""
+        return project_metadata_root(self.project_root)
 
-    def vicon(
-        self,
-        recording_path: str | Path,
-        *,
-        force: bool = False,
-        progress_callback: Any | None = None,
-    ) -> Path:
-        """Import a Vicon CSV or C3D recording into this project."""
-        return self._import(
-            import_vicon_project,
-            recording_path,
-            force=force,
-            progress_callback=progress_callback,
-        )
+    @property
+    def acquisition(self) -> AcquisitionMetadata | None:
+        return load_project_acquisition_metadata(self.project_root)
 
-    def vicon_csv(
-        self,
-        csv_path: str | Path,
-        *,
-        force: bool = False,
-        progress_callback: Any | None = None,
-    ) -> Path:
-        """Import a Vicon CSV recording into this project."""
-        return self._import(
-            import_vicon_csv_project,
-            csv_path,
-            force=force,
-            progress_callback=progress_callback,
-        )
+    @property
+    def dataset_share(self) -> DatasetShareMetadata | None:
+        return load_project_dataset_share_metadata(self.project_root)
 
-    def vicon_c3d(
-        self,
-        c3d_path: str | Path,
-        *,
-        force: bool = False,
-        progress_callback: Any | None = None,
-    ) -> Path:
-        """Import a Vicon C3D recording into this project."""
-        return self._import(
-            import_vicon_c3d_project,
-            c3d_path,
-            force=force,
-            progress_callback=progress_callback,
-        )
+    @property
+    def pose_provenance(self) -> PoseModelProvenance | None:
+        return load_project_pose_provenance(self.project_root)
 
-    def dlc_csv(
-        self,
-        csv_path: str | Path,
-        video_path: str | Path,
-        *,
-        skeleton_name: str = "imported",
-        likelihood_threshold: float = 0.0,
-        prediction_provenance: Mapping[str, Any] | None = None,
-        provenance: PoseModelProvenance | Mapping[str, Any] | None = None,
-        force: bool = False,
-        progress_callback: Any | None = None,
-    ) -> Path:
-        """Import a DeepLabCut CSV plus video into this project."""
-        return self._import(
-            import_dlc_csv_project,
-            csv_path,
-            video_path,
-            skeleton_name=skeleton_name,
-            likelihood_threshold=likelihood_threshold,
-            prediction_provenance=prediction_provenance,
-            provenance=provenance,
-            force=force,
-            progress_callback=progress_callback,
-        )
+    @property
+    def datasheet(self) -> DatasetDatasheet | None:
+        return load_project_datasheet(self.project_root)
 
-    def dlc_h5(
-        self,
-        h5_path: str | Path,
-        video_path: str | Path,
-        *,
-        skeleton_name: str = "imported",
-        likelihood_threshold: float = 0.0,
-        prediction_provenance: Mapping[str, Any] | None = None,
-        provenance: PoseModelProvenance | Mapping[str, Any] | None = None,
-        force: bool = False,
-        progress_callback: Any | None = None,
-    ) -> Path:
-        """Import a DeepLabCut H5 export plus video into this project."""
-        return self._import(
-            import_dlc_h5_project,
-            h5_path,
-            video_path,
-            skeleton_name=skeleton_name,
-            likelihood_threshold=likelihood_threshold,
-            prediction_provenance=prediction_provenance,
-            provenance=provenance,
-            force=force,
-            progress_callback=progress_callback,
-        )
+    @property
+    def model_card(self) -> ModelCard | None:
+        return load_project_model_card(self.project_root)
 
-    def dlc_project(
+    def update(
         self,
-        project_dir: str | Path,
         *,
-        skeleton_name: str | None = None,
-        likelihood_threshold: float = 0.0,
-        prediction_provenance: Mapping[str, Any] | None = None,
-        provenance: PoseModelProvenance | Mapping[str, Any] | None = None,
-        force: bool = False,
-        progress_callback: Any | None = None,
-    ) -> Path:
-        """Import a supported DeepLabCut project into this project."""
-        return self._import(
-            import_dlc_project_directory,
-            project_dir,
-            skeleton_name=skeleton_name,
-            likelihood_threshold=likelihood_threshold,
-            prediction_provenance=prediction_provenance,
-            provenance=provenance,
-            force=force,
-            progress_callback=progress_callback,
-        )
+        acquisition: AcquisitionMetadata | Mapping[str, Any] | None = None,
+        dataset_share: DatasetShareMetadata | Mapping[str, Any] | None = None,
+        pose_provenance: PoseModelProvenance | Mapping[str, Any] | None = None,
+        datasheet: DatasetDatasheet | Mapping[str, Any] | None = None,
+        model_card: ModelCard | Mapping[str, Any] | None = None,
+    ) -> dict[str, Path]:
+        """Write one or more typed metadata slots and return the paths written.
 
-    def lightning_pose_csv(
-        self,
-        csv_path: str | Path,
-        video_path: str | Path,
-        *,
-        skeleton_name: str = "imported",
-        likelihood_threshold: float = 0.0,
-        prediction_provenance: Mapping[str, Any] | None = None,
-        provenance: PoseModelProvenance | Mapping[str, Any] | None = None,
-        force: bool = False,
-        progress_callback: Any | None = None,
-    ) -> Path:
-        """Import a Lightning Pose prediction CSV plus video into this project."""
-        return self._import(
-            import_lightning_pose_csv_project,
-            csv_path,
-            video_path,
-            skeleton_name=skeleton_name,
-            likelihood_threshold=likelihood_threshold,
-            prediction_provenance=prediction_provenance,
-            provenance=provenance,
-            force=force,
-            progress_callback=progress_callback,
-        )
-
-    def sleap_h5(
-        self,
-        h5_path: str | Path,
-        video_path: str | Path,
-        *,
-        skeleton_name: str = "imported",
-        likelihood_threshold: float = 0.0,
-        prediction_provenance: Mapping[str, Any] | None = None,
-        provenance: PoseModelProvenance | Mapping[str, Any] | None = None,
-        force: bool = False,
-        progress_callback: Any | None = None,
-    ) -> Path:
-        """Import a SLEAP analysis H5 export plus video into this project."""
-        return self._import(
-            import_sleap_h5_project,
-            h5_path,
-            video_path,
-            skeleton_name=skeleton_name,
-            likelihood_threshold=likelihood_threshold,
-            prediction_provenance=prediction_provenance,
-            provenance=provenance,
-            force=force,
-            progress_callback=progress_callback,
-        )
-
-    def sleap_package(
-        self,
-        slp: str | Path,
-        *,
-        fps: int = 30,
-        encode_videos: bool | None = None,
-        prediction_provenance: Mapping[str, Any] | None = None,
-        provenance: PoseModelProvenance | Mapping[str, Any] | None = None,
-        force: bool = False,
-        progress_callback: Any | None = None,
-    ) -> Path:
-        """Import a SLEAP package into this project."""
-        return self._import(
-            import_sleap_package_project,
-            slp,
-            fps=int(fps),
-            encode_videos=encode_videos,
-            prediction_provenance=prediction_provenance,
-            provenance=provenance,
-            force=force,
-            progress_callback=progress_callback,
-        )
-
-    def mmpose_topdown_json(
-        self,
-        json_path: str | Path,
-        video_path: str | Path,
-        *,
-        skeleton_name: str = "imported",
-        instance_index: int = 0,
-        likelihood_threshold: float = 0.0,
-        prediction_provenance: Mapping[str, Any] | None = None,
-        provenance: PoseModelProvenance | Mapping[str, Any] | None = None,
-        force: bool = False,
-        progress_callback: Any | None = None,
-    ) -> Path:
-        """Import an MMPose top-down JSON export plus video into this project."""
-        return self._import(
-            import_mmpose_topdown_json_project,
-            json_path,
-            video_path,
-            skeleton_name=skeleton_name,
-            instance_index=int(instance_index),
-            likelihood_threshold=likelihood_threshold,
-            prediction_provenance=prediction_provenance,
-            provenance=provenance,
-            force=force,
-            progress_callback=progress_callback,
-        )
-
-    def mediapipe_pose_landmarks_json(
-        self,
-        json_path: str | Path,
-        video_path: str | Path,
-        *,
-        skeleton_name: str = "mediapipe_pose",
-        likelihood_threshold: float = 0.0,
-        prediction_provenance: Mapping[str, Any] | None = None,
-        provenance: PoseModelProvenance | Mapping[str, Any] | None = None,
-        force: bool = False,
-        progress_callback: Any | None = None,
-    ) -> Path:
-        """Import MediaPipe pose-landmarks JSON plus video into this project."""
-        return self._import(
-            import_mediapipe_pose_landmarks_json_project,
-            json_path,
-            video_path,
-            skeleton_name=skeleton_name,
-            likelihood_threshold=likelihood_threshold,
-            prediction_provenance=prediction_provenance,
-            provenance=provenance,
-            force=force,
-            progress_callback=progress_callback,
-        )
-
-    def anipose_calibration(
-        self,
-        toml_path: str | Path,
-        *,
-        calibration_id: str | None = None,
-        name: str | None = None,
-        units: str = "unknown",
-        captured_at: str | None = None,
-        force: bool = False,
-    ) -> Path:
-        """Import an Anipose calibration TOML into this project."""
-        return self._import(
-            import_anipose_calibration_project,
-            toml_path,
-            calibration_id=calibration_id,
-            name=name,
-            units=units,
-            captured_at=captured_at,
-            force=force,
-        )
+        Slots left as ``None`` are not touched. Each provided slot accepts the
+        canonical typed value or a JSON-shaped mapping that will be coerced
+        through the slot's ``from_dict``. Writes happen in a fixed order; if a
+        write raises, slots written before it remain on disk.
+        """
+        written: dict[str, Path] = {}
+        if acquisition is not None:
+            written["acquisition"] = save_project_acquisition_metadata(
+                self.project_root, acquisition
+            )
+        if dataset_share is not None:
+            written["dataset_share"] = save_project_dataset_share_metadata(
+                self.project_root, dataset_share
+            )
+        if pose_provenance is not None:
+            written["pose_provenance"] = save_project_pose_provenance(
+                self.project_root, pose_provenance
+            )
+        if datasheet is not None:
+            written["datasheet"] = save_project_datasheet(self.project_root, datasheet)
+        if model_card is not None:
+            written["model_card"] = save_project_model_card(self.project_root, model_card)
+        if not written:
+            raise ValueError("ProjectMetadata.update requires at least one slot keyword.")
+        return written
 
 
 @dataclass(frozen=True, slots=True)
@@ -425,11 +252,6 @@ class ProjectService:
         return load_project_descriptor(self.project_root)
 
     @property
-    def imports(self) -> ProjectImports:
-        """Return project-bound import commands for supported tracking formats."""
-        return ProjectImports(project_root=self.project_root)
-
-    @property
     def segmentation(self) -> ProjectSegmentation:
         """Return project-bound segmentation-mask storage commands."""
         return ProjectSegmentation(project_root=self.project_root)
@@ -448,6 +270,160 @@ class ProjectService:
     def calibrations(self) -> ProjectCalibrations:
         """Return project-bound camera-calibration storage commands."""
         return ProjectCalibrations(project_root=self.project_root)
+
+    @property
+    def metadata(self) -> ProjectMetadata:
+        """Return the typed metadata accessor for this project's durable slots."""
+        return ProjectMetadata(project_root=self.project_root)
+
+    def import_pose(
+        self,
+        format: PoseFormat,
+        *,
+        path: str | Path,
+        video: str | Path | None = None,
+        skeleton_name: str | None = None,
+        likelihood_threshold: float = 0.0,
+        instance_index: int = 0,
+        fps: int = 30,
+        encode_videos: bool | None = None,
+        prediction_provenance: Mapping[str, Any] | None = None,
+        provenance: PoseModelProvenance | Mapping[str, Any] | None = None,
+        force: bool = False,
+        progress_callback: Any | None = None,
+    ) -> Path:
+        """Import a pose track from one of the supported formats into this project.
+
+        The ``video`` keyword is required for the per-clip formats
+        (``dlc-csv``, ``dlc-h5``, ``lightning-pose-csv``,
+        ``mediapipe-pose-landmarks-json``, ``mmpose-topdown-json``,
+        ``sleap-h5``) and ignored for ``dlc-project`` and ``sleap-package``.
+        ``instance_index`` only applies to ``mmpose-topdown-json``;
+        ``fps`` and ``encode_videos`` only apply to ``sleap-package``.
+        """
+        common: dict[str, Any] = {
+            "project": self.project_root,
+            "likelihood_threshold": likelihood_threshold,
+            "prediction_provenance": prediction_provenance,
+            "provenance": provenance,
+            "force": force,
+            "progress_callback": progress_callback,
+        }
+
+        # Formats that don't need a video are dispatched first so the per-clip
+        # branches below can rely on `video` being non-None.
+        if format == "dlc-project":
+            return import_dlc_project_directory(
+                path, skeleton_name=skeleton_name, **common
+            )
+        if format == "sleap-package":
+            sleap_kwargs = {
+                key: value
+                for key, value in common.items()
+                if key != "likelihood_threshold"
+            }
+            return import_sleap_package_project(
+                path,
+                fps=int(fps),
+                encode_videos=encode_videos,
+                **sleap_kwargs,
+            )
+
+        if video is None:
+            raise ValueError(f"import_pose(format={format!r}) requires `video=`.")
+
+        if format == "dlc-csv":
+            return import_dlc_csv_project(
+                path, video, skeleton_name=skeleton_name or "imported", **common
+            )
+        if format == "dlc-h5":
+            return import_dlc_h5_project(
+                path, video, skeleton_name=skeleton_name or "imported", **common
+            )
+        if format == "lightning-pose-csv":
+            return import_lightning_pose_csv_project(
+                path, video, skeleton_name=skeleton_name or "imported", **common
+            )
+        if format == "mediapipe-pose-landmarks-json":
+            return import_mediapipe_pose_landmarks_json_project(
+                path,
+                video,
+                skeleton_name=skeleton_name or "mediapipe_pose",
+                **common,
+            )
+        if format == "mmpose-topdown-json":
+            return import_mmpose_topdown_json_project(
+                path,
+                video,
+                skeleton_name=skeleton_name or "imported",
+                instance_index=int(instance_index),
+                **common,
+            )
+        if format == "sleap-h5":
+            return import_sleap_h5_project(
+                path, video, skeleton_name=skeleton_name or "imported", **common
+            )
+        raise ValueError(f"Unknown pose format: {format!r}")
+
+    def import_calibration(
+        self,
+        format: CalibrationFormat,
+        *,
+        path: str | Path,
+        calibration_id: str | None = None,
+        name: str | None = None,
+        units: str = "unknown",
+        captured_at: str | None = None,
+        force: bool = False,
+    ) -> Path:
+        """Import a camera calibration from one of the supported formats."""
+        if format == "anipose":
+            return import_anipose_calibration_project(
+                path,
+                project=self.project_root,
+                calibration_id=calibration_id,
+                name=name,
+                units=units,
+                captured_at=captured_at,
+                force=force,
+            )
+        raise ValueError(f"Unknown calibration format: {format!r}")
+
+    def import_motion(
+        self,
+        format: MotionFormat = "vicon",
+        *,
+        path: str | Path,
+        force: bool = False,
+        progress_callback: Any | None = None,
+    ) -> Path:
+        """Import a motion-capture recording from one of the supported formats.
+
+        ``"vicon"`` auto-detects CSV vs C3D from the path; the dashed forms
+        force the matching reader.
+        """
+        if format == "vicon":
+            return import_vicon_project(
+                path,
+                project=self.project_root,
+                force=force,
+                progress_callback=progress_callback,
+            )
+        if format == "vicon-csv":
+            return import_vicon_csv_project(
+                path,
+                project=self.project_root,
+                force=force,
+                progress_callback=progress_callback,
+            )
+        if format == "vicon-c3d":
+            return import_vicon_c3d_project(
+                path,
+                project=self.project_root,
+                force=force,
+                progress_callback=progress_callback,
+            )
+        raise ValueError(f"Unknown motion format: {format!r}")
 
     def describe(self) -> ProjectLayout:
         """Return the normalized managed paths for this project."""
@@ -495,32 +471,12 @@ class ProjectService:
         return load_project_vicon_recording(self.project_root)
 
     def load_metadata(self) -> dict[str, Any] | None:
-        """Load the current project metadata payload."""
+        """Load the current project state's free-form metadata dict."""
         return load_project_metadata(self.project_root)
 
     def load_metadata_field(self, field: str) -> dict[str, Any] | None:
-        """Load one mapping-valued metadata field from the current project head."""
+        """Load one mapping-valued field from the current project state metadata."""
         return load_project_metadata_field(self.project_root, field)
-
-    def load_acquisition_metadata(self) -> AcquisitionMetadata | None:
-        """Load project-scoped acquisition metadata."""
-        return load_project_acquisition_metadata(self.project_root)
-
-    def load_dataset_share_metadata(self) -> DatasetShareMetadata | None:
-        """Load project-scoped dataset sharing metadata."""
-        return load_project_dataset_share_metadata(self.project_root)
-
-    def load_pose_provenance(self) -> PoseModelProvenance | None:
-        """Load project-scoped pose-model provenance."""
-        return load_project_pose_provenance(self.project_root)
-
-    def load_datasheet(self) -> DatasetDatasheet | None:
-        """Load the project Datasheet for Datasets (Gebru et al. 2021)."""
-        return load_project_datasheet(self.project_root)
-
-    def load_model_card(self) -> ModelCard | None:
-        """Load the project Model Card (Mitchell et al. 2019)."""
-        return load_project_model_card(self.project_root)
 
     def load_payload(self) -> dict[str, Any]:
         """Load the current project payload with project-relative media rebased."""
@@ -532,7 +488,7 @@ class ProjectService:
         *,
         reason: str = "project.save.metadata",
     ) -> Path:
-        """Commit metadata onto the current project head."""
+        """Commit free-form metadata onto the current project state head."""
         return save_project_metadata(
             self.project_root,
             metadata,
@@ -546,48 +502,13 @@ class ProjectService:
         *,
         reason: str = "project.save.metadata_field",
     ) -> Path:
-        """Persist one mapping-valued metadata field onto the current project head."""
+        """Persist one mapping-valued metadata field onto the current project state head."""
         return save_project_metadata_field(
             self.project_root,
             field,
             value,
             reason=reason,
         )
-
-    def save_acquisition_metadata(
-        self,
-        acquisition: AcquisitionMetadata | Mapping[str, Any],
-    ) -> Path:
-        """Persist project-scoped acquisition metadata."""
-        return save_project_acquisition_metadata(self.project_root, acquisition)
-
-    def save_dataset_share_metadata(
-        self,
-        dataset_share: DatasetShareMetadata | Mapping[str, Any],
-    ) -> Path:
-        """Persist project-scoped dataset sharing metadata."""
-        return save_project_dataset_share_metadata(self.project_root, dataset_share)
-
-    def save_pose_provenance(
-        self,
-        provenance: PoseModelProvenance | Mapping[str, Any],
-    ) -> Path:
-        """Persist project-scoped pose-model provenance."""
-        return save_project_pose_provenance(self.project_root, provenance)
-
-    def save_datasheet(
-        self,
-        datasheet: DatasetDatasheet | Mapping[str, Any],
-    ) -> Path:
-        """Persist a Datasheet for Datasets (Gebru et al. 2021)."""
-        return save_project_datasheet(self.project_root, datasheet)
-
-    def save_model_card(
-        self,
-        model_card: ModelCard | Mapping[str, Any],
-    ) -> Path:
-        """Persist a Model Card (Mitchell et al. 2019)."""
-        return save_project_model_card(self.project_root, model_card)
 
     def save_labels(
         self,
@@ -624,11 +545,14 @@ class ProjectService:
 
 __all__ = [
     "ProjectService",
-    "ProjectImports",
     "ProjectLayout",
     "ProjectInspection",
     "ProjectArtifacts",
     "ProjectCalibrations",
     "ProjectFigures",
+    "ProjectMetadata",
     "ProjectSegmentation",
+    "PoseFormat",
+    "CalibrationFormat",
+    "MotionFormat",
 ]

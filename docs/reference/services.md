@@ -11,8 +11,8 @@ workflow.
 ## Canonical Public Surface
 
 - `ProjectService`
-- `ProjectImports`
 - `ProjectLayout`
+- `ProjectMetadata`
 - `ProjectFigures`
 - `ProjectSegmentation`
 

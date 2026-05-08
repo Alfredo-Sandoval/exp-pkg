@@ -30,9 +30,12 @@ xpkg project
 - Pack defaults to `--media full`.
 - Pack must fail loudly if required media are external to `Media/`.
 - Every canonical command supports `--json` for machine-readable output.
-- In `--json` mode, success payloads are written to stdout as one JSON object.
+- In `--json` mode, success payloads are wrapped in the envelope
+  `{"ok": true, "data": <command-specific JSON object>}` and written to stdout
+  as one JSON object.
 - In `--json` mode, progress text is suppressed and errors are written to
-  stderr under a top-level `error` object with `code`, `message`, and `hint`.
+  stderr as the envelope
+  `{"ok": false, "error": {"code": ..., "message": ..., "hint": ...}}`.
 - Exit codes are `0` for success, `1` for usage or runtime errors, `2` reserved
   for future auth/config failures, and `3` for not found.
 - `--json` is reserved for machine output. Commands that import JSON files use

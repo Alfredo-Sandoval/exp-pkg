@@ -88,9 +88,10 @@ project command surface.
 from xpkg.services import ProjectService
 
 project = ProjectService.create("./My Project", title="My Project")
-project.imports.dlc_csv(
-    "tracking.csv",
-    "video.mp4",
+project.import_pose(
+    "dlc-csv",
+    path="tracking.csv",
+    video="video.mp4",
     skeleton_name="subject",
 )
 project.validate()
@@ -99,8 +100,9 @@ restored = ProjectService.unpack(artifact, "./Restored Project")
 ```
 
 `ProjectService` is the normal project boundary: create or open a project,
-import through `project.imports`, validate, then pack only when you want a
-portable artifact. The dedicated guide for that surface lives in
+import through `project.import_pose(...)` / `import_calibration(...)` /
+`import_motion(...)`, validate, then pack only when you want a portable
+artifact. The dedicated guide for that surface lives in
 [Services](api/services.md).
 
 By default `project.pack()` includes all managed media. Use

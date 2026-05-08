@@ -53,7 +53,9 @@ def test_cli_imports_anipose_calibration_json_mode(tmp_path: Path, capsys) -> No
     assert code == 0
     captured_streams = capsys.readouterr()
     assert captured_streams.err == ""
-    payload = json.loads(captured_streams.out)
+    envelope = json.loads(captured_streams.out)
+    assert envelope["ok"] is True
+    payload = envelope["data"]
     assert payload["status"] == "imported"
     assert payload["source"] == "anipose_calibration"
     assert payload["project"] == str(project)

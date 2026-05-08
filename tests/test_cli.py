@@ -108,10 +108,13 @@ def test_cli_init_json_mode(monkeypatch, capsys) -> None:
     assert captured_streams.err == ""
     payload = json.loads(captured_streams.out)
     assert payload == {
-        "status": "initialized",
-        "project": "My Project",
-        "title": "My Project",
-        "project_id": None,
+        "ok": True,
+        "data": {
+            "status": "initialized",
+            "project": "My Project",
+            "title": "My Project",
+            "project_id": None,
+        },
     }
 
 
@@ -288,10 +291,13 @@ def test_cli_import_json_mode_suppresses_progress(monkeypatch, capsys) -> None:
     assert "import-progress" not in captured_streams.out
     payload = json.loads(captured_streams.out)
     assert payload == {
-        "status": "imported",
-        "source": "dlc_csv",
-        "project": "My Project",
-        "state_path": "My Project/.xpkg/state/current.json",
+        "ok": True,
+        "data": {
+            "status": "imported",
+            "source": "dlc_csv",
+            "project": "My Project",
+            "state_path": "My Project/.xpkg/state/current.json",
+        },
     }
 
 
@@ -814,11 +820,12 @@ def test_cli_json_errors_use_stderr(capsys) -> None:
     assert captured_streams.out == ""
     payload = json.loads(captured_streams.err)
     assert payload == {
+        "ok": False,
         "error": {
             "code": "usage_error",
             "message": "Missing option '--video'.",
             "hint": "Run `xpkg --help` or `xpkg describe --json` for the command contract.",
-        }
+        },
     }
 
 
@@ -919,7 +926,9 @@ def test_cli_project_describe_json_mode(tmp_path: Path, capsys) -> None:
     assert code == 0
     captured_streams = capsys.readouterr()
     assert captured_streams.err == ""
-    payload = json.loads(captured_streams.out)
+    envelope = json.loads(captured_streams.out)
+    assert envelope["ok"] is True
+    payload = envelope["data"]
     assert payload["status"] == "described"
     assert payload["project"] == str(project.project_root)
     assert payload["descriptor"]["title"] == "Described Project"
@@ -937,28 +946,34 @@ def test_cli_describe_lists_top_level_inspect(capsys) -> None:
     assert code == 0
     captured_streams = capsys.readouterr()
     assert captured_streams.err == ""
-    payload = json.loads(captured_streams.out)
+    envelope = json.loads(captured_streams.out)
+    assert envelope["ok"] is True
+    payload = envelope["data"]
     assert payload["resources"]["inspect"] == ["path"]
     assert "inspect" in payload["commands"]
 
 
 def test_cli_inspect_json_mode(monkeypatch, capsys) -> None:
     from xpkg.cli import main
+    from xpkg.inspection import InspectionKind, InspectionReport
 
     captured: dict[str, object] = {}
 
-    def fake_inspect_path(target: str, *, confidence_threshold: float) -> dict[str, object]:
+    def fake_inspect_path(target: str, *, confidence_threshold: float) -> InspectionReport:
         captured["target"] = target
         captured["confidence_threshold"] = confidence_threshold
-        return {
-            "status": "inspected",
-            "path": target,
-            "kind": "pose_predictions",
-            "description": "pose predictions",
-            "likely_importers": ["dlc_csv"],
-            "summary": {"frames": 2, "keypoints": 3},
-            "warnings": [],
-        }
+        return InspectionReport(
+            path=target,
+            name="tracking.csv",
+            suffix=".csv",
+            exists=True,
+            is_dir=False,
+            size_bytes=42,
+            kind=InspectionKind.POSE_PREDICTIONS,
+            likely_importers=("dlc_csv",),
+            summary={"frames": 2, "keypoints": 3},
+            warnings=(),
+        )
 
     monkeypatch.setattr("xpkg.cli.commands.inspect.inspect_path", fake_inspect_path)
 
@@ -968,24 +983,31 @@ def test_cli_inspect_json_mode(monkeypatch, capsys) -> None:
     assert captured == {"target": "tracking.csv", "confidence_threshold": 0.7}
     captured_streams = capsys.readouterr()
     assert captured_streams.err == ""
-    payload = json.loads(captured_streams.out)
+    envelope = json.loads(captured_streams.out)
+    assert envelope["ok"] is True
+    payload = envelope["data"]
     assert payload["status"] == "inspected"
+    assert payload["kind"] == "pose_predictions"
     assert payload["likely_importers"] == ["dlc_csv"]
 
 
 def test_cli_inspect_human_mode(monkeypatch, capsys) -> None:
     from xpkg.cli import main
+    from xpkg.inspection import InspectionKind, InspectionReport
 
-    def fake_inspect_path(target: str, *, confidence_threshold: float) -> dict[str, object]:
-        return {
-            "status": "inspected",
-            "path": target,
-            "kind": "video",
-            "description": "video",
-            "likely_importers": [],
-            "summary": {"frames": 12, "fps": 30.0, "width": 640, "height": 480},
-            "warnings": ["Frame count is approximate."],
-        }
+    def fake_inspect_path(target: str, *, confidence_threshold: float) -> InspectionReport:
+        return InspectionReport(
+            path=target,
+            name="clip.mp4",
+            suffix=".mp4",
+            exists=True,
+            is_dir=False,
+            size_bytes=1024,
+            kind=InspectionKind.VIDEO,
+            likely_importers=(),
+            summary={"frames": 12, "fps": 30.0, "width": 640, "height": 480},
+            warnings=("Frame count is approximate.",),
+        )
 
     monkeypatch.setattr("xpkg.cli.commands.inspect.inspect_path", fake_inspect_path)
 

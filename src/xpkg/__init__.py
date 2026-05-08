@@ -1,9 +1,18 @@
 """Top-level import surface for the xpkg runtime package.
 
 The distribution is published as ``exp-pkg`` while downstream code imports the
-runtime package as ``xpkg``. This namespace keeps the common project, service,
-model, adapter, and reader entry points lazy so importing ``xpkg`` does not
+runtime package as ``xpkg``. This namespace keeps the project, service, model,
+adapter, media, and reader entry points lazy so importing ``xpkg`` does not
 eagerly import optional IO stacks.
+
+The canonical import locations are:
+
+* :mod:`xpkg.project` for project lifecycle and metadata
+* :mod:`xpkg.services` for the service-first ``ProjectService`` API
+* :mod:`xpkg.model` for typed data classes
+* :mod:`xpkg.readers` for format readers (``read_*`` functions)
+* :mod:`xpkg.adapters` for exchange adapters
+* :mod:`xpkg.media` for video/image IO
 """
 
 from __future__ import annotations
@@ -14,60 +23,24 @@ from xpkg.version import __version__
 
 __all__ = [
     "__version__",
-    "api",
     "adapters",
     "media",
     "model",
     "pose",
-    "segmentation",
-    "read_doric_photometry",
-    "read_events_csv",
-    "read_neurophotometrics_csv",
-    "read_photometry_csv",
-    "read_pmat_events_csv",
-    "read_pmat_photometry_csv",
-    "read_pyphotometry_csv",
-    "read_pyphotometry_ppd",
-    "read_rwd_ofrs_session",
-    "read_tdt_photometry_block",
-    "read_teleopto_h5",
-    "services",
     "project",
+    "readers",
+    "segmentation",
+    "services",
 ]
+
+_LAZY_SUBMODULES = frozenset(__all__) - {"__version__"}
 
 
 def __getattr__(name: str):
-    if name in {
-        "api",
-        "adapters",
-        "media",
-        "model",
-        "pose",
-        "project",
-        "segmentation",
-        "services",
-    }:
+    if name in _LAZY_SUBMODULES:
         module = importlib.import_module(f"xpkg.{name}")
         globals()[name] = module
         return module
-    reader_exports = {
-        "read_doric_photometry",
-        "read_events_csv",
-        "read_neurophotometrics_csv",
-        "read_photometry_csv",
-        "read_pmat_events_csv",
-        "read_pmat_photometry_csv",
-        "read_pyphotometry_csv",
-        "read_pyphotometry_ppd",
-        "read_rwd_ofrs_session",
-        "read_tdt_photometry_block",
-        "read_teleopto_h5",
-    }
-    if name in reader_exports:
-        module = importlib.import_module("xpkg.io.readers")
-        value = getattr(module, name)
-        globals()[name] = value
-        return value
     raise AttributeError(f"module 'xpkg' has no attribute {name!r}")
 
 

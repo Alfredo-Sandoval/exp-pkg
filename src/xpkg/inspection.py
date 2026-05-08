@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import importlib
 import math
 import zipfile
 from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
+from enum import StrEnum
 from pathlib import Path
 from typing import Any, cast
 
@@ -17,6 +20,72 @@ from xpkg.io.readers.pose import read_pose_track
 from xpkg.project.artifact import EXPKG_MANIFEST_FILENAME
 from xpkg.project.inspection import inspect_project
 from xpkg.project.layout import PROJECT_DESCRIPTOR_FILENAME, resolve_project_root
+
+
+class InspectionKind(StrEnum):
+    """Canonical kinds returned by :func:`inspect_path`."""
+
+    UNKNOWN = "unknown"
+    DIRECTORY = "directory"
+    IMAGE_SEQUENCE = "image_sequence"
+    DLC_PROJECT = "dlc_project"
+    XPKG_PROJECT = "xpkg_project"
+    XPKG_PROJECT_DESCRIPTOR = "xpkg_project_descriptor"
+    EXPKG_MANIFEST = "expkg_manifest"
+    EXPKG_ARTIFACT = "expkg_artifact"
+    POSE_PREDICTIONS = "pose_predictions"
+    EVENTS_TABLE = "events_table"
+    SIGNALS_TABLE = "signals_table"
+    PHOTOMETRY_TABLE = "photometry_table"
+    PHOTOMETRY_RECORDING = "photometry_recording"
+    CSV = "csv"
+    JSON = "json"
+    HDF5 = "hdf5"
+    VIDEO = "video"
+    IMAGE = "image"
+    VICON_C3D = "vicon_c3d"
+    SLEAP_PACKAGE = "sleap_package"
+
+
+@dataclass(frozen=True, slots=True)
+class InspectionReport:
+    """Structured inspection result for a single file or folder."""
+
+    path: str
+    name: str
+    suffix: str
+    exists: bool
+    is_dir: bool
+    size_bytes: int | None
+    kind: InspectionKind
+    likely_importers: tuple[str, ...]
+    summary: Mapping[str, Any]
+    warnings: tuple[str, ...]
+
+    @property
+    def status(self) -> str:
+        return "inspected"
+
+    @property
+    def description(self) -> str:
+        return self.kind.value.replace("_", " ")
+
+    def to_dict(self) -> dict[str, Any]:
+        """Return the JSON-serializable wire form of this report."""
+        return {
+            "status": self.status,
+            "path": self.path,
+            "name": self.name,
+            "suffix": self.suffix,
+            "exists": self.exists,
+            "is_dir": self.is_dir,
+            "size_bytes": self.size_bytes,
+            "kind": self.kind.value,
+            "description": self.description,
+            "likely_importers": list(self.likely_importers),
+            "summary": dict(self.summary),
+            "warnings": list(self.warnings),
+        }
 
 _VIDEO_SUFFIXES = {
     ".avi",
@@ -47,10 +116,6 @@ def _path_payload(path: Path) -> dict[str, Any]:
         "is_dir": path.is_dir(),
         "size_bytes": int(stat.st_size) if path.is_file() else None,
     }
-
-
-def _human_kind(kind: str) -> str:
-    return kind.replace("_", " ")
 
 
 def _unique(items: Sequence[str]) -> list[str]:
@@ -439,15 +504,16 @@ def _video_timing_qc(path: Path) -> tuple[dict[str, Any] | None, list[str]]:
     not installed or the stream lacks a usable timing signal.
     """
     try:
-        import av  # type: ignore[import-not-found]
+        av: Any = importlib.import_module("av")
     except ImportError:
         return None, []
 
     warnings: list[str] = []
     timing: dict[str, Any] = {}
+    av_error: type[BaseException] = getattr(av, "AVError", OSError)
     try:
         container = av.open(str(path))
-    except (OSError, av.AVError) as exc:  # type: ignore[attr-defined]
+    except (OSError, av_error) as exc:
         return None, [f"PyAV could not open this video for timing QC: {exc}"]
 
     try:
@@ -622,8 +688,8 @@ def inspect_path(
     path: str | Path,
     *,
     confidence_threshold: float = _POSE_CONFIDENCE_THRESHOLD,
-) -> dict[str, Any]:
-    """Return a JSON-friendly inspection summary for one file or folder."""
+) -> InspectionReport:
+    """Inspect a file or folder and return a structured :class:`InspectionReport`."""
 
     threshold = float(confidence_threshold)
     if threshold < 0.0 or threshold > 1.0:
@@ -670,20 +736,23 @@ def inspect_path(
                 "warnings": ["No xpkg importer was inferred from this path."],
             }
 
-    kind = str(details["kind"])
     importers = cast(Sequence[str], details["likely_importers"])
     summary_value = details["summary"]
     warnings = cast(Sequence[str], details["warnings"])
     summary = dict(summary_value) if isinstance(summary_value, Mapping) else {}
-    return {
-        "status": "inspected",
-        **_path_payload(resolved),
-        "kind": kind,
-        "description": _human_kind(kind),
-        "likely_importers": list(importers),
-        "summary": summary,
-        "warnings": list(warnings),
-    }
+    payload = _path_payload(resolved)
+    return InspectionReport(
+        path=payload["path"],
+        name=payload["name"],
+        suffix=payload["suffix"],
+        exists=payload["exists"],
+        is_dir=payload["is_dir"],
+        size_bytes=payload["size_bytes"],
+        kind=InspectionKind(str(details["kind"])),
+        likely_importers=tuple(str(item) for item in importers),
+        summary=summary,
+        warnings=tuple(str(item) for item in warnings),
+    )
 
 
-__all__ = ["inspect_path"]
+__all__ = ["InspectionKind", "InspectionReport", "inspect_path"]

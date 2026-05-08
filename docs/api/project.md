@@ -20,7 +20,7 @@ when you want the explicit function-level form.
 ## Start Here
 
 - Use <code>xpkg.services.ProjectService</code> for the normal create/open/import/validate/pack/unpack lifecycle.
-- Use <code>ProjectService.imports.*</code> for the preferred service-bound import flow.
+- Use <code>ProjectService.import_pose</code> / <code>import_calibration</code> / <code>import_motion</code> for the preferred service-bound import flow.
 - Use the <code>import_*_project(...)</code> helpers below when you want the same importers as explicit free functions.
 
 ## Project Contract
@@ -124,8 +124,10 @@ Validate either a project or a packed artifact, dispatching by path type.
 
 These free functions are the reusable project import implementation. New
 service-based integrations should usually call them through
-<code>ProjectService.imports.*</code>; use the explicit functions here when
-you want function-level imports.
+<code>ProjectService.import_pose(...)</code>,
+<code>ProjectService.import_calibration(...)</code>, or
+<code>ProjectService.import_motion(...)</code>; use the explicit functions here
+when you want function-level imports.
 
 ### `import_dlc_csv_project(...)`
 

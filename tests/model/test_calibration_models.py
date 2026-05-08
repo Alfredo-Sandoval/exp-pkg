@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-import xpkg.api as api
+import xpkg.model as model
 from xpkg.model import (
     CALIBRATION_SCHEMA_VERSION,
     Calibration,
@@ -79,10 +79,10 @@ def test_calibration_validates_distortion_count_and_rotation_shape() -> None:
 
 
 def test_calibration_models_are_available_from_public_api() -> None:
-    assert api.Calibration is Calibration
-    assert api.Camera is Camera
-    assert api.CameraIntrinsics is CameraIntrinsics
-    assert api.CameraExtrinsics is CameraExtrinsics
-    assert api.CameraRotation is CameraRotation
-    assert api.CameraDistortion is CameraDistortion
-    assert api.WorldFrame is WorldFrame
+    assert model.Calibration is Calibration
+    assert model.Camera is Camera
+    assert model.CameraIntrinsics is CameraIntrinsics
+    assert model.CameraExtrinsics is CameraExtrinsics
+    assert model.CameraRotation is CameraRotation
+    assert model.CameraDistortion is CameraDistortion
+    assert model.WorldFrame is WorldFrame

@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from xpkg.inspection import inspect_path
+from xpkg.inspection import InspectionKind, InspectionReport, inspect_path
 
 
 def _write_dlc_csv(path: Path) -> None:
@@ -58,15 +58,16 @@ def test_inspect_path_summarizes_dlc_csv_pose_qc(tmp_path: Path) -> None:
     csv_path = tmp_path / "tracking.csv"
     _write_dlc_csv(csv_path)
 
-    payload = inspect_path(csv_path, confidence_threshold=0.5)
+    report = inspect_path(csv_path, confidence_threshold=0.5)
 
-    assert payload["status"] == "inspected"
-    assert payload["kind"] == "pose_predictions"
-    assert payload["likely_importers"] == ["dlc_csv", "lightning_pose_csv"]
-    assert payload["summary"]["frames"] == 2
-    assert payload["summary"]["keypoints"] == 2
-    assert payload["summary"]["node_names"] == ["snout", "tail"]
-    confidence = payload["summary"]["confidence"]
+    assert isinstance(report, InspectionReport)
+    assert report.status == "inspected"
+    assert report.kind is InspectionKind.POSE_PREDICTIONS
+    assert report.likely_importers == ("dlc_csv", "lightning_pose_csv")
+    assert report.summary["frames"] == 2
+    assert report.summary["keypoints"] == 2
+    assert report.summary["node_names"] == ["snout", "tail"]
+    confidence = report.summary["confidence"]
     assert confidence["below_threshold"] == 2
     assert confidence["longest_low_run_frames"] == 1
     assert confidence["worst_keypoint"] in {"snout", "tail"}
@@ -75,15 +76,15 @@ def test_inspect_path_summarizes_dlc_csv_pose_qc(tmp_path: Path) -> None:
     assert per_keypoint["snout"]["below_threshold"] == 1
     assert per_keypoint["snout"]["longest_low_run"] == 1
     assert per_keypoint["tail"]["below_threshold"] == 1
-    assert payload["warnings"] == []
+    assert report.warnings == ()
 
 
 def test_inspect_path_reports_per_keypoint_low_run(tmp_path: Path) -> None:
     csv_path = tmp_path / "tracking_run.csv"
     _write_dlc_csv_with_low_run(csv_path)
 
-    payload = inspect_path(csv_path, confidence_threshold=0.5)
-    confidence = payload["summary"]["confidence"]
+    report = inspect_path(csv_path, confidence_threshold=0.5)
+    confidence = report.summary["confidence"]
 
     per_keypoint = {entry["name"]: entry for entry in confidence["per_keypoint"]}
     assert per_keypoint["snout"]["longest_low_run"] == 3
@@ -98,12 +99,12 @@ def test_inspect_path_reports_events_csv_importer(tmp_path: Path) -> None:
     csv_path = tmp_path / "events.csv"
     csv_path.write_text("time,label,duration\n0.1,cue,0.2\n", encoding="utf-8")
 
-    payload = inspect_path(csv_path)
+    report = inspect_path(csv_path)
 
-    assert payload["kind"] == "events_table"
-    assert payload["likely_importers"] == ["events_csv"]
-    assert payload["summary"]["timestamp_available"] is True
-    assert payload["summary"]["columns"] == ["time", "label", "duration"]
+    assert report.kind is InspectionKind.EVENTS_TABLE
+    assert report.likely_importers == ("events_csv",)
+    assert report.summary["timestamp_available"] is True
+    assert report.summary["columns"] == ["time", "label", "duration"]
 
 
 def _write_synthetic_mp4(path: Path, *, frames: int, fps: int) -> None:
@@ -131,16 +132,16 @@ def test_inspect_path_reports_video_timing_qc(tmp_path: Path) -> None:
     video_path = tmp_path / "synth.mp4"
     _write_synthetic_mp4(video_path, frames=30, fps=30)
 
-    payload = inspect_path(video_path)
+    report = inspect_path(video_path)
 
-    assert payload["kind"] == "video"
-    timing = payload["summary"].get("timing")
+    assert report.kind is InspectionKind.VIDEO
+    timing = report.summary.get("timing")
     assert timing is not None, "expected PyAV-based timing payload"
     assert timing["packet_count"] == 30
     assert timing["dropped_frame_suspects"] == 0
     assert timing["measured_fps"] == pytest.approx(30.0, rel=0.05)
     assert timing["fps_drift_pct"] < 1.0
-    assert payload["warnings"] == []
+    assert report.warnings == ()
 
 
 def test_inspect_path_reports_empty_project(tmp_path: Path) -> None:
@@ -148,9 +149,23 @@ def test_inspect_path_reports_empty_project(tmp_path: Path) -> None:
 
     project = ProjectService.create(tmp_path / "Empty Project", title="Empty Project")
 
-    payload = inspect_path(project.project_root)
+    report = inspect_path(project.project_root)
 
-    assert payload["kind"] == "xpkg_project"
-    assert payload["summary"]["title"] == "Empty Project"
-    assert payload["summary"]["state_kind"] == "empty"
-    assert payload["summary"]["has_current_state"] is False
+    assert report.kind is InspectionKind.XPKG_PROJECT
+    assert report.summary["title"] == "Empty Project"
+    assert report.summary["state_kind"] == "empty"
+    assert report.summary["has_current_state"] is False
+
+
+def test_inspection_report_to_dict_round_trips_wire_format(tmp_path: Path) -> None:
+    csv_path = tmp_path / "events.csv"
+    csv_path.write_text("time,label,duration\n0.1,cue,0.2\n", encoding="utf-8")
+
+    payload = inspect_path(csv_path).to_dict()
+
+    assert payload["status"] == "inspected"
+    assert payload["kind"] == "events_table"
+    assert payload["description"] == "events table"
+    assert payload["likely_importers"] == ["events_csv"]
+    assert isinstance(payload["summary"], dict)
+    assert isinstance(payload["warnings"], list)

@@ -58,9 +58,10 @@ validate, pack, or unpack a project:
 from xpkg.services import ProjectService
 
 project = ProjectService.create("./My Project", title="My Project")
-project.imports.dlc_csv(
-    "tracking.csv",
-    "video.mp4",
+project.import_pose(
+    "dlc-csv",
+    path="tracking.csv",
+    video="video.mp4",
     skeleton_name="subject",
 )
 layout = project.validate()
@@ -75,7 +76,7 @@ Choose the public surface by job:
 | Task | Preferred public entrypoint |
 | --- | --- |
 | Create, open, import into, validate, pack, or unpack a project | `xpkg.services.ProjectService` |
-| Import foreign pose data into a project you already manage through the service | `project.imports.*` from `xpkg.services.ProjectService` |
+| Import foreign pose data into a project you already manage through the service | `project.import_pose(format, ...)` / `import_calibration(format, ...)` / `import_motion(format, ...)` |
 | Register figures, tables, analyses, reports, or other output artifacts | `project.artifacts.*` from `xpkg.services.ProjectService` |
 | Save figure outputs and their lineage manifests | `project.figures.*` from `xpkg.services.ProjectService` |
 | Save or load frame-level segmentation masks | `project.segmentation.*` from `xpkg.services.ProjectService` |
@@ -391,7 +392,7 @@ analog units/descriptions, optional additional point channels, and sibling
 Use the low-level reader when another repo just needs to load a recording:
 
 ```python
-from xpkg.api import read_vicon_recording
+from xpkg.readers import read_vicon_recording
 
 recording = read_vicon_recording("trial.c3d")
 print(recording.marker_names)
@@ -404,10 +405,10 @@ print(recording.analog.candidate_emg_channel_names if recording.analog is not No
 Use the project service when another repo wants an imported, portable project:
 
 ```python
-from xpkg.api import ProjectService
+from xpkg.services import ProjectService
 
 project = ProjectService.create("./Vicon Project", title="Vicon Project")
-project.imports.vicon("trial.c3d")
+project.import_motion("vicon", path="trial.c3d")
 recording = project.load_vicon_recording()
 artifact = project.pack()
 ```
@@ -415,7 +416,7 @@ artifact = project.pack()
 The explicit free-function surface is also public:
 
 ```python
-from xpkg.api import import_vicon_c3d_project, load_project_vicon_recording
+from xpkg.project import import_vicon_c3d_project, load_project_vicon_recording
 
 import_vicon_c3d_project("trial.c3d", "./Vicon Project")
 recording = load_project_vicon_recording("./Vicon Project")

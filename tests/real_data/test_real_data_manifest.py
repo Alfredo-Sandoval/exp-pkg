@@ -139,7 +139,7 @@ def _import_case(case: Mapping[str, Any], project: ProjectService) -> None:
     threshold = _optional_float(case, "threshold", 0.0)
 
     if kind == "vicon":
-        project.imports.vicon(_require_existing_path(case, "recording"))
+        project.import_motion("vicon", path=_require_existing_path(case, "recording"))
         return
     if kind == "dlc":
         _import_dlc_case(case, project, skeleton_name=skeleton_name, threshold=threshold)
@@ -156,18 +156,20 @@ def _import_case(case: Mapping[str, Any], project: ProjectService) -> None:
         _import_sleap_case(case, project, skeleton_name=skeleton_name, threshold=threshold)
         return
     if kind == "mmpose":
-        project.imports.mmpose_topdown_json(
-            _require_existing_path(case, "json"),
-            _require_existing_path(case, "video"),
+        project.import_pose(
+            "mmpose-topdown-json",
+            path=_require_existing_path(case, "json"),
+            video=_require_existing_path(case, "video"),
             skeleton_name=skeleton_name,
             instance_index=_optional_int(case, "instance_index", 0),
             likelihood_threshold=threshold,
         )
         return
     if kind == "mediapipe":
-        project.imports.mediapipe_pose_landmarks_json(
-            _require_existing_path(case, "json"),
-            _require_existing_path(case, "video"),
+        project.import_pose(
+            "mediapipe-pose-landmarks-json",
+            path=_require_existing_path(case, "json"),
+            video=_require_existing_path(case, "video"),
             skeleton_name=skeleton_name,
             likelihood_threshold=threshold,
         )
@@ -195,8 +197,9 @@ def _import_dlc_case(
 
     if has_project:
         raw_skeleton_name = case.get("skeleton_name")
-        project.imports.dlc_project(
-            _require_existing_path(case, "project"),
+        project.import_pose(
+            "dlc-project",
+            path=_require_existing_path(case, "project"),
             skeleton_name=raw_skeleton_name if isinstance(raw_skeleton_name, str) else None,
             likelihood_threshold=threshold,
         )
@@ -206,17 +209,19 @@ def _import_dlc_case(
     video_path = _require_existing_path(case, "video")
     suffix = tracking_path.suffix.lower()
     if suffix == ".csv":
-        project.imports.dlc_csv(
-            tracking_path,
-            video_path,
+        project.import_pose(
+            "dlc-csv",
+            path=tracking_path,
+            video=video_path,
             skeleton_name=skeleton_name,
             likelihood_threshold=threshold,
         )
         return
     if suffix in {".h5", ".hdf5"}:
-        project.imports.dlc_h5(
-            tracking_path,
-            video_path,
+        project.import_pose(
+            "dlc-h5",
+            path=tracking_path,
+            video=video_path,
             skeleton_name=skeleton_name,
             likelihood_threshold=threshold,
         )
@@ -238,16 +243,18 @@ def _import_sleap_case(
     suffixes = tuple(suffix.lower() for suffix in labels_path.suffixes)
     if labels_path.name.lower().endswith(".pkg.slp") or labels_path.suffix.lower() == ".slp":
         raw_encode_videos = case.get("encode_videos")
-        project.imports.sleap_package(
-            labels_path,
+        project.import_pose(
+            "sleap-package",
+            path=labels_path,
             fps=_optional_int(case, "fps", 30),
             encode_videos=raw_encode_videos if isinstance(raw_encode_videos, bool) else None,
         )
         return
     if suffixes and suffixes[-1] in {".h5", ".hdf5"}:
-        project.imports.sleap_h5(
-            labels_path,
-            _require_existing_path(case, "video"),
+        project.import_pose(
+            "sleap-h5",
+            path=labels_path,
+            video=_require_existing_path(case, "video"),
             skeleton_name=skeleton_name,
             likelihood_threshold=threshold,
         )
@@ -271,9 +278,10 @@ def _import_lightning_pose_case(
             f"Real-data Lightning Pose case {_case_id(case)!r} tracking file must be "
             f".csv: {tracking_path}"
         )
-    project.imports.lightning_pose_csv(
-        tracking_path,
-        _require_existing_path(case, "video"),
+    project.import_pose(
+        "lightning-pose-csv",
+        path=tracking_path,
+        video=_require_existing_path(case, "video"),
         skeleton_name=skeleton_name,
         likelihood_threshold=threshold,
     )

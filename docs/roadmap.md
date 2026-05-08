@@ -88,17 +88,19 @@ segmentation package.
 Simple, low-ceremony CSV readers now exist before the project machinery:
 
 ```python
-xpkg.read_photometry_csv(...)
-xpkg.read_events_csv(...)
-xpkg.read_pyphotometry_ppd(...)
-xpkg.read_pyphotometry_csv(...)
-xpkg.read_pmat_photometry_csv(...)
-xpkg.read_pmat_events_csv(...)
-xpkg.read_rwd_ofrs_session(...)
-xpkg.read_neurophotometrics_csv(...)
-xpkg.read_doric_photometry(...)
-xpkg.read_teleopto_h5(...)
-xpkg.read_tdt_photometry_block(...)
+from xpkg import readers
+
+readers.read_photometry_csv(...)
+readers.read_events_csv(...)
+readers.read_pyphotometry_ppd(...)
+readers.read_pyphotometry_csv(...)
+readers.read_pmat_photometry_csv(...)
+readers.read_pmat_events_csv(...)
+readers.read_rwd_ofrs_session(...)
+readers.read_neurophotometrics_csv(...)
+readers.read_doric_photometry(...)
+readers.read_teleopto_h5(...)
+readers.read_tdt_photometry_block(...)
 ```
 
 These return `PhotometryRecording`, `EventTable`, or session-level objects
@@ -114,9 +116,9 @@ excluded from this layer.
 After direct readers exist, wire them into `ProjectService`:
 
 ```python
-project.imports.photometry_csv(...)
-project.imports.events_csv(...)
-project.imports.sync_csv(...)
+project.import_signals("photometry-csv", ...)
+project.import_signals("events-csv", ...)
+project.import_signals("sync-csv", ...)
 ```
 
 These imports should store normalized data under the project contract and

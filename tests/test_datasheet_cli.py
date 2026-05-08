@@ -50,7 +50,9 @@ def _datasheet_payload() -> dict:
 def _capture_json(capsys: pytest.CaptureFixture[str]) -> dict:
     out = capsys.readouterr().out.strip()
     assert out, "expected JSON envelope on stdout"
-    return json.loads(out)
+    envelope = json.loads(out)
+    assert envelope["ok"] is True
+    return envelope["data"]
 
 
 def test_save_and_load_project_datasheet(tmp_path: Path) -> None:
@@ -78,8 +80,8 @@ def test_load_project_datasheet_returns_none_when_unset(tmp_path: Path) -> None:
 
 def test_project_service_save_and_load_datasheet(tmp_path: Path) -> None:
     project = ProjectService.create(tmp_path / "Service Datasheet Project")
-    project.save_datasheet(DatasetDatasheet(title="Service round-trip"))
-    record = project.load_datasheet()
+    project.metadata.update(datasheet=DatasetDatasheet(title="Service round-trip"))
+    record = project.metadata.datasheet
     assert record is not None
     assert record.title == "Service round-trip"
 

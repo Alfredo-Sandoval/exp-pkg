@@ -29,7 +29,7 @@ The repo and distribution name are <code>exp-pkg</code>; the Python import and C
 | Mission | multimodal neuroscience IO and artifact contracts |
 | Public project contract | project folder + private `.xpkg/` + `.expkg` |
 | Primary lifecycle API | `xpkg.services.ProjectService` |
-| Service-bound project imports | `project.imports.*` from `xpkg.services.ProjectService` |
+| Service-bound project imports | `project.import_pose(...)` / `import_calibration(...)` / `import_motion(...)` |
 | Output artifact registry | `project.artifacts.*` and `.xpkg/artifacts/index.json` |
 | Function-level project imports | `xpkg.project.import_*_project(...)` |
 | External import ecosystems | Vicon, DeepLabCut, Lightning Pose, SLEAP, MMPose, MediaPipe |
@@ -42,8 +42,10 @@ The repo and distribution name are <code>exp-pkg</code>; the Python import and C
 
 - Use `xpkg.services.ProjectService` when you need to create, open, import
   into, validate, pack, or unpack a project.
-- Use `project.imports.*` for the normal project-first import flow from
-  DeepLabCut, Lightning Pose, SLEAP, MMPose, or MediaPipe.
+- Use `project.import_pose(format, ...)`, `project.import_calibration(format, ...)`,
+  and `project.import_motion(format, ...)` for the normal project-first import
+  flow from DeepLabCut, Lightning Pose, SLEAP, MMPose, MediaPipe, Anipose, and
+  Vicon.
 - Use `project.artifacts.*` to register figures, tables, analyses, reports,
   stats, and other output files with provenance and checksums.
 - Use `xpkg.project.import_*_project(...)` when you want the same

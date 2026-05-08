@@ -41,14 +41,20 @@ def _describe_payload() -> dict[str, object]:
         "json_contract": {
             "success_stream": "stdout",
             "error_stream": "stderr",
-            "success": "Each command emits one command-specific JSON object in --json mode.",
+            "success": {
+                "shape": {
+                    "ok": True,
+                    "data": "<command-specific JSON object>",
+                }
+            },
             "error": {
                 "shape": {
+                    "ok": False,
                     "error": {
                         "code": "string",
                         "message": "string",
                         "hint": "string",
-                    }
+                    },
                 }
             },
             "progress": "Progress messages are suppressed in --json mode.",

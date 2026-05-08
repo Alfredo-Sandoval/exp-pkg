@@ -95,7 +95,7 @@ project.validate()
 
 Low-level durability helpers still exist for tests, recovery work, and private
 project storage flows. They are intentionally outside the project-first
-public contract and do not appear in `xpkg.api`, `xpkg.project`, or the CLI:
+public contract and do not appear in `xpkg.project`, `xpkg.services`, or the CLI:
 
 - `ProjectDurableStore.open(store_root)`
 - `ProjectDurableStore.create_from_roots(store_root, {"state": state_path})`

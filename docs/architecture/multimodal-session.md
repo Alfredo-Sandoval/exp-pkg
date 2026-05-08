@@ -132,7 +132,7 @@ Implemented now:
 - read-only `xpkg inspect PATH --json` summaries for projects, common files,
   pose exports, media, and `.expkg` artifacts
 - acquisition and dataset-share metadata model primitives
-- public exports from `xpkg.model` and `xpkg.api`
+- public exports from `xpkg.model` and `xpkg.readers`
 - focused tests for validation, queries, and time ranges
 
 Explicitly not part of the fiber-photometry layer:
@@ -144,9 +144,9 @@ Explicitly not part of the fiber-photometry layer:
 Still ahead:
 
 - `read_sync_csv(...)`
-- `project.imports.photometry_csv(...)`
-- `project.imports.events_csv(...)`
-- `project.imports.sync_csv(...)`
+- `project.import_signals("photometry-csv", ...)` (planned)
+- `project.import_signals("events-csv", ...)` (planned)
+- `project.import_signals("sync-csv", ...)` (planned)
 - session manifest storage under the project contract
 - richer `xpkg inspect --json` associated-media and sync checks
 - acquisition metadata capture for cameras, frame rates, resolution,

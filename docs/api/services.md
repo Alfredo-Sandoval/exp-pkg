@@ -12,8 +12,10 @@ import into, validate, pack, or unpack a project-first project.
 
 - Use <code>ProjectService</code> as the stable consumer contract for project
   lifecycle operations.
-- Use <code>project.imports.*</code> when you want the supported external
-  importers without dropping out of that service object.
+- Use <code>project.import_pose(format, ...)</code>,
+  <code>project.import_calibration(format, ...)</code>, and
+  <code>project.import_motion(format, ...)</code> when you want the supported
+  external importers without dropping out of that service object.
 - Use <code>project.artifacts.*</code> when you want to register figures,
   tables, analyses, reports, stats, or other output files with portable
   manifests and a project-wide index.
@@ -32,9 +34,10 @@ import into, validate, pack, or unpack a project-first project.
 from xpkg.services import ProjectService
 
 project = ProjectService.create("./My Project", title="My Project")
-project.imports.dlc_csv(
-    "tracking.csv",
-    "video.mp4",
+project.import_pose(
+    "dlc-csv",
+    path="tracking.csv",
+    video="video.mp4",
     skeleton_name="subject",
 )
 project.validate()
@@ -45,7 +48,9 @@ restored = ProjectService.unpack(artifact, "./Restored Project")
 This is the canonical downstream path:
 
 - create or open a project
-- import through <code>project.imports.*</code>
+- import through <code>project.import_pose(...)</code>,
+  <code>project.import_calibration(...)</code>, or
+  <code>project.import_motion(...)</code>
 - validate the managed project state
 - pack only when you want a portable <code>.expkg</code> artifact
 - reopen with <code>ProjectService.open(...)</code> or
@@ -105,22 +110,26 @@ session_state = project.load_metadata_field("session_json")
 
 ## Service-Bound Import Surface
 
-Each service-bound importer mirrors a public
-<code>xpkg.project.import_*_project(...)</code> helper:
+Three dispatch methods on `ProjectService` cover all supported importers,
+selecting the underlying free function by a kebab-case ``format`` string:
 
-| Service method | Matching free function |
+| Service call | Matching free function |
 | --- | --- |
-| `project.imports.dlc_csv(...)` | `xpkg.project.import_dlc_csv_project(...)` |
-| `project.imports.dlc_h5(...)` | `xpkg.project.import_dlc_h5_project(...)` |
-| `project.imports.dlc_project(...)` | `xpkg.project.import_dlc_project_directory(...)` |
-| `project.imports.lightning_pose_csv(...)` | `xpkg.project.import_lightning_pose_csv_project(...)` |
-| `project.imports.sleap_h5(...)` | `xpkg.project.import_sleap_h5_project(...)` |
-| `project.imports.sleap_package(...)` | `xpkg.project.import_sleap_package_project(...)` |
-| `project.imports.mmpose_topdown_json(...)` | `xpkg.project.import_mmpose_topdown_json_project(...)` |
-| `project.imports.mediapipe_pose_landmarks_json(...)` | `xpkg.project.import_mediapipe_pose_landmarks_json_project(...)` |
+| `project.import_pose("dlc-csv", path=..., video=...)` | `xpkg.project.import_dlc_csv_project(...)` |
+| `project.import_pose("dlc-h5", path=..., video=...)` | `xpkg.project.import_dlc_h5_project(...)` |
+| `project.import_pose("dlc-project", path=...)` | `xpkg.project.import_dlc_project_directory(...)` |
+| `project.import_pose("lightning-pose-csv", path=..., video=...)` | `xpkg.project.import_lightning_pose_csv_project(...)` |
+| `project.import_pose("sleap-h5", path=..., video=...)` | `xpkg.project.import_sleap_h5_project(...)` |
+| `project.import_pose("sleap-package", path=...)` | `xpkg.project.import_sleap_package_project(...)` |
+| `project.import_pose("mmpose-topdown-json", path=..., video=...)` | `xpkg.project.import_mmpose_topdown_json_project(...)` |
+| `project.import_pose("mediapipe-pose-landmarks-json", path=..., video=...)` | `xpkg.project.import_mediapipe_pose_landmarks_json_project(...)` |
+| `project.import_calibration("anipose", path=...)` | `xpkg.project.import_anipose_calibration_project(...)` |
+| `project.import_motion("vicon", path=...)` | `xpkg.project.import_vicon_project(...)` |
+| `project.import_motion("vicon-csv", path=...)` | `xpkg.project.import_vicon_csv_project(...)` |
+| `project.import_motion("vicon-c3d", path=...)` | `xpkg.project.import_vicon_c3d_project(...)` |
 
-The service-bound methods are the preferred path for new project-facing code.
-The free functions remain public for explicit function-level integrations.
+The service dispatch is the preferred path for new project-facing code. The
+free functions remain public for explicit function-level integrations.
 
 ## Multimodal Reader And Import Plan
 
@@ -128,31 +137,35 @@ The session/time/events/signals model layer is public. Direct fiber-photometry
 and event readers are available now:
 
 ```python
-xpkg.read_photometry_csv(...)
-xpkg.read_events_csv(...)
-xpkg.read_pyphotometry_ppd(...)
-xpkg.read_pyphotometry_csv(...)
-xpkg.read_pmat_photometry_csv(...)
-xpkg.read_pmat_events_csv(...)
-xpkg.read_rwd_ofrs_session(...)
-xpkg.read_neurophotometrics_csv(...)
-xpkg.read_doric_photometry(...)
-xpkg.read_teleopto_h5(...)
-xpkg.read_tdt_photometry_block(...)
+from xpkg import readers
+
+readers.read_photometry_csv(...)
+readers.read_events_csv(...)
+readers.read_pyphotometry_ppd(...)
+readers.read_pyphotometry_csv(...)
+readers.read_pmat_photometry_csv(...)
+readers.read_pmat_events_csv(...)
+readers.read_rwd_ofrs_session(...)
+readers.read_neurophotometrics_csv(...)
+readers.read_doric_photometry(...)
+readers.read_teleopto_h5(...)
+readers.read_tdt_photometry_block(...)
 ```
 
-These service-bound imports are not implemented yet:
+Service-bound dispatch for these signal kinds is not implemented yet (planned
+under a future ``project.import_signals(format, ...)``):
 
 ```python
-project.imports.photometry_csv(...)
-project.imports.events_csv(...)
-project.imports.sync_csv(...)
+# planned
+project.import_signals("photometry-csv", path=...)
+project.import_signals("events-csv", path=...)
+project.import_signals("sync-csv", path=...)
 ```
 
 The remaining direct reader planned in this family is:
 
 ```python
-xpkg.read_sync_csv(...)
+readers.read_sync_csv(...)
 ```
 
 The fiber-photometry surface intentionally excludes imaging/miniscope and

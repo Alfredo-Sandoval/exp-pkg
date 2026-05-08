@@ -68,18 +68,19 @@ def _error_code_for_exception(exc: BaseException) -> tuple[str, int]:
 
 
 def raise_cli_error(exc: BaseException, *, json_output: bool) -> NoReturn:
-    """Raise a Typer exit after emitting the contract error shape."""
+    """Raise a Typer exit after emitting the contract error envelope."""
     code, exit_code = _error_code_for_exception(exc)
     message = str(exc).strip() or exc.__class__.__name__
     hint = _hint_for_exception(exc)
     if json_output:
         write_json(
             {
+                "ok": False,
                 "error": {
                     "code": code,
                     "message": message,
                     "hint": hint,
-                }
+                },
             },
             stderr=True,
         )
@@ -94,13 +95,18 @@ def run_command(
     action: Callable[[], dict[str, Any]],
     human_output: Callable[[dict[str, Any]], None],
 ) -> None:
-    """Run a command action under the shared JSON/prose output contract."""
+    """Run a command action under the shared JSON/prose output contract.
+
+    In ``--json`` mode the action's return value is wrapped in the standard
+    success envelope ``{"ok": true, "data": <payload>}`` before writing to
+    stdout. The human output callback continues to receive the bare payload.
+    """
     try:
         payload = action()
     except Exception as exc:
         raise_cli_error(exc, json_output=json_output)
     if json_output:
-        write_json(payload)
+        write_json({"ok": True, "data": payload})
     else:
         human_output(payload)
 
@@ -167,11 +173,12 @@ def usage_error_payload(exc: click.ClickException) -> tuple[dict[str, Any], int]
         hint = "Run `xpkg --help` or `xpkg describe --json` for the command contract."
     return (
         {
+            "ok": False,
             "error": {
                 "code": code,
                 "message": message,
                 "hint": hint,
-            }
+            },
         },
         exit_code,
     )

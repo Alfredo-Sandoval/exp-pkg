@@ -54,7 +54,9 @@ def _write_acquisition_payload(path: Path) -> Path:
 def _capture_json(capsys: pytest.CaptureFixture[str]) -> dict:
     out = capsys.readouterr().out.strip()
     assert out, "expected JSON envelope on stdout"
-    return json.loads(out)
+    envelope = json.loads(out)
+    assert envelope["ok"] is True
+    return envelope["data"]
 
 
 def test_cli_set_and_show_dataset_share_round_trip(

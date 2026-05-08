@@ -27,7 +27,9 @@ from xpkg.services import ProjectService
 def _capture_json(capsys: pytest.CaptureFixture[str]) -> dict:
     out = capsys.readouterr().out.strip()
     assert out, "expected JSON envelope on stdout"
-    return json.loads(out)
+    envelope = json.loads(out)
+    assert envelope["ok"] is True
+    return envelope["data"]
 
 
 def _write_dlc_csv(path: Path, frames: int = 10) -> Path:
@@ -41,7 +43,7 @@ def _write_dlc_csv(path: Path, frames: int = 10) -> Path:
 
 
 def _write_video(path: Path, frames: int = 10) -> Path:
-    fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+    fourcc = cv2.VideoWriter.fourcc(*"mp4v")
     writer = cv2.VideoWriter(str(path), fourcc, 30.0, (32, 32))
     for _ in range(frames):
         writer.write(np.zeros((32, 32, 3), dtype=np.uint8))
@@ -163,14 +165,14 @@ def test_pose_provenance_round_trips_through_pack_unpack(tmp_path: Path) -> None
 
 def test_project_service_save_and_load_pose_provenance(tmp_path: Path) -> None:
     project = ProjectService.create(tmp_path / "Service Provenance Project")
-    project.save_pose_provenance(
-        PoseModelProvenance(
+    project.metadata.update(
+        pose_provenance=PoseModelProvenance(
             tool="mmpose",
             tool_version="1.3",
             model_name="rtmpose-l",
         )
     )
-    record = project.load_pose_provenance()
+    record = project.metadata.pose_provenance
     assert record is not None
     assert record.tool == "mmpose"
     assert record.model_name == "rtmpose-l"

@@ -54,7 +54,9 @@ def _model_card_payload() -> dict:
 def _capture_json(capsys: pytest.CaptureFixture[str]) -> dict:
     out = capsys.readouterr().out.strip()
     assert out, "expected JSON envelope on stdout"
-    return json.loads(out)
+    envelope = json.loads(out)
+    assert envelope["ok"] is True
+    return envelope["data"]
 
 
 def test_save_and_load_project_model_card(tmp_path: Path) -> None:
@@ -82,8 +84,10 @@ def test_load_project_model_card_returns_none_when_unset(tmp_path: Path) -> None
 
 def test_project_service_save_and_load_model_card(tmp_path: Path) -> None:
     project = ProjectService.create(tmp_path / "Service Card Project")
-    project.save_model_card(ModelCard(details=ModelCardDetails(name="service-card")))
-    record = project.load_model_card()
+    project.metadata.update(
+        model_card=ModelCard(details=ModelCardDetails(name="service-card"))
+    )
+    record = project.metadata.model_card
     assert record is not None
     assert record.details.name == "service-card"
 

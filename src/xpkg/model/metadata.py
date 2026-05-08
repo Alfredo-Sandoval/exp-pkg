@@ -8,10 +8,20 @@ from typing import Any
 
 from xpkg.model._metadata_validation import (
     metadata_dict as _metadata,
+)
+from xpkg.model._metadata_validation import (
     optional_bool as _optional_bool,
+)
+from xpkg.model._metadata_validation import (
     optional_text as _optional_text,
+)
+from xpkg.model._metadata_validation import (
     required_text as _required_text,
+)
+from xpkg.model._metadata_validation import (
     text_mapping as _text_mapping,
+)
+from xpkg.model._metadata_validation import (
     text_tuple as _text_tuple,
 )
 
