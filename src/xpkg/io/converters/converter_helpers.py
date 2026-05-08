@@ -19,7 +19,7 @@ from xpkg.media.video import Video, available_video_exts, write_video
 
 if TYPE_CHECKING:
     from xpkg.model import Labels as _Labels
-    from xpkg.pose.annotations import Point
+    from xpkg.pose.annotations import PredictedPoint
     from xpkg.pose.skeleton import Keypoint
 
 CliRunner = Callable[[argparse.Namespace, argparse.ArgumentParser], int]
@@ -69,10 +69,15 @@ def points_from_coords_scores(
     scores: np.ndarray,
     *,
     likelihood_threshold: float,
-) -> dict[str | Keypoint, Point]:
-    """Build visible point objects from parallel keypoint coordinate and score arrays."""
+) -> dict[str | Keypoint, PredictedPoint]:
+    """Build predicted point objects from parallel coordinate and score arrays.
 
-    from xpkg.pose.annotations import Point
+    Per-keypoint confidence is preserved on the returned ``PredictedPoint``
+    so downstream callers can construct ``PredictedInstance`` records that
+    carry calibrated confidence end to end.
+    """
+
+    from xpkg.pose.annotations import PredictedPoint
 
     coords_array = np.asarray(coords, dtype=np.float64)
     scores_array = np.asarray(scores, dtype=np.float64)
@@ -89,7 +94,7 @@ def points_from_coords_scores(
             f"({node_count},), got {scores_array.shape}."
         )
 
-    points: dict[str | Keypoint, Point] = {}
+    points: dict[str | Keypoint, PredictedPoint] = {}
     for node_idx, node_name in enumerate(node_names):
         score = float(scores_array[node_idx])
         if not np.isfinite(score) or score < likelihood_threshold:
@@ -99,7 +104,9 @@ def points_from_coords_scores(
         y_val = float(coords_array[node_idx, 1])
         if np.isnan(x_val) or np.isnan(y_val):
             continue
-        points[node_name] = Point(x_val, y_val, visible=True, complete=True)
+        points[node_name] = PredictedPoint(
+            x=x_val, y=y_val, score=score, visible=True, complete=True
+        )
     return points
 
 

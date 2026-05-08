@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -211,8 +212,15 @@ def _row_points(
     keypoints: Sequence[str],
     *,
     likelihood_threshold: float,
-) -> dict[str, tuple[float, float]]:
-    points: dict[str, tuple[float, float]] = {}
+) -> dict[str, tuple[float, float, float]]:
+    """Extract per-keypoint (x, y, likelihood) triples from one tracking row.
+
+    Likelihood is preserved so the downstream point/instance can carry the
+    DLC per-keypoint confidence. When a keypoint has no ``_likelihood``
+    column the score falls back to ``NaN``; the threshold filter is only
+    applied when an actual likelihood is present.
+    """
+    points: dict[str, tuple[float, float, float]] = {}
     for keypoint in keypoints:
         x_col = f"{keypoint}_x"
         y_col = f"{keypoint}_y"
@@ -221,23 +229,43 @@ def _row_points(
             continue
         x_val = row[x_col]
         y_val = row[y_col]
+        likelihood: float = math.nan
         if lh_col in row.index:
-            likelihood = row[lh_col]
-            if pd.isna(likelihood) or float(likelihood) < likelihood_threshold:
+            likelihood_raw = row[lh_col]
+            if pd.isna(likelihood_raw):
+                continue
+            likelihood = float(likelihood_raw)
+            if likelihood < likelihood_threshold:
                 continue
         if pd.isna(x_val) or pd.isna(y_val):
             continue
-        points[keypoint] = (float(x_val), float(y_val))
+        points[keypoint] = (float(x_val), float(y_val), likelihood)
     return points
 
 
-def _instance_points(points: dict[str, tuple[float, float]]) -> dict[str | Keypoint, Any]:
-    from xpkg.pose.annotations import Point
+def _instance_points(
+    points: dict[str, tuple[float, float, float]],
+) -> dict[str | Keypoint, Any]:
+    from xpkg.pose.annotations import PredictedPoint
 
     return {
-        keypoint: Point(x, y, visible=True, complete=True)
-        for keypoint, (x, y) in points.items()
+        keypoint: PredictedPoint(
+            x=x,
+            y=y,
+            score=score if math.isfinite(score) else 0.0,
+            visible=True,
+            complete=True,
+        )
+        for keypoint, (x, y, score) in points.items()
     }
+
+
+def _mean_finite_score(points: dict[str, tuple[float, float, float]]) -> float:
+    """Return the mean of finite per-keypoint scores, or 0.0 when all NaN."""
+    finite = [score for *_xy, score in points.values() if math.isfinite(score)]
+    if not finite:
+        return 0.0
+    return float(sum(finite) / len(finite))
 
 
 def _labels_from_tracking_df(
@@ -249,10 +277,15 @@ def _labels_from_tracking_df(
     stored_video_filename: str | None = None,
     likelihood_threshold: float = 0.0,
 ) -> _Labels:
-    """Convert a tracking table into the canonical `xpkg.model.Labels` object."""
+    """Convert a tracking table into the canonical `xpkg.model.Labels` object.
+
+    Per-keypoint DLC likelihood is preserved on each ``PredictedPoint`` and
+    the per-frame mean is stored as the ``PredictedInstance.score`` so the
+    project-level container carries calibrated confidence end to end.
+    """
 
     from xpkg.model import Labels
-    from xpkg.pose.annotations import Instance, LabeledFrame, Point
+    from xpkg.pose.annotations import LabeledFrame, PredictedInstance
 
     video = Video.from_filename(str(video_path))
     if stored_video_filename is not None:
@@ -261,34 +294,19 @@ def _labels_from_tracking_df(
 
     for frame_idx in df.index:
         row = df.loc[frame_idx]
-
-        points: dict[str | Keypoint, Point] = {}
-        for kp in keypoints:
-            x_col = f"{kp}_x"
-            y_col = f"{kp}_y"
-            lh_col = f"{kp}_likelihood"
-
-            if x_col not in row or y_col not in row:
-                continue
-
-            x_val = row[x_col]
-            y_val = row[y_col]
-
-            if lh_col in row:
-                likelihood = row[lh_col]
-                if pd.isna(likelihood) or float(likelihood) < likelihood_threshold:
-                    continue
-
-            if pd.isna(x_val) or pd.isna(y_val):
-                continue
-
-            points[kp] = Point(float(x_val), float(y_val), visible=True, complete=True)
-
-        if not points:
+        row_points = _row_points(row, keypoints, likelihood_threshold=likelihood_threshold)
+        if not row_points:
             continue
 
-        instance = Instance(skeleton=skeleton, init_points=points)
-        labeled_frame = LabeledFrame(video=video, frame_idx=int(frame_idx), instances=[instance])
+        instance_points = _instance_points(row_points)
+        instance = PredictedInstance(
+            skeleton=skeleton,
+            init_points=instance_points,
+            score=_mean_finite_score(row_points),
+        )
+        labeled_frame = LabeledFrame(
+            video=video, frame_idx=int(frame_idx), instances=[instance]
+        )
         labels.append(labeled_frame)
 
     labels.update_cache()
@@ -304,23 +322,30 @@ def _labels_from_tracking_df_project(
     likelihood_threshold: float,
 ) -> _Labels:
     from xpkg.model import Labels
-    from xpkg.pose.annotations import Instance, LabeledFrame
+    from xpkg.pose.annotations import LabeledFrame, PredictedInstance
 
     skeleton = build_keypoint_skeleton(list(keypoints), name=skeleton_name)
     labels = Labels(skeletons=[skeleton], videos=list(videos))
 
     for frame_idx, row in df.iterrows():
-        points = _row_points(row, keypoints, likelihood_threshold=likelihood_threshold)
-        if not points:
+        row_points = _row_points(row, keypoints, likelihood_threshold=likelihood_threshold)
+        if not row_points:
             continue
         resolved_frame_idx = _coerce_frame_idx(frame_idx)
-        instance_points = _instance_points(points)
+        instance_points = _instance_points(row_points)
+        instance_score = _mean_finite_score(row_points)
         for video in videos:
             labels.append(
                 LabeledFrame(
                     video=video,
                     frame_idx=resolved_frame_idx,
-                    instances=[Instance(skeleton=skeleton, init_points=instance_points)],
+                    instances=[
+                        PredictedInstance(
+                            skeleton=skeleton,
+                            init_points=instance_points,
+                            score=instance_score,
+                        )
+                    ],
                 )
             )
 

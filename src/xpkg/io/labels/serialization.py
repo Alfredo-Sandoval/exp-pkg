@@ -17,6 +17,7 @@ from xpkg.pose.annotations import (
     Instance,
     LabeledFrame,
     PointArray,
+    PredictedInstance,
     PredictedPointArray,
     SegmentationMask,
     Track,
@@ -765,6 +766,138 @@ def _attach_segmentation_entries(
         getattr(labeled_frame, attr_name).append(item)
 
 
+def _hydrate_predicted_frames(
+    predictions_payload: Any,
+    *,
+    videos: list[VideoProtocol],
+    skeleton: Skeleton,
+    keypoint_count: int,
+    labeled_frames: list[LabeledFrame],
+    track_lookup: dict[int, Track],
+) -> None:
+    """Merge predicted instances from a project state's predictions payload.
+
+    The project state stores predicted instances in a separate ``predictions``
+    section (so that manual labels and model outputs stay distinguishable).
+    On load we recombine them into ``labeled_frames`` as ``PredictedInstance``
+    records, preserving per-keypoint score and instance-level prediction
+    confidence end to end.
+    """
+
+    if not isinstance(predictions_payload, Mapping):
+        return
+    frames_info = predictions_payload.get("frames")
+    data_info = predictions_payload.get("data")
+    if not isinstance(frames_info, Mapping) or not isinstance(data_info, Mapping):
+        return
+
+    raw_video_index = _materialize(frames_info.get("video_index"))
+    raw_frame_index = _materialize(frames_info.get("frame_index"))
+    raw_num_instances = _materialize(frames_info.get("num_instances"))
+    raw_keypoints = _materialize(data_info.get("keypoints"))
+    if raw_video_index is None or raw_keypoints is None:
+        return
+
+    keypoints_arr = np.asarray(raw_keypoints, dtype=np.float32)
+    if keypoints_arr.ndim != 4 or keypoints_arr.shape[0] == 0:
+        return
+
+    video_index = np.asarray(raw_video_index, dtype=np.int32)
+    frame_index = (
+        np.asarray(raw_frame_index, dtype=np.int32)
+        if raw_frame_index is not None
+        else np.zeros((keypoints_arr.shape[0],), dtype=np.int32)
+    )
+    num_instances = (
+        np.asarray(raw_num_instances, dtype=np.int32)
+        if raw_num_instances is not None
+        else np.full((keypoints_arr.shape[0],), keypoints_arr.shape[1], dtype=np.int32)
+    )
+
+    raw_instance_score = _materialize(data_info.get("instance_score"))
+    instance_score_arr = (
+        np.asarray(raw_instance_score, dtype=np.float32)
+        if raw_instance_score is not None
+        else np.zeros(keypoints_arr.shape[:2], dtype=np.float32)
+    )
+    raw_track_id = _materialize(data_info.get("track_id"))
+    track_id_arr = (
+        np.asarray(raw_track_id, dtype=np.int64)
+        if raw_track_id is not None
+        else np.full(keypoints_arr.shape[:2], -1, dtype=np.int64)
+    )
+    raw_deleted = _materialize(data_info.get("deleted"))
+    deleted_arr = (
+        np.asarray(raw_deleted, dtype=np.uint8)
+        if raw_deleted is not None
+        else np.zeros(keypoints_arr.shape[:2], dtype=np.uint8)
+    )
+
+    n_rows = int(min(video_index.shape[0], keypoints_arr.shape[0]))
+    max_instances = int(keypoints_arr.shape[1])
+    if keypoint_count == 0:
+        keypoint_count = int(keypoints_arr.shape[2])
+    flags_template = np.zeros((keypoint_count,), dtype=np.uint8)
+
+    frames_by_key = _frame_lookup_by_video_and_index(labeled_frames)
+
+    for row in range(n_rows):
+        vi = int(video_index[row])
+        if vi < 0 or vi >= len(videos):
+            continue
+        video = videos[vi]
+        f_idx = int(frame_index[row]) if row < frame_index.shape[0] else 0
+        declared = int(num_instances[row]) if row < num_instances.shape[0] else 0
+        n_inst = min(declared, max_instances)
+        if n_inst <= 0:
+            continue
+
+        frame_key = (video, f_idx)
+        labeled_frame = frames_by_key.get(frame_key)
+        if labeled_frame is None:
+            labeled_frame = LabeledFrame(video=cast(Any, video), frame_idx=f_idx)
+            labeled_frames.append(labeled_frame)
+            frames_by_key[frame_key] = labeled_frame
+
+        for inst_idx in range(n_inst):
+            if (
+                deleted_arr.ndim >= 2
+                and row < deleted_arr.shape[0]
+                and inst_idx < deleted_arr.shape[1]
+                and bool(deleted_arr[row, inst_idx])
+            ):
+                continue
+            inst_coords = keypoints_arr[row, inst_idx]
+            if not np.isfinite(inst_coords[..., :2]).any():
+                continue
+            points = _build_instance_points(
+                inst_coords,
+                flags_template,
+                keypoint_count,
+            )
+            if not isinstance(points, PredictedPointArray):
+                points = PredictedPointArray.from_array(points)
+            track_obj = _resolve_track(row, inst_idx, track_id_arr, track_lookup)
+            inst_score = (
+                float(instance_score_arr[row, inst_idx])
+                if (
+                    instance_score_arr.ndim == 2
+                    and row < instance_score_arr.shape[0]
+                    and inst_idx < instance_score_arr.shape[1]
+                )
+                else 0.0
+            )
+            labeled_frame.instances.append(
+                PredictedInstance(
+                    skeleton=skeleton,
+                    frame=labeled_frame,
+                    track=track_obj,
+                    init_points=points,
+                    score=inst_score,
+                )
+            )
+
+
 def _attach_segmentation_payload(
     segmentation_payload: Any,
     *,
@@ -877,6 +1010,14 @@ def labels_from_payload(
         videos=videos,
         skeleton=skeleton,
         keypoint_count=len(keypoints),
+        track_lookup=track_lookup,
+    )
+    _hydrate_predicted_frames(
+        payload.get("predictions"),
+        videos=videos,
+        skeleton=skeleton,
+        keypoint_count=len(keypoints),
+        labeled_frames=labeled_frames,
         track_lookup=track_lookup,
     )
     _attach_segmentation_payload(

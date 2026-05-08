@@ -277,3 +277,77 @@ def test_import_dlc_project_directory_requires_supported_items(tmp_path: Path) -
 
     with pytest.raises(ValueError, match="No supported DLC project items found"):
         import_dlc_project_directory(project_root, tmp_path / "project")
+
+
+def test_dlc_csv_import_preserves_per_keypoint_likelihood_through_project_state(
+    tmp_path: Path,
+) -> None:
+    from xpkg.model import Labels
+    from xpkg.pose.annotations import PredictedInstance
+    from xpkg.project import import_dlc_csv_project
+
+    csv_path = tmp_path / "session.csv"
+    _write_sample_dlc_csv(csv_path)
+    video_path = tmp_path / "session.avi"
+    _write_dummy_video(video_path)
+    project = tmp_path / "DLC Project"
+
+    import_dlc_csv_project(csv_path, video_path, project)
+
+    loaded = Labels.load_file(project.as_posix())
+    assert len(loaded.labeled_frames) == 2
+    expected_scores_by_frame = {
+        0: {"nose": 0.95, "tail": 0.90},
+        1: {"nose": 0.85, "tail": 0.80},
+    }
+    for frame in loaded.labeled_frames:
+        assert frame.frame_idx in expected_scores_by_frame
+        expected = expected_scores_by_frame[frame.frame_idx]
+        instances = frame.predicted_instances
+        assert instances, f"Frame {frame.frame_idx} should expose predicted instances"
+        instance = instances[0]
+        assert isinstance(instance, PredictedInstance)
+        # Instance-level prediction score should be the mean of the per-keypoint likelihoods.
+        assert instance.score == pytest.approx(
+            float(np.mean(list(expected.values()))), rel=1e-5
+        )
+        observed = {
+            keypoint.name: float(point["score"]) for keypoint, point in instance.keypoints_points
+        }
+        for name, score in expected.items():
+            assert observed[name] == pytest.approx(score, rel=1e-5)
+
+
+def test_dlc_csv_import_preserves_scores_through_pack_unpack_roundtrip(
+    tmp_path: Path,
+) -> None:
+    from xpkg.model import Labels
+    from xpkg.pose.annotations import PredictedInstance
+    from xpkg.project import import_dlc_csv_project, pack_project, unpack_project
+
+    csv_path = tmp_path / "session.csv"
+    _write_sample_dlc_csv(csv_path)
+    video_path = tmp_path / "session.avi"
+    _write_dummy_video(video_path)
+    project = tmp_path / "DLC Project"
+
+    import_dlc_csv_project(csv_path, video_path, project)
+    artifact = pack_project(project, out=tmp_path / "session.expkg")
+    restored = tmp_path / "Restored"
+    unpack_project(artifact, restored)
+
+    loaded = Labels.load_file(restored.as_posix())
+    assert len(loaded.labeled_frames) == 2
+    expected_scores_by_frame = {
+        0: {"nose": 0.95, "tail": 0.90},
+        1: {"nose": 0.85, "tail": 0.80},
+    }
+    for frame in loaded.labeled_frames:
+        instance = frame.predicted_instances[0]
+        assert isinstance(instance, PredictedInstance)
+        observed = {
+            keypoint.name: float(point["score"]) for keypoint, point in instance.keypoints_points
+        }
+        expected = expected_scores_by_frame[frame.frame_idx]
+        for name, score in expected.items():
+            assert observed[name] == pytest.approx(score, rel=1e-5)

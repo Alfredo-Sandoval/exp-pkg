@@ -97,10 +97,14 @@ def labels_from_pose_tracks(
     track_names: Sequence[str] | None = None,
     skeleton_links: Sequence[tuple[int, int]] | None = None,
 ) -> _Labels:
-    """Convert PoseTrack arrays into the canonical `xpkg.model.Labels` object."""
+    """Convert PoseTrack arrays into the canonical `xpkg.model.Labels` object.
+
+    Builds ``PredictedInstance`` records so per-keypoint confidence and the
+    instance-level prediction score travel with each frame.
+    """
 
     from xpkg.model import Labels
-    from xpkg.pose.annotations import Instance, LabeledFrame, Track
+    from xpkg.pose.annotations import LabeledFrame, PredictedInstance, Track
 
     frame_count, node_names = validate_pose_tracks_consistency(
         tracks,
@@ -122,7 +126,7 @@ def labels_from_pose_tracks(
         ]
 
     for frame_idx in range(frame_count):
-        instances: list[Instance] = []
+        instances: list[PredictedInstance] = []
         for track_idx, track in enumerate(tracks):
             points = points_from_coords_scores(
                 node_names,
@@ -135,12 +139,12 @@ def labels_from_pose_tracks(
 
             instance_kwargs: dict[str, Any] = {
                 "skeleton": skeleton,
-                "tracking_score": float(track.instance_score[frame_idx]),
+                "score": float(track.instance_score[frame_idx]),
                 "init_points": points,
             }
             if track_defs is not None:
                 instance_kwargs["track"] = track_defs[track_idx]
-            instances.append(Instance(**instance_kwargs))
+            instances.append(PredictedInstance(**instance_kwargs))
 
         if instances:
             labels.append(LabeledFrame(video=video, frame_idx=frame_idx, instances=instances))
