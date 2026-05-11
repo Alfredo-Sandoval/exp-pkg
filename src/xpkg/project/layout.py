@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
+from .._core.json_utils import load_json_dict, write_json
 from .._core.path_registry import ensure_dir, resolve_path
 
 PROJECT_DESCRIPTOR_FILENAME = "PROJECT.json"
@@ -125,7 +125,7 @@ class ProjectDescriptor:
 
 def _write_json(path: Path, payload: dict[str, Any]) -> None:
     ensure_dir(path.parent)
-    path.write_text(json.dumps(payload, indent=2, sort_keys=False) + "\n", encoding="utf-8")
+    write_json(path, payload, indent=2, sort_keys=False)
 
 
 def _candidate_project_root(path: str | Path) -> Path:
@@ -161,9 +161,7 @@ def load_project_descriptor(path: str | Path) -> ProjectDescriptor:
     descriptor_path = project_descriptor_path(path)
     if not descriptor_path.is_file():
         raise FileNotFoundError(f"PROJECT.json not found: {descriptor_path}")
-    data = json.loads(descriptor_path.read_text(encoding="utf-8"))
-    if not isinstance(data, dict):
-        raise TypeError(f"PROJECT.json must contain an object: {descriptor_path}")
+    data = load_json_dict(descriptor_path)
     return ProjectDescriptor.from_dict(data)
 
 

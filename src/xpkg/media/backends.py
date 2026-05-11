@@ -2,14 +2,16 @@
 
 from __future__ import annotations
 
-import json
 import shutil
 import subprocess
 from collections.abc import Callable
 from dataclasses import dataclass
 from importlib import import_module
 from importlib.util import find_spec
+from json import JSONDecodeError
 from typing import Any, overload
+
+from xpkg._core.json_utils import parse_json
 
 __all__ = [
     "HardwareAccelerationStatus",
@@ -560,8 +562,8 @@ def _nvpkg_verify_payload(package_name: str) -> dict[str, Any] | None:
 
 def _nvpkg_parse_json(text: str) -> dict[str, Any] | None:
     try:
-        payload = json.loads(text)
-    except json.JSONDecodeError:
+        payload = parse_json(text)
+    except JSONDecodeError:
         return None
     return payload if isinstance(payload, dict) else None
 

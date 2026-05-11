@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import importlib
-import json
 from collections.abc import Iterable, Mapping, Sequence
+from json import JSONDecodeError
 from pathlib import Path
 from typing import Any, Literal
 
@@ -12,6 +12,7 @@ import h5py
 import numpy as np
 import pandas as pd
 
+from xpkg._core.json_utils import parse_json_dict
 from xpkg.model import (
     Event,
     EventTable,
@@ -340,8 +341,8 @@ def _rwd_metadata_line(path: Path) -> tuple[str | None, dict[str, Any] | None]:
     if not first_line.startswith("{"):
         return None, None
     try:
-        return first_line, json.loads(first_line.replace(";", ","))
-    except json.JSONDecodeError:
+        return first_line, parse_json_dict(first_line.replace(";", ","))
+    except JSONDecodeError:
         return first_line, None
 
 

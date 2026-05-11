@@ -6,7 +6,6 @@ outputs from callers such as Fiesta into xpkg segmentation masks and ROIs.
 
 from __future__ import annotations
 
-import json
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -14,6 +13,7 @@ from typing import Any
 
 import numpy as np
 
+from xpkg._core.json_utils import load_json_dict
 from xpkg.segmentation.images import read_binary_mask
 from xpkg.segmentation.model import (
     ROI,
@@ -147,7 +147,7 @@ def masks_from_fiesta_result_json(
     """Read a Fiesta ``result.json`` and convert masks/ROIs to xpkg objects."""
 
     target = Path(path)
-    payload = json.loads(target.read_text(encoding="utf-8"))
+    payload = load_json_dict(target)
     return masks_from_fiesta_summary(
         payload,
         result_root=target.parent,

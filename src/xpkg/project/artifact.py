@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import hashlib
-import json
 import os
 import shutil
 import tempfile
@@ -30,6 +29,7 @@ from xpkg.project.layout import (
 )
 
 from .._core.hashing import sha256_file
+from .._core.json_utils import dump_json, parse_json_dict
 from .._core.path_registry import resolve_path
 
 EXPKG_MANIFEST_FILENAME = "EXPKG.json"
@@ -404,7 +404,7 @@ def pack_project(
         with zipfile.ZipFile(tmp_path, mode="w", compression=zipfile.ZIP_DEFLATED) as archive:
             archive.writestr(
                 EXPKG_MANIFEST_FILENAME,
-                json.dumps(manifest, indent=2, sort_keys=False) + "\n",
+                dump_json(manifest, indent=2, sort_keys=False) + "\n",
                 compress_type=zipfile.ZIP_DEFLATED,
             )
             for source_path in members:
@@ -459,10 +459,10 @@ def _load_expkg_manifest(archive: zipfile.ZipFile) -> dict[str, Any]:
         raise FileNotFoundError(
             f"Packed project artifact is missing {EXPKG_MANIFEST_FILENAME}"
         ) from exc
-    parsed = json.loads(raw)
-    if not isinstance(parsed, dict):
-        raise TypeError(f"Packed {EXPKG_MANIFEST_FILENAME} must contain a JSON object")
-    return parsed
+    try:
+        return parse_json_dict(raw)
+    except TypeError as exc:
+        raise TypeError(f"Packed {EXPKG_MANIFEST_FILENAME} must contain a JSON object") from exc
 
 
 def _zip_member_sha256(archive: zipfile.ZipFile, info: zipfile.ZipInfo) -> str:
@@ -745,9 +745,10 @@ def _validate_expkg_artifact(artifact_path: Path) -> dict[str, Any]:
             _validate_member_payloads(archive, infos, entries)
 
             descriptor_raw = archive.read(PROJECT_DESCRIPTOR_FILENAME).decode("utf-8")
-            descriptor_data = json.loads(descriptor_raw)
-            if not isinstance(descriptor_data, dict):
-                raise TypeError("Packed PROJECT.json must contain a JSON object")
+            try:
+                descriptor_data = parse_json_dict(descriptor_raw)
+            except TypeError as exc:
+                raise TypeError("Packed PROJECT.json must contain a JSON object") from exc
             ProjectDescriptor.from_dict(descriptor_data)
             return manifest
     except zipfile.BadZipFile as exc:

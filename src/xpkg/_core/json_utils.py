@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import os
+import tempfile
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -180,4 +181,18 @@ def write_json(
     )
     if trailing_newline and not text.endswith("\n"):
         text += "\n"
-    path_obj.write_text(text, encoding="utf-8")
+
+    fd, tmp_name = tempfile.mkstemp(
+        dir=str(path_obj.parent),
+        prefix=f".{path_obj.name}.",
+        suffix=".tmp",
+        text=True,
+    )
+    tmp_path = Path(tmp_name)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            handle.write(text)
+        os.replace(tmp_path, path_obj)
+    finally:
+        if tmp_path.exists():
+            tmp_path.unlink()

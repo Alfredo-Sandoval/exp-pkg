@@ -2,14 +2,15 @@
 
 from __future__ import annotations
 
-import json
 import struct
+from json import JSONDecodeError
 from pathlib import Path
 from typing import Any
 
 import numpy as np
 import pandas as pd
 
+from xpkg._core.json_utils import load_json_dict, parse_json_dict
 from xpkg.model import (
     Event,
     EventTable,
@@ -65,7 +66,7 @@ def _read_ppd_words(path: Path) -> tuple[dict[str, Any], np.ndarray]:
         if len(header_json) != header_len:
             raise RuntimeError("Invalid .ppd: incomplete header JSON.")
         try:
-            header = json.loads(header_json.decode("utf-8"))
+            header = parse_json_dict(header_json)
         except UnicodeDecodeError:
             header = {
                 "sampling_rate": int.from_bytes(header_json[32:34], "little"),
@@ -76,7 +77,7 @@ def _read_ppd_words(path: Path) -> tuple[dict[str, Any], np.ndarray]:
                 "version": "0",
                 "header_format": "legacy_binary",
             }
-        except json.JSONDecodeError as exc:
+        except JSONDecodeError as exc:
             raise ValueError(f"Invalid JSON header in .ppd file: {path}") from exc
         payload = handle.read()
     if len(payload) % 2:
@@ -233,8 +234,8 @@ def _load_settings(settings_path: Path | None) -> dict[str, Any]:
     if settings_path is None or not settings_path.is_file():
         return {}
     try:
-        return json.loads(settings_path.read_text(encoding="utf-8"))
-    except json.JSONDecodeError as exc:
+        return load_json_dict(settings_path)
+    except JSONDecodeError as exc:
         raise ValueError(f"Invalid JSON settings file: {settings_path}") from exc
 
 

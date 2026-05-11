@@ -457,8 +457,19 @@ def test_media_surface_is_public() -> None:
 
 def test_json_utils_surface_is_public() -> None:
     assert "json_utils" in xpkg.__all__
-    assert xpkg.json_utils.__all__ == ["dump_json", "parse_json"]
+    assert xpkg.json_utils.__all__ == [
+        "dump_json",
+        "parse_json",
+        "parse_json_dict",
+        "load_json",
+        "load_json_dict",
+        "write_json",
+    ]
     assert xpkg.json_utils.parse_json(xpkg.json_utils.dump_json({"ok": True})) == {"ok": True}
+    assert callable(xpkg.json_utils.parse_json_dict)
+    assert callable(xpkg.json_utils.load_json)
+    assert callable(xpkg.json_utils.load_json_dict)
+    assert callable(xpkg.json_utils.write_json)
 
 
 def test_project_surface_is_project_first_only() -> None:

@@ -8,7 +8,6 @@ helpers keep that conversion boundary visible.
 from __future__ import annotations
 
 import importlib
-import json
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
@@ -16,6 +15,7 @@ from typing import Any
 import cv2
 import numpy as np
 
+from xpkg._core.json_utils import load_json_dict
 from xpkg.segmentation.model import SegmentationMask
 
 
@@ -215,7 +215,7 @@ def read_coco_annotations(
 ) -> list[SegmentationMask]:
     """Read a COCO JSON file and return segmentation masks."""
 
-    payload = json.loads(Path(path).read_text(encoding="utf-8"))
+    payload = load_json_dict(Path(path))
     annotations = payload.get("annotations", [])
     categories = payload.get("categories", [])
     if not isinstance(annotations, list):

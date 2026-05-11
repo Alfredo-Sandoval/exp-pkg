@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import math
 import re
 import tomllib
@@ -11,6 +10,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, cast
 
+from xpkg._core.json_utils import dump_json
 from xpkg.model.calibration import (
     Calibration,
     CalibrationQuality,
@@ -230,11 +230,11 @@ def read_anipose_calibration(
 def _toml_key(value: str) -> str:
     if _BARE_TOML_KEY_RE.match(value):
         return value
-    return json.dumps(value, ensure_ascii=True)
+    return dump_json(value, ensure_ascii=True, compact=True)
 
 
 def _toml_string(value: str) -> str:
-    return json.dumps(value, ensure_ascii=True)
+    return dump_json(value, ensure_ascii=True, compact=True)
 
 
 def _toml_float(value: float) -> str:

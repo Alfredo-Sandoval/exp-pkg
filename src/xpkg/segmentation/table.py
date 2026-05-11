@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import math
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
@@ -11,6 +10,7 @@ from typing import Any
 
 import numpy as np
 
+from xpkg._core.json_utils import dump_json, parse_json
 from xpkg.segmentation.model import MaskType, SegmentationMask
 from xpkg.segmentation.rle import XPKG_RLE_ENCODING, XPKG_RLE_ORDER
 
@@ -108,7 +108,7 @@ def _import_pyarrow() -> tuple[Any, Any]:
 def _metadata_value(value: object) -> str:
     if isinstance(value, str):
         return value
-    return json.dumps(value, sort_keys=True, separators=(",", ":"))
+    return dump_json(value, sort_keys=True, compact=True)
 
 
 def _metadata_bytes(
@@ -288,7 +288,7 @@ def _parse_int_metadata(raw: Mapping[str, str], key: str) -> int | None:
 
 def _parse_instance_roster(raw: Mapping[str, str]) -> tuple[MaskTableInstance, ...]:
     payload = raw.get("instance_roster", "[]")
-    values = json.loads(payload)
+    values = parse_json(payload)
     if not isinstance(values, list):
         raise ValueError("Mask table metadata field 'instance_roster' must be a list.")
     roster: list[MaskTableInstance] = []
