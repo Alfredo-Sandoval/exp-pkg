@@ -4,8 +4,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from xpkg._core.json_utils import load_json_dict, write_json
 from xpkg.model.calibration import Calibration
+
+from .._core.json_utils import load_json_dict, write_json
 
 
 def read_calibration_json(path: str | Path) -> Calibration:

@@ -10,6 +10,7 @@ The canonical import locations are:
 * :mod:`xpkg.project` for project lifecycle and metadata
 * :mod:`xpkg.services` for the service-first ``ProjectService`` API
 * :mod:`xpkg.model` for typed data classes
+* :mod:`xpkg.json_utils` for JSON payload parsing and serialization
 * :mod:`xpkg.readers` for format readers (``read_*`` functions)
 * :mod:`xpkg.adapters` for exchange adapters
 * :mod:`xpkg.media` for video/image IO
@@ -24,6 +25,7 @@ from xpkg.version import __version__
 __all__ = [
     "__version__",
     "adapters",
+    "json_utils",
     "media",
     "model",
     "pose",

@@ -14,7 +14,6 @@ from typing import Annotated, Any, get_args
 
 import typer
 
-from xpkg._core.json_utils import load_json_dict
 from xpkg.cli.shared import (
     JsonOption,
     progress_callback,
@@ -40,6 +39,8 @@ from xpkg.project import (
     import_vicon_project,
 )
 from xpkg.services.project import CalibrationFormat, MotionFormat, PoseFormat
+
+from ..._core.json_utils import load_json_dict
 
 app = typer.Typer(
     add_completion=False,

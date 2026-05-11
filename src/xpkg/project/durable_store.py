@@ -19,8 +19,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Literal
 
-from xpkg._core.hashing import sha256_bytes, sha256_file
-from xpkg._core.json_utils import dump_json, load_json_dict, parse_json_dict
+from .._core.hashing import sha256_bytes, sha256_file
+from .._core.json_utils import dump_json, load_json_dict, parse_json_dict
 
 _SUPPORTED_STORE_VERSION = 1
 _STORE_FORMAT = "xpkg.project-durable-store"

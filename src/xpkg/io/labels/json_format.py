@@ -8,8 +8,8 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
-from xpkg._core.json_utils import load_json_dict, write_json
-from xpkg._core.path_registry import ensure_dir, make_path_id
+from ..._core.json_utils import load_json_dict, write_json
+from ..._core.path_registry import ensure_dir, make_path_id
 
 if TYPE_CHECKING:
     from xpkg.io.labels.model import Labels, SuggestionFrame

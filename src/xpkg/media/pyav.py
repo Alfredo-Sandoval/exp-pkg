@@ -12,8 +12,9 @@ from typing import Any
 import cv2
 import numpy as np
 
-from xpkg._core.colors import bgr_to_gray, rgb_to_bgr
 from xpkg.media.backends import require_media_backend
+
+from .._core.colors import bgr_to_gray, rgb_to_bgr
 
 __all__ = ["PyAVCursorState", "PyAVVideoReader", "open_pyav_container", "require_pyav"]
 

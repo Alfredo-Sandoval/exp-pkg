@@ -15,11 +15,12 @@ import h5py
 import numpy as np
 import pandas as pd
 
-from xpkg._core.json_utils import load_json, parse_json
 from xpkg.io.readers.pose import read_pose_track
 from xpkg.project.artifact import EXPKG_MANIFEST_FILENAME
 from xpkg.project.inspection import inspect_project
 from xpkg.project.layout import PROJECT_DESCRIPTOR_FILENAME, resolve_project_root
+
+from ._core.json_utils import load_json, parse_json
 
 
 class InspectionKind(StrEnum):

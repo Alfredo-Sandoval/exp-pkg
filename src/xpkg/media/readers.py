@@ -11,8 +11,6 @@ from typing import Any
 import numpy as np
 from cattrs import Converter
 
-from xpkg._core.colors import bgr_to_rgb
-from xpkg._core.path_registry import resolve_path
 from xpkg.media.backend_utils import normalize_file_video_backend
 from xpkg.media.pyav import PyAVCursorState
 from xpkg.media.reader_backends import (
@@ -22,6 +20,9 @@ from xpkg.media.reader_backends import (
     PyAVBackend,
     VideoBackend,
 )
+
+from .._core.colors import bgr_to_rgb
+from .._core.path_registry import resolve_path
 
 _RECOGNIZED_VIDEO_EXTS = (
     ".avi",

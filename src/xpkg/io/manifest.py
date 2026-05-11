@@ -17,7 +17,7 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Any
 
-from xpkg._core.path_registry import PathId, normalize_separators, slugify_path_component
+from .._core.path_registry import PathId, normalize_separators, slugify_path_component
 
 
 class AssetType(StrEnum):

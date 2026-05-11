@@ -20,7 +20,6 @@ from copy import deepcopy
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from xpkg._core.path_registry import ensure_dir
 from xpkg.adapters.vicon import vicon_recording_from_json_payload
 from xpkg.project.layout import (
     load_project_descriptor,
@@ -228,6 +227,8 @@ from xpkg.project.store.provenance import (
 from xpkg.project.store.provenance import (
     _source_inputs_from_metadata as _source_inputs_from_metadata,
 )
+
+from ..._core.path_registry import ensure_dir
 
 if TYPE_CHECKING:
     from xpkg.model import Labels, ViconRecording

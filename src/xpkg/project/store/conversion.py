@@ -7,7 +7,6 @@ from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from xpkg._core.path_registry import resolve_path
 from xpkg.project.layout import (
     resolve_project_root,
 )
@@ -27,6 +26,8 @@ from xpkg.project.store.provenance import (
     _attach_prediction_provenance,
     _persist_pose_provenance,
 )
+
+from ..._core.path_registry import resolve_path
 
 if TYPE_CHECKING:
     from xpkg.model import Labels, ViconRecording

@@ -13,9 +13,10 @@ import imageio.v2 as iio
 import imageio_ffmpeg as _ff
 import numpy as np
 
-from xpkg._core.colors import bgr_to_rgb, ensure_bgr, ensure_three_channels
-from xpkg._core.path_registry import ensure_dir, resolve_path
 from xpkg.media.transforms import augment_background, resize_image
+
+from .._core.colors import bgr_to_rgb, ensure_bgr, ensure_three_channels
+from .._core.path_registry import ensure_dir, resolve_path
 
 __all__ = [
     "VideoWriter",

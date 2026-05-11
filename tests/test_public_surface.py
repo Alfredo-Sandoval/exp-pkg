@@ -179,6 +179,7 @@ def test_root_namespace_is_curated_to_project_first_modules() -> None:
     reloaded = importlib.reload(xpkg)
     reloaded.__dict__.pop("compat", None)
     reloaded.__dict__.pop("adapters", None)
+    reloaded.__dict__.pop("json_utils", None)
     reloaded.__dict__.pop("media", None)
     reloaded.__dict__.pop("pose", None)
     reloaded.__dict__.pop("project", None)
@@ -189,6 +190,7 @@ def test_root_namespace_is_curated_to_project_first_modules() -> None:
     assert reloaded.__all__ == [
         "__version__",
         "adapters",
+        "json_utils",
         "media",
         "model",
         "pose",
@@ -198,6 +200,7 @@ def test_root_namespace_is_curated_to_project_first_modules() -> None:
         "services",
     ]
     assert reloaded.adapters is not None
+    assert reloaded.json_utils is not None
     assert reloaded.media is not None
     assert reloaded.project is not None
     assert reloaded.model is not None
@@ -440,13 +443,22 @@ def test_model_exports_are_available() -> None:
 def test_media_surface_is_public() -> None:
     assert "media" in xpkg.__all__
     assert xpkg.media.Video is Video
+    assert "VideoWithFrames" in xpkg.media.__all__
+    assert "video_total_frames" in xpkg.media.__all__
     assert callable(xpkg.media.available_hardware_accelerators)
     assert callable(xpkg.media.hardware_acceleration_status)
     assert callable(xpkg.media.read_bgr)
     assert callable(xpkg.media.read_rgb)
     assert callable(xpkg.media.read_rgb_bytes)
     assert callable(xpkg.media.require_hardware_acceleration)
+    assert callable(xpkg.media.video_total_frames)
     assert callable(xpkg.media.write_video)
+
+
+def test_json_utils_surface_is_public() -> None:
+    assert "json_utils" in xpkg.__all__
+    assert xpkg.json_utils.__all__ == ["dump_json", "parse_json"]
+    assert xpkg.json_utils.parse_json(xpkg.json_utils.dump_json({"ok": True})) == {"ok": True}
 
 
 def test_project_surface_is_project_first_only() -> None:

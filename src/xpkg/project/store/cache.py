@@ -8,9 +8,6 @@ from copy import deepcopy
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from xpkg._core.hashing import sha256_file
-from xpkg._core.json_utils import write_json
-from xpkg._core.path_registry import ensure_dir
 from xpkg.adapters.vicon import (
     read_vicon_json_payload,
     vicon_recording_from_json_payload,
@@ -50,6 +47,10 @@ from xpkg.project.store.payloads import (
     _predictions_payload_from_state_payload,
     _state_metadata_from_state_payload,
 )
+
+from ..._core.hashing import sha256_file
+from ..._core.json_utils import write_json
+from ..._core.path_registry import ensure_dir
 
 if TYPE_CHECKING:
     from xpkg.model import Labels, ViconRecording

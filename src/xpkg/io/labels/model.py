@@ -13,7 +13,6 @@ import numpy as np
 
 import xpkg.io.labels.export_ops as export_ops
 import xpkg.io.labels.serialization as serialization
-from xpkg._core.logging_utils import get_logger
 from xpkg.io.labels.cache import LabelsDataCache
 from xpkg.io.labels.merge import complex_merge_between as _complex_merge_between
 from xpkg.io.labels.merge import finish_complex_merge as _finish_complex_merge
@@ -32,6 +31,8 @@ from xpkg.pose.skeleton import (
     Keypoint,
     Skeleton,
 )
+
+from ..._core.logging_utils import get_logger
 
 logger = get_logger(__name__)
 

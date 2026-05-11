@@ -6,12 +6,13 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
-from xpkg._core.path_registry import resolve_path
 from xpkg.project.store.conversion import (
     _import_pose_project,
     _import_vicon_project_recording,
     _merge_labels_for_import,
 )
+
+from ..._core.path_registry import resolve_path
 
 
 def import_vicon_csv_project(

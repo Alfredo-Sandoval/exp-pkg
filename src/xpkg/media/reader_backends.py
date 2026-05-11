@@ -11,10 +11,11 @@ from typing import Any, Protocol, cast
 import cv2
 import numpy as np
 
-from xpkg._core.colors import bgr_to_gray, rgb_to_bgr
 from xpkg.media import backend_utils
 from xpkg.media.images import read_bgr
 from xpkg.media.pyav import PyAVVideoReader
+
+from .._core.colors import bgr_to_gray, rgb_to_bgr
 
 _CV2_ANY = cast(Any, cv2)
 

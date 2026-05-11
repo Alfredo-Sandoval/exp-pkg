@@ -12,10 +12,11 @@ from typing import Any, Literal
 
 import h5py
 
-from xpkg._core.json_utils import parse_json_dict
-from xpkg._core.logging_utils import get_logger
-from xpkg._core.path_registry import resolve_path
 from xpkg.pose.skeleton import Skeleton
+
+from .._core.json_utils import parse_json_dict
+from .._core.logging_utils import get_logger
+from .._core.path_registry import resolve_path
 
 logger = get_logger(__name__)
 

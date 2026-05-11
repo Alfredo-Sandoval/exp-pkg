@@ -7,11 +7,12 @@ from dataclasses import replace
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from xpkg._core.path_registry import ensure_dir, resolve_path, slugify_path_component
 from xpkg.project.layout import (
     project_media_root,
     project_store_root,
 )
+
+from ..._core.path_registry import ensure_dir, resolve_path, slugify_path_component
 
 if TYPE_CHECKING:
     from xpkg.model import Labels, ViconRecording

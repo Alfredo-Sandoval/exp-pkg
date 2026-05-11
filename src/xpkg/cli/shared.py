@@ -10,7 +10,7 @@ from typing import Annotated, Any, NoReturn
 import click
 import typer
 
-from xpkg._core.json_utils import dump_json
+from .._core.json_utils import dump_json
 
 JsonOption = Annotated[
     bool,

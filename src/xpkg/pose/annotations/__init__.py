@@ -6,7 +6,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from xpkg._core.logging_utils import get_logger
 from xpkg.pose.annotations.frames import InstancesList, LabeledFrame
 from xpkg.pose.annotations.instances import (
     Instance,
@@ -33,6 +32,8 @@ from xpkg.pose.annotations.regions import (
 )
 from xpkg.pose.annotations.serde import make_instance_cattr
 from xpkg.pose.skeleton import Keypoint, Skeleton
+
+from ..._core.logging_utils import get_logger
 
 logger = get_logger(__name__)
 

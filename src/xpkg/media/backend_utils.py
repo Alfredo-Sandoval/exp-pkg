@@ -8,7 +8,7 @@ from typing import Any
 
 import numpy as np
 
-from xpkg._core.colors import rgb_to_bgr
+from .._core.colors import rgb_to_bgr
 
 FILE_VIDEO_BACKENDS = frozenset({"auto", "decord-gpu", "opencv", "pyav"})
 

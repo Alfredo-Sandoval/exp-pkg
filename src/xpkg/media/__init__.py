@@ -49,6 +49,8 @@ from xpkg.media.video import (
     write_video,
 )
 
+from .._core.video_contract import VideoWithFrames, video_total_frames
+
 __all__ = [
     "FILE_VIDEO_BACKENDS",
     "HardwareAccelerationStatus",
@@ -57,6 +59,7 @@ __all__ = [
     "PyAVVideoResource",
     "SingleImageVideo",
     "Video",
+    "VideoWithFrames",
     "VideoPathMetadata",
     "VideoReader",
     "VideoWriter",
@@ -90,5 +93,6 @@ __all__ = [
     "resize_image",
     "resize_images",
     "supported_nvenc_flags",
+    "video_total_frames",
     "write_video",
 ]

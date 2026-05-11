@@ -6,10 +6,11 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Literal, cast
 
-from xpkg._core.json_utils import load_json_dict
 from xpkg.adapters.vicon import XPKG_VICON_JSON_FORMAT
 from xpkg.io.labels.json_format import XPKG_LABELS_JSON_FORMAT
 from xpkg.project.state_io import PROJECT_COMMIT_ID_KEY
+
+from .._core.json_utils import load_json_dict
 
 ProjectStateKind = Literal["labels", "vicon"]
 

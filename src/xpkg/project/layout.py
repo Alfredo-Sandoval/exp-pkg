@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
-from xpkg._core.path_registry import ensure_dir, resolve_path
+from .._core.path_registry import ensure_dir, resolve_path
 
 PROJECT_DESCRIPTOR_FILENAME = "PROJECT.json"
 EXPKG_SUFFIX = ".expkg"

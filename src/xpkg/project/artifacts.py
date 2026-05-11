@@ -9,14 +9,15 @@ from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Any, cast
 
-from xpkg._core.json_utils import load_json_dict, write_json
-from xpkg._core.path_registry import ensure_dir, resolve_path, slugify_path_component
 from xpkg.project.layout import (
     _now_utc_iso,
     project_artifacts_root,
     project_store_root,
     resolve_project_root,
 )
+
+from .._core.json_utils import load_json_dict, write_json
+from .._core.path_registry import ensure_dir, resolve_path, slugify_path_component
 
 ARTIFACT_MANIFEST_FILENAME = "manifest.json"
 ARTIFACT_INDEX_FILENAME = "index.json"

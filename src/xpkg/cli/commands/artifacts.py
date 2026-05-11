@@ -7,7 +7,6 @@ from typing import Annotated, Any
 
 import typer
 
-from xpkg._core.json_utils import dump_json
 from xpkg.cli.shared import JsonOption, run_command
 from xpkg.project import (
     list_project_artifact_index,
@@ -16,6 +15,8 @@ from xpkg.project import (
     validate_project_artifact,
     validate_project_artifacts,
 )
+
+from ..._core.json_utils import dump_json
 
 app = typer.Typer(
     add_completion=False,

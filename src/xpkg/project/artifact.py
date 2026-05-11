@@ -11,8 +11,6 @@ import zipfile
 from pathlib import Path, PurePosixPath
 from typing import Any, Literal
 
-from xpkg._core.hashing import sha256_file
-from xpkg._core.path_registry import resolve_path
 from xpkg.project.layout import (
     EXPKG_SUFFIX,
     MEDIA_DIRNAME,
@@ -30,6 +28,9 @@ from xpkg.project.layout import (
     resolve_project_root,
     write_project_descriptor,
 )
+
+from .._core.hashing import sha256_file
+from .._core.path_registry import resolve_path
 
 EXPKG_MANIFEST_FILENAME = "EXPKG.json"
 EXPKG_FORMAT = "xpkg-packed-project"

@@ -12,10 +12,11 @@ from typing import TYPE_CHECKING, Any, Protocol
 
 import numpy as np
 
-from xpkg._core.logging_utils import get_logger
-from xpkg._core.path_registry import ensure_dir
-from xpkg._core.video_contract import video_total_frames
+from xpkg.media import video_total_frames
 from xpkg.media.video import Video, available_video_exts, write_video
+
+from ..._core.logging_utils import get_logger
+from ..._core.path_registry import ensure_dir
 
 if TYPE_CHECKING:
     from xpkg.model import Labels as _Labels

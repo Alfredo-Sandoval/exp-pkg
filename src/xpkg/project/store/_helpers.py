@@ -10,7 +10,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from xpkg._core.path_registry import ensure_dir, resolve_path
 from xpkg.project.artifact import validate_project
 from xpkg.project.layout import (
     ProjectDescriptor,
@@ -23,6 +22,8 @@ from xpkg.project.layout import (
     resolve_project_root,
     write_project_descriptor,
 )
+
+from ..._core.path_registry import ensure_dir, resolve_path
 
 
 @dataclass(slots=True)

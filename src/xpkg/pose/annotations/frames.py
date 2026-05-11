@@ -11,7 +11,6 @@ from typing import TYPE_CHECKING, Any, Protocol, SupportsIndex
 
 import numpy as np
 
-from xpkg._core.logging_utils import get_logger
 from xpkg.pose.annotations.instances import (
     Instance,
     InstanceLike,
@@ -20,6 +19,8 @@ from xpkg.pose.annotations.instances import (
     is_predicted_instance,
 )
 from xpkg.pose.annotations.regions import ROI, SegmentationMask
+
+from ..._core.logging_utils import get_logger
 
 logger = get_logger("xpkg.pose.annotations")
 

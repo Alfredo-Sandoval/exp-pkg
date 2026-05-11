@@ -9,7 +9,6 @@ from typing import Any
 
 import numpy as np
 
-from xpkg._core.json_utils import load_json_dict
 from xpkg.model.vicon import (
     ViconAdditionalPointData,
     ViconAnalogData,
@@ -19,6 +18,8 @@ from xpkg.model.vicon import (
     ViconMarkerModel,
     ViconRecording,
 )
+
+from .._core.json_utils import load_json_dict
 
 XPKG_VICON_JSON_FORMAT = "xpkg.vicon-recording-json"
 XPKG_VICON_JSON_VERSION = "1.3.0"
