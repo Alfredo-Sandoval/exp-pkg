@@ -11,6 +11,7 @@ The canonical import locations are:
 * :mod:`xpkg.services` for the service-first ``ProjectService`` API
 * :mod:`xpkg.model` for typed data classes
 * :mod:`xpkg.json_utils` for JSON payload parsing and serialization
+* :mod:`xpkg.payloads` for shared payload-boundary mapping helpers
 * :mod:`xpkg.readers` for format readers (``read_*`` functions)
 * :mod:`xpkg.adapters` for exchange adapters
 * :mod:`xpkg.media` for video/image IO
@@ -28,6 +29,7 @@ __all__ = [
     "json_utils",
     "media",
     "model",
+    "payloads",
     "pose",
     "project",
     "readers",
