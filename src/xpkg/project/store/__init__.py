@@ -18,9 +18,11 @@ from __future__ import annotations
 from collections.abc import Mapping
 from copy import deepcopy
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
+from xpkg._core.json_utils import parse_json
 from xpkg.adapters.vicon import vicon_recording_from_json_payload
+from xpkg.io.labels.json_format import XPKG_LABELS_JSON_FORMAT
 from xpkg.project.layout import (
     load_project_descriptor,
     project_current_state_path,
@@ -234,12 +236,56 @@ if TYPE_CHECKING:
     from xpkg.model import Labels, ViconRecording
 
 
-def load_project_payload(path: str | Path) -> dict[str, Any]:
+_PREDICTIONS_STATE_MARKER = ',"predictions":'
+_STATE_PREFIX_READ_BYTES = 64 * 1024
+
+
+def _labels_state_payload_from_document(document: object) -> dict[str, Any] | None:
+    if not isinstance(document, Mapping):
+        raise TypeError("Project state document must contain a mapping")
+    document_mapping = cast(Mapping[str, object], document)
+    raw_format = str(document_mapping.get("format", "")).strip()
+    if raw_format != XPKG_LABELS_JSON_FORMAT:
+        return None
+    payload = document_mapping.get("payload")
+    if not isinstance(payload, Mapping):
+        return None
+    return dict(cast(Mapping[str, Any], payload))
+
+
+def _read_labels_state_payload_without_predictions(state_path: Path) -> dict[str, Any] | None:
+    text = ""
+    with state_path.open("r", encoding="utf-8") as handle:
+        while True:
+            chunk = handle.read(_STATE_PREFIX_READ_BYTES)
+            if not chunk:
+                return _labels_state_payload_from_document(parse_json(text))
+            text += chunk
+            marker_index = text.find(_PREDICTIONS_STATE_MARKER)
+            if marker_index >= 0:
+                return _labels_state_payload_from_document(
+                    parse_json(text[:marker_index] + "}}")
+                )
+
+
+def _current_labels_state_payload_without_predictions(root: Path) -> dict[str, Any] | None:
+    state_path = current_project_state_path(root)
+    if not state_path.exists():
+        return None
+    return _read_labels_state_payload_without_predictions(state_path)
+
+
+def load_project_payload(path: str | Path, *, include_predictions: bool = True) -> dict[str, Any]:
     """Return the current committed project payload on the public project surface."""
     root = resolve_project_root(path)
     if root is None:
         raise FileNotFoundError(f"Not an xpkg project: {path}")
-    state = _current_project_state_payload(root)
+    state: tuple[dict[str, Any], str] | None
+    if include_predictions:
+        state = _current_project_state_payload(root)
+    else:
+        labels_payload = _current_labels_state_payload_without_predictions(root)
+        state = None if labels_payload is None else (labels_payload, "state_labels")
     if state is None:
         return {"metadata": {}}
     payload, source_kind = state

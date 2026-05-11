@@ -397,6 +397,59 @@ def test_load_project_payload_keeps_predictions_out_of_labels_bundle(tmp_path: P
     assert int(prediction_track_ids[0, 0]) == 7
 
 
+def test_load_project_payload_can_skip_prediction_materialization(tmp_path: Path) -> None:
+    from xpkg.model import Labels
+    from xpkg.project import current_project_state_path, init_project, load_project_payload
+
+    project = tmp_path / "Shallow Prediction Project"
+    init_project(project, title="Shallow Prediction Project")
+    Labels.save_file(
+        _make_predicted_labels(
+            tmp_path,
+            x=10.0,
+            y=20.0,
+            track_id=7,
+            heatmaps=np.ones((1, 2, 2), dtype=np.float32),
+        ),
+        project.as_posix(),
+    )
+    state_path = current_project_state_path(project)
+    original_state = state_path.read_text(encoding="utf-8")
+    state_path.write_text(
+        original_state.replace('"predictions":{', '"predictions":{"invalid_json":', 1),
+        encoding="utf-8",
+    )
+
+    payload = load_project_payload(project, include_predictions=False)
+
+    assert payload["labels"]["frames"]["frame_index"].size == 0
+    assert payload["predictions"]["attrs"]["committed_length"] == 0
+
+
+def test_public_labels_payload_skips_prediction_scan_for_empty_labels(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from xpkg.project.store import payloads
+
+    state_payload = {
+        "frames": {"video_index": [], "frame_index": [], "num_instances": []},
+        "data": {"keypoints": [], "flags": [], "track_ids": []},
+        "videos": {},
+        "skeleton": {"names": ["nose"]},
+        "predictions": {"attrs": {"committed_length": 1000}},
+    }
+
+    def _fail_prediction_scan(*_args: object, **_kwargs: object) -> object:
+        raise AssertionError("empty label payload should not scan predictions")
+
+    monkeypatch.setattr(payloads, "_prediction_instance_signatures", _fail_prediction_scan)
+
+    public = payloads._public_labels_payload_from_state(state_payload, metadata={})
+
+    assert public["frames"]["frame_index"].size == 0
+    assert public["metadata"]["num_frames"] == 0
+
+
 def test_load_project_payload_uses_state_payload(tmp_path: Path) -> None:
     from xpkg.model import Labels
     from xpkg.project import init_project, load_project_payload

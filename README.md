@@ -81,10 +81,16 @@ Choose the public surface by job:
 | Save figure outputs and their lineage manifests | `project.figures.*` from `xpkg.services.ProjectService` |
 | Save or load frame-level segmentation masks | `project.segmentation.*` from `xpkg.services.ProjectService` |
 | Save or window-read dense instance-mask outputs | `xpkg.segmentation.MaskTableReader` / `write_mask_table` |
+| Populate GUI or project-picker rows | `xpkg project describe --json`, `ProjectService.describe()`, `xpkg inspect --json`, or `load_project_descriptor(...)` |
 | Import foreign pose data through explicit free functions | `xpkg.project.import_*_project(...)` |
 
 The explicit `xpkg.project.import_*_project(...)` helpers remain public when
 you want a function-level API or need to import before reopening a project.
+
+For downstream GUIs and catalog scans, keep list views shallow. Use descriptor,
+layout, metadata, and current-state file stats for rows; hydrate labels,
+predictions, recordings, and media only after a user selects a project. The
+full rule set lives in `docs/performance.md`.
 
 Artifacts use a generic registry under `.xpkg/artifacts/<kind>/`, with common
 kind directories such as `figures`, `tables`, `analyses`, `reports`, and
@@ -376,6 +382,11 @@ Use `xpkg inspect PATH --json` before import to identify likely formats,
 importers, media metadata, and QC warnings without mutating a project.
 Input files that are themselves JSON use `--input-json` so `--json` is reserved
 for output mode.
+
+For project pickers and startup catalogs, prefer
+`xpkg project describe PATH --json` or `xpkg inspect PATH --json`. Save
+`xpkg project validate PATH` for explicit validation, packing, publishing, or
+CI.
 
 `xpkg project pack` defaults to `--media full`, which stores all managed
 `Media/` files in the `.expkg`. Use `--media package` to include package-sized

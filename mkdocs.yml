@@ -85,6 +85,7 @@ extra_css:
 nav:
   - Home: index.md
   - Getting Started: getting-started.md
+  - Performance Guidance: performance.md
   - Roadmap: roadmap.md
   - Artifact Contract v1: artifact_contract_v1.md
   - Artifact Namespaces: artifact-namespaces.md

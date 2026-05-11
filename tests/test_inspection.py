@@ -157,6 +157,28 @@ def test_inspect_path_reports_empty_project(tmp_path: Path) -> None:
     assert report.summary["has_current_state"] is False
 
 
+def test_inspect_path_summarizes_project_state_without_payload_load(tmp_path: Path) -> None:
+    from xpkg.project import current_project_state_path
+    from xpkg.services import ProjectService
+
+    project = ProjectService.create(tmp_path / "Large Project", title="Large Project")
+    state_path = current_project_state_path(project.project_root)
+    state_path.parent.mkdir(parents=True, exist_ok=True)
+    state_path.write_text(
+        '{"format":"xpkg.labels-json","version":1,"payload":{"metadata":{},"predictions":'
+        + ("0" * 16_384),
+        encoding="utf-8",
+    )
+
+    report = inspect_path(project.project_root)
+
+    assert report.kind is InspectionKind.XPKG_PROJECT
+    assert report.summary["title"] == "Large Project"
+    assert report.summary["state_kind"] == "labels"
+    assert report.summary["has_current_state"] is True
+    assert report.summary["state_bytes"] == state_path.stat().st_size
+
+
 def test_inspection_report_to_dict_round_trips_wire_format(tmp_path: Path) -> None:
     csv_path = tmp_path / "events.csv"
     csv_path.write_text("time,label,duration\n0.1,cue,0.2\n", encoding="utf-8")

@@ -105,6 +105,7 @@ pMAT, generic CSV) and event tables, all through `xpkg.readers`.
 | Create / open / pack / unpack a project | `xpkg.services.ProjectService` |
 | Import an external pose, calibration, or motion file | `project.import_pose / import_calibration / import_motion` |
 | Attach durable typed metadata to a project | `project.metadata` / `project.metadata.update(...)` |
+| Populate a GUI/project-picker row | `xpkg project describe --json` / `ProjectService.describe()` |
 | Read a single file into typed objects | `xpkg.readers.read_*` |
 | Build typed model objects in-memory | `xpkg.model` |
 | Convert between arrays / tables / JSON payloads | `xpkg.adapters` |
@@ -135,6 +136,7 @@ place — pack to publish, unpack to keep working.
 
 [Read the artifact contract →](artifact_contract_v1.md){ .md-button }
 [Read the CLI spec →](cli_command_spec_v1.md){ .md-button }
+[Read the performance guide →](performance.md){ .md-button }
 
 ## Lifecycle
 

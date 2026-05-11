@@ -43,6 +43,16 @@ xpkg project
 - `xpkg describe --json` exposes the current command contract for agents.
 - Shell completion is exposed through `xpkg completion bash`, `xpkg completion
   zsh`, and `xpkg completion fish`.
+- `xpkg inspect` and `xpkg project describe` are the preferred lightweight
+  surfaces for project pickers and startup catalog scans.
+- Commands named `inspect`, `describe`, `list`, or `summary` must not hydrate
+  full labels, predictions, recordings, or media unless their command-specific
+  contract explicitly says so.
+- Commands named `validate`, `pack`, `unpack`, `load`, or `import` may read full
+  state because they are explicit lifecycle or data actions.
+- Downstream apps should follow [Performance Guidance](performance.md): list
+  with descriptor/layout metadata, hydrate only after user selection, and
+  validate only on explicit validation, pack, publish, or CI actions.
 
 ## `xpkg inspect`
 
@@ -62,6 +72,8 @@ xpkg inspect "./My Project" --json
 - Reports the inferred input kind and likely importer names when available.
 - Reports lightweight media, table, project, or pose-QC summaries when the
   metadata can be read safely.
+- For project folders, reports descriptor/current-state presence without
+  materializing full labels, predictions, Vicon recordings, or media.
 - Emits warnings for missing metadata, unknown formats, failed QC reads, or
   unavailable media backends.
 - Uses `--confidence-threshold` / `--threshold` only for pose-confidence QC.
@@ -242,6 +254,8 @@ xpkg project describe "./My Project" --json
 - Returns the normalized managed paths for `PROJECT.json`, `.xpkg/`, `Media/`,
   `Exports/`, and the current state cache.
 - Emits the current `PROJECT.json` descriptor in JSON mode.
+- Does not validate, load labels, load predictions, or parse Vicon recording
+  payloads.
 
 ## `xpkg project pack`
 

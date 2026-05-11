@@ -425,23 +425,37 @@ def _prediction_instance_signatures(
     return grouped
 
 
+def _labels_state_payload_without_predictions(state_payload: dict[str, Any]) -> dict[str, Any]:
+    return {
+        key: deepcopy(value)
+        for key, value in state_payload.items()
+        if key != "predictions"
+    }
+
+
 def _strip_prediction_instances_from_state_payload(
     state_payload: dict[str, Any],
 ) -> dict[str, Any]:
-    stripped_payload = deepcopy(state_payload)
-    predictions_payload = _predictions_payload_from_state_payload(state_payload)
-    prediction_map = _prediction_instance_signatures(predictions_payload)
-    if not prediction_map:
-        return stripped_payload
-
+    stripped_payload = _labels_state_payload_without_predictions(state_payload)
     frames_info = stripped_payload.get("frames")
     data_info = stripped_payload.get("data")
     if not isinstance(frames_info, dict) or not isinstance(data_info, dict):
         raise TypeError("Project state labels payload must contain frames/data mappings")
 
+    raw_num_instances = frames_info.get("num_instances")
+    if raw_num_instances is None:
+        return stripped_payload
+    num_instances = np.asarray(raw_num_instances, dtype=np.int32)
+    if num_instances.size == 0 or int(num_instances.sum()) == 0:
+        return stripped_payload
+
+    predictions_payload = _predictions_payload_from_state_payload(state_payload)
+    prediction_map = _prediction_instance_signatures(predictions_payload)
+    if not prediction_map:
+        return stripped_payload
+
     frame_index = np.asarray(frames_info.get("frame_index", []), dtype=np.int32)
     video_index = np.asarray(frames_info.get("video_index", []), dtype=np.int32)
-    num_instances = np.asarray(frames_info.get("num_instances", []), dtype=np.int32)
     keypoints = np.asarray(data_info.get("keypoints", []), dtype=np.float32)
     flags = np.asarray(data_info.get("flags", []), dtype=np.uint8)
     max_instances = keypoints.shape[1] if keypoints.ndim >= 2 else 1
@@ -523,5 +537,4 @@ def _strip_prediction_instances_from_state_payload(
     data_info["flags"] = kept_flags.tolist()
     data_info["track_ids"] = kept_track_ids.tolist()
     return stripped_payload
-
 

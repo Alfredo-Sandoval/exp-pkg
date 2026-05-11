@@ -110,6 +110,19 @@ By default `project.pack()` includes all managed media. Use
 project should keep video bytes outside the `.expkg` while still recording the
 managed media manifest.
 
+## Use shallow surfaces for project lists
+
+Project pickers, startup scans, and agents should not hydrate full project
+state just to show a row. Use `xpkg project describe PATH --json`,
+`ProjectService.open(PATH).describe()`, `xpkg inspect PATH --json`, or
+`load_project_descriptor(PATH)` for list and catalog work. Reserve
+`ProjectService.load_labels()`, `load_project_payload(PATH)`,
+`ProjectService.inspect()`, and `project.validate()` for explicit open,
+analysis, validation, or publish actions.
+
+Read [Performance Guidance](performance.md) before wiring xpkg into a GUI or
+batch cataloger.
+
 ## Work With The Session Model
 
 Use `xpkg.model` when you want in-memory multimodal objects without creating a

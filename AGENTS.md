@@ -56,6 +56,26 @@ Use `Makefile` targets as the canonical command surface:
 - Do not introduce absolute paths in code, docs, or setup scripts.
 - Use `pathlib` for Python path handling.
 
+## Performance Contract
+
+- Treat descriptor, layout, and metadata reads as the default for list,
+  describe, inspect, startup, and project-picker paths.
+- Do not hydrate labels, predictions, Vicon recordings, dense masks, or media
+  just to populate a project row.
+- Keep `xpkg inspect`, `xpkg project describe`, and `ProjectService.describe()`
+  shallow unless a future command contract explicitly says otherwise.
+- Reserve `load_project_payload`, `ProjectService.load_labels()`,
+  `ProjectService.load_vicon_recording()`, `ProjectService.inspect()`,
+  `project.validate()`, `xpkg project validate`, `pack`, and `unpack` for
+  explicit user-selected open, analysis, validation, publish, or lifecycle
+  actions.
+- If a new summary API must read full project state, document that cost and add
+  a cheaper descriptor-level alternative.
+- When touching project list/open/inspect behavior, add a test that proves list
+  or describe paths do not materialize full state payloads.
+- Keep docs aligned with `docs/performance.md`; do not recommend
+  validation or full payload load for GUI project pickers.
+
 ## Git Safety
 
 - Never discard user changes without explicit approval.
