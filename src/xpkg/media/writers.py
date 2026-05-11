@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import subprocess
+import sys
 from pathlib import Path
 from threading import Event
 from typing import Any
 
 import cv2
 import imageio.v2 as iio
+import imageio_ffmpeg as _ff
 import numpy as np
 
 from xpkg._core.colors import bgr_to_rgb, ensure_bgr, ensure_three_channels
@@ -18,8 +21,16 @@ __all__ = [
     "VideoWriter",
     "VideoWriterImageio",
     "VideoWriterOpenCV",
+    "build_video_writer",
+    "can_use_ffmpeg_writer",
+    "ffmpeg_encoders",
+    "platform_preferred_encoders",
+    "supported_nvenc_flags",
     "write_video",
 ]
+
+_NVENC_FLAGS_CACHE: dict[str, dict[str, bool]] = {}
+_FFMPEG_ENCODER_CACHE: set[str] | None = None
 
 
 def _video_writer_fourcc(code: str) -> int:
@@ -64,17 +75,112 @@ class VideoWriterOpenCV:
     def close(self) -> None:
         self._writer.release()
 
+    def __enter__(self) -> VideoWriterOpenCV:
+        return self
+
+    def __exit__(self, _exc_type: Any, _exc_value: Any, _traceback: Any) -> None:
+        self.close()
+
 
 class VideoWriterImageio:
     """ImageIO-backed encoder used for non-AVI outputs."""
 
-    def __init__(self, filename: str, height: int, width: int, fps: float, **kwargs: Any):
+    _NVENC_CODECS = frozenset({"h264_nvenc", "hevc_nvenc", "av1_nvenc"})
+
+    def __init__(
+        self,
+        filename: str,
+        height: int,
+        width: int,
+        fps: float,
+        *,
+        crf: int = 21,
+        preset: str = "superfast",
+        pixelformat: str = "yuv420p",
+        codec: str | None = None,
+        output_params: list[str] | None = None,
+        tune_nvenc: bool = True,
+        **_kwargs: Any,
+    ):
         del height, width
-        codec = kwargs.get("codec")
-        writer_kwargs: dict[str, Any] = {"fps": fps}
-        if codec is not None:
-            writer_kwargs["codec"] = str(codec)
-        self._writer = iio.get_writer(filename, **writer_kwargs)
+        desired_codec = self._resolve_codec(codec)
+        self.codec = desired_codec
+        self.output_params = self._resolve_output_params(
+            desired_codec=desired_codec,
+            output_params=output_params,
+            tune_nvenc=tune_nvenc,
+            preset=preset,
+            crf=crf,
+        )
+        self._writer = iio.get_writer(
+            filename,
+            fps=fps,
+            codec=desired_codec,
+            pixelformat=pixelformat,
+            macro_block_size=1,
+            output_params=self.output_params,
+        )
+
+    @staticmethod
+    def _resolve_codec(codec: str | None) -> str:
+        if codec is None:
+            return VideoWriterImageio._auto_select_codec()
+        codec_name = str(codec)
+        if codec_name not in ffmpeg_encoders():
+            raise RuntimeError(
+                f"Requested FFmpeg encoder '{codec_name}' is not available. "
+                "Install an FFmpeg build with that encoder or choose a different codec."
+            )
+        return codec_name
+
+    @classmethod
+    def _resolve_output_params(
+        cls,
+        *,
+        desired_codec: str,
+        output_params: list[str] | None,
+        tune_nvenc: bool,
+        preset: str,
+        crf: int,
+    ) -> list[str]:
+        if output_params:
+            return list(output_params)
+        if desired_codec in cls._NVENC_CODECS and bool(tune_nvenc):
+            return cls._build_nvenc_output_params(desired_codec)
+        return ["-preset", preset, "-crf", str(crf)]
+
+    @staticmethod
+    def _build_nvenc_output_params(desired_codec: str) -> list[str]:
+        params = ["-preset", "p5"]
+        supported = supported_nvenc_flags(desired_codec)
+        _append_if_supported(params, supported, "-tune", "hq")
+        _append_if_supported(params, supported, "-rc:v", "vbr")
+        cq = "22" if desired_codec != "av1_nvenc" else "28"
+        _append_if_supported(params, supported, "-cq", cq)
+        _append_first_supported(params, supported, ("-spatial_aq", "-spatial-aq"), "1")
+        _append_first_supported(params, supported, ("-temporal_aq", "-temporal-aq"), "1")
+        _append_first_supported(
+            params,
+            supported,
+            ("-look_ahead", "-rc-lookahead", "-rc_lookahead"),
+            "32",
+        )
+        if desired_codec == "hevc_nvenc":
+            _append_if_supported(params, supported, "-profile:v", "main")
+        if desired_codec == "h264_nvenc":
+            _append_if_supported(params, supported, "-profile:v", "high")
+        return params
+
+    @staticmethod
+    def _auto_select_codec() -> str:
+        encoders = ffmpeg_encoders()
+        for name in [*platform_preferred_encoders(), "libx264"]:
+            if name in encoders:
+                return name
+        raise RuntimeError(
+            "No usable FFmpeg encoder found. Install an FFmpeg build with libx264 "
+            "or request backend='opencv'."
+        )
 
     def add_frame(self, image: np.ndarray, *, bgr: bool = False) -> None:
         frame = ensure_three_channels(image)
@@ -84,6 +190,12 @@ class VideoWriterImageio:
 
     def close(self) -> None:
         self._writer.close()
+
+    def __enter__(self) -> VideoWriterImageio:
+        return self
+
+    def __exit__(self, _exc_type: Any, _exc_value: Any, _traceback: Any) -> None:
+        self.close()
 
 
 class VideoWriter:
@@ -101,12 +213,136 @@ class VideoWriter:
         ext = Path(filename).suffix.lower()
         chosen_backend = backend.strip().lower() if backend else "auto"
         if chosen_backend == "auto":
-            chosen_backend = "opencv" if ext == ".avi" else "imageio"
-        if chosen_backend == "opencv":
+            if can_use_ffmpeg_writer() and ext not in {".avi", ".mkv"}:
+                chosen_backend = "imageio"
+            else:
+                chosen_backend = "opencv"
+        if chosen_backend in {"opencv", "cv2"}:
             return VideoWriterOpenCV(filename, height, width, fps, **kwargs)
-        if chosen_backend == "imageio":
+        if chosen_backend in {"imageio", "ffmpeg"}:
+            if not can_use_ffmpeg_writer():
+                raise RuntimeError(
+                    "Requested ffmpeg backend but imageio-ffmpeg is unavailable. "
+                    "Install imageio-ffmpeg or choose backend='opencv'."
+                )
             return VideoWriterImageio(filename, height, width, fps, **kwargs)
         raise ValueError(f"Unknown video writer backend: {backend}")
+
+
+def build_video_writer(
+    filename: str,
+    height: int,
+    width: int,
+    fps: float,
+    backend: str = "auto",
+    **kwargs: Any,
+) -> VideoWriterOpenCV | VideoWriterImageio:
+    """Create a video writer using the canonical backend-selection policy."""
+    return VideoWriter.builder(filename, height, width, fps, backend=backend, **kwargs)
+
+
+def can_use_ffmpeg_writer() -> bool:
+    """Return true when imageio-ffmpeg can report a usable ffmpeg version."""
+    version = _ff.get_ffmpeg_version()
+    return bool(str(version))
+
+
+def ffmpeg_encoders() -> set[str]:
+    """Return FFmpeg encoder names exposed by imageio-ffmpeg's executable."""
+    global _FFMPEG_ENCODER_CACHE
+    if _FFMPEG_ENCODER_CACHE is not None:
+        return _FFMPEG_ENCODER_CACHE
+    exe = _ff.get_ffmpeg_exe()
+    proc = subprocess.run([exe, "-hide_banner", "-encoders"], capture_output=True, check=False)
+    if proc.returncode != 0:
+        stderr = proc.stderr.decode("utf-8", "replace").strip()
+        raise RuntimeError(f"ffmpeg -encoders failed ({proc.returncode}): {stderr}")
+    encoders: set[str] = set()
+    for line in proc.stdout.decode("utf-8", "replace").splitlines():
+        parts = line.strip().split()
+        if len(parts) < 2:
+            continue
+        flags, name = parts[0], parts[1]
+        if len(flags) >= 2 and flags[0] in {"V", "A", "S"}:
+            encoders.add(name)
+    if not encoders:
+        raise RuntimeError("ffmpeg -encoders returned no parsable encoder names.")
+    _FFMPEG_ENCODER_CACHE = encoders
+    return encoders
+
+
+def platform_preferred_encoders() -> list[str]:
+    """Return platform-preferred hardware encoders before CPU libx264."""
+    if sys.platform == "darwin":
+        return ["h264_videotoolbox", "hevc_videotoolbox"]
+    if sys.platform.startswith("linux"):
+        return [
+            "h264_nvenc",
+            "hevc_nvenc",
+            "av1_nvenc",
+            "h264_qsv",
+            "hevc_qsv",
+            "h264_vaapi",
+            "hevc_vaapi",
+        ]
+    return []
+
+
+def supported_nvenc_flags(codec: str) -> dict[str, bool]:
+    """Probe `ffmpeg -h encoder=<codec>` for supported NVENC flags."""
+    if codec in _NVENC_FLAGS_CACHE:
+        return _NVENC_FLAGS_CACHE[codec]
+    tokens = [
+        "-tune",
+        "-rc:v",
+        "-cq",
+        "-spatial_aq",
+        "-spatial-aq",
+        "-temporal_aq",
+        "-temporal-aq",
+        "-look_ahead",
+        "-rc-lookahead",
+        "-rc_lookahead",
+        "-profile:v",
+    ]
+    out = {token: False for token in tokens}
+    exe = _ff.get_ffmpeg_exe()
+    proc = subprocess.run(
+        [exe, "-hide_banner", "-h", f"encoder={codec}"],
+        capture_output=True,
+        check=False,
+    )
+    if proc.returncode != 0:
+        stderr = proc.stderr.decode("utf-8", "replace").strip()
+        raise RuntimeError(f"ffmpeg encoder help failed ({proc.returncode}): {stderr}")
+    helptext = proc.stdout.decode("utf-8", "replace") + proc.stderr.decode("utf-8", "replace")
+    lower_text = helptext.lower()
+    for token in tokens:
+        key = token.lstrip("-").replace("_", "-")
+        out[token] = (key in lower_text) or (token in lower_text)
+    _NVENC_FLAGS_CACHE[codec] = out
+    return out
+
+
+def _append_if_supported(
+    output_params: list[str], supported: dict[str, bool], option: str, *values: str
+) -> bool:
+    if not supported.get(option):
+        return False
+    output_params.extend([option, *values])
+    return True
+
+
+def _append_first_supported(
+    output_params: list[str],
+    supported: dict[str, bool],
+    options: tuple[str, ...],
+    value: str,
+) -> bool:
+    for option in options:
+        if _append_if_supported(output_params, supported, option, value):
+            return True
+    return False
 
 
 def write_video(
@@ -134,7 +370,7 @@ def write_video(
         scale,
     )
     height, width = prepared_first.shape[:2]
-    writer = VideoWriter.builder(str(filename_path), height=height, width=width, fps=float(fps))
+    writer = build_video_writer(str(filename_path), height=height, width=width, fps=float(fps))
 
     try:
         total = len(frames)

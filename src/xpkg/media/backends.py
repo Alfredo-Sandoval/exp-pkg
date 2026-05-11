@@ -133,6 +133,12 @@ _MEDIA_BACKENDS: tuple[_MediaBackendSpec, ...] = (
         extra="dl",
     ),
     _MediaBackendSpec(
+        name="decord",
+        modules=("decord",),
+        role="Decord video decode including explicit GPU frame and batch readers",
+        extra="media-dl",
+    ),
+    _MediaBackendSpec(
         name="torchvision",
         modules=("torch", "torchvision"),
         role="PyTorch vision transforms, image utilities, and model-adjacent operations",
@@ -353,6 +359,8 @@ def _normalize_backend_name(name: str) -> str:
         "av": "pyav",
         "onnx": "onnxruntime",
         "ort": "onnxruntime",
+        "decord-gpu": "decord",
+        "decord-cuda": "decord",
         "torch-codec": "torchcodec",
         "torch-codecs": "torchcodec",
     }

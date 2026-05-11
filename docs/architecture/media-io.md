@@ -338,18 +338,30 @@ to accelerate.
 
 ## Migration Plan
 
+### Current Cutover State
+
+xpkg now owns the generic media behavior that downstream GUI apps were
+duplicating: directory and single-image-as-video inputs, BGR/uint8 frame
+contracts, exact frame access, safe batch reads, strided and batched iteration,
+explicit `opencv` / `pyav` / `decord-gpu` backend requests, writer factory
+selection, FFmpeg encoder probing, and deterministic selected-frame extraction.
+
+Downstream apps should import these from `xpkg.media.*` directly. App-side code
+should keep only GUI scheduling, worker/progress routing, live latest-frame
+buffers, and product-specific inference/training integration.
+
 ### Phase 1: Make xpkg authoritative
 
 - Keep `Video`, `VideoReader`, `VideoWriter`, and `write_video` as the public
   surface in xpkg.
-- Move or reimplement the generic backend logic currently duplicated in downstream GUI apps.
-- Add capability discovery and explicit backend naming in xpkg.
-- Keep downstream GUI apps consuming their current stack until xpkg parity is demonstrated.
+- Keep generic backend logic and explicit backend naming in xpkg.
+- Move downstream GUI apps to direct xpkg imports once their targeted integration
+  tests pass.
 
 ### Phase 2: Port generic performance features
 
-- Move generic image-sequence handling, exact-seek behavior, and writer
-  capability logic into xpkg.
+- Keep generic image-sequence handling, exact-seek behavior, and writer
+  capability logic in xpkg.
 - Add accelerated Linux/CUDA and macOS backends behind the same contract.
 - Add conformance tests that compare all supported backends to the reference
   backend.

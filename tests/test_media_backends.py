@@ -41,6 +41,7 @@ def test_media_backend_registry_keeps_heavy_stacks_optional() -> None:
     statuses = {status.name: status for status in media_backend_status()}
 
     assert statuses["pyav"].extra == "media-rich"
+    assert statuses["decord"].extra == "media-dl"
     assert statuses["torch"].extra == "dl"
     assert statuses["torchcodec"].extra == "dl"
     assert statuses["torchvision"].extra == "dl"
@@ -53,6 +54,7 @@ def test_media_backend_registry_keeps_heavy_stacks_optional() -> None:
 
 def test_media_backend_lookup_normalizes_common_aliases() -> None:
     assert media_backend_status("av").name == "pyav"
+    assert media_backend_status("decord-gpu").name == "decord"
     assert media_backend_status("onnx").name == "onnxruntime"
     assert media_backend_status("torch-codec").name == "torchcodec"
 
@@ -170,6 +172,7 @@ def test_pyproject_declares_media_and_deep_learning_extras() -> None:
     ]
     assert extras["media-dl"] == [
         "av>=16,<17",
+        "decord>=0.6,<1",
         "kornia>=0.8,<1",
         "mlx>=0.31,<1",
         "nvpkg>=0.1,<1; platform_system == 'Linux'",

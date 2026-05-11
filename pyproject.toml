@@ -113,6 +113,7 @@ hardware-accel = [
 ]
 media-dl = [
   "av>=16,<17",
+  "decord>=0.6,<1",
   "kornia>=0.8,<1",
   "mlx>=0.31,<1",
   "nvpkg>=0.1,<1; platform_system == 'Linux'",
