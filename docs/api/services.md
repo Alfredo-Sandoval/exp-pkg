@@ -1,14 +1,57 @@
 # Services
 
-<div class="page-intro">
-<p>
-<code>xpkg.services</code> is the normal downstream API for xpkg projects.
-Start here when you want one consumer-facing object that can create, open,
-import into, validate, pack, or unpack a project-first project.
-</p>
-</div>
+`xpkg.services` is the normal downstream API for xpkg projects. Start here
+when you want one consumer-facing object that can create, open, import into,
+validate, pack, or unpack a project-first project.
 
-## Start Here
+## ProjectService at a glance
+
+```mermaid
+flowchart TD
+    svc["ProjectService"]:::accent
+
+    svc -->|.metadata| meta["ProjectMetadata<br/><span style='font-size:0.75em;opacity:0.7'>typed durable slots</span>"]
+    svc -->|.artifacts| arts["ProjectArtifacts<br/><span style='font-size:0.75em;opacity:0.7'>generic registry</span>"]
+    svc -->|.figures| figs["ProjectFigures<br/><span style='font-size:0.75em;opacity:0.7'>figure convenience</span>"]
+    svc -->|.calibrations| cals["ProjectCalibrations<br/><span style='font-size:0.75em;opacity:0.7'>camera calibrations</span>"]
+    svc -->|.segmentation| segs["ProjectSegmentation<br/><span style='font-size:0.75em;opacity:0.7'>frame masks</span>"]
+
+    svc -->|.import_pose| ipose[["import_pose(format, ...)"]]
+    svc -->|.import_calibration| ical[["import_calibration(format, ...)"]]
+    svc -->|.import_motion| imot[["import_motion(format, ...)"]]
+
+    ipose -.dispatch.-> dlc["import_dlc_csv_project<br/>import_dlc_h5_project<br/>import_sleap_h5_project<br/>…"]
+    ical -.dispatch.-> ani["import_anipose_calibration_project"]
+    imot -.dispatch.-> vic["import_vicon_project<br/>import_vicon_csv_project<br/>import_vicon_c3d_project"]
+
+    classDef accent stroke-width:1.5px;
+```
+
+The dispatch methods select the underlying `xpkg.project.import_*_project`
+free function by a kebab-case ``format`` string typed as `PoseFormat`,
+`CalibrationFormat`, or `MotionFormat`.
+
+## Metadata accessor
+
+```mermaid
+flowchart LR
+    pm["project.metadata"]:::accent
+    pm --> acq["acquisition<br/><span style='font-size:0.75em;opacity:0.7'>AcquisitionMetadata</span>"]
+    pm --> ds["dataset_share<br/><span style='font-size:0.75em;opacity:0.7'>DatasetShareMetadata</span>"]
+    pm --> dh["datasheet<br/><span style='font-size:0.75em;opacity:0.7'>DatasetDatasheet</span>"]
+    pm --> mc["model_card<br/><span style='font-size:0.75em;opacity:0.7'>ModelCard</span>"]
+    pm --> pp["pose_provenance<br/><span style='font-size:0.75em;opacity:0.7'>PoseModelProvenance</span>"]
+
+    pm -->|.update **slots| upd[[".xpkg/metadata/&lt;slot&gt;.json"]]
+
+    classDef accent stroke-width:1.5px;
+```
+
+Each slot is read as a property and written via `project.metadata.update(...)`.
+Slots provided as `None` are not touched; the call returns a `dict[str, Path]`
+of slots actually written.
+
+## Start here
 
 - Use <code>ProjectService</code> as the stable consumer contract for project
   lifecycle operations.
@@ -306,6 +349,51 @@ Use `mode="append"` to add masks to a frame without replacing the existing
 ones. Use `project.segmentation.load_frames(...)` when you want every frame
 that currently has segmentation masks, with optional filters such as
 `predicted=True` or `class_name="cell"`.
+
+For high-volume model outputs, use the Parquet mask-table surface instead of
+committing every mask into project labels state. A mask table stores one row per
+`(frame_index, instance_id)` with the existing `xpkg.rle.v1` payload in a
+Parquet binary column, plus footer metadata for the schema, RLE order, frame
+size, and instance roster:
+
+```python
+import numpy as np
+
+from xpkg.segmentation import (
+    MaskTableInstance,
+    MaskTableReader,
+    MaskTableRecord,
+    SegmentationMask,
+    write_mask_table,
+)
+
+binary = np.zeros((480, 640), dtype=np.uint8)
+binary[120:260, 180:340] = 1
+
+write_mask_table(
+    "session-instance-masks.parquet",
+    [
+        MaskTableRecord(
+            frame_index=42,
+            instance_index=0,
+            instance_id="left-paw",
+            mask=SegmentationMask.from_binary_mask(binary, class_name="paw"),
+            source="sam2",
+        )
+    ],
+    instance_roster=[
+        MaskTableInstance(instance_index=0, instance_id="left-paw", class_name="paw")
+    ],
+)
+
+reader = MaskTableReader("session-instance-masks.parquet")
+frame_masks = reader.read_frame(42)
+dense_window = reader.decode_dense(0, 256)
+```
+
+Use project-state segmentation for small hand-authored annotations and use mask
+tables for dense SAM/SAM2-style outputs that downstream analysis reads in frame
+windows.
 
 ## Secondary Public Surfaces
 

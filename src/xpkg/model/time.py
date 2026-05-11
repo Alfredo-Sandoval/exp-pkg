@@ -90,10 +90,18 @@ class Timebase:
 
 @dataclass(frozen=True, slots=True)
 class Timeline:
-    """Strictly increasing sample or frame timestamps."""
+    """Strictly increasing sample or frame timestamps.
+
+    ``sample_rate_hz`` is an optional explicit hint stored by constructors
+    that know the rate exactly (e.g. ``from_sample_rate``). When set, it
+    bypasses the diff-based derivation in ``estimated_sample_rate_hz`` —
+    deriving a regular rate from float64 timestamps loses precision at the
+    ULP level when the timeline sits at a large session offset.
+    """
 
     timestamps_s: np.ndarray
     timebase: Timebase = field(default_factory=Timebase)
+    sample_rate_hz: float | None = None
 
     def __post_init__(self) -> None:
         timestamps_s = np.asarray(self.timestamps_s, dtype=np.float64)
@@ -110,6 +118,14 @@ class Timeline:
             raise ValueError("timeline timestamps_s must be strictly increasing.")
         if not isinstance(self.timebase, Timebase):
             raise TypeError(f"timeline timebase must be a Timebase, got {self.timebase!r}.")
+        if self.sample_rate_hz is not None:
+            rate = float(self.sample_rate_hz)
+            if not np.isfinite(rate) or rate <= 0.0:
+                raise ValueError(
+                    f"timeline sample_rate_hz must be a positive finite number, "
+                    f"got {self.sample_rate_hz!r}."
+                )
+            object.__setattr__(self, "sample_rate_hz", rate)
 
         object.__setattr__(self, "timestamps_s", timestamps_s)
 
@@ -131,7 +147,11 @@ class Timeline:
         if rate <= 0.0:
             raise ValueError(f"sample_rate_hz must be positive, got {rate}.")
         timestamps = start + (np.arange(sample_count, dtype=np.float64) / rate)
-        return cls(timestamps_s=timestamps, timebase=timebase or Timebase())
+        return cls(
+            timestamps_s=timestamps,
+            timebase=timebase or Timebase(),
+            sample_rate_hz=rate,
+        )
 
     @property
     def n_samples(self) -> int:
@@ -160,7 +180,17 @@ class Timeline:
 
     @property
     def estimated_sample_rate_hz(self) -> float | None:
-        """Return the regular sample rate if timestamps are evenly spaced."""
+        """Return the regular sample rate if timestamps are evenly spaced.
+
+        Constructors that know the rate (``from_sample_rate``) stash it on
+        ``sample_rate_hz`` so it survives float64 timestamp arithmetic
+        intact. When no hint is stored we fall back to the regression form
+        ``(n - 1) / (t_last - t_first)`` after a uniform-spacing check —
+        more stable than ``1 / median(diff)`` for offset timelines, but
+        still subject to ULP-level drift.
+        """
+        if self.sample_rate_hz is not None:
+            return float(self.sample_rate_hz)
         if self.timestamps_s.size < 2:
             return None
         diffs = np.diff(self.timestamps_s)
@@ -169,7 +199,11 @@ class Timeline:
             return None
         if not np.allclose(diffs, step, rtol=1e-6, atol=1e-9):
             return None
-        return float(1.0 / step)
+        n = int(self.timestamps_s.size)
+        span = float(self.timestamps_s[-1] - self.timestamps_s[0])
+        if span <= 0.0:
+            return None
+        return float((n - 1) / span)
 
     def nearest_index(self, time_s: float) -> int:
         """Return the nearest timestamp index for ``time_s``."""

@@ -26,10 +26,7 @@ def _fixture_root() -> Path:
 def _fixture(relative_path: str) -> Path:
     path = _fixture_root() / relative_path
     if not path.exists():
-        pytest.skip(
-            "fiber photometry vendor fixture is not downloaded; run "
-            "scripts/fetch_fiber_photometry_fixtures.py"
-        )
+        pytest.skip()
     return path
 
 
@@ -89,7 +86,7 @@ def test_external_neurophotometrics_fixture_loads() -> None:
 
 def test_external_pmat_tdt_block_loads_when_tdt_is_installed() -> None:
     if importlib.util.find_spec("tdt") is None:
-        pytest.skip("optional tdt package is not installed")
+        pytest.skip()
     path = _fixture("pmat_tdt/Photometry-161823")
 
     session = read_tdt_photometry_block(path)

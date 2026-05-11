@@ -240,7 +240,7 @@ def test_explicit_pyav_backend_requires_optional_extra_when_missing(tmp_path: Pa
 
     pyav_status = media_backend_status("pyav")
     if pyav_status.available:
-        pytest.skip("pyav is installed in this environment")
+        pytest.skip()
 
     video_path = tmp_path / "not-a-real-video.mp4"
     video_path.write_bytes(b"not a real video")

@@ -1,11 +1,8 @@
-# Getting Started
+# Getting started
 
-<div class="page-intro">
-<p>
 xpkg is the canonical IO and artifact layer for multimodal neuroscience
-experiment projects. It is not on PyPI yet; clone the repo and install locally.
-</p>
-</div>
+experiment projects. It is not on PyPI yet — clone the repo and install
+locally.
 
 ## Install
 
@@ -15,20 +12,24 @@ cd exp-pkg
 make env
 ```
 
-Fallback if you do not want the canonical setup target:
+`make env` provisions a conda/mamba environment, installs the runtime + docs
+toolchain, and editable-installs the package. If you don't want the canonical
+target, fall back to the dispatcher:
 
 ```bash
 bash environment/setup.sh
 ```
 
-`make env` installs the local dev and docs toolchain. The main local checks are:
+## Local checks
 
 ```bash
-make qa
-make ci-local
+make qa          # ruff + ty + pytest
+make ci-local    # qa + package-check + docs-build
 ```
 
-Build and smoke-test the Python package:
+`docs-build` runs MkDocs with `--strict` — the suite fails on any warning.
+
+## Build the package
 
 ```bash
 make package-check
@@ -36,24 +37,23 @@ make build
 uv pip install dist/exp_pkg-*.whl
 ```
 
-After the first PyPI release, users will install the distribution directly:
+After the first PyPI release the canonical install will be:
 
 ```bash
 uv pip install exp-pkg
 ```
 
-Before a package handoff or PyPI/TestPyPI cut, run the release gate against a
-private real-data corpus:
+Before a release cut, run the gate against a private real-data corpus:
 
 ```bash
 make release-check REAL_DATA_ROOT=/path/to/xpkg-real-data
 ```
 
-## Preview the docs locally
+## Preview the docs
 
 ```bash
-make docs-build
-make docs-serve
+make docs-serve   # http://127.0.0.1:8123 with hot reload
+make docs-build   # one-shot strict build into ./site
 ```
 
 ## Start with the v1 artifact model
@@ -214,6 +214,37 @@ project.segmentation.save_masks(frame_index=42, masks=[mask])
 loaded = project.segmentation.load_masks(frame_index=42)
 ```
 
+For dense model-generated masks, prefer a Parquet mask table. The table stores
+one row per frame/instance, keeps the mask as `xpkg.rle.v1`, and supports
+window reads for downstream GPU pipelines:
+
+```python
+from xpkg.segmentation import (
+    MaskTableInstance,
+    MaskTableRecord,
+    MaskTableReader,
+    write_mask_table,
+)
+
+write_mask_table(
+    "session-instance-masks.parquet",
+    [
+        MaskTableRecord(
+            frame_index=42,
+            instance_index=0,
+            instance_id="cell-0",
+            mask=mask,
+            source="sam2",
+        )
+    ],
+    instance_roster=[
+        MaskTableInstance(instance_index=0, instance_id="cell-0", class_name="cell")
+    ],
+)
+
+window = MaskTableReader("session-instance-masks.parquet").decode_dense(0, 256)
+```
+
 Pick the surface by intent:
 
 | Task | Preferred entrypoint |
@@ -222,6 +253,7 @@ Pick the surface by intent:
 | Register tables, figures, analyses, reports, or stats | `project.artifacts.*` |
 | Save/load figure outputs with lineage | `project.figures.*` |
 | Save/load frame segmentation masks | `project.segmentation.*` |
+| Save/read dense instance-mask model outputs | `xpkg.segmentation.MaskTableReader` / `write_mask_table` |
 | Function-level project imports | `xpkg.project.import_*_project(...)` |
 
 ## Lifecycle-only example

@@ -147,7 +147,9 @@ from xpkg.project import (
     write_project_descriptor,
 )
 from xpkg.readers import (
+    read_abf,
     read_doric_photometry,
+    read_ephys_csv,
     read_events_csv,
     read_neurophotometrics_csv,
     read_photometry_csv,
@@ -204,7 +206,9 @@ def test_root_namespace_is_curated_to_project_first_modules() -> None:
     assert reloaded.segmentation is not None
     assert reloaded.services is not None
 
+    assert callable(reloaded.readers.read_abf)
     assert callable(reloaded.readers.read_doric_photometry)
+    assert callable(reloaded.readers.read_ephys_csv)
     assert callable(reloaded.readers.read_events_csv)
     assert callable(reloaded.readers.read_neurophotometrics_csv)
     assert callable(reloaded.readers.read_photometry_csv)
@@ -325,7 +329,9 @@ def test_public_exports_are_callable() -> None:
     assert callable(read_vicon_json_payload)
     assert callable(vicon_recording_from_json_payload)
     assert callable(vicon_recording_to_json_payload)
+    assert callable(read_abf)
     assert callable(read_doric_photometry)
+    assert callable(read_ephys_csv)
     assert callable(read_events_csv)
     assert callable(read_neurophotometrics_csv)
     assert callable(read_photometry_csv)

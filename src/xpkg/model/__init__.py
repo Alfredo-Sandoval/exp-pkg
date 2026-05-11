@@ -24,6 +24,14 @@ from xpkg.model.calibration import (
     WorldFrame,
 )
 from xpkg.model.emg import EMGSignalData
+from xpkg.model.ephys import (
+    ChannelRole,
+    EphysRecording,
+    RecordingMode,
+    StimulusEpoch,
+    Sweep,
+    SweepSet,
+)
 from xpkg.model.events import Event, EventTable, SyncEvent
 from xpkg.model.force import ForcePlateData
 from xpkg.model.metadata import (
@@ -128,7 +136,9 @@ __all__ = [
     "ModelCardIntendedUse",
     "ModelCardMetrics",
     "PoseModelProvenance",
+    "ChannelRole",
     "EMGSignalData",
+    "EphysRecording",
     "Event",
     "EventTable",
     "ForcePlateData",
@@ -147,12 +157,16 @@ __all__ = [
     "PhotometryRecording",
     "PoseTrajectory",
     "PromptType",
+    "RecordingMode",
     "RecordingSession",
     "ROI",
     "SegmentationMask",
     "SegmentationPrompt",
     "SignalChannel",
     "Skeleton",
+    "StimulusEpoch",
+    "Sweep",
+    "SweepSet",
     "SyncEvent",
     "Timeline",
     "TimeRange",

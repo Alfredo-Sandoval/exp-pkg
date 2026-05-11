@@ -109,7 +109,7 @@ def test_require_hardware_acceleration_raises_for_unknown_accelerator() -> None:
 def test_require_hardware_acceleration_raises_actionable_error_for_missing_accelerator() -> None:
     status = hardware_acceleration_status("torch-cuda")
     if status.available:
-        pytest.skip("NVIDIA CUDA is available in this environment")
+        pytest.skip()
 
     with pytest.raises(RuntimeError, match=r"exp-pkg\[nvidia\]"):
         require_hardware_acceleration("torch-cuda")
@@ -118,7 +118,7 @@ def test_require_hardware_acceleration_raises_actionable_error_for_missing_accel
 def test_require_hardware_acceleration_reports_nvpkg_install_command() -> None:
     status = hardware_acceleration_status("opencv-cuda")
     if status.available:
-        pytest.skip("OpenCV CUDA is available in this environment")
+        pytest.skip()
 
     with pytest.raises(RuntimeError, match="nvpkg package install opencv_cuda"):
         require_hardware_acceleration("opencv-cuda")
@@ -127,7 +127,7 @@ def test_require_hardware_acceleration_reports_nvpkg_install_command() -> None:
 def test_require_media_backend_raises_actionable_error_for_missing_backend() -> None:
     status = media_backend_status("pyav")
     if status.available:
-        pytest.skip("pyav is installed in this environment")
+        pytest.skip()
 
     with pytest.raises(ImportError, match=r"exp-pkg\[media-rich\]"):
         require_media_backend("pyav")

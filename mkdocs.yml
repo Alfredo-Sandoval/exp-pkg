@@ -6,10 +6,9 @@ repo_url: https://github.com/Alfredo-Sandoval/exp-pkg
 theme:
   name: material
   icon:
-    logo: material/graph-outline
-  font:
-    text: IBM Plex Sans
-    code: IBM Plex Mono
+    logo: material/cube-outline
+    repo: fontawesome/brands/github
+  font: false  # Use the @import in docs/stylesheets/extra.css for Inter + JetBrains Mono.
   features:
     - navigation.instant
     - navigation.instant.progress
@@ -18,22 +17,26 @@ theme:
     - navigation.sections
     - navigation.tracking
     - navigation.top
+    - navigation.path
     - content.code.copy
+    - content.code.annotate
+    - content.tabs.link
     - search.suggest
     - search.highlight
+    - search.share
     - toc.follow
   palette:
     - media: "(prefers-color-scheme: dark)"
       scheme: slate
-      primary: teal
-      accent: amber
+      primary: black
+      accent: teal
       toggle:
         icon: material/weather-sunny
         name: Switch to light mode
     - media: "(prefers-color-scheme: light)"
       scheme: default
-      primary: teal
-      accent: amber
+      primary: white
+      accent: teal
       toggle:
         icon: material/weather-night
         name: Switch to dark mode
@@ -68,7 +71,11 @@ markdown_extensions:
   - pymdownx.highlight
   - pymdownx.inlinehilite
   - pymdownx.snippets
-  - pymdownx.superfences
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
   - pymdownx.tabbed:
       alternate_style: true
 

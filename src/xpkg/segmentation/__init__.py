@@ -53,8 +53,27 @@ from xpkg.segmentation.sam import (
     masks_from_fiesta_summary,
     masks_from_sam_arrays,
 )
+from xpkg.segmentation.table import (
+    DEFAULT_ROW_GROUP_SIZE,
+    MASK_TABLE_KIND,
+    MASK_TABLE_SCHEMA_VERSION,
+    MaskTableInfo,
+    MaskTableInstance,
+    MaskTableReader,
+    MaskTableRecord,
+    MaskTableWriter,
+    write_mask_table,
+)
 
 __all__ = [
+    "DEFAULT_ROW_GROUP_SIZE",
+    "MASK_TABLE_KIND",
+    "MASK_TABLE_SCHEMA_VERSION",
+    "MaskTableInfo",
+    "MaskTableInstance",
+    "MaskTableReader",
+    "MaskTableRecord",
+    "MaskTableWriter",
     "XPKG_RLE_ENCODING",
     "XPKG_RLE_ORDER",
     "MaskType",
@@ -90,6 +109,7 @@ __all__ = [
     "rle_encode",
     "segmentation_to_masks",
     "write_binary_mask",
+    "write_mask_table",
     "write_label_image",
     "write_normalized_polygon_dataset_yaml",
     "write_normalized_polygon_labels",

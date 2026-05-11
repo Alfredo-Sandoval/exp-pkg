@@ -1,20 +1,40 @@
 # Storage Direction
 
-<div class="page-intro">
-<p>
 xpkg is now project-first in both product language and the normal durable
-write path. The editable contract is project folder + private
-<code>.xpkg/</code> state + portable <code>.expkg</code> export.
-</p>
-</div>
+write path. The editable contract is project folder + private `.xpkg/` state
++ portable `.expkg` export.
 
 !!! info
     Status: current implementation notes. Today the committed source of truth is
-    the durable store head under <code>.xpkg/</code>. Normal project commits
-    store a native state root, while <code>.xpkg/state/current.json</code>
-    remains a rebuildable cache keyed by the durable commit id.
+    the durable store head under `.xpkg/`. Normal project commits store a
+    native state root, while `.xpkg/state/current.json` remains a rebuildable
+    cache keyed by the durable commit id.
 
-## Current Truth
+## Layered storage
+
+```mermaid
+flowchart TB
+    user["👤 User edits"] --> proj
+    proj["📁 Project folder<br/><span style='font-size:0.75em;opacity:0.7'>editable boundary</span>"]:::accent
+    proj --> store
+    proj --> media
+
+    subgraph priv [".xpkg/ — private durable store"]
+        direction TB
+        store["state journal<br/><span style='font-size:0.75em;opacity:0.7'>commit-addressed roots</span>"]
+        cache["state/current.json<br/><span style='font-size:0.75em;opacity:0.7'>rebuildable cache, keyed by HEAD</span>"]
+        meta[".xpkg/metadata/<br/><span style='font-size:0.75em;opacity:0.7'>typed durable slots</span>"]
+        artif[".xpkg/artifacts/<br/><span style='font-size:0.75em;opacity:0.7'>output registry + index.json</span>"]
+        store -->|materialize| cache
+    end
+
+    media["Media/<br/><span style='font-size:0.75em;opacity:0.7'>managed bytes</span>"]
+    proj -.->|project.pack| expkg["📦 Exports/*.expkg<br/><span style='font-size:0.75em;opacity:0.7'>portable manifest</span>"]:::accent
+
+    classDef accent stroke-width:1.5px;
+```
+
+## Current truth
 
 Today xpkg has three storage ideas in play:
 

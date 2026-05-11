@@ -80,6 +80,7 @@ Choose the public surface by job:
 | Register figures, tables, analyses, reports, or other output artifacts | `project.artifacts.*` from `xpkg.services.ProjectService` |
 | Save figure outputs and their lineage manifests | `project.figures.*` from `xpkg.services.ProjectService` |
 | Save or load frame-level segmentation masks | `project.segmentation.*` from `xpkg.services.ProjectService` |
+| Save or window-read dense instance-mask outputs | `xpkg.segmentation.MaskTableReader` / `write_mask_table` |
 | Import foreign pose data through explicit free functions | `xpkg.project.import_*_project(...)` |
 
 The explicit `xpkg.project.import_*_project(...)` helpers remain public when
@@ -131,6 +132,7 @@ Implemented today:
 - readers and project importers for external formats
 - project/store/artifact lifecycle operations
 - media-aware packaging and portable exports
+- Parquet-backed `xpkg.rle.v1` mask tables for dense instance-mask outputs
 
 Mission direction:
 
