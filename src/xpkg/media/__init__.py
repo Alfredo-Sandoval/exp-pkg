@@ -2,6 +2,12 @@
 
 from __future__ import annotations
 
+from xpkg.media.backend_utils import (
+    FILE_VIDEO_BACKENDS,
+    decord_frame_bgr,
+    normalize_file_video_backend,
+    require_decord_gpu_api,
+)
 from xpkg.media.backends import (
     HardwareAccelerationStatus,
     MediaBackendStatus,
@@ -14,7 +20,14 @@ from xpkg.media.backends import (
     require_hardware_acceleration,
     require_media_backend,
 )
+from xpkg.media.frame_sampling import (
+    VideoPathMetadata,
+    extract_frame_indices,
+    probe_video_path,
+    read_frame_indices,
+)
 from xpkg.media.images import read_bgr, read_rgb, read_rgb_bytes
+from xpkg.media.pyav import PyAVCursorState, open_pyav_container
 from xpkg.media.video import (
     PyAVVideoResource,
     SingleImageVideo,
@@ -37,33 +50,43 @@ from xpkg.media.video import (
 )
 
 __all__ = [
+    "FILE_VIDEO_BACKENDS",
     "HardwareAccelerationStatus",
     "MediaBackendStatus",
+    "PyAVCursorState",
     "PyAVVideoResource",
     "SingleImageVideo",
     "Video",
+    "VideoPathMetadata",
     "VideoReader",
     "VideoWriter",
     "VideoWriterImageio",
     "VideoWriterOpenCV",
     "augment_background",
     "available_hardware_accelerators",
-    "available_video_exts",
     "available_media_backends",
+    "available_video_exts",
     "build_video_writer",
     "can_use_ffmpeg_writer",
+    "decord_frame_bgr",
+    "extract_frame_indices",
     "ffmpeg_encoders",
     "gui_playback_backend_for_path",
     "hardware_acceleration_status",
     "media_backend_status",
-    "missing_media_backends",
     "missing_hardware_accelerators",
+    "missing_media_backends",
+    "normalize_file_video_backend",
+    "open_pyav_container",
+    "platform_preferred_encoders",
+    "probe_video_path",
     "read_bgr",
+    "read_frame_indices",
     "read_rgb",
     "read_rgb_bytes",
+    "require_decord_gpu_api",
     "require_hardware_acceleration",
     "require_media_backend",
-    "platform_preferred_encoders",
     "resize_image",
     "resize_images",
     "supported_nvenc_flags",
