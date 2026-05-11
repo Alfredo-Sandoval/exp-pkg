@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterator, Sequence
+from collections.abc import Callable, Iterator, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from threading import Lock
@@ -14,6 +14,7 @@ from cattrs import Converter
 from xpkg._core.colors import bgr_to_rgb
 from xpkg._core.path_registry import resolve_path
 from xpkg.media.backend_utils import normalize_file_video_backend
+from xpkg.media.pyav import PyAVCursorState
 from xpkg.media.reader_backends import (
     DecordGpuBackend,
     ImageSequenceBackend,
@@ -41,6 +42,7 @@ _RECOGNIZED_VIDEO_EXTS = (
 )
 
 __all__ = [
+    "PyAVVideoResource",
     "SingleImageVideo",
     "Video",
     "VideoReader",
@@ -53,6 +55,16 @@ class SingleImageVideo:
     """Supported single-image extensions treated as one-frame videos."""
 
     EXTS = (".png", ".jpg", ".jpeg", ".bmp", ".tif", ".tiff")
+
+
+@dataclass(frozen=True, slots=True)
+class PyAVVideoResource:
+    """Borrowed PyAV container state supplied by an application-level owner."""
+
+    container: Any
+    lock: Any
+    cursor_state: PyAVCursorState
+    release_callback: Callable[[], None] | None = None
 
 
 def available_video_exts() -> list[str]:
@@ -99,6 +111,7 @@ class Video:
         grayscale: bool = False,
         backend: str = "auto",
         color: str = "bgr",
+        pyav_resource: PyAVVideoResource | None = None,
     ):
         self._lock = Lock()
         self.filename: str | None = filename
@@ -120,6 +133,8 @@ class Video:
             backend_choice = normalize_file_video_backend(backend, label="backend")
         if backend_choice == "auto":
             backend_choice = "opencv"
+        if pyav_resource is not None and backend_choice != "pyav":
+            raise ValueError("pyav_resource requires backend='pyav'")
         self.backend = backend_choice
         self._backend: VideoBackend | None = None
         self.width = 0
@@ -149,7 +164,12 @@ class Video:
             if not path.is_file():
                 raise ValueError(f"Not a file: {path}")
             self.filename = path.as_posix()
-            self._backend = self._init_backend(self.filename, self.backend, self.grayscale)
+            self._backend = self._init_backend(
+                self.filename,
+                self.backend,
+                self.grayscale,
+                pyav_resource=pyav_resource,
+            )
         else:
             raise ValueError("Video requires a filename or image filenames")
 
@@ -161,13 +181,28 @@ class Video:
         self.last_frame_idx = max(0, self.frames - 1)
 
     @staticmethod
-    def _init_backend(filename: str, backend: str, grayscale: bool) -> VideoBackend:
+    def _init_backend(
+        filename: str,
+        backend: str,
+        grayscale: bool,
+        *,
+        pyav_resource: PyAVVideoResource | None = None,
+    ) -> VideoBackend:
         choice = normalize_file_video_backend(backend, label="backend")
         if choice == "auto":
             choice = "opencv"
         if choice == "opencv":
             return OpenCVBackend(filename, grayscale=grayscale)
         if choice == "pyav":
+            if pyav_resource is not None:
+                return PyAVBackend(
+                    filename,
+                    grayscale=grayscale,
+                    container=pyav_resource.container,
+                    shared_lock=pyav_resource.lock,
+                    cursor_state=pyav_resource.cursor_state,
+                    release_callback=pyav_resource.release_callback,
+                )
             return PyAVBackend(filename, grayscale=grayscale)
         if choice == "decord-gpu":
             return DecordGpuBackend(filename, grayscale=grayscale)
@@ -421,12 +456,31 @@ class Video:
         grayscale: bool | None = None,
         backend: str = "auto",
         color: str = "bgr",
+        pyav_resource: PyAVVideoResource | None = None,
     ) -> Video:
         return cls(
             filename=filename,
             grayscale=bool(grayscale) if grayscale is not None else False,
             backend=backend,
             color=color,
+            pyav_resource=pyav_resource,
+        )
+
+    @classmethod
+    def from_pyav_resource(
+        cls,
+        filename: str,
+        resource: PyAVVideoResource,
+        *,
+        grayscale: bool | None = None,
+        color: str = "bgr",
+    ) -> Video:
+        return cls.from_media(
+            filename,
+            grayscale=grayscale,
+            backend="pyav",
+            color=color,
+            pyav_resource=resource,
         )
 
     @classmethod

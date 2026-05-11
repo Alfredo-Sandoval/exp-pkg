@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from xpkg.media.readers import (
+    PyAVVideoResource,
     SingleImageVideo,
     Video,
     VideoReader,
@@ -23,6 +24,7 @@ from xpkg.media.writers import (
 )
 
 __all__ = [
+    "PyAVVideoResource",
     "SingleImageVideo",
     "Video",
     "VideoReader",

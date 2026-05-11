@@ -345,6 +345,8 @@ duplicating: directory and single-image-as-video inputs, BGR/uint8 frame
 contracts, exact frame access, safe batch reads, strided and batched iteration,
 explicit `opencv` / `pyav` / `decord-gpu` backend requests, writer factory
 selection, FFmpeg encoder probing, and deterministic selected-frame extraction.
+The `PyAVVideoResource` hook lets downstream apps attach their own PyAV container
+lease policy while xpkg still owns the generic decode semantics.
 
 Downstream apps should import these from `xpkg.media.*` directly. App-side code
 should keep only GUI scheduling, worker/progress routing, live latest-frame

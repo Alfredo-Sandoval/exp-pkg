@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
+from threading import Lock
 
 import cv2
 import numpy as np
@@ -103,13 +105,96 @@ def test_get_frames_safely_rejects_heterogeneous_image_sequence_shapes(tmp_path:
 def test_video_facade_reexports_split_media_modules() -> None:
     from xpkg.media.readers import Video as ReaderVideo
     from xpkg.media.transforms import resize_image
-    from xpkg.media.video import Video, VideoWriter, augment_background
+    from xpkg.media.video import PyAVVideoResource, Video, VideoWriter, augment_background
     from xpkg.media.writers import VideoWriter as WriterVideoWriter
 
     assert Video is ReaderVideo
     assert VideoWriter is WriterVideoWriter
+    assert PyAVVideoResource.__name__ == "PyAVVideoResource"
     assert callable(resize_image)
     assert callable(augment_background)
+
+
+def test_video_from_pyav_resource_passes_shared_container(monkeypatch, tmp_path: Path) -> None:
+    from xpkg.media import readers
+    from xpkg.media.pyav import PyAVCursorState
+    from xpkg.media.video import PyAVVideoResource, Video
+
+    video_path = tmp_path / "shared.mp4"
+    video_path.write_bytes(b"placeholder")
+    container = object()
+    lock = Lock()
+    cursor_state = PyAVCursorState()
+    released: list[bool] = []
+    captured: dict[str, object] = {}
+
+    class _FakePyAVBackend:
+        width = 4
+        height = 3
+        frames = 1
+        fps = 30.0
+        channels = 3
+
+        def __init__(
+            self,
+            filename: str,
+            *,
+            grayscale: bool,
+            container: object,
+            shared_lock: object,
+            cursor_state: object,
+            release_callback: Callable[[], None] | None,
+        ) -> None:
+            captured.update(
+                {
+                    "filename": filename,
+                    "grayscale": grayscale,
+                    "container": container,
+                    "shared_lock": shared_lock,
+                    "cursor_state": cursor_state,
+                    "release_callback": release_callback,
+                }
+            )
+            self._release_callback = release_callback
+
+        def get_frame(self, _idx: int, *, approximate: bool = False) -> np.ndarray:
+            return np.zeros((3, 4, 3), dtype=np.uint8)
+
+        def iter_frames(self):
+            yield np.zeros((3, 4, 3), dtype=np.uint8)
+
+        def iter_frames_stride(self, _stride: int):
+            yield np.zeros((3, 4, 3), dtype=np.uint8)
+
+        def iter_frame_batches_stride(self, _batch_size: int, _stride: int):
+            yield [np.zeros((3, 4, 3), dtype=np.uint8)]
+
+        def close(self) -> None:
+            callback = self._release_callback
+            if callable(callback):
+                callback()
+
+    monkeypatch.setattr(readers, "PyAVBackend", _FakePyAVBackend)
+
+    video = Video.from_pyav_resource(
+        video_path.as_posix(),
+        PyAVVideoResource(
+            container=container,
+            lock=lock,
+            cursor_state=cursor_state,
+            release_callback=lambda: released.append(True),
+        ),
+        grayscale=True,
+    )
+    video.close()
+
+    assert captured["filename"] == video_path.as_posix()
+    assert captured["grayscale"] is True
+    assert captured["container"] is container
+    assert captured["shared_lock"] is lock
+    assert captured["cursor_state"] is cursor_state
+    assert callable(captured["release_callback"])
+    assert released == [True]
 
 
 def test_video_writer_factory_validates_requested_ffmpeg_codec(monkeypatch, tmp_path: Path) -> None:

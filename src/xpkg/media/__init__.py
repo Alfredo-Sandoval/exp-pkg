@@ -16,6 +16,7 @@ from xpkg.media.backends import (
 )
 from xpkg.media.images import read_bgr, read_rgb, read_rgb_bytes
 from xpkg.media.video import (
+    PyAVVideoResource,
     SingleImageVideo,
     Video,
     VideoReader,
@@ -38,6 +39,7 @@ from xpkg.media.video import (
 __all__ = [
     "HardwareAccelerationStatus",
     "MediaBackendStatus",
+    "PyAVVideoResource",
     "SingleImageVideo",
     "Video",
     "VideoReader",
