@@ -44,6 +44,26 @@ class CoordinateConfidenceInstancePrediction(TypedDict, total=False):
 
 type InstancePrediction = CoordinateOnlyInstancePrediction | CoordinateConfidenceInstancePrediction
 
+import numpy as np
+
+_POINT_DTYPE = np.dtype(
+    [
+        ("x", "f4"),
+        ("y", "f4"),
+        ("visible", "?"),
+        ("complete", "?"),
+        ("score", "f4"),
+        ("flags", "u1"),
+    ]
+)
+
+
+class _SerializerTrack:
+    __slots__ = ("id",)
+
+    def __init__(self, track_id: int) -> None:
+        self.id = int(track_id)
+
 
 class PredictionLabelsView(Protocol):
     @property
@@ -51,6 +71,72 @@ class PredictionLabelsView(Protocol):
 
     @property
     def labeled_frames(self) -> Sequence[Any]: ...
+
+
+class SerializerPredictedInstance:
+    """Small predicted-instance DTO for xpkg state serialization.
+
+    The object intentionally exposes the same attributes the project state writer
+    consumes from model-level predicted instances while remaining cheap to build
+    from external inference code.
+    """
+
+    __slots__ = (
+        "_points",
+        "deleted",
+        "keypoint_scores",
+        "keypoints",
+        "score",
+        "track",
+        "track_id",
+    )
+
+    def __init__(
+        self,
+        keypoints: Sequence[Sequence[float]] | np.ndarray,
+        *,
+        score: float = 0.0,
+        track_id: int | None = None,
+        deleted: bool = False,
+        keypoint_scores: Sequence[float] | np.ndarray | None = None,
+    ) -> None:
+        point_array = np.asarray(keypoints, dtype=np.float32)
+        if point_array.ndim != 2 or point_array.shape[1] < 2:
+            raise ValueError("Predicted instance keypoints must be a two-dimensional array")
+
+        self.keypoints = point_array[:, :2].copy()
+        self.score = float(score)
+        self.track_id = None if track_id is None else int(track_id)
+        self.track = None if self.track_id is None else _SerializerTrack(self.track_id)
+        self.deleted = bool(deleted)
+
+        if keypoint_scores is None:
+            if point_array.shape[1] >= 3:
+                scores = point_array[:, 2].astype(np.float32, copy=True)
+            else:
+                scores = np.ones((point_array.shape[0],), dtype=np.float32)
+        else:
+            scores = np.asarray(keypoint_scores, dtype=np.float32)
+            if scores.ndim != 1 or scores.shape[0] != point_array.shape[0]:
+                raise ValueError("keypoint_scores must have one value per keypoint")
+
+        self.keypoint_scores = scores.copy()
+        self._points = np.zeros((point_array.shape[0],), dtype=_POINT_DTYPE)
+        self._points["x"] = self.keypoints[:, 0]
+        self._points["y"] = self.keypoints[:, 1]
+        self._points["visible"] = np.isfinite(self.keypoints).all(axis=1)
+        self._points["complete"] = self._points["visible"]
+        self._points["score"] = self.keypoint_scores
+        self._points["flags"] = 0
+
+    def get_points_array(self, *, copy: bool = False, full: bool = True) -> np.ndarray:
+        """Return points in the structured array shape expected by xpkg writers."""
+
+        if full:
+            return self._points.copy() if copy else self._points
+
+        compact = self._points[["x", "y", "visible", "complete"]]
+        return compact.copy() if copy else compact
 
 
 class PredictionAppendItem:
@@ -342,6 +428,7 @@ __all__ = [
     "KeypointXYC",
     "PredictionAppendItem",
     "PredictionLabelsView",
+    "SerializerPredictedInstance",
     "coerce_predictions_from_labels",
     "prediction_frame_payloads_from_payload",
 ]

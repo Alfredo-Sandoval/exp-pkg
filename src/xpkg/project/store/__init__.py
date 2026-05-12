@@ -341,15 +341,23 @@ def load_project_metadata(project: str | Path) -> dict[str, Any]:
     if root is None:
         raise FileNotFoundError(f"Not an xpkg project: {project}")
 
+    store = _project_store(root)
+    labels_state_payload = (
+        _read_labels_state_payload_without_predictions(store.current_state_path())
+        if store.has_current_state()
+        else _current_labels_state_payload_without_predictions(root)
+    )
+    if labels_state_payload is not None:
+        return _clone_metadata(_state_metadata_from_state_payload(labels_state_payload))
+
     current_state = _current_project_state_payload(root)
     if current_state is None:
         return {}
 
     state_payload, source_kind = current_state
-    metadata, _predictions = _project_state_components(
-        state_payload,
-        source_kind=source_kind,
-    )
+    if source_kind not in {"state_labels", "state_vicon"}:
+        raise ValueError(f"Unsupported project state source: {source_kind!r}")
+    metadata = _state_metadata_from_state_payload(state_payload)
     return _clone_metadata(metadata)
 
 

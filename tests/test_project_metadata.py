@@ -96,6 +96,41 @@ def test_project_metadata_load_returns_empty_before_first_commit(tmp_path: Path)
     assert load_project_metadata(project) == {}
 
 
+def test_project_metadata_load_does_not_materialize_predictions(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    project = tmp_path / "Metadata Project"
+    init_project(project, title="Metadata Project")
+    labels = _make_labels(tmp_path)
+    save_project_labels(project, labels, metadata={"project_name": "Metadata Project"})
+    save_project_metadata(
+        project,
+        {"session_json": {"active_frame_idx": 11}},
+        reason="test.metadata",
+    )
+
+    import xpkg.project.store.cache as cache
+
+    def _fail_prediction_materialization(*_args: object, **_kwargs: object) -> object:
+        raise AssertionError("metadata load must not materialize predictions")
+
+    def _fail_full_state_load(*_args: object, **_kwargs: object) -> object:
+        raise AssertionError("metadata load must not read the full labels state")
+
+    monkeypatch.setattr(cache, "read_project_state", _fail_full_state_load)
+    monkeypatch.setattr(
+        cache,
+        "_predictions_payload_from_state_payload",
+        _fail_prediction_materialization,
+    )
+
+    assert load_project_metadata(project) == {
+        "preferences": {},
+        "session_json": {"active_frame_idx": 11},
+    }
+
+
 def test_project_scoped_metadata_slots_roundtrip_without_project_head(tmp_path: Path) -> None:
     project = tmp_path / "Scoped Metadata Project"
     init_project(project, title="Scoped Metadata Project")
