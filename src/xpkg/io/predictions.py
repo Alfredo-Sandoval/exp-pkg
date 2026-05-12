@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping, Sequence
-from typing import Any, Protocol, TypedDict
+from typing import Any, Protocol, TypedDict, cast, overload
 
 import numpy as np
 
@@ -43,8 +43,6 @@ class CoordinateConfidenceInstancePrediction(TypedDict, total=False):
 
 
 type InstancePrediction = CoordinateOnlyInstancePrediction | CoordinateConfidenceInstancePrediction
-
-import numpy as np
 
 _POINT_DTYPE = np.dtype(
     [
@@ -224,18 +222,38 @@ def _validate_heatmaps(data: Mapping[str, object], *, frame_count: int) -> None:
         )
 
 
+@overload
 def _base_instance_prediction(
     *,
     keypoints: list[KeypointXY],
     score: float,
     track_id: int | None,
 ) -> CoordinateOnlyInstancePrediction:
-    return {
+    ...
+
+
+@overload
+def _base_instance_prediction(
+    *,
+    keypoints: list[KeypointXYC],
+    score: float,
+    track_id: int | None,
+) -> CoordinateConfidenceInstancePrediction:
+    ...
+
+
+def _base_instance_prediction(
+    *,
+    keypoints: list[KeypointXY] | list[KeypointXYC],
+    score: float,
+    track_id: int | None,
+) -> InstancePrediction:
+    return cast(InstancePrediction, {
         "keypoints": keypoints,
         "score": float(score),
         "track_id": track_id,
         "bbox": None,
-    }
+    })
 
 
 def prediction_frame_payloads_from_payload(
@@ -371,7 +389,7 @@ def prediction_frame_payloads_from_payload(
 
         for inst_idx in inst_indices:
             pts = keypoints_arr[idx, inst_idx]
-            pts_list = [
+            pts_list: list[KeypointXYC] = [
                 [float(x), float(y), float(c)]
                 for x, y, c in _iter_keypoints(pts[:num_keypoints] if num_keypoints else pts)
             ]
@@ -390,7 +408,7 @@ def prediction_frame_payloads_from_payload(
                 if track_arr.size:
                     track_id = int(track_arr[0])
 
-            inst_payload: CoordinateOnlyInstancePrediction = _base_instance_prediction(
+            inst_payload = _base_instance_prediction(
                 keypoints=pts_list,
                 score=float(score),
                 track_id=None if track_id < 0 else int(track_id),

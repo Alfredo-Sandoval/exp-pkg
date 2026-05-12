@@ -59,8 +59,8 @@ def test_write_json_cleans_temp_file_when_replace_fails(
     seen_tmp: dict[str, Path] = {}
 
     def _failing_replace(
-        src: str | bytes | os.PathLike[str] | os.PathLike[bytes],
-        dst: str | bytes | os.PathLike[str] | os.PathLike[bytes],
+        src: str | os.PathLike[str],
+        dst: str | os.PathLike[str],
     ) -> None:
         del dst
         seen_tmp["path"] = Path(src)

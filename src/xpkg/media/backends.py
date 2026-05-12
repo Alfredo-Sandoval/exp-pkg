@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from importlib import import_module
 from importlib.util import find_spec
 from json import JSONDecodeError
-from typing import Any, overload
+from typing import Any, cast, overload
 
 from xpkg._core.json_utils import parse_json
 
@@ -565,7 +565,9 @@ def _nvpkg_parse_json(text: str) -> dict[str, Any] | None:
         payload = parse_json(text)
     except JSONDecodeError:
         return None
-    return payload if isinstance(payload, dict) else None
+    if isinstance(payload, dict):
+        return cast(dict[str, Any], payload)
+    return None
 
 
 def _nvpkg_error_details(text: str) -> dict[str, Any] | None:

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from pathlib import Path
 
 import cv2
@@ -44,7 +45,7 @@ def sample_labels(sample_skeleton: Skeleton, sample_video: Video) -> Labels:
     labels = Labels(skeletons=[sample_skeleton], videos=[sample_video])
 
     for frame_idx in [0, 5, 10, 15]:
-        points = {
+        points: Mapping[str | Keypoint, Point] = {
             "nose": Point(100.0 + frame_idx, 200.0, visible=True, complete=True),
             "left_ear": Point(80.0 + frame_idx, 180.0, visible=True, complete=True),
             "right_ear": Point(120.0 + frame_idx, 180.0, visible=True, complete=True),
@@ -105,13 +106,13 @@ def test_export_pose_h5_video_filter_sizes_by_selected_video(
     second_video = _make_video(tmp_path, "sample_b.png")
     labels = Labels(skeletons=[sample_skeleton], videos=[sample_video, second_video])
 
-    points_a = {
+    points_a: Mapping[str | Keypoint, Point] = {
         "nose": Point(100.0, 200.0, visible=True, complete=True),
         "left_ear": Point(80.0, 180.0, visible=True, complete=True),
         "right_ear": Point(120.0, 180.0, visible=True, complete=True),
         "tail": Point(100.0, 300.0, visible=True, complete=True),
     }
-    points_b = {
+    points_b: Mapping[str | Keypoint, Point] = {
         "nose": Point(110.0, 210.0, visible=True, complete=True),
         "left_ear": Point(90.0, 190.0, visible=True, complete=True),
         "right_ear": Point(130.0, 190.0, visible=True, complete=True),

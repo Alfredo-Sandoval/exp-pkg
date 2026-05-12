@@ -181,6 +181,7 @@ def test_root_namespace_is_curated_to_project_first_modules() -> None:
     reloaded.__dict__.pop("adapters", None)
     reloaded.__dict__.pop("json_utils", None)
     reloaded.__dict__.pop("media", None)
+    reloaded.__dict__.pop("payloads", None)
     reloaded.__dict__.pop("pose", None)
     reloaded.__dict__.pop("project", None)
     reloaded.__dict__.pop("readers", None)
@@ -193,6 +194,7 @@ def test_root_namespace_is_curated_to_project_first_modules() -> None:
         "json_utils",
         "media",
         "model",
+        "payloads",
         "pose",
         "project",
         "readers",
@@ -202,6 +204,7 @@ def test_root_namespace_is_curated_to_project_first_modules() -> None:
     assert reloaded.adapters is not None
     assert reloaded.json_utils is not None
     assert reloaded.media is not None
+    assert reloaded.payloads is not None
     assert reloaded.project is not None
     assert reloaded.model is not None
     assert reloaded.pose is not None

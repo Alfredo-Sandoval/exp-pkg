@@ -6,7 +6,7 @@ import math
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 
@@ -295,11 +295,12 @@ def _parse_instance_roster(raw: Mapping[str, str]) -> tuple[MaskTableInstance, .
     for item in values:
         if not isinstance(item, Mapping):
             raise ValueError("Mask table roster entries must be objects.")
+        entry = cast(Mapping[str, object], item)
         roster.append(
             MaskTableInstance(
-                instance_index=int(item["instance_index"]),
-                instance_id=str(item["instance_id"]),
-                class_name=str(item.get("class_name", "")),
+                instance_index=int(str(entry["instance_index"])),
+                instance_id=str(entry["instance_id"]),
+                class_name=str(entry.get("class_name", "")),
             )
         )
     return tuple(roster)
