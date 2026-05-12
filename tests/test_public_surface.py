@@ -10,6 +10,8 @@ from xpkg.adapters import (
     labels_numpy,
     labels_to_dataframe,
     labels_to_json_payload,
+    labels_to_primitives_session,
+    project_to_primitives_session,
     read_vicon_json_payload,
     vicon_recording_from_json_payload,
     vicon_recording_to_json_payload,
@@ -322,6 +324,8 @@ def test_public_exports_are_callable() -> None:
     assert callable(labels_numpy)
     assert callable(labels_to_dataframe)
     assert callable(labels_to_json_payload)
+    assert callable(labels_to_primitives_session)
+    assert callable(project_to_primitives_session)
     assert callable(read_vicon_json_payload)
     assert callable(vicon_recording_from_json_payload)
     assert callable(vicon_recording_to_json_payload)
@@ -547,6 +551,8 @@ def test_adapters_surface_is_curated() -> None:
         "labels_numpy",
         "labels_to_dataframe",
         "labels_to_json_payload",
+        "labels_to_primitives_session",
+        "project_to_primitives_session",
         "read_vicon_json_payload",
         "vicon_recording_from_json_payload",
         "vicon_recording_to_json_payload",

@@ -1,32 +1,26 @@
-"""Shared converter utilities for progress, video remapping, and CLI wrappers."""
+"""Video encoding, image-sequence rebasing, and label video remapping.
+
+Used by converters that ingest external pose datasets where label records
+reference image sequences. We encode each sequence to MP4 and rewrite the
+label references to the new video objects.
+"""
 
 from __future__ import annotations
 
-import argparse
 import re
-import sys
-from collections.abc import Callable, Sequence
-from dataclasses import dataclass
+from collections.abc import Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Protocol
-
-import numpy as np
 
 from xpkg.media import video_total_frames
 from xpkg.media.video import Video, available_video_exts, write_video
 
-from ..._core.logging_utils import get_logger
 from ..._core.path_registry import ensure_dir
+from .progress import ProgressCallback, emit_progress
 
 if TYPE_CHECKING:
     from xpkg.model import Labels as _Labels
-    from xpkg.pose.annotations import PredictedPoint
-    from xpkg.pose.skeleton import Keypoint
 
-CliRunner = Callable[[argparse.Namespace, argparse.ArgumentParser], int]
-ProgressCallback = Callable[[str], None]
-
-_LOGGER = get_logger(__name__)
 _NON_ALNUM_RE = re.compile(r"[^a-z0-9]+")
 
 
@@ -39,76 +33,6 @@ class LabelsVideoRemapProtocol(Protocol):
     def merge_matching_frames(self) -> None: ...
 
     def update_cache(self) -> None: ...
-
-
-@dataclass(slots=True)
-class ConversionResult:
-    """Outcome of converting an external data format into project state."""
-
-    source_dir: Path
-    project_root: Path
-    videos: list[Path]
-    labels: Any
-    metadata: dict[str, Any]
-
-
-def _emit(callback: ProgressCallback | None, message: str) -> None:
-    """Emit a progress message via callback, logger, or stdout."""
-    if callback is not None:
-        callback(message)
-        return
-    if _LOGGER.hasHandlers():
-        _LOGGER.info(message)
-        return
-    sys.stdout.write(message + "\n")
-    sys.stdout.flush()
-
-
-def points_from_coords_scores(
-    node_names: Sequence[str | Keypoint],
-    coords: np.ndarray,
-    scores: np.ndarray,
-    *,
-    likelihood_threshold: float,
-) -> dict[str | Keypoint, PredictedPoint]:
-    """Build predicted point objects from parallel coordinate and score arrays.
-
-    Per-keypoint confidence is preserved on the returned ``PredictedPoint``
-    so downstream callers can construct ``PredictedInstance`` records that
-    carry calibrated confidence end to end.
-    """
-
-    from xpkg.pose.annotations import PredictedPoint
-
-    coords_array = np.asarray(coords, dtype=np.float64)
-    scores_array = np.asarray(scores, dtype=np.float64)
-    node_count = len(node_names)
-
-    if coords_array.shape != (node_count, 2):
-        raise ValueError(
-            "coords must have shape "
-            f"({node_count}, 2), got {coords_array.shape}."
-        )
-    if scores_array.shape != (node_count,):
-        raise ValueError(
-            "scores must have shape "
-            f"({node_count},), got {scores_array.shape}."
-        )
-
-    points: dict[str | Keypoint, PredictedPoint] = {}
-    for node_idx, node_name in enumerate(node_names):
-        score = float(scores_array[node_idx])
-        if not np.isfinite(score) or score < likelihood_threshold:
-            continue
-
-        x_val = float(coords_array[node_idx, 0])
-        y_val = float(coords_array[node_idx, 1])
-        if np.isnan(x_val) or np.isnan(y_val):
-            continue
-        points[node_name] = PredictedPoint(
-            x=x_val, y=y_val, score=score, visible=True, complete=True
-        )
-    return points
 
 
 def _sorted_frame_list(img_dir: Path) -> list[str]:
@@ -151,7 +75,7 @@ def encode_videos(
             continue
         video = Video.from_image_filenames(frames)
         dst = proj_videos / f"{subdir.name}.mp4"
-        _emit(progress, "XPKG_IMPORT STEP: build_video")
+        emit_progress(progress, "XPKG_IMPORT STEP: build_video")
 
         frame_indices = list(range(video_total_frames(video)))
         if len(frame_indices) < min_frames:
@@ -203,7 +127,6 @@ def remap_labels_to_videos(
     project_root: Path,
 ) -> None:
     """Point label video references at encoded videos using stable basename matching."""
-
     if not videos:
         return
 
@@ -271,7 +194,6 @@ def rebase_image_sequences(
     dst_root: Path,
 ) -> None:
     """Move/copy image sequence references from src_root -> dst_root in labels."""
-
     src_root = src_root.resolve()
     dst_root = dst_root.resolve()
 
@@ -292,62 +214,9 @@ def rebase_image_sequences(
             video._image_filenames = updated
 
 
-def build_cli_parser(description: str) -> argparse.ArgumentParser:
-    """Create a converter CLI parser with the provided description."""
-
-    return argparse.ArgumentParser(description=description)
-
-
-def add_output_path_argument(
-    parser: argparse.ArgumentParser,
-    *,
-    help_text: str,
-) -> None:
-    """Register the required ``--out`` argument with converter-specific help text."""
-
-    parser.add_argument("--out", required=True, help=help_text)
-
-
-def add_bool_toggle_arguments(
-    parser: argparse.ArgumentParser,
-    *,
-    dest: str,
-    true_flag: str,
-    false_flag: str,
-    true_help: str,
-    false_help: str,
-    default: bool,
-) -> None:
-    """Register paired boolean flags in a mutually exclusive group."""
-
-    group = parser.add_mutually_exclusive_group()
-    group.add_argument(true_flag, dest=dest, action="store_true", help=true_help)
-    group.add_argument(false_flag, dest=dest, action="store_false", help=false_help)
-    parser.set_defaults(**{dest: default})
-
-
-def parse_and_run_cli(
-    parser: argparse.ArgumentParser,
-    argv: Sequence[str] | None,
-    runner: CliRunner,
-) -> int:
-    """Parse arguments and invoke the CLI runner."""
-
-    args = parser.parse_args(argv)
-    return runner(args, parser)
-
-
 __all__ = [
-    "CliRunner",
-    "ConversionResult",
-    "ProgressCallback",
-    "_emit",
-    "add_bool_toggle_arguments",
-    "add_output_path_argument",
-    "build_cli_parser",
+    "LabelsVideoRemapProtocol",
     "encode_videos",
-    "parse_and_run_cli",
-    "points_from_coords_scores",
     "rebase_image_sequences",
     "remap_labels_to_videos",
 ]

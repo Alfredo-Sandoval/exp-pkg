@@ -9,16 +9,6 @@ from typing import TYPE_CHECKING, Any
 
 import pandas as pd
 
-from xpkg.io.converters.converter_helpers import (
-    ConversionResult,
-    ProgressCallback,
-    _emit,
-    rebase_image_sequences,
-    remap_labels_to_videos,
-)
-from xpkg.io.converters.converter_helpers import (
-    encode_videos as _encode_videos,
-)
 from xpkg.io.converters.dlc_import import (
     _resolve_tracking_path,
     _resolve_video_path,
@@ -29,7 +19,16 @@ from xpkg.io.converters.pose_track_import import (
     labels_from_pose_tracks,
     validate_pose_tracks_consistency,
 )
+from xpkg.io.converters.progress import ProgressCallback, emit_progress
+from xpkg.io.converters.result import ConversionResult
 from xpkg.io.converters.sleap_helpers import extract_frames, extract_labels_step4
+from xpkg.io.converters.video_remap import (
+    encode_videos as _encode_videos,
+)
+from xpkg.io.converters.video_remap import (
+    rebase_image_sequences,
+    remap_labels_to_videos,
+)
 from xpkg.io.readers.pose.sleap_analysis_h5 import (
     read_node_names as _read_sleap_node_names,
 )
@@ -220,7 +219,7 @@ def convert_sleap_h5(
     resolved_h5_path = _resolve_tracking_path(h5_path)
     resolved_video_path = _resolve_video_path(video_path)
 
-    _emit(progress_callback, _SLEAP_H5_READ_TRACKS_MARKER)
+    emit_progress(progress_callback, _SLEAP_H5_READ_TRACKS_MARKER)
     track_count = _read_sleap_track_count(resolved_h5_path)
     if track_count <= 0:
         raise ValueError(f"SLEAP analysis H5 contains no tracks: {resolved_h5_path}")
@@ -231,16 +230,16 @@ def convert_sleap_h5(
         for track_idx in range(track_count)
     ]
     frame_count = _validate_sleap_tracks_consistency(tracks, source_path=resolved_h5_path)
-    _emit(
+    emit_progress(
         progress_callback,
         f"IMPORT: Found {track_count} tracks, {len(node_names)} keypoints, {frame_count} frames",
     )
 
-    _emit(progress_callback, _SLEAP_H5_VALIDATE_VIDEO_MARKER)
+    emit_progress(progress_callback, _SLEAP_H5_VALIDATE_VIDEO_MARKER)
     video = Video.from_filename(resolved_video_path.as_posix())
     _validate_video_alignment([video], required_frames=frame_count)
 
-    _emit(progress_callback, _SLEAP_H5_BUILD_LABELS_MARKER)
+    emit_progress(progress_callback, _SLEAP_H5_BUILD_LABELS_MARKER)
     labels = _labels_from_sleap_h5_tracks(
         tracks,
         track_names,
@@ -250,7 +249,7 @@ def convert_sleap_h5(
     )
     labels.validate()
 
-    _emit(progress_callback, _SLEAP_H5_PREPARE_RESULT_MARKER)
+    emit_progress(progress_callback, _SLEAP_H5_PREPARE_RESULT_MARKER)
     result = _tracking_conversion_result(
         labels,
         data_path=resolved_h5_path,
@@ -259,7 +258,7 @@ def convert_sleap_h5(
         source_metadata_key="source_h5",
         progress_callback=progress_callback,
     )
-    _emit(progress_callback, _SLEAP_H5_DONE_MARKER)
+    emit_progress(progress_callback, _SLEAP_H5_DONE_MARKER)
     return result
 
 
@@ -281,14 +280,14 @@ def convert_sleap_package(
         shutil.rmtree(tmp_extract.as_posix())
     ensure_dir(tmp_extract)
 
-    _emit(progress_callback, "XPKG_IMPORT: extracting frames + labels")
-    _emit(progress_callback, _START_EXTRACTING_FRAMES_MARKER)
+    emit_progress(progress_callback, "XPKG_IMPORT: extracting frames + labels")
+    emit_progress(progress_callback, _START_EXTRACTING_FRAMES_MARKER)
     extract_frames(slp_path.as_posix(), tmp_extract.as_posix())
-    _emit(progress_callback, _OK_FRAMES_EXTRACTED_MARKER)
+    emit_progress(progress_callback, _OK_FRAMES_EXTRACTED_MARKER)
 
-    _emit(progress_callback, _START_BUILD_LABEL_TABLE_MARKER)
+    emit_progress(progress_callback, _START_BUILD_LABEL_TABLE_MARKER)
     label_table = extract_labels_step4(slp_path.as_posix(), tmp_extract.as_posix())
-    _emit(progress_callback, _OK_LABEL_TABLE_READY_MARKER)
+    emit_progress(progress_callback, _OK_LABEL_TABLE_READY_MARKER)
 
     import h5py as _h5
 
@@ -298,7 +297,7 @@ def convert_sleap_package(
         metadata = parse_json_dict(hdf_for_skeleton["metadata"].attrs.get("json", "{}"))
     skeleton = _Skeleton.from_dict(build_sleap_skeleton(metadata), normalize_names=True)
 
-    _emit(progress_callback, _ASSEMBLE_LABELS_MARKER)
+    emit_progress(progress_callback, _ASSEMBLE_LABELS_MARKER)
     labels = _labels_from_step4_table(label_table, tmp_extract, skeleton)
     if not labels.skeletons:
         labels.skeletons = [skeleton]
@@ -308,12 +307,12 @@ def convert_sleap_package(
     if encode_videos is None or encode_videos:
         videos = _encode_videos(tmp_extract, proj_root, fps=int(fps), progress=progress_callback)
     else:
-        _emit(progress_callback, "XPKG_IMPORT: skipping mp4 encoding (no-videos)")
+        emit_progress(progress_callback, "XPKG_IMPORT: skipping mp4 encoding (no-videos)")
         labeled_src = tmp_extract / "labeled-data"
         if labeled_src.exists():
             labeled_dst = proj_root / "videos" / "labeled-data"
             ensure_dir(labeled_dst.parent)
-            _emit(progress_callback, _COPY_FRAMES_MARKER)
+            emit_progress(progress_callback, _COPY_FRAMES_MARKER)
             shutil.copytree(labeled_src.as_posix(), labeled_dst.as_posix(), dirs_exist_ok=True)
             rebase_image_sequences(labels, labeled_src, labeled_dst)
 
@@ -325,10 +324,10 @@ def convert_sleap_package(
         "source": "sleap_pkg_import",
         "source_package": slp_path.as_posix(),
     }
-    _emit(progress_callback, _PREPARE_RESULT_MARKER)
-    _emit(progress_callback, _OK_RESULT_READY_MARKER)
+    emit_progress(progress_callback, _PREPARE_RESULT_MARKER)
+    emit_progress(progress_callback, _OK_RESULT_READY_MARKER)
 
-    _emit(progress_callback, _CLEANUP_TEMP_MARKER)
+    emit_progress(progress_callback, _CLEANUP_TEMP_MARKER)
     if tmp_extract.exists():
         shutil.rmtree(tmp_extract.as_posix())
 
@@ -340,7 +339,7 @@ def convert_sleap_package(
         metadata=metadata,
     )
 
-    _emit(progress_callback, _DONE_MARKER)
+    emit_progress(progress_callback, _DONE_MARKER)
     return result
 
 

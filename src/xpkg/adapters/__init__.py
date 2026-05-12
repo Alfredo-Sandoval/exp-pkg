@@ -12,6 +12,10 @@ to project storage internals.
 
 from __future__ import annotations
 
+from xpkg.adapters.primitives import (
+    labels_to_primitives_session,
+    project_to_primitives_session,
+)
 from xpkg.adapters.vicon import (
     read_vicon_json_payload,
     vicon_recording_from_json_payload,
@@ -31,6 +35,8 @@ __all__ = [
     "labels_numpy",
     "labels_to_dataframe",
     "labels_to_json_payload",
+    "labels_to_primitives_session",
+    "project_to_primitives_session",
     "read_vicon_json_payload",
     "vicon_recording_from_json_payload",
     "vicon_recording_to_json_payload",

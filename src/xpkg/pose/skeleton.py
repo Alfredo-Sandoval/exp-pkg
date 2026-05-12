@@ -20,12 +20,15 @@ import warnings
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from .._core.json_utils import parse_json_dict
 from .._core.logging_utils import get_logger
 
 logger = get_logger(__name__)
+
+if TYPE_CHECKING:
+    from primitives.skeletons.registry import SkeletonDefinition
 
 SNAKE_RE1 = re.compile(r"([a-z0-9])([A-Z])")
 NON_ALNUM_RE = re.compile(r"[^a-z0-9_]+")
@@ -187,7 +190,17 @@ class Keypoint:
 
 @dataclass
 class Skeleton:
-    """Schema-aware keypoint graph with normalization and validation routines."""
+    """Schema-aware keypoint graph with normalization and validation routines.
+
+    Editor-side storage is id-keyed (``keypoints`` + ``links_ids``). The
+    primitives-shape concepts — ``aliases``, ``triads``, ``node_properties`` —
+    are first-class fields here too so they round-trip through
+    :func:`from_dict` / :func:`to_dict` and survive editor mutations.
+
+    Use :meth:`as_definition` to expose a frozen
+    :class:`primitives.skeletons.SkeletonDefinition` view for analysis-side
+    consumers.
+    """
 
     name: str
     keypoints: list[Keypoint]
@@ -205,6 +218,9 @@ class Skeleton:
     constraints: dict[str, Any] | None = None
     notes: str | None = None
     preview_image: str | None = None
+    aliases: dict[str, str] | None = None
+    triads: dict[str, tuple[str, str, str]] | None = None
+    node_properties: dict[str, dict[str, Any]] | None = None
 
     @classmethod
     def from_dict(
@@ -326,6 +342,35 @@ class Skeleton:
         notes = d.get("notes")
         preview_image = d.get("preview_image")
 
+        aliases_raw = d.get("aliases")
+        aliases = (
+            {str(k): str(v) for k, v in aliases_raw.items()}
+            if isinstance(aliases_raw, dict) and aliases_raw
+            else None
+        )
+        triads_raw = d.get("triads")
+        triads: dict[str, tuple[str, str, str]] | None = None
+        if isinstance(triads_raw, dict) and triads_raw:
+            tmap: dict[str, tuple[str, str, str]] = {}
+            for tkey, tvalue in triads_raw.items():
+                if not (
+                    isinstance(tkey, str)
+                    and isinstance(tvalue, list | tuple)
+                    and len(tvalue) == 3
+                ):
+                    continue
+                tmap[tkey] = (str(tvalue[0]), str(tvalue[1]), str(tvalue[2]))
+            triads = tmap or None
+        node_props_raw = d.get("node_properties")
+        node_properties = (
+            {
+                str(k): dict(v) if isinstance(v, dict) else v
+                for k, v in node_props_raw.items()
+            }
+            if isinstance(node_props_raw, dict) and node_props_raw
+            else None
+        )
+
         skel = cls(
             name=d.get("name", "unnamed"),
             keypoints=kps_norm,
@@ -343,6 +388,9 @@ class Skeleton:
             constraints=constraints if isinstance(constraints, dict) else None,
             notes=str(notes) if isinstance(notes, str) else None,
             preview_image=(str(preview_image) if isinstance(preview_image, str) else None),
+            aliases=aliases,
+            triads=triads,
+            node_properties=node_properties,
         )
         skel.validate(strict=True)
         return skel
@@ -364,6 +412,43 @@ class Skeleton:
             A list of keypoint names.
         """
         return [kp.name for kp in self.keypoints]
+
+    def as_definition(self) -> SkeletonDefinition:
+        """Return a `primitives.SkeletonDefinition` view of this skeleton.
+
+        The returned object is the canonical analysis-shaped skeleton (frozen,
+        string-keyed bodyparts + edges). Use it when handing pose data to
+        `primitives` consumers — gait/stride/angle kernels, laterality helpers,
+        etc. — that don't need xpkg's id-based access or mutation surface.
+
+        Why this lives here, not in primitives: primitives must remain
+        editor-free. xpkg is the layer that knows both shapes, so the bridge
+        is owned here.
+        """
+        # Local import — primitives is a hard runtime dep but we import lazily
+        # so that error messages on a missing install are clear at call time.
+        from primitives.skeletons.registry import SkeletonDefinition
+
+        id_to_kp = {kp.id: kp for kp in self.keypoints}
+        edges = tuple(
+            (id_to_kp[a].name, id_to_kp[b].name)
+            for a, b in self.links_ids
+            if a in id_to_kp and b in id_to_kp
+        )
+        source_path = self.extras.get("source_path") if isinstance(self.extras, dict) else None
+        return SkeletonDefinition(
+            name=str(self.name),
+            bodyparts=tuple(kp.name for kp in self.keypoints),
+            edges=edges,
+            path=Path(source_path) if isinstance(source_path, str) else Path(""),
+            triads=dict(self.triads) if self.triads else None,
+            aliases=dict(self.aliases) if self.aliases else None,
+            node_properties=(
+                {k: dict(v) if isinstance(v, dict) else v for k, v in self.node_properties.items()}
+                if self.node_properties
+                else None
+            ),
+        )
 
     def __len__(self) -> int:
         return len(self.keypoints)
@@ -699,48 +784,6 @@ class Skeleton:
                 else:
                     warnings.warn(f"Invalid side '{s}' for {kp.name}", stacklevel=2)
 
-    def degree(self, kp: str | int | Keypoint) -> int:
-        """Return the degree (number of connected links) of a keypoint.
-
-        Args:
-            kp: A Keypoint object, name string, or integer index.
-
-        Returns:
-            The number of links connected to the keypoint.
-        """
-        idx = self.keypoint_to_index(kp)
-        count = 0
-        for a, b in self.links_ids:
-            if a == idx or b == idx:
-                count += 1
-        return count
-
-    def is_connected(self) -> bool:
-        """Return True if the skeleton graph is connected.
-
-        Returns:
-            True if the graph is connected, False otherwise.
-        """
-        if not self.keypoints:
-            return True
-        if not self.links_ids and len(self.keypoints) > 1:
-            return False
-
-        adj: dict[int, list[int]] = {i: [] for i in range(len(self.keypoints))}
-        for a, b in self.links_ids:
-            adj[a].append(b)
-            adj[b].append(a)
-
-        visited = set()
-        stack = [0]
-        while stack:
-            node = stack.pop()
-            if node not in visited:
-                visited.add(node)
-                stack.extend(adj[node])
-
-        return len(visited) == len(self.keypoints)
-
     def to_dict(self, *, keep_names: bool = True) -> dict[str, Any]:
         """Serialize to dict; writes 'links' by names (or ids when keep_names=False).
 
@@ -785,6 +828,15 @@ class Skeleton:
         else:
             out["links"] = [[a, b] for (a, b) in self.links_ids]
         out.update(self.extras or {})
+        if self.aliases:
+            out["aliases"] = dict(self.aliases)
+        if self.triads:
+            out["triads"] = {k: list(v) for k, v in self.triads.items()}
+        if self.node_properties:
+            out["node_properties"] = {
+                k: dict(v) if isinstance(v, dict) else v
+                for k, v in self.node_properties.items()
+            }
         if self.analytics:
             out["analytics"] = self.analytics
         if self.validation:

@@ -70,14 +70,6 @@ class Point(np.record):
         """
         return bool(np.isnan(self["x"]) or np.isnan(self["y"]))
 
-    def numpy(self) -> np.ndarray:
-        """Return the coordinate pair as a numpy array.
-
-        Returns:
-            np.ndarray: Array of shape (2,) containing [x, y].
-        """
-        return np.array([self["x"], self["y"]])
-
     def xy_or_none(self) -> tuple[float, float] | None:
         """Return ``(x, y)`` for labeled points, otherwise ``None``.
 

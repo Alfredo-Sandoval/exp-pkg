@@ -4,11 +4,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from xpkg.io.converters.converter_helpers import (
-    ConversionResult,
-    ProgressCallback,
-    _emit,
-)
 from xpkg.io.converters.dlc_import import (
     _resolve_tracking_path,
     _resolve_video_path,
@@ -16,6 +11,8 @@ from xpkg.io.converters.dlc_import import (
     _validate_video_alignment,
 )
 from xpkg.io.converters.pose_track_import import labels_from_pose_tracks
+from xpkg.io.converters.progress import ProgressCallback, emit_progress
+from xpkg.io.converters.result import ConversionResult
 from xpkg.io.readers import read_pose_track
 from xpkg.io.readers.pose.mmpose import read_sequence_dataset_name, read_skeleton_links
 from xpkg.media.video import Video
@@ -49,7 +46,7 @@ def convert_mmpose_topdown_json(
     resolved_json_path = _resolve_tracking_path(json_path)
     resolved_video_path = _resolve_video_path(video_path)
 
-    _emit(progress_callback, _MMPOSE_JSON_READ_MARKER)
+    emit_progress(progress_callback, _MMPOSE_JSON_READ_MARKER)
     track = read_pose_track(
         resolved_json_path,
         software="MMPose",
@@ -59,18 +56,18 @@ def convert_mmpose_topdown_json(
     dataset_name = read_sequence_dataset_name(resolved_json_path)
     skeleton_links = read_skeleton_links(resolved_json_path)
     frame_count = int(track.coords.shape[0])
-    _emit(
+    emit_progress(
         progress_callback,
         "IMPORT: Found "
         f"{len(track.node_names)} keypoints across {frame_count} frames "
         f"for MMPose dataset {dataset_name!r}",
     )
 
-    _emit(progress_callback, _MMPOSE_JSON_VALIDATE_VIDEO_MARKER)
+    emit_progress(progress_callback, _MMPOSE_JSON_VALIDATE_VIDEO_MARKER)
     video = Video.from_filename(resolved_video_path.as_posix())
     _validate_video_alignment([video], required_frames=frame_count)
 
-    _emit(progress_callback, _MMPOSE_JSON_BUILD_LABELS_MARKER)
+    emit_progress(progress_callback, _MMPOSE_JSON_BUILD_LABELS_MARKER)
     labels = labels_from_pose_tracks(
         [track],
         skeleton_name=skeleton_name,
@@ -80,7 +77,7 @@ def convert_mmpose_topdown_json(
     )
     labels.validate()
 
-    _emit(progress_callback, _MMPOSE_JSON_PREPARE_RESULT_MARKER)
+    emit_progress(progress_callback, _MMPOSE_JSON_PREPARE_RESULT_MARKER)
     result = _tracking_conversion_result(
         labels,
         data_path=resolved_json_path,
@@ -89,7 +86,7 @@ def convert_mmpose_topdown_json(
         source_metadata_key="source_json",
         progress_callback=progress_callback,
     )
-    _emit(progress_callback, _MMPOSE_JSON_DONE_MARKER)
+    emit_progress(progress_callback, _MMPOSE_JSON_DONE_MARKER)
     return result
 
 

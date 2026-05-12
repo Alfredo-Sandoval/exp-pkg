@@ -35,16 +35,36 @@ JSON interchange path.
 Hydrate `Labels` back from either a full JSON interchange document or its inner
 payload mapping.
 
+### `labels_to_primitives_session(labels, *, video=None, track=None, use_predicted=True)`
+
+Convert loaded xpkg `Labels` into a `primitives.PrimitivesSession`. This bridge
+belongs in xpkg because it depends on xpkg's label, instance, track, and video
+contracts while returning the analysis-side primitives object.
+
+### `project_to_primitives_session(project, *, video=None, track=None, use_predicted=True)`
+
+Open a path-like project root or use a `ProjectService`-like object, call
+`ProjectService.load_labels()`, then convert those labels into a primitives
+session. Use this only for an explicit user-selected project open or analysis
+action, not for project pickers or cheap summaries.
+
 ## Example
 
 ```python
-from xpkg.adapters import labels_from_json_payload, labels_to_json_payload
+from xpkg.adapters import (
+    labels_from_json_payload,
+    labels_to_json_payload,
+    project_to_primitives_session,
+)
 from xpkg.model import Labels
 
 labels = Labels()
 payload = labels_to_json_payload(labels)
 roundtripped = labels_from_json_payload(payload)
+
+session = project_to_primitives_session("./My Project", track="mouse-a")
 ```
 
 The important boundary is that none of these helpers require a project root
-or portable `.expkg` artifact.
+or portable `.expkg` artifact unless you explicitly call the project-to-
+primitives bridge.

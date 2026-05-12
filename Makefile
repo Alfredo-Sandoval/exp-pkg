@@ -10,6 +10,11 @@ RUN_IN_ENV := bash environment/run-in-env.sh
 EXCLUDE_PATHS ?= .git .venv venv env node_modules .next .turbo out __pycache__ *.egg-info .eggs .pytest_cache .ruff_cache .mypy_cache .cache build dist htmlcov coverage .coverage site results data external
 LOC_PRUNE_NAMES := $(foreach p,$(EXCLUDE_PATHS),-name '$(p)' -o ) -false
 LOC_GROUP_DEPTH ?= 2
+PRIMITIVES_CHECKOUT ?= ../primitives
+TY_EXTRA_SEARCH_PATHS ?=
+ifneq ($(wildcard $(PRIMITIVES_CHECKOUT)/primitives/__init__.py),)
+TY_EXTRA_SEARCH_PATHS += --extra-search-path $(PRIMITIVES_CHECKOUT)
+endif
 
 env:
 	@test -f environment/setup.sh || { echo "Missing setup script: environment/setup.sh"; exit 1; }
@@ -31,7 +36,7 @@ lint:
 	$(RUN_IN_ENV) ruff check .
 
 typecheck:
-	$(RUN_IN_ENV) sh -c 'ty check --python "$$CONDA_PREFIX/bin/python"'
+	$(RUN_IN_ENV) sh -c 'ty check --python "$$CONDA_PREFIX/bin/python" $(TY_EXTRA_SEARCH_PATHS)'
 
 test:
 	PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 $(RUN_IN_ENV) pytest

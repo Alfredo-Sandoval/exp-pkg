@@ -207,7 +207,10 @@ def test_load_skeleton_rejects_unsupported_yaml_schema(tmp_path: Path) -> None:
 
     with pytest.raises(
         ValueError,
-        match="Unsupported YAML skeleton format; expected DLC, SLEAP, or Ultralytics schema.",
+        match=(
+            "Unsupported YAML skeleton format; expected DLC, SLEAP, Ultralytics, "
+            "or primitives schema."
+        ),
     ):
         load_skeleton(yaml_file)
 

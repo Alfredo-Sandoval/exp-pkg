@@ -2,11 +2,27 @@
 
 from __future__ import annotations
 
+import sys
 from collections.abc import Callable, Sequence
 
-from xpkg.io.converters.converter_helpers import ProgressCallback
+from ..._core.logging_utils import get_logger
 
+ProgressCallback = Callable[[str], None]
 PercentProgressCallback = Callable[[int, str], None]
+
+_LOGGER = get_logger(__name__)
+
+
+def emit_progress(callback: ProgressCallback | None, message: str) -> None:
+    """Emit a progress message via callback, logger, or stdout."""
+    if callback is not None:
+        callback(message)
+        return
+    if _LOGGER.hasHandlers():
+        _LOGGER.info(message)
+        return
+    sys.stdout.write(message + "\n")
+    sys.stdout.flush()
 
 
 def bridge_progress_callback(
@@ -31,4 +47,9 @@ def bridge_progress_callback(
     return _emit
 
 
-__all__ = ["PercentProgressCallback", "bridge_progress_callback"]
+__all__ = [
+    "PercentProgressCallback",
+    "ProgressCallback",
+    "bridge_progress_callback",
+    "emit_progress",
+]

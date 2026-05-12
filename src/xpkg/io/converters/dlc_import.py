@@ -10,11 +10,8 @@ from typing import TYPE_CHECKING, Any
 
 import pandas as pd
 
-from xpkg.io.converters.converter_helpers import (
-    ConversionResult,
-    ProgressCallback,
-    _emit,
-)
+from xpkg.io.converters.progress import ProgressCallback, emit_progress
+from xpkg.io.converters.result import ConversionResult
 from xpkg.io.readers.pose.dlc import read_dlc_csv_table, read_dlc_h5_table
 from xpkg.media.video import Video, available_video_exts
 from xpkg.pose.skeleton import build_keypoint_skeleton
@@ -156,14 +153,14 @@ def _discover_dlc_project_items(
         if data_path is None or source_type is None:
             reason = "no data file"
             skipped.append(_DlcProjectSkip(name=subdir.name, reason=reason))
-            _emit(progress_callback, f"IMPORT: Skipping {subdir.name} ({reason})")
+            emit_progress(progress_callback, f"IMPORT: Skipping {subdir.name} ({reason})")
             continue
 
         video_path = _find_project_video(videos_dir, subdir.name)
         if video_path is None:
             reason = "no video found"
             skipped.append(_DlcProjectSkip(name=subdir.name, reason=reason))
-            _emit(progress_callback, f"IMPORT: Skipping {subdir.name} ({reason})")
+            emit_progress(progress_callback, f"IMPORT: Skipping {subdir.name} ({reason})")
             continue
 
         items.append(
@@ -361,9 +358,9 @@ def _read_tracking_inputs(
     read_step_label: str,
     progress_callback: ProgressCallback | None,
 ) -> tuple[pd.DataFrame, list[str]]:
-    _emit(progress_callback, f"IMPORT: Reading {read_step_label} {data_path.name}")
+    emit_progress(progress_callback, f"IMPORT: Reading {read_step_label} {data_path.name}")
     df, keypoints = read_tracking(data_path)
-    _emit(progress_callback, f"IMPORT: Found {len(keypoints)} keypoints, {len(df)} frames")
+    emit_progress(progress_callback, f"IMPORT: Found {len(keypoints)} keypoints, {len(df)} frames")
     return df, keypoints
 
 
@@ -377,10 +374,10 @@ def _build_tracking_labels(
     likelihood_threshold: float,
     progress_callback: ProgressCallback | None,
 ) -> _Labels:
-    _emit(progress_callback, "IMPORT: Building skeleton")
+    emit_progress(progress_callback, "IMPORT: Building skeleton")
     skeleton = build_keypoint_skeleton(keypoints, name=skeleton_name)
 
-    _emit(progress_callback, "IMPORT: Converting to labels")
+    emit_progress(progress_callback, "IMPORT: Converting to labels")
     labels = _labels_from_tracking_df(
         df,
         keypoints,
@@ -408,8 +405,8 @@ def _tracking_conversion_result(
         "source_video": video_path.as_posix(),
     }
 
-    _emit(progress_callback, "IMPORT: Prepared project state")
-    _emit(progress_callback, "IMPORT: Done")
+    emit_progress(progress_callback, "IMPORT: Prepared project state")
+    emit_progress(progress_callback, "IMPORT: Done")
 
     return ConversionResult(
         source_dir=data_path.parent,
@@ -545,11 +542,11 @@ def convert_dlc_h5_project(
     resolved_video_paths = _resolve_video_paths(video_paths)
     videos = _load_project_videos(resolved_video_paths, project_root=resolved_project_root)
     try:
-        _emit(progress_callback, f"{_DLC_READ_H5_MARKER} {resolved_h5.name}")
+        emit_progress(progress_callback, f"{_DLC_READ_H5_MARKER} {resolved_h5.name}")
         df, keypoints = _read_dlc_h5(resolved_h5)
-        _emit(progress_callback, _DLC_VALIDATE_VIDEOS_MARKER)
+        emit_progress(progress_callback, _DLC_VALIDATE_VIDEOS_MARKER)
         _validate_video_alignment(videos, required_frames=_required_frame_count(df.index))
-        _emit(progress_callback, _DLC_BUILD_LABELS_MARKER)
+        emit_progress(progress_callback, _DLC_BUILD_LABELS_MARKER)
         labels = _labels_from_tracking_df_project(
             df,
             keypoints,
@@ -567,11 +564,11 @@ def convert_dlc_h5_project(
                 for video_path in resolved_video_paths
             ],
         }
-        _emit(progress_callback, _DLC_PREPARE_RESULT_MARKER)
+        emit_progress(progress_callback, _DLC_PREPARE_RESULT_MARKER)
     finally:
         for video in videos:
             video.close()
-    _emit(progress_callback, _DLC_DONE_MARKER)
+    emit_progress(progress_callback, _DLC_DONE_MARKER)
     return ConversionResult(
         source_dir=resolved_h5.parent,
         project_root=resolved_project_root,
@@ -601,7 +598,7 @@ def convert_dlc_project(
     )
 
     for item in items:
-        _emit(progress_callback, f"IMPORT: Converting {item.name}")
+        emit_progress(progress_callback, f"IMPORT: Converting {item.name}")
 
         if item.source_type == "h5":
             result = convert_dlc_h5(

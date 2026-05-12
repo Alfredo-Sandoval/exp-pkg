@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, cast
 
-from xpkg.io.converters.converter_helpers import ConversionResult
+from xpkg.io.converters.result import ConversionResult
 from xpkg.io.labels.model import Labels
 from xpkg.media.video import Video
 from xpkg.pose.annotations import Instance, LabeledFrame, Point

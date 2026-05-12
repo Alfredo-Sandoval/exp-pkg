@@ -433,30 +433,6 @@ class Instance:
         return tuple(result)
 
     @property
-    def keypoints_vectorized(self) -> tuple[Keypoint, ...]:
-        """Vectorized variant of keypoints()."""
-        points = self._ensure_point_records()
-
-        if len(points) == 0:
-            return ()
-        valid_mask = ~np.isnan(points["x"]) & ~np.isnan(points["y"])
-        if not np.any(valid_mask):
-            return ()
-        kp_ids = np.fromiter(
-            (kp.id for kp in self._keypoints),
-            dtype=np.int64,
-            count=len(self._keypoints),
-        )
-        skeleton_ids = np.fromiter(
-            (kp.id for kp in self.skeleton.keypoints),
-            dtype=np.int64,
-            count=len(self.skeleton.keypoints),
-        )
-        in_skeleton = np.isin(kp_ids, skeleton_ids)
-        idxs = np.nonzero(valid_mask & in_skeleton)[0]
-        return tuple(self._keypoints[int(i)] for i in idxs)
-
-    @property
     def keypoints_points(self) -> list[tuple[Keypoint, Point]]:
         """Return (keypoint, point) pairs for existing points.
 
@@ -477,34 +453,6 @@ class Instance:
         return result
 
     @property
-    def keypoints_points_vectorized(self) -> list[tuple[Keypoint, Point]]:
-        """Vectorized variant of keypoints_points().
-
-        Returns:
-            list[tuple[Keypoint, Point]]: List of keypoint-point pairs.
-        """
-        points = self._ensure_point_records()
-
-        if len(points) == 0:
-            return []
-        valid_mask = ~np.isnan(points["x"]) & ~np.isnan(points["y"])
-        if not np.any(valid_mask):
-            return []
-        kp_ids = np.fromiter(
-            (kp.id for kp in self._keypoints),
-            dtype=np.int64,
-            count=len(self._keypoints),
-        )
-        skeleton_ids = np.fromiter(
-            (kp.id for kp in self.skeleton.keypoints),
-            dtype=np.int64,
-            count=len(self.skeleton.keypoints),
-        )
-        in_skeleton = np.isin(kp_ids, skeleton_ids)
-        idxs = np.nonzero(valid_mask & in_skeleton)[0]
-        return [(self._keypoints[int(i)], points[int(i)]) for i in idxs]
-
-    @property
     def points(self) -> tuple[Point, ...]:
         """Return the tuple of visible points (non-NaN).
 
@@ -519,22 +467,6 @@ class Instance:
             if not (np.isnan(pt["x"]) or np.isnan(pt["y"])):
                 result.append(pt)
         return tuple(result)
-
-    @property
-    def points_vectorized(self) -> tuple[Point, ...]:
-        """Vectorized variant of points().
-
-        Returns:
-            tuple[Point, ...]: Tuple of visible points.
-        """
-        points = self._ensure_point_records()
-
-        if len(points) == 0:
-            return ()
-        valid_mask = ~np.isnan(points["x"]) & ~np.isnan(points["y"])
-        if not np.any(valid_mask):
-            return ()
-        return tuple(points[valid_mask])
 
     def point_records(self, *, copy: bool = True) -> np.ndarray:
         """Return the structured point records for storage-level callers.
@@ -660,14 +592,6 @@ class Instance:
     def visible_point_count(self) -> int:
         """Return the number of visible (non-NaN) points."""
         return sum(1 for p in self.points if p.visible)
-
-    @property
-    def visible_point_count_vectorized(self) -> int:
-        """Vectorized variant of visible_point_count."""
-        points = self._ensure_point_records()
-
-        valid_mask = ~np.isnan(points["x"]) & ~np.isnan(points["y"])
-        return int(np.count_nonzero(valid_mask & points["visible"]))
 
     def __len__(self) -> int:
         """Return the number of visible points (for len())."""

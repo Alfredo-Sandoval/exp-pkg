@@ -189,13 +189,13 @@ def import_dlc_project_directory(
     progress_callback: Any | None = None,
 ) -> Path:
     """Import a supported DeepLabCut project into one project."""
-    from xpkg.io.converters.converter_helpers import ConversionResult
     from xpkg.io.converters.dlc_import import (
         _discover_dlc_project_items,
         _stored_project_path,
         convert_dlc_csv,
         convert_dlc_h5,
     )
+    from xpkg.io.converters.result import ConversionResult
 
     resolved_project_dir = resolve_path(project_dir)
     resolved_skeleton_name = skeleton_name or resolved_project_dir.name or "dlc"

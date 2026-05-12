@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import TYPE_CHECKING, Any
 
-from xpkg.io.converters.converter_helpers import points_from_coords_scores
+from xpkg.io.converters.points import points_from_coords_scores
 from xpkg.io.readers.pose._common import PoseTrack
 from xpkg.pose.skeleton import build_keypoint_skeleton
 
