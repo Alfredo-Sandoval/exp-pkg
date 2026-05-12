@@ -153,10 +153,10 @@ def test_import_dlc_project_directory_imports_supported_items_into_one_project(
     from xpkg.model import Labels
     from xpkg.project import (
         current_project_state_path,
-        import_dlc_project_directory,
         project_media_root,
     )
     from xpkg.project.state_io import read_project_state_payload
+    from xpkg.project.store.imports import import_dlc_project_directory
 
     project_root = _make_dlc_project_fixture(tmp_path)
     project = tmp_path / "Imported DLC Project"
@@ -214,8 +214,9 @@ def test_import_lightning_pose_csv_project_uses_dlc_style_predictions(
 ) -> None:
     from xpkg._core.hashing import sha256_file
     from xpkg.model import Labels
-    from xpkg.project import current_project_state_path, import_lightning_pose_csv_project
+    from xpkg.project import current_project_state_path
     from xpkg.project.state_io import read_project_state_payload
+    from xpkg.project.store.imports import import_lightning_pose_csv_project
 
     csv_path = tmp_path / "video_preds" / "session0.csv"
     csv_path.parent.mkdir()
@@ -269,7 +270,7 @@ def test_import_lightning_pose_csv_project_uses_dlc_style_predictions(
 
 
 def test_import_dlc_project_directory_requires_supported_items(tmp_path: Path) -> None:
-    from xpkg.project import import_dlc_project_directory
+    from xpkg.project.store.imports import import_dlc_project_directory
 
     project_root = tmp_path / "empty-project"
     (project_root / "labeled-data" / "session-no-data").mkdir(parents=True)
@@ -284,7 +285,7 @@ def test_dlc_csv_import_preserves_per_keypoint_likelihood_through_project_state(
 ) -> None:
     from xpkg.model import Labels
     from xpkg.pose.annotations import PredictedInstance
-    from xpkg.project import import_dlc_csv_project
+    from xpkg.project.store.imports import import_dlc_csv_project
 
     csv_path = tmp_path / "session.csv"
     _write_sample_dlc_csv(csv_path)
@@ -323,7 +324,8 @@ def test_dlc_csv_import_preserves_scores_through_pack_unpack_roundtrip(
 ) -> None:
     from xpkg.model import Labels
     from xpkg.pose.annotations import PredictedInstance
-    from xpkg.project import import_dlc_csv_project, pack_project, unpack_project
+    from xpkg.project import pack_project, unpack_project
+    from xpkg.project.store.imports import import_dlc_csv_project
 
     csv_path = tmp_path / "session.csv"
     _write_sample_dlc_csv(csv_path)

@@ -55,5 +55,5 @@ def test_convert_sleap_h5_builds_multi_track_labels(tmp_path: Path) -> None:
 
     frame_five = next(frame for frame in labels.labeled_frames if frame.frame_idx == 5)
     track_one = next(inst for inst in frame_five.instances if inst.track and inst.track.id == 1)
-    points = track_one.get_points_array(copy=False, full=True)
+    points = track_one.point_records(copy=False)
     assert int(np.count_nonzero(~np.isnan(points["x"]))) == 3

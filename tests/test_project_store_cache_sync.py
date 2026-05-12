@@ -84,7 +84,7 @@ def test_project_load_ignores_state_when_commit_id_mismatches_head(tmp_path: Pat
     state_path.write_text(json.dumps(document, indent=2), encoding="utf-8")
 
     loaded = Labels.load_file(project.as_posix())
-    pts = loaded.labeled_frames[0].instances[0].get_points_array(copy=False, full=True)
+    pts = loaded.labeled_frames[0].instances[0].point_records(copy=False)
 
     assert float(pts["x"][0]) == 3.0
     assert float(pts["y"][0]) == 4.0

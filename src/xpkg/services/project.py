@@ -3,8 +3,8 @@
 ``ProjectService`` is the stable consumer-facing boundary for downstream
 integrations that need to create, open, import into, validate, pack, or unpack
 an xpkg project. The ``import_pose`` / ``import_calibration`` /
-``import_motion`` dispatch methods select the underlying free-function
-importer based on a kebab-case ``format`` string.
+``import_motion`` dispatch methods select package-owned importer
+implementations by kebab-case ``format`` string.
 """
 
 from __future__ import annotations
@@ -18,18 +18,6 @@ from xpkg.project import (
     ProjectDescriptor,
     ProjectInspection,
     current_project_state_path,
-    import_anipose_calibration_project,
-    import_dlc_csv_project,
-    import_dlc_h5_project,
-    import_dlc_project_directory,
-    import_lightning_pose_csv_project,
-    import_mediapipe_pose_landmarks_json_project,
-    import_mmpose_topdown_json_project,
-    import_sleap_h5_project,
-    import_sleap_package_project,
-    import_vicon_c3d_project,
-    import_vicon_csv_project,
-    import_vicon_project,
     init_project,
     inspect_project,
     load_project_acquisition_metadata,
@@ -62,8 +50,22 @@ from xpkg.project import (
     unpack_project,
     validate_project,
 )
+from xpkg.project.calibration import import_anipose_calibration_project
 from xpkg.project.state import project_state_kind
 from xpkg.project.store import ensure_current_project_state_cache
+from xpkg.project.store.imports import (
+    import_dlc_csv_project,
+    import_dlc_h5_project,
+    import_dlc_project_directory,
+    import_lightning_pose_csv_project,
+    import_mediapipe_pose_landmarks_json_project,
+    import_mmpose_topdown_json_project,
+    import_sleap_h5_project,
+    import_sleap_package_project,
+    import_vicon_c3d_project,
+    import_vicon_csv_project,
+    import_vicon_project,
+)
 from xpkg.services.artifacts import ProjectArtifacts
 from xpkg.services.calibrations import ProjectCalibrations
 from xpkg.services.figures import ProjectFigures

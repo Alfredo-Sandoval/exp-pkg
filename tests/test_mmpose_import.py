@@ -32,7 +32,7 @@ def test_convert_mmpose_topdown_json_builds_labels_with_links(tmp_path: Path) ->
     assert len(labels.labeled_frames) == 3
 
     third_frame = next(frame for frame in labels.labeled_frames if frame.frame_idx == 2)
-    points = third_frame.instances[0].get_points_array(copy=False, full=True)
+    points = third_frame.instances[0].point_records(copy=False)
     np.testing.assert_allclose(points["x"][:2], np.array([12.0, 32.0]))
     assert float(points["x"][2]) == 52.0
 
@@ -56,7 +56,7 @@ def test_convert_mmpose_topdown_json_supports_instance_slots(tmp_path: Path) -> 
     assert frame_indices == [0, 2]
 
     third_frame = next(frame for frame in labels.labeled_frames if frame.frame_idx == 2)
-    points = third_frame.instances[0].get_points_array(copy=False, full=True)
+    points = third_frame.instances[0].point_records(copy=False)
     assert int(np.count_nonzero(~np.isnan(points["x"]))) == 2
 
 
@@ -64,11 +64,9 @@ def test_import_mmpose_topdown_json_project_imports_sequence_into_project(
     tmp_path: Path,
 ) -> None:
     from xpkg.model import Labels
+    from xpkg.project import current_project_state_path
     from xpkg.project.state_io import read_project_state_payload
-    from xpkg.project.store import (
-        current_project_state_path,
-        import_mmpose_topdown_json_project,
-    )
+    from xpkg.project.store.imports import import_mmpose_topdown_json_project
 
     json_path = _write_mmpose_topdown_json(tmp_path / "results_session.json")
     video_path = tmp_path / "session.avi"

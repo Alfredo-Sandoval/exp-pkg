@@ -6,7 +6,6 @@ from pathlib import Path
 from typing import Any, cast
 
 from xpkg.project import (
-    import_anipose_calibration_project,
     init_project,
     list_project_calibrations,
     load_project_calibration,
@@ -17,6 +16,7 @@ from xpkg.project import (
     project_calibrations_root,
     validate_expkg,
 )
+from xpkg.project.calibration import import_anipose_calibration_project
 from xpkg.services import ProjectService
 
 

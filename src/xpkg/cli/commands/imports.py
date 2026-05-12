@@ -24,8 +24,8 @@ from xpkg.cli.shared import (
     run_command,
     write_path,
 )
-from xpkg.project import (
-    import_anipose_calibration_project,
+from xpkg.project.calibration import import_anipose_calibration_project
+from xpkg.project.store.imports import (
     import_dlc_csv_project,
     import_dlc_h5_project,
     import_dlc_project_directory,

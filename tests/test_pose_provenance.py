@@ -13,7 +13,6 @@ import pytest
 
 from xpkg.model import PoseModelProvenance
 from xpkg.project import (
-    import_dlc_csv_project,
     init_project,
     load_project_pose_provenance,
     pack_project,
@@ -21,6 +20,7 @@ from xpkg.project import (
     save_project_pose_provenance,
     unpack_project,
 )
+from xpkg.project.store.imports import import_dlc_csv_project
 from xpkg.services import ProjectService
 
 

@@ -18,12 +18,12 @@ def test_import_vicon_project_roundtrips_through_project_and_expkg(tmp_path: Pat
     from xpkg.adapters import read_vicon_json_payload
     from xpkg.project import (
         current_project_state_path,
-        import_vicon_project,
         load_project_vicon_recording,
         pack_project,
         unpack_project,
         validate_expkg,
     )
+    from xpkg.project.store.imports import import_vicon_project
 
     c3d_path = tmp_path / "trial.c3d"
     write_sample_vicon_c3d(c3d_path)
@@ -103,9 +103,9 @@ def test_import_vicon_project_roundtrips_through_project_and_expkg(tmp_path: Pat
 def test_import_vicon_csv_project_loads_project_native_recording(tmp_path: Path) -> None:
     from xpkg.project import (
         current_project_state_path,
-        import_vicon_csv_project,
         load_project_vicon_recording,
     )
+    from xpkg.project.store.imports import import_vicon_csv_project
 
     csv_path = tmp_path / "trial.csv"
     write_sample_vicon_csv(csv_path)
@@ -125,7 +125,8 @@ def test_import_vicon_csv_project_loads_project_native_recording(tmp_path: Path)
 
 
 def test_load_project_vicon_recording_rebuilds_tampered_state_cache(tmp_path: Path) -> None:
-    from xpkg.project import import_vicon_project, load_project_vicon_recording
+    from xpkg.project import load_project_vicon_recording
+    from xpkg.project.store.imports import import_vicon_project
 
     c3d_path = tmp_path / "trial.c3d"
     write_sample_vicon_c3d(c3d_path)
@@ -154,7 +155,8 @@ def test_load_project_vicon_recording_rebuilds_tampered_state_cache(tmp_path: Pa
 
 
 def test_validate_project_rebuilds_missing_vicon_state_cache(tmp_path: Path) -> None:
-    from xpkg.project import import_vicon_project, validate_project
+    from xpkg.project import validate_project
+    from xpkg.project.store.imports import import_vicon_project
 
     c3d_path = tmp_path / "trial.c3d"
     write_sample_vicon_c3d(c3d_path)
@@ -169,7 +171,8 @@ def test_validate_project_rebuilds_missing_vicon_state_cache(tmp_path: Path) -> 
 
 
 def test_validate_project_rejects_missing_vicon_bundle_files(tmp_path: Path) -> None:
-    from xpkg.project import import_vicon_project, validate_project
+    from xpkg.project import validate_project
+    from xpkg.project.store.imports import import_vicon_project
 
     c3d_path = tmp_path / "trial.c3d"
     write_sample_vicon_c3d(c3d_path)

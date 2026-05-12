@@ -384,7 +384,7 @@ def _prediction_payload_from_items(
             heatmaps[row_idx] = np.asarray(item.heatmaps, dtype=np.float16)
 
         for inst_idx, instance in enumerate(item.instances or []):
-            points = instance.get_points_array(copy=False, full=True)
+            points = instance.point_records(copy=False)
             keypoints[row_idx, inst_idx, :, 0] = np.asarray(points["x"], dtype=np.float32)
             keypoints[row_idx, inst_idx, :, 1] = np.asarray(points["y"], dtype=np.float32)
             if "score" in points.dtype.names:

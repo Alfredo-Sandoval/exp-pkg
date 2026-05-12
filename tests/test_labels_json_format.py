@@ -79,7 +79,7 @@ def test_labels_json_roundtrip_with_image_sequence(tmp_path: Path) -> None:
     assert loaded.provenance == {"source": "test"}
     assert [lf.frame_idx for lf in loaded.labeled_frames] == [0, 2]
     assert np.allclose(
-        loaded.labeled_frames[0].instances[0].numpy(),
+        loaded.labeled_frames[0].instances[0].xy_array(),
         np.array([[1.0, 2.0], [3.0, 4.0]]),
     )
 

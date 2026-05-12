@@ -1,8 +1,7 @@
 """Project save/import boundary backed by the private ``.xpkg`` store.
 
-The package re-exports a stable public surface (``init_project``,
-``save_project_labels``, ``load_project_payload``, the ``import_*_project``
-family, etc.) from focused submodules:
+The package gathers storage, cache, conversion, and importer implementations
+from focused submodules:
 
 - :mod:`xpkg.project.store._helpers` — small lifecycle/lookup helpers
 - :mod:`xpkg.project.store.payloads` — state ↔ public payload converters
@@ -10,7 +9,7 @@ family, etc.) from focused submodules:
 - :mod:`xpkg.project.store.media` — managed-media file copying and rebasing
 - :mod:`xpkg.project.store.cache` — state cache, commit, and write helpers
 - :mod:`xpkg.project.store.conversion` — converter-result → project orchestration
-- :mod:`xpkg.project.store.imports` — public per-format ``import_*_project``
+- :mod:`xpkg.project.store.imports` — per-format importer implementations
 """
 
 from __future__ import annotations
@@ -110,39 +109,6 @@ from xpkg.project.store.conversion import (
 )
 from xpkg.project.store.conversion import (
     _unify_matching_skeletons as _unify_matching_skeletons,
-)
-from xpkg.project.store.imports import (
-    import_dlc_csv_project as import_dlc_csv_project,
-)
-from xpkg.project.store.imports import (
-    import_dlc_h5_project as import_dlc_h5_project,
-)
-from xpkg.project.store.imports import (
-    import_dlc_project_directory as import_dlc_project_directory,
-)
-from xpkg.project.store.imports import (
-    import_lightning_pose_csv_project as import_lightning_pose_csv_project,
-)
-from xpkg.project.store.imports import (
-    import_mediapipe_pose_landmarks_json_project as import_mediapipe_pose_landmarks_json_project,
-)
-from xpkg.project.store.imports import (
-    import_mmpose_topdown_json_project as import_mmpose_topdown_json_project,
-)
-from xpkg.project.store.imports import (
-    import_sleap_h5_project as import_sleap_h5_project,
-)
-from xpkg.project.store.imports import (
-    import_sleap_package_project as import_sleap_package_project,
-)
-from xpkg.project.store.imports import (
-    import_vicon_c3d_project as import_vicon_c3d_project,
-)
-from xpkg.project.store.imports import (
-    import_vicon_csv_project as import_vicon_csv_project,
-)
-from xpkg.project.store.imports import (
-    import_vicon_project as import_vicon_project,
 )
 from xpkg.project.store.media import (
     _copy_file_into_media as _copy_file_into_media,

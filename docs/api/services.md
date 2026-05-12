@@ -20,16 +20,16 @@ flowchart TD
     svc -->|.import_calibration| ical[["import_calibration(format, ...)"]]
     svc -->|.import_motion| imot[["import_motion(format, ...)"]]
 
-    ipose -.dispatch.-> dlc["import_dlc_csv_project<br/>import_dlc_h5_project<br/>import_sleap_h5_project<br/>…"]
-    ical -.dispatch.-> ani["import_anipose_calibration_project"]
-    imot -.dispatch.-> vic["import_vicon_project<br/>import_vicon_csv_project<br/>import_vicon_c3d_project"]
+    ipose -.dispatch.-> dlc["dlc-csv<br/>dlc-h5<br/>sleap-h5<br/>…"]
+    ical -.dispatch.-> ani["anipose"]
+    imot -.dispatch.-> vic["vicon<br/>vicon-csv<br/>vicon-c3d"]
 
     classDef accent stroke-width:1.5px;
 ```
 
-The dispatch methods select the underlying `xpkg.project.import_*_project`
-free function by a kebab-case ``format`` string typed as `PoseFormat`,
-`CalibrationFormat`, or `MotionFormat`.
+The dispatch methods select package-owned importer implementations by a
+kebab-case ``format`` string typed as `PoseFormat`, `CalibrationFormat`, or
+`MotionFormat`.
 
 ## Metadata accessor
 
@@ -68,8 +68,6 @@ of slots actually written.
 - Use <code>project.segmentation.*</code> when you want to save or load
   frame-level segmentation masks without manually rebuilding a
   <code>Labels</code> object.
-- Use <code>xpkg.project.import_*_project(...)</code> when you explicitly
-  want the same importers as free functions.
 
 ## Recommended Flow
 
@@ -159,25 +157,24 @@ session_state = project.load_state_metadata_field("session_json")
 ## Service-Bound Import Surface
 
 Three dispatch methods on `ProjectService` cover all supported importers,
-selecting the underlying free function by a kebab-case ``format`` string:
+selecting a package-owned implementation by kebab-case ``format`` string:
 
-| Service call | Matching free function |
+| Service call | Format implementation |
 | --- | --- |
-| `project.import_pose("dlc-csv", path=..., video=...)` | `xpkg.project.import_dlc_csv_project(...)` |
-| `project.import_pose("dlc-h5", path=..., video=...)` | `xpkg.project.import_dlc_h5_project(...)` |
-| `project.import_pose("dlc-project", path=...)` | `xpkg.project.import_dlc_project_directory(...)` |
-| `project.import_pose("lightning-pose-csv", path=..., video=...)` | `xpkg.project.import_lightning_pose_csv_project(...)` |
-| `project.import_pose("sleap-h5", path=..., video=...)` | `xpkg.project.import_sleap_h5_project(...)` |
-| `project.import_pose("sleap-package", path=...)` | `xpkg.project.import_sleap_package_project(...)` |
-| `project.import_pose("mmpose-topdown-json", path=..., video=...)` | `xpkg.project.import_mmpose_topdown_json_project(...)` |
-| `project.import_pose("mediapipe-pose-landmarks-json", path=..., video=...)` | `xpkg.project.import_mediapipe_pose_landmarks_json_project(...)` |
-| `project.import_calibration("anipose", path=...)` | `xpkg.project.import_anipose_calibration_project(...)` |
-| `project.import_motion("vicon", path=...)` | `xpkg.project.import_vicon_project(...)` |
-| `project.import_motion("vicon-csv", path=...)` | `xpkg.project.import_vicon_csv_project(...)` |
-| `project.import_motion("vicon-c3d", path=...)` | `xpkg.project.import_vicon_c3d_project(...)` |
+| `project.import_pose("dlc-csv", path=..., video=...)` | DeepLabCut CSV |
+| `project.import_pose("dlc-h5", path=..., video=...)` | DeepLabCut H5 |
+| `project.import_pose("dlc-project", path=...)` | DeepLabCut project directory |
+| `project.import_pose("lightning-pose-csv", path=..., video=...)` | Lightning Pose CSV |
+| `project.import_pose("sleap-h5", path=..., video=...)` | SLEAP H5 |
+| `project.import_pose("sleap-package", path=...)` | SLEAP package |
+| `project.import_pose("mmpose-topdown-json", path=..., video=...)` | MMPose top-down JSON |
+| `project.import_pose("mediapipe-pose-landmarks-json", path=..., video=...)` | MediaPipe pose landmarks JSON |
+| `project.import_calibration("anipose", path=...)` | Anipose calibration TOML |
+| `project.import_motion("vicon", path=...)` | Vicon auto-detect |
+| `project.import_motion("vicon-csv", path=...)` | Vicon CSV |
+| `project.import_motion("vicon-c3d", path=...)` | Vicon C3D |
 
-The service dispatch is the preferred path for new project-facing code. The
-free functions remain public for explicit function-level integrations.
+The service dispatch is the public path for new project-facing code.
 
 ## Multimodal Reader And Import Plan
 
@@ -397,5 +394,5 @@ windows.
 
 ## Secondary Public Surfaces
 
-- Use [Project](project.md) when you want the same project-first behavior as
-  explicit free functions.
+- Use [Project](project.md) for lower-level project layout, artifact,
+  validation, and payload helpers.

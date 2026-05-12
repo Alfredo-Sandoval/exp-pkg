@@ -14,17 +14,9 @@ if TYPE_CHECKING:
 
 
 def _instance_points_with_scores(inst: Instance) -> np.ndarray | None:
-    points = inst.get_points_array(copy=False, full=True)
-    if points.dtype.names is None or "score" not in points.dtype.names:
+    if "score" not in (inst.point_records(copy=False).dtype.names or ()):
         return None
-
-    coords = np.full((len(points), 3), np.nan, dtype=np.float32)
-    visible = np.asarray(points["visible"], dtype=bool)
-    coords[:, 0] = np.asarray(points["x"], dtype=np.float32)
-    coords[:, 1] = np.asarray(points["y"], dtype=np.float32)
-    coords[~visible, :2] = np.nan
-    coords[:, 2] = np.asarray(points["score"], dtype=np.float32)
-    return coords
+    return inst.xy_score_array().astype(np.float32, copy=False)
 
 
 def labels_numpy(
@@ -75,14 +67,12 @@ def labels_numpy(
 
     def _set_track(inst: Instance | PredictedInstance, track_arr: np.ndarray) -> np.ndarray:
         if return_confidence:
-            if isinstance(inst, PredictedInstance):
-                return inst.points_and_scores_array
             scored_points = _instance_points_with_scores(inst)
             if scored_points is not None:
                 return scored_points
-            track_arr[:, :-1] = inst.numpy()
+            track_arr[:, :-1] = inst.xy_array()
             return track_arr
-        return inst.numpy()
+        return inst.xy_array()
 
     for lf in lfs:
         i = lf.frame_idx - first_frame

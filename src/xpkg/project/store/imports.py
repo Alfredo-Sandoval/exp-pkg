@@ -1,4 +1,4 @@
-"""Public per-format ``import_*_project`` entry points."""
+"""Per-format project importer implementations used by services and CLI."""
 
 from __future__ import annotations
 
@@ -409,5 +409,4 @@ def import_mediapipe_pose_landmarks_json_project(
             progress_callback=progress_callback,
         ),
     )
-
 

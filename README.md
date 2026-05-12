@@ -82,10 +82,6 @@ Choose the public surface by job:
 | Save or load frame-level segmentation masks | `project.segmentation.*` from `xpkg.services.ProjectService` |
 | Save or window-read dense instance-mask outputs | `xpkg.segmentation.MaskTableReader` / `write_mask_table` |
 | Populate GUI or project-picker rows | `xpkg project describe --json`, `ProjectService.describe()`, `xpkg inspect --json`, or `load_project_descriptor(...)` |
-| Import foreign pose data through explicit free functions | `xpkg.project.import_*_project(...)` |
-
-The explicit `xpkg.project.import_*_project(...)` helpers remain public when
-you want a function-level API or need to import before reopening a project.
 
 For downstream GUIs and catalog scans, keep list views shallow. Use descriptor,
 layout, metadata, and current-state file stats for rows; hydrate labels,
@@ -424,15 +420,6 @@ project = ProjectService.create("./Vicon Project", title="Vicon Project")
 project.import_motion("vicon", path="trial.c3d")
 recording = project.load_vicon_recording()
 artifact = project.pack()
-```
-
-The explicit free-function surface is also public:
-
-```python
-from xpkg.project import import_vicon_c3d_project, load_project_vicon_recording
-
-import_vicon_c3d_project("trial.c3d", "./Vicon Project")
-recording = load_project_vicon_recording("./Vicon Project")
 ```
 
 CLI examples:

@@ -127,14 +127,10 @@ class SerializerPredictedInstance:
         self._points["score"] = self.keypoint_scores
         self._points["flags"] = 0
 
-    def get_points_array(self, *, copy: bool = False, full: bool = True) -> np.ndarray:
-        """Return points in the structured array shape expected by xpkg writers."""
+    def point_records(self, *, copy: bool = False) -> np.ndarray:
+        """Return structured point records for xpkg state writers."""
 
-        if full:
-            return self._points.copy() if copy else self._points
-
-        compact = self._points[["x", "y", "visible", "complete"]]
-        return compact.copy() if copy else compact
+        return self._points.copy() if copy else self._points
 
 
 class PredictionAppendItem:

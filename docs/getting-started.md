@@ -267,7 +267,6 @@ Pick the surface by intent:
 | Save/load figure outputs with lineage | `project.figures.*` |
 | Save/load frame segmentation masks | `project.segmentation.*` |
 | Save/read dense instance-mask model outputs | `xpkg.segmentation.MaskTableReader` / `write_mask_table` |
-| Function-level project imports | `xpkg.project.import_*_project(...)` |
 
 ## Lifecycle-only example
 
@@ -286,15 +285,14 @@ packing, and reopen flows on the same public contract.
 
 The same project-first pattern is available for:
 
-- `import_dlc_h5_project(...)` and `import_dlc_project_directory(...)`
-- `import_lightning_pose_csv_project(...)`
-- `import_sleap_h5_project(...)` and `import_sleap_package_project(...)`
-- `import_mmpose_topdown_json_project(...)`
-- `import_mediapipe_pose_landmarks_json_project(...)`
+- `project.import_pose("dlc-h5", ...)` and `project.import_pose("dlc-project", ...)`
+- `project.import_pose("lightning-pose-csv", ...)`
+- `project.import_pose("sleap-h5", ...)` and `project.import_pose("sleap-package", ...)`
+- `project.import_pose("mmpose-topdown-json", ...)`
+- `project.import_pose("mediapipe-pose-landmarks-json", ...)`
 
-Use those project helpers as the primary integration surface for new code.
-The underlying `xpkg.project.import_*_project(...)` functions remain public
-when you want the explicit function form.
+Use the `ProjectService` dispatch methods as the primary integration surface
+for new code.
 
 Photometry and event-table CSV readers are available as direct reader APIs.
 They are not project imports yet. Sync CSV and the project import methods

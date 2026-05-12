@@ -1,10 +1,9 @@
-"""Project contract entry points for free-function integrations.
+"""Curated project contract entry points for xpkg projects.
 
-This module defines the free-function form of the project contract: project
-creation, import, validation, metadata, segmentation, artifact registry, and
-portable ``.expkg`` packing. New integrations should prefer ``ProjectService``
-for lifecycle orchestration, while these functions remain public for explicit
-function-level callers.
+This module exposes stable project lifecycle, validation, descriptor, storage,
+segmentation, artifact, calibration, and exchange helpers. Use
+``ProjectService`` for import orchestration across pose, calibration, and
+motion formats.
 """
 
 from __future__ import annotations
@@ -62,9 +61,6 @@ from xpkg.project.calibration import (
     project_calibrations_root,
     save_project_calibration,
 )
-from xpkg.project.calibration import (
-    import_anipose_calibration_project as import_anipose_calibration_project,
-)
 from xpkg.project.inspection import ProjectInspection, inspect_project
 from xpkg.project.layout import (
     ARTIFACTS_DIRNAME,
@@ -98,9 +94,8 @@ from xpkg.project.metadata import (
     project_pose_provenance_path,
 )
 
-# Path-level metadata helpers re-exported for callers that need a function-level
-# seam; deliberately omitted from ``__all__`` since ``ProjectService.metadata``
-# is the public path. Redundant aliases mark these as intentional re-exports.
+# Path-level metadata helpers for callers that need a function-level seam.
+# ``ProjectService.metadata`` remains the normal service-bound path.
 from xpkg.project.metadata import (
     load_project_acquisition_metadata as load_project_acquisition_metadata,
 )
@@ -152,44 +147,9 @@ from xpkg.project.store import (
     save_project_labels,
 )
 
-# Path-level import and metadata-state helpers re-exported for callers that
-# need a function-level seam; deliberately omitted from ``__all__`` since
-# ``ProjectService.import_pose`` / ``import_calibration`` / ``import_motion``
-# and ``ProjectService.load_state_metadata`` / ``save_state_metadata`` are the
-# public path. Redundant aliases mark these as intentional re-exports.
-from xpkg.project.store import (
-    import_dlc_csv_project as import_dlc_csv_project,
-)
-from xpkg.project.store import (
-    import_dlc_h5_project as import_dlc_h5_project,
-)
-from xpkg.project.store import (
-    import_dlc_project_directory as import_dlc_project_directory,
-)
-from xpkg.project.store import (
-    import_lightning_pose_csv_project as import_lightning_pose_csv_project,
-)
-from xpkg.project.store import (
-    import_mediapipe_pose_landmarks_json_project as import_mediapipe_pose_landmarks_json_project,
-)
-from xpkg.project.store import (
-    import_mmpose_topdown_json_project as import_mmpose_topdown_json_project,
-)
-from xpkg.project.store import (
-    import_sleap_h5_project as import_sleap_h5_project,
-)
-from xpkg.project.store import (
-    import_sleap_package_project as import_sleap_package_project,
-)
-from xpkg.project.store import (
-    import_vicon_c3d_project as import_vicon_c3d_project,
-)
-from xpkg.project.store import (
-    import_vicon_csv_project as import_vicon_csv_project,
-)
-from xpkg.project.store import (
-    import_vicon_project as import_vicon_project,
-)
+# State-metadata helpers for callers that need a function-level seam.
+# ``ProjectService.load_state_metadata`` / ``save_state_metadata`` remain the
+# normal service-bound path.
 from xpkg.project.store import (
     load_project_metadata as load_project_metadata,
 )
@@ -199,13 +159,8 @@ from xpkg.project.store import (
 
 # Curated stable public surface.
 #
-# The verbose path-level helpers ``import_*_project`` and ``save/load_project_*``
-# (typed metadata slots and the state-bound metadata dict) are intentionally
-# omitted: ``ProjectService.import_pose`` / ``import_calibration`` /
-# ``import_motion`` and ``ProjectService.metadata`` / ``load_state_metadata``
-# are the public path. The free functions remain importable from this module
-# for callers that need a function-level seam, but they are not part of the
-# stable surface.
+# Package-level format importers are intentionally not re-exported here; use
+# ``ProjectService.import_pose``, ``import_calibration``, or ``import_motion``.
 __all__ = [
     # Constants and filenames
     "ACQUISITION_METADATA_FILENAME",
@@ -297,6 +252,21 @@ __all__ = [
     "save_project_labels",
     "load_project_payload",
     "load_project_vicon_recording",
+    # Metadata storage
+    "load_project_acquisition_metadata",
+    "load_project_dataset_share_metadata",
+    "load_project_datasheet",
+    "load_project_metadata",
+    "load_project_metadata_field",
+    "load_project_model_card",
+    "load_project_pose_provenance",
+    "save_project_acquisition_metadata",
+    "save_project_dataset_share_metadata",
+    "save_project_datasheet",
+    "save_project_metadata",
+    "save_project_metadata_field",
+    "save_project_model_card",
+    "save_project_pose_provenance",
     # Calibration storage
     "list_project_calibrations",
     "load_project_calibration",

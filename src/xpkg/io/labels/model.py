@@ -64,7 +64,7 @@ def _template_points_from_instances(
     any_seen = False
 
     for instance in instances:
-        points = instance.get_points_array(copy=True, invisible_as_nan=True, full=False)
+        points = instance.xy_array(invisible_as_nan=True)
         if points.shape != (keypoint_count, 2):
             raise ValueError(
                 "Instance points shape does not match skeleton keypoint count: "

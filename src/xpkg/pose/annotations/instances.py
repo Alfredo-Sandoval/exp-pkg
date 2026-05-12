@@ -216,7 +216,7 @@ class Instance:
                 "call realign_points() to resync."
             )
 
-    def _ensure_points_array(self) -> PointArray:
+    def _ensure_point_records(self) -> PointArray:
         self._assert_points_synced()
         return self._points
 
@@ -232,7 +232,7 @@ class Instance:
         :meth:`_assert_points_synced` when the instance is out of sync.
         """
         skeleton_kps = list(self.skeleton.keypoints)
-        points = self._ensure_points_array()
+        points = self._ensure_point_records()
         cls = type(points)
         new_len = len(skeleton_kps)
         new_array = cls.make_default(new_len)
@@ -293,7 +293,7 @@ class Instance:
             if keypoint_name not in self.skeleton:
                 return False
             normalized_key = self._keypoint_to_index(keypoint_name)
-        points = self._ensure_points_array()
+        points = self._ensure_point_records()
         if (
             not isinstance(normalized_key, int)
             or normalized_key < 0
@@ -351,7 +351,7 @@ class Instance:
             self._set_point_at(n, v)
 
     def _get_point_at(self, keypoint: str | Keypoint | int | np.integer[Any]) -> Point:
-        points = self._ensure_points_array()
+        points = self._ensure_point_records()
         normalized_key = Instance._normalize_key(keypoint)
         if isinstance(normalized_key, Keypoint | str):
             keypoint_name = (
@@ -367,7 +367,7 @@ class Instance:
         keypoint: str | Keypoint | int | np.integer[Any],
         value: list[Point] | Point | np.ndarray | Any,
     ) -> None:
-        points = self._ensure_points_array()
+        points = self._ensure_point_records()
         normalized_key = Instance._normalize_key(keypoint)
         if isinstance(normalized_key, Keypoint | str):
             kp_name = (
@@ -419,7 +419,7 @@ class Instance:
     @property
     def keypoints(self) -> tuple[Keypoint, ...]:
         """Return the tuple of labeled keypoints that are present."""
-        points = self._ensure_points_array()
+        points = self._ensure_point_records()
         skeleton_kps = self.skeleton.keypoints
         result = []
         for i in range(len(points)):
@@ -435,7 +435,7 @@ class Instance:
     @property
     def keypoints_vectorized(self) -> tuple[Keypoint, ...]:
         """Vectorized variant of keypoints()."""
-        points = self._ensure_points_array()
+        points = self._ensure_point_records()
 
         if len(points) == 0:
             return ()
@@ -463,7 +463,7 @@ class Instance:
         Returns:
             list[tuple[Keypoint, Point]]: List of keypoint-point pairs.
         """
-        points = self._ensure_points_array()
+        points = self._ensure_point_records()
 
         skeleton_kps = self.skeleton.keypoints
         result = []
@@ -483,7 +483,7 @@ class Instance:
         Returns:
             list[tuple[Keypoint, Point]]: List of keypoint-point pairs.
         """
-        points = self._ensure_points_array()
+        points = self._ensure_point_records()
 
         if len(points) == 0:
             return []
@@ -511,7 +511,7 @@ class Instance:
         Returns:
             tuple[Point, ...]: Tuple of visible points.
         """
-        points = self._ensure_points_array()
+        points = self._ensure_point_records()
 
         result = []
         for i in range(len(points)):
@@ -527,7 +527,7 @@ class Instance:
         Returns:
             tuple[Point, ...]: Tuple of visible points.
         """
-        points = self._ensure_points_array()
+        points = self._ensure_point_records()
 
         if len(points) == 0:
             return ()
@@ -536,61 +536,53 @@ class Instance:
             return ()
         return tuple(points[valid_mask])
 
-    def get_points_array(
-        self, copy: bool = True, invisible_as_nan: bool = False, full: bool = False
-    ) -> np.ndarray | np.recarray:
-        """Return the underlying points array with optional masks.
+    def point_records(self, *, copy: bool = True) -> np.ndarray:
+        """Return the structured point records for storage-level callers.
 
-        Args:
-            copy: If True, return a copy of the array.
-            invisible_as_nan: If True, set coordinates of invisible points to NaN.
-            full: If True, return all fields (x, y, visible, complete, flags).
-
-        Returns:
-            np.ndarray | np.recarray: The points array.
+        Use :meth:`xy_array` or :meth:`xy_score_array` for numeric coordinate
+        arrays. Use this method only when the caller needs record fields such as
+        ``visible``, ``complete``, ``flags``, or native prediction ``score``.
         """
-        base_points = self._ensure_points_array().view(np.ndarray)
-        if not copy:
-            if full:
-                return base_points
-            else:
-                return base_points[["x", "y"]]
-        else:
-            names = base_points.dtype.names or ()
-            target_fields = names if full else ("x", "y")
-            parray = np.empty((len(base_points), len(target_fields)), dtype=float)
-            for idx, field in enumerate(target_fields):
-                parray[:, idx] = np.asarray(base_points[field], dtype=float)
+        records = self._ensure_point_records().view(np.ndarray)
+        return records.copy() if copy else records
 
-            if invisible_as_nan:
-                parray[~base_points["visible"]] = math.nan
-            return parray
+    def xy_array(self, *, invisible_as_nan: bool = True) -> np.ndarray:
+        """Return point coordinates as a plain ``(keypoints, 2)`` float array.
 
-    def get_points_array_vectorized(
-        self, copy: bool = True, invisible_as_nan: bool = False, full: bool = False
-    ) -> np.ndarray | np.recarray:
-        """Vectorized variant of get_points_array().
-
-        Args:
-            copy: If True, return a copy of the array.
-            invisible_as_nan: If True, set coordinates of invisible points to NaN.
-            full: If True, return all fields (x, y, visible, complete, flags).
-
-        Returns:
-            np.ndarray | np.recarray: The points array.
+        xpkg stores missing coordinates as NaN. When ``invisible_as_nan`` is
+        true, invisible points are also masked to NaN in the returned coordinate
+        array. The returned array is detached from the instance's structured
+        record storage so consumers can safely mutate it.
         """
-        base_points = self._ensure_points_array().view(np.ndarray)
-        if not copy:
-            if full:
-                return base_points
-            return base_points[["x", "y"]]
-        names = base_points.dtype.names or ()
-        target_fields = names if full else ("x", "y")
-        fields = [np.asarray(base_points[field], dtype=float) for field in target_fields]
-        parray = np.stack(fields, axis=1)
+        points = self._ensure_point_records().view(np.ndarray)
+        xy = np.empty((len(points), 2), dtype=float)
+        xy[:, 0] = np.asarray(points["x"], dtype=float)
+        xy[:, 1] = np.asarray(points["y"], dtype=float)
         if invisible_as_nan:
-            parray[~base_points["visible"]] = math.nan
-        return parray
+            xy[~np.asarray(points["visible"], dtype=bool)] = math.nan
+        return xy
+
+    def xy_score_array(
+        self,
+        *,
+        invisible_as_nan: bool = True,
+        missing_score: float = math.nan,
+    ) -> np.ndarray:
+        """Return coordinates plus score as a plain ``(keypoints, 3)`` array.
+
+        Predicted instances carry native point scores. User-labeled instances do
+        not, so their score column is filled with ``missing_score``.
+        """
+        points = self._ensure_point_records().view(np.ndarray)
+        xys = np.empty((len(points), 3), dtype=float)
+        xys[:, :2] = self.xy_array(invisible_as_nan=invisible_as_nan)
+        if "score" in (points.dtype.names or ()):
+            xys[:, 2] = np.asarray(points["score"], dtype=float)
+        else:
+            xys[:, 2] = float(missing_score)
+        if invisible_as_nan:
+            xys[~np.asarray(points["visible"], dtype=bool), 2] = math.nan
+        return xys
 
     def fill_missing(self, max_x: float | None = None, max_y: float | None = None):
         """Impute missing points to stay within the optional bounds."""
@@ -618,22 +610,9 @@ class Instance:
                     y = min(y, max_y)
                 self[kp] = PointCtor(x=x, y=y, visible=False)
 
-    @property
-    def points_array(self) -> np.ndarray:
-        """Return the underlying numpy array with NaNs for hidden points."""
-        return self.get_points_array(invisible_as_nan=True)
-
-    def numpy(self) -> np.ndarray:
-        """Return the points array as a numpy ndarray.
-
-        Returns:
-            np.ndarray: Array of shape (keypoints, 2) with NaNs for hidden points.
-        """
-        return self.points_array
-
     def transform_points(self, transformation_matrix):
         """Apply the provided matrix to transform all points."""
-        points = self.get_points_array(copy=True, full=False, invisible_as_nan=False)
+        points = self.xy_array(invisible_as_nan=False)
         if transformation_matrix.shape[1] == 3:
             rotation = transformation_matrix[:, :2]
             translation = transformation_matrix[:, 2]
@@ -646,7 +625,7 @@ class Instance:
     @property
     def centroid(self) -> np.ndarray:
         """Return the median coordinate (x,y) of visible points."""
-        points = np.asarray(self.points_array, dtype=float)
+        points = self.xy_array()
 
         valid_mask = ~np.isnan(points).any(axis=1)
         if not valid_mask.any():
@@ -662,7 +641,7 @@ class Instance:
     @property
     def bounding_box_xyxy(self) -> np.ndarray:
         """Bounding box in XYXY order (x1, y1, x2, y2)."""
-        points = self.points_array
+        points = self.xy_array()
         if np.isnan(points).all():
             return np.array([np.nan, np.nan, np.nan, np.nan])
         mins = np.nanmin(points, axis=0)
@@ -685,7 +664,7 @@ class Instance:
     @property
     def visible_point_count_vectorized(self) -> int:
         """Vectorized variant of visible_point_count."""
-        points = self._ensure_points_array()
+        points = self._ensure_point_records()
 
         valid_mask = ~np.isnan(points["x"]) & ~np.isnan(points["y"])
         return int(np.count_nonzero(valid_mask & points["visible"]))
@@ -780,15 +759,9 @@ class PredictedInstance(Instance):
         )
 
     @property
-    def points_and_scores_array(self) -> np.ndarray:
-        """Return a (N,3) array of (x, y, score) for each point."""
-        pts = self.get_points_array(full=True, copy=True, invisible_as_nan=True)
-        return pts[:, (0, 1, 4)]
-
-    @property
     def scores(self) -> np.ndarray:
         """Return the per-point confidence scores."""
-        return self.points_and_scores_array[:, 2]
+        return self.xy_score_array()[:, 2]
 
     @classmethod
     def from_instance(

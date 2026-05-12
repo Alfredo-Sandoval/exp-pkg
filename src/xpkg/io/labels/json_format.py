@@ -82,7 +82,7 @@ def _instance_point_payload(
     instance: Instance,
     keypoint_count: int,
 ) -> tuple[np.ndarray, np.ndarray]:
-    points = instance.get_points_array(copy=False, full=True)
+    points = instance.point_records(copy=False)
     coords = np.full((keypoint_count, 3), np.nan, dtype=np.float32)
     flags = np.zeros((keypoint_count,), dtype=np.uint8)
     coords[:, 0] = np.asarray(points["x"], dtype=np.float32)

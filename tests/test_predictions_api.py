@@ -14,7 +14,7 @@ def test_serializer_predicted_instance_exposes_state_writer_shape() -> None:
         keypoint_scores=[0.9, 0.8],
     )
 
-    points = instance.get_points_array(copy=False, full=True)
+    points = instance.point_records(copy=False)
 
     assert instance.keypoints.shape == (2, 2)
     assert instance.score == 0.75

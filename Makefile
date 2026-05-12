@@ -31,7 +31,7 @@ lint:
 	$(RUN_IN_ENV) ruff check .
 
 typecheck:
-	$(RUN_IN_ENV) ty check
+	$(RUN_IN_ENV) sh -c 'ty check --python "$$CONDA_PREFIX/bin/python"'
 
 test:
 	PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 $(RUN_IN_ENV) pytest

@@ -45,8 +45,7 @@ class _ForeignPredictedInstance:
             ],
         )
 
-    def get_points_array(self, *, copy: bool, full: bool) -> np.ndarray:
-        assert full
+    def point_records(self, *, copy: bool) -> np.ndarray:
         return self._points.copy() if copy else self._points
 
 
@@ -502,7 +501,7 @@ def test_pack_and_unpack_roundtrip_project(tmp_path: Path) -> None:
     unpack_project(artifact, unpacked)
 
     loaded = Labels.load_file(unpacked.as_posix())
-    pts = loaded.labeled_frames[0].instances[0].get_points_array(copy=False, full=True)
+    pts = loaded.labeled_frames[0].instances[0].point_records(copy=False)
     assert float(pts["x"][0]) == 5.0
     assert float(pts["y"][0]) == 6.0
 
@@ -555,7 +554,7 @@ def test_pack_portable_and_unpack_uses_managed_media_after_source_removal(tmp_pa
     validate_artifact(unpacked)
 
     loaded = Labels.load_file(unpacked.as_posix())
-    pts = loaded.labeled_frames[0].instances[0].get_points_array(copy=False, full=True)
+    pts = loaded.labeled_frames[0].instances[0].point_records(copy=False)
     assert float(pts["x"][0]) == 7.0
     assert float(pts["y"][0]) == 8.0
 
@@ -677,7 +676,7 @@ def test_labels_save_file_to_project_creates_first_committed_state(tmp_path: Pat
     assert labels.path == project
 
     loaded = Labels.load_file(project.as_posix())
-    pts = loaded.labeled_frames[0].instances[0].get_points_array(copy=False, full=True)
+    pts = loaded.labeled_frames[0].instances[0].point_records(copy=False)
     assert float(pts["x"][0]) == 11.0
     assert float(pts["y"][0]) == 12.0
 
@@ -809,7 +808,7 @@ def test_project_load_rebuilds_tampered_state_cache_when_commit_id_matches_head(
     state_path.write_text(json.dumps(state_doc, indent=2) + "\n", encoding="utf-8")
 
     loaded = Labels.load_file(project.as_posix())
-    pts = loaded.labeled_frames[0].instances[0].get_points_array(copy=False, full=True)
+    pts = loaded.labeled_frames[0].instances[0].point_records(copy=False)
     repaired_state = json.loads(state_path.read_text(encoding="utf-8"))
 
     assert float(pts["x"][0]) == 11.0
@@ -833,7 +832,7 @@ def test_project_load_rebuilds_missing_state_from_committed_state(tmp_path: Path
     state_path.unlink()
 
     loaded = Labels.load_file(project.as_posix())
-    pts = loaded.labeled_frames[0].instances[0].get_points_array(copy=False, full=True)
+    pts = loaded.labeled_frames[0].instances[0].point_records(copy=False)
 
     assert float(pts["x"][0]) == 21.0
     assert float(pts["y"][0]) == 22.0
@@ -859,7 +858,7 @@ def test_project_load_ignores_stale_state_when_commit_id_mismatches(tmp_path: Pa
     state_path.write_text(json.dumps(stale_state, indent=2) + "\n", encoding="utf-8")
 
     loaded = Labels.load_file(project.as_posix())
-    pts = loaded.labeled_frames[0].instances[0].get_points_array(copy=False, full=True)
+    pts = loaded.labeled_frames[0].instances[0].point_records(copy=False)
     assert float(pts["x"][0]) == 31.0
     assert float(pts["y"][0]) == 32.0
 

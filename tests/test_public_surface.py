@@ -85,17 +85,6 @@ from xpkg.project import (
     clear_project_segmentation_masks,
     current_project_state_path,
     default_expkg_path,
-    import_dlc_csv_project,
-    import_dlc_h5_project,
-    import_dlc_project_directory,
-    import_lightning_pose_csv_project,
-    import_mediapipe_pose_landmarks_json_project,
-    import_mmpose_topdown_json_project,
-    import_sleap_h5_project,
-    import_sleap_package_project,
-    import_vicon_c3d_project,
-    import_vicon_csv_project,
-    import_vicon_project,
     init_project,
     inspect_project,
     is_project_root,
@@ -105,11 +94,14 @@ from xpkg.project import (
     load_project_acquisition_metadata,
     load_project_artifact,
     load_project_dataset_share_metadata,
+    load_project_datasheet,
     load_project_descriptor,
     load_project_figure,
     load_project_metadata,
     load_project_metadata_field,
+    load_project_model_card,
     load_project_payload,
+    load_project_pose_provenance,
     load_project_segmentation_frames,
     load_project_segmentation_masks,
     load_project_vicon_recording,
@@ -130,10 +122,13 @@ from xpkg.project import (
     save_project_acquisition_metadata,
     save_project_artifact,
     save_project_dataset_share_metadata,
+    save_project_datasheet,
     save_project_figure,
     save_project_labels,
     save_project_metadata,
     save_project_metadata_field,
+    save_project_model_card,
+    save_project_pose_provenance,
     save_project_segmentation_masks,
     unpack_project,
     validate_artifact,
@@ -267,17 +262,6 @@ def test_public_exports_are_callable() -> None:
     assert callable(clear_project_segmentation_masks)
     assert callable(current_project_state_path)
     assert callable(default_expkg_path)
-    assert callable(import_vicon_c3d_project)
-    assert callable(import_vicon_csv_project)
-    assert callable(import_vicon_project)
-    assert callable(import_dlc_csv_project)
-    assert callable(import_dlc_h5_project)
-    assert callable(import_dlc_project_directory)
-    assert callable(import_lightning_pose_csv_project)
-    assert callable(import_mediapipe_pose_landmarks_json_project)
-    assert callable(import_mmpose_topdown_json_project)
-    assert callable(import_sleap_h5_project)
-    assert callable(import_sleap_package_project)
     assert callable(init_project)
     assert callable(inspect_project)
     assert callable(is_project_root)
@@ -290,9 +274,12 @@ def test_public_exports_are_callable() -> None:
     assert callable(load_project_figure)
     assert callable(load_project_descriptor)
     assert callable(load_project_dataset_share_metadata)
+    assert callable(load_project_datasheet)
     assert callable(load_project_metadata)
     assert callable(load_project_metadata_field)
+    assert callable(load_project_model_card)
     assert callable(load_project_payload)
+    assert callable(load_project_pose_provenance)
     assert callable(load_project_segmentation_frames)
     assert callable(load_project_segmentation_masks)
     assert callable(load_project_vicon_recording)
@@ -305,10 +292,13 @@ def test_public_exports_are_callable() -> None:
     assert callable(save_project_artifact)
     assert callable(save_project_acquisition_metadata)
     assert callable(save_project_dataset_share_metadata)
+    assert callable(save_project_datasheet)
     assert callable(save_project_figure)
     assert callable(save_project_metadata)
     assert callable(save_project_labels)
     assert callable(save_project_metadata_field)
+    assert callable(save_project_model_card)
+    assert callable(save_project_pose_provenance)
     assert callable(save_project_segmentation_masks)
     assert callable(unpack_project)
     assert callable(validate_artifact)
@@ -501,11 +491,9 @@ def test_project_surface_is_project_first_only() -> None:
     assert "save_project_segmentation_masks" in xpkg.project.__all__
     assert "load_project_segmentation_masks" in xpkg.project.__all__
 
-    # The verbose import_*_project / save+load typed-metadata / state-metadata
-    # helpers are intentionally NOT in __all__: ProjectService.import_pose,
-    # ProjectService.metadata, and ProjectService.{load,save}_state_metadata
-    # are the public path. The names remain importable for path-level callers.
-    not_in_curated_surface = {
+    # Package-level format importers are intentionally not exposed; use
+    # ProjectService.import_pose/import_calibration/import_motion instead.
+    not_exported = {
         "import_anipose_calibration_project",
         "import_dlc_csv_project",
         "import_dlc_h5_project",
@@ -518,6 +506,12 @@ def test_project_surface_is_project_first_only() -> None:
         "import_vicon_c3d_project",
         "import_vicon_csv_project",
         "import_vicon_project",
+    }
+    assert not_exported.isdisjoint(set(xpkg.project.__all__))
+    for name in not_exported:
+        assert not hasattr(xpkg.project, name), f"{name} should not be a project export"
+
+    metadata_surface = {
         "load_project_acquisition_metadata",
         "load_project_dataset_share_metadata",
         "load_project_datasheet",
@@ -533,10 +527,7 @@ def test_project_surface_is_project_first_only() -> None:
         "save_project_model_card",
         "save_project_pose_provenance",
     }
-    assert not_in_curated_surface.isdisjoint(set(xpkg.project.__all__))
-    # ...but each of them is still importable as a path-level seam.
-    for name in not_in_curated_surface:
-        assert hasattr(xpkg.project, name), f"{name} should remain importable"
+    assert metadata_surface.issubset(set(xpkg.project.__all__))
 
     with pytest.raises(AttributeError):
         xpkg.project.__getattribute__("read_archive")

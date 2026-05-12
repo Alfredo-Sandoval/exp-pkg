@@ -124,6 +124,24 @@ project imports are planned next; see
 - `Point` is the basic labeled point type.
 - `PredictedPoint` adds prediction score information.
 - `PointArray` and `PredictedPointArray` are the vectorized array forms.
+- Missing point coordinates are represented with `NaN`, not `None`.
+- `KPFlag.NO_TRAIN` is stored in each point's native `flags` field, independent
+  of `visible`; downstream training code must honor `Point.include_in_training`
+  to exclude those points from loss.
+
+For downstream GUI and analysis code, prefer the explicit coordinate helpers:
+
+```python
+xy = instance.xy_array()
+xy_score = predicted_instance.xy_score_array()
+point_xy = point.xy_or_none()
+```
+
+`xy_array()` returns a plain `(keypoints, 2)` float array. `xy_score_array()`
+returns a plain `(keypoints, 3)` float array with the score in the third column;
+instances without native scores fill that column with `NaN` by default. Use
+`point_records(copy=False)` only when you need the structured
+record fields (`x`, `y`, `visible`, `complete`, `flags`, and optional `score`).
 
 ### Media and suggestions
 

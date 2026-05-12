@@ -473,19 +473,19 @@ class LabeledFrame:
 
             points_cache: dict[int, np.ndarray] = {}
 
-            def _points_array(inst: Instance) -> np.ndarray:
+            def _xy_array(inst: Instance) -> np.ndarray:
                 inst_id = id(inst)
                 cached = points_cache.get(inst_id)
                 if cached is not None:
                     return cached
-                pts = np.asarray(inst.points_array, dtype=float)
+                pts = inst.xy_array()
                 if pts.size:
                     pts[~np.isfinite(pts)] = math.nan
                 points_cache[inst_id] = pts
                 return pts
 
             def _stack_points(instances: Sequence[Instance]) -> np.ndarray:
-                return np.stack([_points_array(inst) for inst in instances], axis=0)
+                return np.stack([_xy_array(inst) for inst in instances], axis=0)
 
             def _centroids(points_stack: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
                 count = points_stack.shape[0]
@@ -702,7 +702,7 @@ class LabeledFrame:
             np.ndarray: Array of shape (instances, keypoints, 2).
         """
         if len(self.instances) > 0:
-            return np.stack([inst.numpy() for inst in self.instances], axis=0)
+            return np.stack([inst.xy_array() for inst in self.instances], axis=0)
         else:
             return np.full((0, 0, 2), np.nan)
 

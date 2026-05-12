@@ -188,10 +188,10 @@ sequenceDiagram
 <div class="card" markdown>
 ### Path-level seam
 - `xpkg.project` — free functions (`init_project`, `pack_project`,
-  `validate_project`, the importer free functions, path helpers)
+  `validate_project`, path helpers)
 
-These remain importable for callers that want a function-level seam,
-but `ProjectService` is the public path.
+`ProjectService` is the public import path for pose, calibration, and motion
+formats.
 </div>
 
 </div>

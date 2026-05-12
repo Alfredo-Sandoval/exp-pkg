@@ -12,9 +12,10 @@ import numpy as np
 class KPFlag(IntFlag):
     """Bit flags for per-keypoint state.
 
-    Non-breaking scaffold: currently we derive flags from existing fields
-    (e.g., NO_TRAIN maps to visible=False). Additional flags are placeholders
-    until native storage is introduced.
+    Flags are stored natively in the point record's ``flags`` field. Visibility
+    answers whether a point should be shown/used as a coordinate. ``NO_TRAIN``
+    independently records that a labeled point should be excluded by downstream
+    training code that honors :attr:`Point.include_in_training`.
     """
 
     NONE = 0
@@ -76,6 +77,16 @@ class Point(np.record):
             np.ndarray: Array of shape (2,) containing [x, y].
         """
         return np.array([self["x"], self["y"]])
+
+    def xy_or_none(self) -> tuple[float, float] | None:
+        """Return ``(x, y)`` for labeled points, otherwise ``None``.
+
+        Missing points are represented by NaN coordinates, not ``None`` values.
+        Use this helper when branching on a single point's presence.
+        """
+        if self.isnan():
+            return None
+        return float(self["x"]), float(self["y"])
 
     @property
     def is_labeled(self) -> bool:

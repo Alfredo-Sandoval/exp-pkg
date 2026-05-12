@@ -46,7 +46,7 @@ def test_convert_mediapipe_pose_landmarks_json_builds_labels(tmp_path: Path) -> 
     assert len(labels.labeled_frames) == 2
 
     first_frame = next(frame for frame in labels.labeled_frames if frame.frame_idx == 0)
-    points = first_frame.instances[0].get_points_array(copy=False, full=True)
+    points = first_frame.instances[0].point_records(copy=False)
     assert float(points["x"][0]) == pytest.approx(0.8)
     assert float(points["y"][0]) == pytest.approx(1.2)
 
@@ -73,7 +73,7 @@ def test_convert_mediapipe_pose_landmarks_json_applies_threshold(tmp_path: Path)
     )
 
     labels = result.labels
-    points = labels.labeled_frames[0].instances[0].get_points_array(copy=False, full=True)
+    points = labels.labeled_frames[0].instances[0].point_records(copy=False)
     assert int(np.count_nonzero(~np.isnan(points["x"]))) == 32
 
 
@@ -102,11 +102,9 @@ def test_import_mediapipe_pose_landmarks_json_project_imports_sequence_into_proj
     tmp_path: Path,
 ) -> None:
     from xpkg.model import Labels
+    from xpkg.project import current_project_state_path
     from xpkg.project.state_io import read_project_state_payload
-    from xpkg.project.store import (
-        current_project_state_path,
-        import_mediapipe_pose_landmarks_json_project,
-    )
+    from xpkg.project.store.imports import import_mediapipe_pose_landmarks_json_project
 
     json_path = tmp_path / "pose_landmarks.json"
     _write_mediapipe_pose_landmarks_json(

@@ -5,11 +5,10 @@
 <code>xpkg.project</code> is the core project format surface. It
 defines the public artifact contract around projects, private
 <code>.xpkg/</code> state, portable <code>.expkg</code> artifacts, and the
-project-first import APIs for DeepLabCut, SLEAP, MMPose, MediaPipe,
-and Lightning Pose.
+project storage helpers used by the service layer.
 If you are starting a new downstream integration, read
 <a href="../services/"><code>xpkg.services</code></a> first and use this module
-when you want the explicit function-level form.
+for lower-level project layout, artifact, validation, and payload operations.
 </p>
 </div>
 
@@ -21,7 +20,6 @@ when you want the explicit function-level form.
 
 - Use <code>xpkg.services.ProjectService</code> for the normal create/open/import/validate/pack/unpack lifecycle.
 - Use <code>ProjectService.import_pose</code> / <code>import_calibration</code> / <code>import_motion</code> for the preferred service-bound import flow.
-- Use the <code>import_*_project(...)</code> helpers below when you want the same importers as explicit free functions.
 
 ## Project Contract
 
@@ -119,51 +117,6 @@ Validate a packed `.expkg` artifact.
 ### `validate_artifact(path)`
 
 Validate either a project or a packed artifact, dispatching by path type.
-
-## Import Into Projects
-
-These free functions are the reusable project import implementation. New
-service-based integrations should usually call them through
-<code>ProjectService.import_pose(...)</code>,
-<code>ProjectService.import_calibration(...)</code>, or
-<code>ProjectService.import_motion(...)</code>; use the explicit functions here
-when you want function-level imports.
-
-### `import_dlc_csv_project(...)`
-
-Import a DeepLabCut CSV into a project.
-
-### `import_dlc_h5_project(...)`
-
-Import a DeepLabCut H5 into a project.
-
-### `import_dlc_project_directory(...)`
-
-Import a whole DeepLabCut project into one project, skipping incomplete
-project entries and preserving all imported items in the same managed state.
-
-### `import_lightning_pose_csv_project(...)`
-
-Import a Lightning Pose prediction CSV plus its matching video into a
-project.
-
-### `import_sleap_h5_project(...)`
-
-Import a SLEAP analysis H5 export into a project.
-
-### `import_sleap_package_project(...)`
-
-Import a SLEAP package into a project.
-
-### `import_mmpose_topdown_json_project(...)`
-
-Import an official MMPose top-down demo JSON export plus its matching video
-into a project.
-
-### `import_mediapipe_pose_landmarks_json_project(...)`
-
-Import the supported MediaPipe pose-landmarks JSON contract plus its matching
-video into a project.
 
 ## Save Current Project State
 
