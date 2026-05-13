@@ -119,13 +119,14 @@ def export_pose_h5(
 
             for node_idx, kp in enumerate(skeleton.keypoints):
                 pt = inst[kp]
-                if pt.x is not None and pt.y is not None:
-                    pose_data[frame_idx, node_idx, 0, track_idx] = float(pt.x)
-                    pose_data[frame_idx, node_idx, 1, track_idx] = float(pt.y)
+                if not pt.is_labeled:
+                    continue
+                pose_data[frame_idx, node_idx, 0, track_idx] = float(pt.x)
+                pose_data[frame_idx, node_idx, 1, track_idx] = float(pt.y)
 
-                    if include_confidence:
-                        confidence = pt.score if isinstance(pt, PredictedPoint) else 1.0
-                        confidence_data[frame_idx, node_idx, track_idx] = float(confidence)
+                if include_confidence:
+                    confidence = pt.score if isinstance(pt, PredictedPoint) else 1.0
+                    confidence_data[frame_idx, node_idx, track_idx] = float(confidence)
 
     if transpose_for_column_major:
         pose_data = np.asfortranarray(pose_data)

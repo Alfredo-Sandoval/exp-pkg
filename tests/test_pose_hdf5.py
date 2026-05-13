@@ -12,8 +12,8 @@ from xpkg.io.labels.model import Labels
 from xpkg.io.pose_hdf5 import export_pose_h5
 from xpkg.media.video import Video
 from xpkg.pose.annotations.frames import LabeledFrame
-from xpkg.pose.annotations.instances import Instance
-from xpkg.pose.annotations.points import Point
+from xpkg.pose.annotations.instances import Instance, PredictedInstance
+from xpkg.pose.annotations.points import Point, PredictedPoint
 from xpkg.pose.skeleton import Keypoint, Skeleton
 
 
@@ -87,15 +87,40 @@ def test_export_pose_h5_tracks_shape_and_node_names(sample_labels: Labels, tmp_p
         assert "tail" in names
 
 
-def test_export_pose_h5_excludes_confidence_when_disabled(
-    sample_labels: Labels, tmp_path
-) -> None:
+def test_export_pose_h5_excludes_confidence_when_disabled(sample_labels: Labels, tmp_path) -> None:
     output_path = tmp_path / "analysis.h5"
 
     export_pose_h5(sample_labels, output_path, include_confidence=False)
 
     with h5py.File(output_path, "r") as f:
         assert "confidence" not in f
+
+
+def test_export_pose_h5_skips_confidence_for_missing_predicted_points(
+    sample_skeleton: Skeleton,
+    sample_video: Video,
+    tmp_path,
+) -> None:
+    labels = Labels(skeletons=[sample_skeleton], videos=[sample_video])
+    frame = LabeledFrame(video=sample_video, frame_idx=0)
+    pred = PredictedInstance(skeleton=sample_skeleton, frame=frame)
+    pred["nose"] = PredictedPoint(x=11.0, y=22.0, visible=True, score=0.9)
+    pred["left_ear"] = PredictedPoint(x=np.nan, y=np.nan, visible=True, score=0.8)
+    frame.instances.append(pred)
+    labels.append(frame)
+    labels.update_cache()
+
+    output_path = tmp_path / "analysis_missing_prediction.h5"
+    export_pose_h5(labels, output_path, include_confidence=True)
+
+    with h5py.File(output_path, "r") as f:
+        tracks = f["tracks"][:]
+        confidence = f["confidence"][:]
+
+    assert tracks[0, 0, :, 0].tolist() == [11.0, 22.0]
+    assert confidence[0, 0, 0] == pytest.approx(0.9)
+    assert np.isnan(tracks[0, 1, :, 0]).all()
+    assert confidence[0, 1, 0] == pytest.approx(0.0)
 
 
 def test_export_pose_h5_video_filter_sizes_by_selected_video(
