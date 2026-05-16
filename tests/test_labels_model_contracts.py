@@ -42,6 +42,24 @@ def _prediction_instance(labels: Labels, *, visible_tail: bool = True) -> Predic
     return prediction
 
 
+def test_instance_realign_points_after_keypoint_removal_drops_removed_point() -> None:
+    labels = _labels()
+    skeleton = labels.skeleton
+    paw = skeleton.add_keypoint("paw")
+    instance = _user_instance(labels)
+    instance.realign_points()
+    instance[paw] = Point(x=7.0, y=8.0, visible=True, complete=True)
+
+    skeleton.remove_keypoint("tail")
+    instance.realign_points()
+
+    assert skeleton.keypoint_names == ["nose", "paw"]
+    assert instance["nose"].x == pytest.approx(1.0)
+    assert instance["nose"].y == pytest.approx(2.0)
+    assert instance["paw"].x == pytest.approx(7.0)
+    assert instance["paw"].y == pytest.approx(8.0)
+
+
 def test_validate_allows_well_formed_graph() -> None:
     labels = _labels()
     frame = LabeledFrame(video=cast(Any, labels.video), frame_idx=0)

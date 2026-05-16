@@ -232,7 +232,9 @@ class Instance:
         :meth:`_assert_points_synced` when the instance is out of sync.
         """
         skeleton_kps = list(self.skeleton.keypoints)
-        points = self._ensure_point_records()
+        if not isinstance(self._points, PointArray):
+            raise TypeError("Instance points container must be a PointArray.")
+        points = self._points
         cls = type(points)
         new_len = len(skeleton_kps)
         new_array = cls.make_default(new_len)
