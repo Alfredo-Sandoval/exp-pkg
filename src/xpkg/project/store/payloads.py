@@ -483,21 +483,14 @@ def _strip_prediction_instances_from_state_payload(
 
         matched_indices: set[int] = set()
         for predicted_points, predicted_track_id in predicted_signatures:
-            matched_idx: int | None = None
             for inst_idx in range(inst_count):
                 if inst_idx in matched_indices:
                     continue
                 if int(track_ids[row, inst_idx]) != predicted_track_id:
                     continue
                 if np.allclose(keypoints[row, inst_idx], predicted_points, equal_nan=True):
-                    matched_idx = inst_idx
+                    matched_indices.add(inst_idx)
                     break
-            if matched_idx is None:
-                raise ValueError(
-                    "Project state labels/predictions are inconsistent for "
-                    f"video_index={key[0]}, frame_index={key[1]}"
-                )
-            matched_indices.add(matched_idx)
 
         kept_indices = [
             inst_idx for inst_idx in range(inst_count) if inst_idx not in matched_indices
@@ -537,4 +530,3 @@ def _strip_prediction_instances_from_state_payload(
     data_info["flags"] = kept_flags.tolist()
     data_info["track_ids"] = kept_track_ids.tolist()
     return stripped_payload
-

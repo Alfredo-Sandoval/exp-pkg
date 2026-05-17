@@ -396,6 +396,32 @@ def test_load_project_payload_keeps_predictions_out_of_labels_bundle(tmp_path: P
     assert int(prediction_track_ids[0, 0]) == 7
 
 
+def test_load_project_payload_keeps_distinct_labels_when_predictions_share_frame(
+    tmp_path: Path,
+) -> None:
+    from xpkg.model import Labels
+    from xpkg.project import init_project, load_project_payload
+
+    project = tmp_path / "Prediction Label Frame Project"
+    init_project(project, title="Prediction Label Frame Project")
+    Labels.save_file(
+        _make_predicted_labels(tmp_path, x=10.0, y=20.0, track_id=-1),
+        project.as_posix(),
+    )
+    Labels.save_file(_make_labels(tmp_path, x=11.0, y=22.0), project.as_posix())
+
+    payload = load_project_payload(project)
+    label_keypoints = np.asarray(payload["labels"]["data"]["keypoints"], dtype=np.float32)
+    prediction_keypoints = np.asarray(payload["predictions"]["data"]["keypoints"], dtype=np.float32)
+
+    assert payload["labels"]["frames"]["frame_index"].tolist() == [0]
+    assert float(label_keypoints[0, 0, 0, 0]) == pytest.approx(11.0)
+    assert float(label_keypoints[0, 0, 0, 1]) == pytest.approx(22.0)
+    assert int(payload["predictions"]["attrs"]["committed_length"]) == 1
+    assert float(prediction_keypoints[0, 0, 0, 0]) == pytest.approx(10.0)
+    assert float(prediction_keypoints[0, 0, 0, 1]) == pytest.approx(20.0)
+
+
 def test_load_project_payload_can_skip_prediction_materialization(tmp_path: Path) -> None:
     from xpkg.model import Labels
     from xpkg.project import current_project_state_path, init_project, load_project_payload
