@@ -15,16 +15,15 @@ import h5py
 import numpy as np
 import pandas as pd
 
-from xpkg.adapters.vicon import XPKG_VICON_JSON_FORMAT
-from xpkg.io.labels.json_format import XPKG_LABELS_JSON_FORMAT
 from xpkg.io.readers.pose import read_pose_track
 from xpkg.project.artifact import EXPKG_MANIFEST_FILENAME
 from xpkg.project.layout import (
     PROJECT_DESCRIPTOR_FILENAME,
     load_project_descriptor,
+    project_summary_path,
     resolve_project_root,
 )
-from xpkg.project.store import current_project_commit_id, current_project_state_path
+from xpkg.project.summary import refresh_project_summary
 
 from ._core.json_utils import load_json, parse_json
 
@@ -108,7 +107,6 @@ _VIDEO_SUFFIXES = {
 }
 _IMAGE_SUFFIXES = {".bmp", ".jpeg", ".jpg", ".png", ".tif", ".tiff"}
 _POSE_CONFIDENCE_THRESHOLD = 0.5
-_PROJECT_STATE_PREFIX_BYTES = 8192
 _TIME_COLUMNS = {"time", "timestamp", "timestamps", "time_s", "seconds", "sec"}
 _EVENT_COLUMNS = {"event", "kind", "label", "behavior", "start", "start_s", "duration"}
 _PHOTOMETRY_HINTS = {"405", "410", "415", "465", "470", "560", "gcamp", "isosbestic", "dff"}
@@ -145,46 +143,26 @@ def _columns_lower(columns: Sequence[object]) -> set[str]:
     return {str(column).strip().lower() for column in columns}
 
 
-def _state_kind_from_prefix(state_path: Path) -> str:
-    if not state_path.exists():
-        return "empty"
-    with state_path.open("rb") as handle:
-        prefix = handle.read(_PROJECT_STATE_PREFIX_BYTES).decode("utf-8", errors="replace")
-    if XPKG_LABELS_JSON_FORMAT in prefix:
-        return "labels"
-    if XPKG_VICON_JSON_FORMAT in prefix:
-        return "vicon"
-    return "present"
-
-
 def _inspect_project_dir(path: Path) -> dict[str, Any]:
     project_root = resolve_project_root(path)
     if project_root is None:
         raise FileNotFoundError(f"Not an xpkg project: {path}")
     descriptor = load_project_descriptor(project_root).to_dict()
-    state_path = current_project_state_path(project_root)
-    warnings: list[str] = []
-    state_bytes: int | None = None
-    state_kind = "empty"
-    if state_path.exists():
-        try:
-            state_bytes = int(state_path.stat().st_size)
-            state_kind = _state_kind_from_prefix(state_path)
-        except OSError as exc:
-            warnings.append(f"Could not read current project state summary: {exc}")
-            state_kind = "unreadable"
+    summary = refresh_project_summary(project_root)
     return {
         "kind": "xpkg_project",
         "likely_importers": [],
         "summary": {
             "project_id": descriptor["project_id"],
             "title": descriptor["title"],
-            "state_kind": state_kind,
-            "has_current_state": state_path.exists(),
-            "state_bytes": state_bytes,
-            "commit_id": current_project_commit_id(project_root),
+            "state_kind": summary.state_kind,
+            "has_current_state": summary.has_current_state,
+            "state_bytes": summary.state_bytes,
+            "commit_id": summary.commit_id,
+            "modalities": list(summary.modalities),
+            "summary_path": str(project_summary_path(project_root)),
         },
-        "warnings": warnings,
+        "warnings": list(summary.warnings),
     }
 
 

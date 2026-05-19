@@ -17,6 +17,8 @@ EXPKG_SUFFIX = ".expkg"
 STORE_DIRNAME = ".xpkg"
 STORE_STATE_DIRNAME = "state"
 ARTIFACTS_DIRNAME = "artifacts"
+INDEXES_DIRNAME = "indexes"
+PROJECT_SUMMARY_FILENAME = "project_summary.json"
 CURRENT_STATE_FILENAME = "current.json"
 MEDIA_DIRNAME = "Media"
 EXPORTS_DIRNAME = "Exports"
@@ -207,6 +209,14 @@ def project_artifacts_root(path: str | Path) -> Path:
     return project_store_root(path) / ARTIFACTS_DIRNAME
 
 
+def project_indexes_root(path: str | Path) -> Path:
+    return project_store_root(path) / INDEXES_DIRNAME
+
+
+def project_summary_path(path: str | Path) -> Path:
+    return project_indexes_root(path) / PROJECT_SUMMARY_FILENAME
+
+
 def project_current_state_path(path: str | Path) -> Path:
     return project_state_root(path) / CURRENT_STATE_FILENAME
 
@@ -241,8 +251,10 @@ __all__ = [
     "CURRENT_STATE_FILENAME",
     "EXPORTS_DIRNAME",
     "EXPKG_SUFFIX",
+    "INDEXES_DIRNAME",
     "MEDIA_DIRNAME",
     "PROJECT_DESCRIPTOR_FILENAME",
+    "PROJECT_SUMMARY_FILENAME",
     "ProjectDescriptor",
     "STORE_DIRNAME",
     "STORE_STATE_DIRNAME",
@@ -256,7 +268,9 @@ __all__ = [
     "project_current_state_path",
     "project_artifacts_root",
     "project_exports_root",
+    "project_indexes_root",
     "project_media_root",
+    "project_summary_path",
     "project_state_root",
     "project_store_root",
     "write_project_descriptor",

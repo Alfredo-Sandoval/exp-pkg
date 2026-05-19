@@ -674,6 +674,9 @@ def _write_index_entries(
         sort_keys=False,
         ensure_ascii=True,
     )
+    from xpkg.project.summary import refresh_project_summary
+
+    refresh_project_summary(project_root)
 
 
 def _upsert_artifact_index(project_root: Path, artifact: ArtifactManifest) -> None:

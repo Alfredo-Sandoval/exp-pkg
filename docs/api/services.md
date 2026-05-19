@@ -132,8 +132,11 @@ object:
 - `project.segmentation.load_frames(...)`
 - `project.pack(...)`
 
-`project.validate()` returns a `ProjectLayout` with the normalized managed
-paths and descriptor for the project.
+`project.describe()` and `project.validate()` return a `ProjectLayout` with
+the normalized managed paths, descriptor, and generated project summary index.
+The summary index is shallow: it reports state kind, state bytes, modalities,
+typed metadata slots, and artifact counts without loading labels, predictions,
+or motion payloads.
 
 For mapping-valued metadata blobs that callers update independently, prefer the
 service-bound field helpers instead of rewriting the whole metadata payload.

@@ -12,8 +12,14 @@ from tests.vicon_helpers import (
     write_sample_vsk,
     write_sample_xcp,
 )
-from xpkg.model import Labels
-from xpkg.project import current_project_state_path, validate_expkg
+from xpkg.model import AcquisitionMetadata, Labels
+from xpkg.project import (
+    current_project_state_path,
+    load_project_summary,
+    project_summary_path,
+    save_project_acquisition_metadata,
+    validate_expkg,
+)
 from xpkg.services import ProjectService
 
 
@@ -90,6 +96,64 @@ def test_project_service_open_reuses_existing_project_from_nested_path(
     reopened = ProjectService.open(project.project_root / "Media")
 
     assert reopened.project_root == project.project_root
+
+
+def test_project_service_describe_uses_shallow_summary_index(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project = ProjectService.create(tmp_path / "Summary Project", title="Summary Project")
+    project.save_labels(
+        _make_labels(tmp_path, x=3.0, y=4.0),
+        metadata={"source": "test"},
+    )
+
+    summary = load_project_summary(project.project_root)
+    assert summary.state_kind == "labels"
+    assert summary.state_summary["label_frame_count"] == 1
+    assert summary.state_summary["prediction_frame_count"] == 0
+    assert summary.modalities == ("labels",)
+
+    def fail_load_payload(*_args: object, **_kwargs: object) -> object:
+        raise AssertionError("describe must not materialize project payload")
+
+    monkeypatch.setattr("xpkg.services.project.load_project_payload", fail_load_payload)
+    monkeypatch.setattr("xpkg.project.store.load_project_payload", fail_load_payload)
+
+    summary_text = project_summary_path(project.project_root).read_text(encoding="utf-8")
+    layout = ProjectService.open(project.project_root).describe()
+
+    assert layout.summary_path == project_summary_path(project.project_root)
+    assert layout.summary.state_kind == "labels"
+    assert layout.summary.state_summary["label_frame_count"] == 1
+    assert layout.has_current_state is True
+    assert project_summary_path(project.project_root).read_text(encoding="utf-8") == summary_text
+
+
+def test_project_summary_tracks_project_metadata_slots(tmp_path: Path) -> None:
+    project = ProjectService.create(tmp_path / "Metadata Summary", title="Metadata Summary")
+
+    save_project_acquisition_metadata(
+        project.project_root,
+        AcquisitionMetadata(acquisition_id="acq-001"),
+    )
+
+    summary = load_project_summary(project.project_root)
+    assert summary.metadata_slots == ("acquisition",)
+    assert "project_metadata" in summary.modalities
+
+
+def test_project_summary_preserves_state_counts_after_metadata_only_commit(
+    tmp_path: Path,
+) -> None:
+    project = ProjectService.create(tmp_path / "State Metadata Summary")
+    project.save_labels(_make_labels(tmp_path, x=3.0, y=4.0))
+
+    project.save_state_metadata({"session_json": {"active_frame_idx": 4}})
+
+    summary = load_project_summary(project.project_root)
+    assert summary.state_summary["label_frame_count"] == 1
+    assert summary.state_summary["prediction_frame_count"] == 0
 
 
 def test_project_service_imports_and_loads_vicon_recording(tmp_path: Path) -> None:

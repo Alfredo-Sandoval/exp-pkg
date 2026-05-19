@@ -160,7 +160,7 @@ sequenceDiagram
     Svc->>Store: write .xpkg/metadata/acquisition.json
 
     User->>Svc: project.validate()
-    Svc-->>User: ProjectLayout (paths + descriptor)
+    Svc-->>User: ProjectLayout (paths + descriptor + summary index)
 
     User->>Svc: project.pack(media="full")
     Svc->>FS: write Exports/My Experiment.expkg

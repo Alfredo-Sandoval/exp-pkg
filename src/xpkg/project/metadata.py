@@ -89,6 +89,12 @@ def project_dataset_share_metadata_path(project: str | Path) -> Path:
     return project_metadata_root(project) / DATASET_SHARE_METADATA_FILENAME
 
 
+def _refresh_project_summary(project: str | Path) -> None:
+    from xpkg.project.summary import refresh_project_summary
+
+    refresh_project_summary(project)
+
+
 def save_project_acquisition_metadata(
     project: str | Path,
     acquisition: AcquisitionMetadata | Mapping[str, Any],
@@ -99,6 +105,7 @@ def save_project_acquisition_metadata(
     target_path = project_acquisition_metadata_path(project)
     ensure_dir(target_path.parent)
     write_json(target_path, metadata.to_dict())
+    _refresh_project_summary(project)
     return target_path
 
 
@@ -121,6 +128,7 @@ def save_project_dataset_share_metadata(
     target_path = project_dataset_share_metadata_path(project)
     ensure_dir(target_path.parent)
     write_json(target_path, metadata.to_dict())
+    _refresh_project_summary(project)
     return target_path
 
 
@@ -179,6 +187,7 @@ def save_project_pose_provenance(
     target_path = project_pose_provenance_path(project)
     ensure_dir(target_path.parent)
     write_json(target_path, record.to_dict())
+    _refresh_project_summary(project)
     return target_path
 
 
@@ -207,6 +216,7 @@ def save_project_datasheet(
     target_path = project_datasheet_path(project)
     ensure_dir(target_path.parent)
     write_json(target_path, record.to_dict())
+    _refresh_project_summary(project)
     return target_path
 
 
@@ -235,6 +245,7 @@ def save_project_model_card(
     target_path = project_model_card_path(project)
     ensure_dir(target_path.parent)
     write_json(target_path, record.to_dict())
+    _refresh_project_summary(project)
     return target_path
 
 

@@ -118,6 +118,28 @@ def test_cli_init_json_mode(monkeypatch, capsys) -> None:
     }
 
 
+def test_cli_project_describe_json_includes_summary_index(
+    tmp_path: Path,
+    capsys,
+) -> None:
+    from xpkg.cli import main
+    from xpkg.project import init_project, project_summary_path
+
+    project = tmp_path / "Describe Project"
+    init_project(project, title="Describe Project")
+
+    code = main(["project", "describe", str(project), "--json"])
+
+    assert code == 0
+    captured_streams = capsys.readouterr()
+    assert captured_streams.err == ""
+    payload = json.loads(captured_streams.out)
+    data = payload["data"]
+    assert data["paths"]["summary"] == str(project_summary_path(project))
+    assert data["summary"]["state"]["kind"] == "empty"
+    assert data["summary"]["state"]["has_current_state"] is False
+
+
 def test_cli_routes_import_dlc_csv_project(monkeypatch, capsys) -> None:
     from xpkg.cli import main
 

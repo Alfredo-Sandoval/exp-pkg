@@ -50,6 +50,17 @@ Load and validate `PROJECT.json` from a project.
 
 Write a normalized `PROJECT.json` back to disk.
 
+### `load_project_summary(path)`
+
+Load `.xpkg/indexes/project_summary.json`, the generated shallow inventory for
+project pickers, catalogs, and agent describe paths.
+
+### `refresh_project_summary(path)`
+
+Refresh the generated project summary index from descriptor, state stats,
+typed metadata slot files, and the artifact index without loading full labels,
+predictions, Vicon arrays, dense masks, or media.
+
 ### `resolve_project_root(path)`
 
 Resolve a path into the owning project root when possible.
@@ -71,6 +82,14 @@ Resolve the internal `.xpkg/` directory for a project.
 ### `project_state_root(path)`
 
 Resolve the private state directory under `.xpkg/`.
+
+### `project_indexes_root(path)`
+
+Resolve the generated indexes directory under `.xpkg/`.
+
+### `project_summary_path(path)`
+
+Resolve the generated project summary index path.
 
 ### `project_media_root(path)`
 

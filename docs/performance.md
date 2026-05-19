@@ -13,11 +13,13 @@ data load.
 ## Project Pickers And Catalogs
 
 Downstream GUIs should populate project rows from descriptor and layout
-metadata, not from the full project payload.
+metadata, not from the full project payload. `PROJECT.json` stays the small
+generated identity and layout descriptor; `.xpkg/indexes/project_summary.json`
+is the generated inventory for "what is in this project".
 
 | Job | Use | Avoid in hot list paths |
 | --- | --- | --- |
-| Show a project row | `xpkg project describe PATH --json`, `ProjectService.open(PATH).describe()`, `load_project_descriptor(PATH)` | `validate_project(PATH)` |
+| Show a project row | `xpkg project describe PATH --json`, `ProjectService.open(PATH).describe()`, `load_project_summary(PATH)` | `validate_project(PATH)` |
 | Detect whether a path is an xpkg project | `xpkg inspect PATH --json`, `xpkg.inspection.inspect_path(PATH)` | `ProjectService.inspect()` when you do not need a validated state summary |
 | Show current-state presence or size | `current_project_state_path(PATH).exists()` and `stat().st_size` | `load_project_payload(PATH)` |
 | Read durable typed metadata | `ProjectService.open(PATH).metadata` | loading labels, media, predictions, or Vicon recordings |
@@ -35,26 +37,24 @@ For a GUI, agent, or automation tool:
 1. At startup, discover candidate folders with normal filesystem scans.
 2. For each candidate, call `xpkg project describe PATH --json` or
    `ProjectService.open(PATH).describe()` to get descriptor and managed paths.
-3. Read only `PROJECT.json`, typed metadata slots, and current-state file stats
-   for list rows.
+3. Read `PROJECT.json` plus `.xpkg/indexes/project_summary.json` for list rows.
 4. When a user selects a project, open and hydrate only that project.
 5. Run full validation only on explicit validate, pack, publish, or CI actions.
 
 ```python
 from pathlib import Path
 
-from xpkg.project import current_project_state_path, load_project_descriptor
+from xpkg.project import load_project_summary
 
 
 def project_row(project_root: Path) -> dict[str, object]:
-    descriptor = load_project_descriptor(project_root)
-    state_path = current_project_state_path(project_root)
-    state_bytes = state_path.stat().st_size if state_path.exists() else None
+    summary = load_project_summary(project_root)
     return {
-        "project_id": descriptor.project_id,
-        "title": descriptor.title,
-        "has_current_state": state_path.exists(),
-        "state_bytes": state_bytes,
+        "project_id": summary.project_id,
+        "title": summary.title,
+        "modalities": list(summary.modalities),
+        "has_current_state": summary.has_current_state,
+        "state_bytes": summary.state_bytes,
     }
 ```
 

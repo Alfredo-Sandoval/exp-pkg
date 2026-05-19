@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING, Any, Literal
 from xpkg.project import (
     ProjectDescriptor,
     ProjectInspection,
+    ProjectSummaryIndex,
     current_project_state_path,
     init_project,
     inspect_project,
@@ -38,6 +39,8 @@ from xpkg.project import (
     project_metadata_root,
     project_state_root,
     project_store_root,
+    project_summary_path,
+    refresh_project_summary,
     resolve_project_root,
     save_project_acquisition_metadata,
     save_project_dataset_share_metadata,
@@ -275,6 +278,8 @@ class ProjectLayout:
     media_root: Path
     exports_root: Path
     current_state_path: Path
+    summary_path: Path
+    summary: ProjectSummaryIndex
     has_current_state: bool
 
 
@@ -463,6 +468,7 @@ class ProjectService:
         """Return the normalized managed paths for this project."""
         descriptor = self.descriptor()
         state_path = current_project_state_path(self.project_root)
+        summary = refresh_project_summary(self.project_root)
         return ProjectLayout(
             project_root=self.project_root,
             descriptor=descriptor,
@@ -473,7 +479,9 @@ class ProjectService:
             media_root=project_media_root(self.project_root),
             exports_root=project_exports_root(self.project_root),
             current_state_path=state_path,
-            has_current_state=state_path.exists(),
+            summary_path=project_summary_path(self.project_root),
+            summary=summary,
+            has_current_state=summary.has_current_state,
         )
 
     def validate(self) -> ProjectLayout:

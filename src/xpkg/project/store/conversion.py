@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Any
 from xpkg.project.layout import (
     resolve_project_root,
 )
+from xpkg.project.state_io import predictions_payload_from_labels
 from xpkg.project.store._helpers import (
     _ensure_project_for_import,
     _stage_project_parent,
@@ -63,7 +64,15 @@ def _import_project_from_conversion(
             metadata=result.metadata,
             reason=reason,
         )
-    _touch_descriptor(root)
+    from xpkg.project.summary import labels_state_summary
+
+    _touch_descriptor(
+        root,
+        state_summary=labels_state_summary(
+            result.labels,
+            predictions_payload_from_labels(result.labels),
+        ),
+    )
     return state_path
 
 
@@ -177,7 +186,7 @@ def _import_vicon_project_recording(
         metadata=metadata,
         reason=reason,
     )
-    _touch_descriptor(root)
+    from xpkg.project.summary import vicon_state_summary
+
+    _touch_descriptor(root, state_summary=vicon_state_summary(managed_recording))
     return state_path
-
-

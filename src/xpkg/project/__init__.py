@@ -65,7 +65,9 @@ from xpkg.project.inspection import ProjectInspection, inspect_project
 from xpkg.project.layout import (
     ARTIFACTS_DIRNAME,
     EXPKG_SUFFIX,
+    INDEXES_DIRNAME,
     PROJECT_DESCRIPTOR_FILENAME,
+    PROJECT_SUMMARY_FILENAME,
     ProjectDescriptor,
     default_expkg_path,
     is_project_root,
@@ -73,9 +75,11 @@ from xpkg.project.layout import (
     project_artifacts_root,
     project_descriptor_path,
     project_exports_root,
+    project_indexes_root,
     project_media_root,
     project_state_root,
     project_store_root,
+    project_summary_path,
     resolve_project_root,
     write_project_descriptor,
 )
@@ -156,6 +160,14 @@ from xpkg.project.store import (
 from xpkg.project.store import (
     save_project_metadata as save_project_metadata,
 )
+from xpkg.project.summary import (
+    PROJECT_SUMMARY_SCHEMA_VERSION,
+    ProjectSummaryIndex,
+    labels_state_summary,
+    load_project_summary,
+    refresh_project_summary,
+    vicon_state_summary,
+)
 
 # Curated stable public surface.
 #
@@ -179,10 +191,13 @@ __all__ = [
     "FIGURE_ARTIFACT_TYPE",
     "FIGURE_MANIFEST_FILENAME",
     "FIGURES_DIRNAME",
+    "INDEXES_DIRNAME",
     "MODEL_CARD_FILENAME",
     "POSE_PROVENANCE_FILENAME",
     "PROJECT_DESCRIPTOR_FILENAME",
     "PROJECT_METADATA_DIRNAME",
+    "PROJECT_SUMMARY_FILENAME",
+    "PROJECT_SUMMARY_SCHEMA_VERSION",
     # Typed dataclasses and frame records
     "ArtifactFile",
     "ArtifactIndexEntry",
@@ -191,6 +206,7 @@ __all__ = [
     "FigureArtifact",
     "ProjectDescriptor",
     "ProjectInspection",
+    "ProjectSummaryIndex",
     "SegmentationFrame",
     # Project lifecycle
     "init_project",
@@ -214,6 +230,8 @@ __all__ = [
     "project_media_root",
     "project_exports_root",
     "project_metadata_root",
+    "project_indexes_root",
+    "project_summary_path",
     "project_acquisition_metadata_path",
     "project_dataset_share_metadata_path",
     "project_datasheet_path",
@@ -252,6 +270,10 @@ __all__ = [
     "save_project_labels",
     "load_project_payload",
     "load_project_vicon_recording",
+    "load_project_summary",
+    "refresh_project_summary",
+    "labels_state_summary",
+    "vicon_state_summary",
     # Metadata storage
     "load_project_acquisition_metadata",
     "load_project_dataset_share_metadata",

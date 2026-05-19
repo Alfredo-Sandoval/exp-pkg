@@ -252,8 +252,10 @@ xpkg project describe "./My Project" --json
 
 - Resolves the owning project root from the supplied path.
 - Returns the normalized managed paths for `PROJECT.json`, `.xpkg/`, `Media/`,
-  `Exports/`, and the current state cache.
+  `Exports/`, the current state cache, and
+  `.xpkg/indexes/project_summary.json`.
 - Emits the current `PROJECT.json` descriptor in JSON mode.
+- Refreshes and emits the generated project summary index in JSON mode.
 - Does not validate, load labels, load predictions, or parse Vicon recording
   payloads.
 

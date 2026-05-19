@@ -411,14 +411,20 @@ def save_project_labels(
             metadata,
             project_root=root,
         )
+        initial_predictions = predictions_payload_from_labels(labels)
         state_path = _commit_labels_to_project(
             root,
             labels=labels,
             metadata=initial_metadata,
-            predictions=predictions_payload_from_labels(labels),
+            predictions=initial_predictions,
             reason="project.save.init",
         )
-        _touch_descriptor(root)
+        from xpkg.project.summary import labels_state_summary
+
+        _touch_descriptor(
+            root,
+            state_summary=labels_state_summary(labels, initial_predictions),
+        )
         labels.path = root
         return state_path
 
@@ -452,6 +458,8 @@ def save_project_labels(
         predictions=predictions,
         reason="project.save",
     )
-    _touch_descriptor(root)
+    from xpkg.project.summary import labels_state_summary
+
+    _touch_descriptor(root, state_summary=labels_state_summary(labels, predictions))
     labels.path = root
     return state_path

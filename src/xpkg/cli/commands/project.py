@@ -31,6 +31,8 @@ from xpkg.project import (
     project_model_card_path,
     project_state_root,
     project_store_root,
+    project_summary_path,
+    refresh_project_summary,
     resolve_project_root,
     save_project_acquisition_metadata,
     save_project_dataset_share_metadata,
@@ -58,6 +60,7 @@ def _project_describe_payload(path: str) -> dict[str, Any]:
         raise FileNotFoundError(f"Not an xpkg project: {path}")
     descriptor = load_project_descriptor(root)
     current_state = current_project_state_path(root)
+    summary = refresh_project_summary(root)
     return {
         "status": "described",
         "project": str(root),
@@ -70,8 +73,10 @@ def _project_describe_payload(path: str) -> dict[str, Any]:
             "media": str(project_media_root(root)),
             "exports": str(project_exports_root(root)),
             "current_state": str(current_state),
+            "summary": str(project_summary_path(root)),
         },
-        "has_current_state": current_state.exists(),
+        "has_current_state": summary.has_current_state,
+        "summary": summary.to_dict(),
     }
 
 
@@ -84,6 +89,7 @@ def _emit_project_description(payload: dict[str, Any]) -> None:
     sys.stdout.write(f"State {paths['state']}\n")
     sys.stdout.write(f"Media {paths['media']}\n")
     sys.stdout.write(f"Exports {paths['exports']}\n")
+    sys.stdout.write(f"Summary {paths['summary']}\n")
     sys.stdout.write(f"Current state present: {payload['has_current_state']}\n")
 
 

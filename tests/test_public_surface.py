@@ -72,8 +72,11 @@ from xpkg.project import (
     FIGURE_ARTIFACT_TYPE,
     FIGURE_MANIFEST_FILENAME,
     FIGURES_DIRNAME,
+    INDEXES_DIRNAME,
     PROJECT_DESCRIPTOR_FILENAME,
     PROJECT_METADATA_DIRNAME,
+    PROJECT_SUMMARY_FILENAME,
+    PROJECT_SUMMARY_SCHEMA_VERSION,
     ArtifactFile,
     ArtifactIndexEntry,
     ArtifactManifest,
@@ -81,6 +84,7 @@ from xpkg.project import (
     FigureArtifact,
     ProjectDescriptor,
     ProjectInspection,
+    ProjectSummaryIndex,
     SegmentationFrame,
     artifact_kind_dir,
     clear_project_segmentation_masks,
@@ -89,6 +93,7 @@ from xpkg.project import (
     init_project,
     inspect_project,
     is_project_root,
+    labels_state_summary,
     list_project_artifact_index,
     list_project_artifacts,
     list_project_figures,
@@ -105,6 +110,7 @@ from xpkg.project import (
     load_project_pose_provenance,
     load_project_segmentation_frames,
     load_project_segmentation_masks,
+    load_project_summary,
     load_project_vicon_recording,
     pack_project,
     project_acquisition_metadata_path,
@@ -116,9 +122,12 @@ from xpkg.project import (
     project_descriptor_path,
     project_figure_root,
     project_figures_root,
+    project_indexes_root,
     project_metadata_root,
+    project_summary_path,
     read_labels_json_payload,
     rebuild_project_artifact_index,
+    refresh_project_summary,
     resolve_project_root,
     save_project_acquisition_metadata,
     save_project_artifact,
@@ -139,6 +148,7 @@ from xpkg.project import (
     validate_project_artifacts,
     validate_project_figure,
     validate_project_figures,
+    vicon_state_summary,
     write_labels_json,
     write_project_descriptor,
 )
@@ -257,7 +267,10 @@ def test_public_exports_are_callable() -> None:
     assert FIGURE_ARTIFACT_TYPE == "figure"
     assert FIGURE_MANIFEST_FILENAME == "manifest.json"
     assert FIGURES_DIRNAME == "figures"
+    assert INDEXES_DIRNAME == "indexes"
     assert PROJECT_DESCRIPTOR_FILENAME == "PROJECT.json"
+    assert PROJECT_SUMMARY_FILENAME == "project_summary.json"
+    assert PROJECT_SUMMARY_SCHEMA_VERSION == 1
     assert ArtifactFile is not None
     assert ArtifactIndexEntry is not None
     assert ArtifactManifest is not None
@@ -266,6 +279,7 @@ def test_public_exports_are_callable() -> None:
     assert ProjectDescriptor is not None
     assert SegmentationFrame is not None
     assert ProjectInspection is not None
+    assert ProjectSummaryIndex is not None
     assert ACQUISITION_METADATA_FILENAME == "acquisition.json"
     assert DATASET_SHARE_METADATA_FILENAME == "dataset_share.json"
     assert PROJECT_METADATA_DIRNAME == "metadata"
@@ -292,6 +306,7 @@ def test_public_exports_are_callable() -> None:
     assert callable(load_project_pose_provenance)
     assert callable(load_project_segmentation_frames)
     assert callable(load_project_segmentation_masks)
+    assert callable(load_project_summary)
     assert callable(load_project_vicon_recording)
     assert callable(pack_project)
     assert callable(project_acquisition_metadata_path)
@@ -326,8 +341,13 @@ def test_public_exports_are_callable() -> None:
     assert callable(project_figure_root)
     assert callable(project_figures_root)
     assert callable(project_metadata_root)
+    assert callable(project_indexes_root)
+    assert callable(project_summary_path)
     assert callable(write_labels_json)
     assert callable(write_project_descriptor)
+    assert callable(refresh_project_summary)
+    assert callable(labels_state_summary)
+    assert callable(vicon_state_summary)
     assert callable(labels_from_json_payload)
     assert callable(labels_numpy)
     assert callable(labels_to_dataframe)
@@ -498,6 +518,8 @@ def test_project_surface_is_project_first_only() -> None:
     assert "validate_expkg" in xpkg.project.__all__
     assert "inspect_project" in xpkg.project.__all__
     assert "load_project_payload" in xpkg.project.__all__
+    assert "load_project_summary" in xpkg.project.__all__
+    assert "refresh_project_summary" in xpkg.project.__all__
     assert "save_project_labels" in xpkg.project.__all__
     assert "list_project_figures" in xpkg.project.__all__
     assert "save_project_figure" in xpkg.project.__all__
