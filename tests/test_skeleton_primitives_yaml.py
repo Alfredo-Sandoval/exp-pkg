@@ -17,6 +17,11 @@ from xpkg.io.skeleton_loaders import (
 )
 
 
+def _skeleton_definition_cls():
+    registry = pytest.importorskip("primitives.skeletons.registry")
+    return registry.SkeletonDefinition
+
+
 def _write_primitives_yaml(tmp_path: Path) -> Path:
     text = (
         "bodyparts: [nose, ear_l, ear_r, tail_base]\n"
@@ -75,9 +80,9 @@ def test_as_definition_round_trip_preserves_bodyparts_and_edges(tmp_path: Path) 
 
 
 def test_build_from_primitives_drops_edges_referencing_unknown_bodyparts() -> None:
-    from primitives.skeletons.registry import SkeletonDefinition
+    skeleton_definition_cls = _skeleton_definition_cls()
 
-    definition = SkeletonDefinition(
+    definition = skeleton_definition_cls(
         name="partial",
         bodyparts=("nose", "tail"),
         edges=(("nose", "tail"), ("nose", "ghost")),
@@ -91,9 +96,9 @@ def test_build_from_primitives_drops_edges_referencing_unknown_bodyparts() -> No
 
 @pytest.mark.parametrize("name_override", [None, "custom_skeleton"])
 def test_build_from_primitives_respects_name_override(name_override: str | None) -> None:
-    from primitives.skeletons.registry import SkeletonDefinition
+    skeleton_definition_cls = _skeleton_definition_cls()
 
-    definition = SkeletonDefinition(
+    definition = skeleton_definition_cls(
         name="default_name",
         bodyparts=("a", "b"),
         edges=(("a", "b"),),

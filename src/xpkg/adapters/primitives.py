@@ -3,20 +3,51 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
+from dataclasses import dataclass
+from functools import lru_cache
+from importlib import import_module
 from os import PathLike, fspath
 from pathlib import Path
 from typing import Any
 
 import numpy as np
-from primitives import PrimitivesSession
-from primitives.models.session import VideoStream
-from primitives.skeletons import SkeletonDefinition
 
 from xpkg.io.labels.model import Labels
 from xpkg.pose.annotations import Instance, PredictedInstance, is_predicted_instance
 
 VideoSelector = int | str | None
 TrackSelector = int | str | None
+
+
+@dataclass(frozen=True, slots=True)
+class _PrimitivesRuntime:
+    session_cls: Any
+    skeleton_definition_cls: Any
+    video_stream_cls: Any
+
+
+def _raise_missing_primitives(exc: ModuleNotFoundError) -> None:
+    if exc.name and exc.name.startswith("primitives"):
+        raise ModuleNotFoundError(
+            "xpkg primitives adapters require the optional primitives package. "
+            "Install primitives in the active environment before calling this adapter."
+        ) from exc
+    raise exc
+
+
+@lru_cache(maxsize=1)
+def _load_primitives_runtime() -> _PrimitivesRuntime:
+    try:
+        primitives_module = import_module("primitives")
+        session_module = import_module("primitives.models.session")
+        skeletons_module = import_module("primitives.skeletons")
+    except ModuleNotFoundError as exc:
+        _raise_missing_primitives(exc)
+    return _PrimitivesRuntime(
+        session_cls=primitives_module.PrimitivesSession,
+        skeleton_definition_cls=skeletons_module.SkeletonDefinition,
+        video_stream_cls=session_module.VideoStream,
+    )
 
 
 def _video_candidates(video: Any) -> tuple[str, ...]:
@@ -194,7 +225,7 @@ def _labels_root(labels: Labels, root: str | Path | None) -> Path:
     return path if path.is_dir() else path.parent
 
 
-def _video_streams(video: Any) -> list[VideoStream]:
+def _video_streams(video: Any, *, runtime: _PrimitivesRuntime) -> list[Any]:
     filename = getattr(video, "filename", None)
     if filename:
         path = Path(str(filename))
@@ -205,7 +236,7 @@ def _video_streams(video: Any) -> list[VideoStream]:
         path = Path(str(image_filenames[0]))
 
     return [
-        VideoStream(
+        runtime.video_stream_cls(
             kind="xpkg",
             path=path,
             description=str(getattr(video, "label", None) or path.name),
@@ -280,13 +311,13 @@ def _copy_node_properties(raw: Any) -> dict[str, dict[str, object]] | None:
     return copied or None
 
 
-def _skeleton_definition(skeleton: Any) -> SkeletonDefinition:
+def _skeleton_definition(skeleton: Any, *, runtime: _PrimitivesRuntime) -> Any:
     bodyparts = _skeleton_bodyparts(skeleton)
     name = str(getattr(skeleton, "name", "xpkg"))
     extras = getattr(skeleton, "extras", {})
     source_path = extras.get("source_path") if isinstance(extras, dict) else None
     path = Path(source_path) if isinstance(source_path, str) else Path("xpkg") / f"{name}.json"
-    return SkeletonDefinition(
+    return runtime.skeleton_definition_cls(
         name=name,
         bodyparts=bodyparts,
         edges=_skeleton_edges(skeleton, bodyparts=bodyparts),
@@ -323,7 +354,8 @@ def _build_session(
     selected_track: tuple[int, str] | None,
     use_predicted: bool,
     root: str | Path | None,
-) -> PrimitivesSession:
+    runtime: _PrimitivesRuntime,
+) -> Any:
     if not selected_frames:
         raise ValueError("Selected xpkg video does not contain any labeled frames.")
 
@@ -340,7 +372,7 @@ def _build_session(
         raise ValueError("Could not find any xpkg instances for the selected stream.")
 
     source_skeleton = first_instance.skeleton
-    skeleton_definition = _skeleton_definition(source_skeleton)
+    skeleton_definition = _skeleton_definition(source_skeleton, runtime=runtime)
     bodyparts = skeleton_definition.bodyparts
     frame_count = _frame_count_for_video(selected_video, selected_frames)
     coords_xy = np.full((frame_count, len(bodyparts), 2), np.nan, dtype=np.float32)
@@ -374,7 +406,7 @@ def _build_session(
     selected_track_id = None if selected_track is None else selected_track[0]
     selected_track_name = None if selected_track is None else selected_track[1]
     fps_raw = float(getattr(selected_video, "fps", 0.0) or 0.0)
-    return PrimitivesSession.from_keypoints(
+    return runtime.session_cls.from_keypoints(
         label=_video_label(selected_video, selected_video_index),
         modality="xpkg",
         root=_labels_root(labels, root),
@@ -382,7 +414,7 @@ def _build_session(
         coords_xy=coords_xy,
         skeleton=skeleton_definition,
         likelihoods=likelihoods,
-        videos=_video_streams(selected_video),
+        videos=_video_streams(selected_video, runtime=runtime),
         fps=fps_raw if fps_raw > 0 else None,
         tags={"source": "xpkg"},
         extras={
@@ -407,13 +439,14 @@ def labels_to_primitives_session(
     track: TrackSelector = None,
     use_predicted: bool = True,
     root: str | Path | None = None,
-) -> PrimitivesSession:
+) -> Any:
     """Convert loaded xpkg labels into a ``primitives.PrimitivesSession``.
 
     This is an in-memory adapter: it reads already materialized ``Labels`` and
     selected ``Instance`` point arrays. It does not validate or hydrate a project
     payload on its own.
     """
+    runtime = _load_primitives_runtime()
     selected_video_index, selected_video = _select_video(labels, video)
     selected_frames = [
         frame for frame in labels.labeled_frames if frame.video is selected_video
@@ -427,6 +460,7 @@ def labels_to_primitives_session(
         selected_track=selected_track,
         use_predicted=use_predicted,
         root=root,
+        runtime=runtime,
     )
 
 
@@ -436,8 +470,9 @@ def project_to_primitives_session(
     video: VideoSelector = None,
     track: TrackSelector = None,
     use_predicted: bool = True,
-) -> PrimitivesSession:
+) -> Any:
     """Load xpkg project labels and convert them into a primitives session."""
+    _load_primitives_runtime()
     from xpkg.services import ProjectService
 
     if isinstance(project, str):

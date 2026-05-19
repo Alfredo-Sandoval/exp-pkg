@@ -15,8 +15,9 @@ editor model.
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from importlib import import_module
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal
+from typing import Any, Literal, Protocol
 
 import h5py
 
@@ -25,9 +26,6 @@ from xpkg.pose.skeleton import Skeleton
 from .._core.json_utils import parse_json_dict
 from .._core.logging_utils import get_logger
 from .._core.path_registry import resolve_path
-
-if TYPE_CHECKING:
-    from primitives.skeletons.registry import SkeletonDefinition
 
 logger = get_logger(__name__)
 
@@ -40,8 +38,32 @@ type SkeletonFormat = Literal[
 ]
 
 
+class _PrimitivesSkeletonDefinition(Protocol):
+    name: object
+    bodyparts: Sequence[object]
+    edges: Sequence[Sequence[object]]
+    path: object
+    triads: Mapping[str, Sequence[object]] | None
+    aliases: Mapping[str, str] | None
+    node_properties: Mapping[str, Mapping[str, Any]] | None
+
+
+def _load_primitives_skeleton_loader() -> Any:
+    try:
+        module = import_module("primitives.skeletons.registry")
+    except ModuleNotFoundError as exc:
+        if exc.name and exc.name.startswith("primitives"):
+            raise ModuleNotFoundError(
+                "Loading primitives YAML skeletons requires the optional "
+                "primitives package. Install primitives in the active environment "
+                "before loading this skeleton format."
+            ) from exc
+        raise
+    return module.load_skeleton
+
+
 def build_skeleton_from_primitives(
-    definition: SkeletonDefinition,
+    definition: _PrimitivesSkeletonDefinition,
     *,
     name: str | None = None,
 ) -> Skeleton:
@@ -82,10 +104,7 @@ def build_skeleton_from_primitives(
         aliases=dict(definition.aliases) if definition.aliases else None,
         triads=triads,
         node_properties=(
-            {
-                k: dict(v) if isinstance(v, dict) else v
-                for k, v in definition.node_properties.items()
-            }
+            {k: dict(v) for k, v in definition.node_properties.items()}
             if definition.node_properties
             else None
         ),
@@ -94,8 +113,7 @@ def build_skeleton_from_primitives(
 
 def load_primitives_yaml_skeleton(path: str | Path) -> Skeleton:
     """Read a ``primitives``-format YAML and return an xpkg ``Skeleton``."""
-    from primitives.skeletons.registry import load_skeleton as _load_primitives
-
+    _load_primitives = _load_primitives_skeleton_loader()
     definition = _load_primitives(Path(path))
     return build_skeleton_from_primitives(definition)
 

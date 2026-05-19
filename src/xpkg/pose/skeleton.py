@@ -19,16 +19,14 @@ import re
 import warnings
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
+from importlib import import_module
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import Any, Protocol
 
 from .._core.json_utils import parse_json_dict
 from .._core.logging_utils import get_logger
 
 logger = get_logger(__name__)
-
-if TYPE_CHECKING:
-    from primitives.skeletons.registry import SkeletonDefinition
 
 SNAKE_RE1 = re.compile(r"([a-z0-9])([A-Z])")
 NON_ALNUM_RE = re.compile(r"[^a-z0-9_]+")
@@ -75,6 +73,27 @@ ROLE_ENUM: set[str] = {
     "tail",
     "pelvis",
 }
+
+
+class _SkeletonDefinitionView(Protocol):
+    name: str
+    bodyparts: tuple[str, ...]
+    edges: tuple[tuple[str, str], ...]
+    path: Path
+
+
+def _load_primitives_skeleton_definition() -> Any:
+    try:
+        module = import_module("primitives.skeletons.registry")
+    except ModuleNotFoundError as exc:
+        if exc.name and exc.name.startswith("primitives"):
+            raise ModuleNotFoundError(
+                "Skeleton.as_definition() requires the optional primitives package. "
+                "Install primitives in the active environment before requesting "
+                "this adapter view."
+            ) from exc
+        raise
+    return module.SkeletonDefinition
 
 
 def to_snake(name: str) -> str:
@@ -413,7 +432,7 @@ class Skeleton:
         """
         return [kp.name for kp in self.keypoints]
 
-    def as_definition(self) -> SkeletonDefinition:
+    def as_definition(self) -> _SkeletonDefinitionView:
         """Return a `primitives.SkeletonDefinition` view of this skeleton.
 
         The returned object is the canonical analysis-shaped skeleton (frozen,
@@ -425,10 +444,6 @@ class Skeleton:
         editor-free. xpkg is the layer that knows both shapes, so the bridge
         is owned here.
         """
-        # Local import: the primitives bridge is an optional extra, so missing
-        # installs should fail only when callers request the bridge.
-        from primitives.skeletons.registry import SkeletonDefinition
-
         id_to_kp = {kp.id: kp for kp in self.keypoints}
         edges = tuple(
             (id_to_kp[a].name, id_to_kp[b].name)
@@ -436,7 +451,8 @@ class Skeleton:
             if a in id_to_kp and b in id_to_kp
         )
         source_path = self.extras.get("source_path") if isinstance(self.extras, dict) else None
-        return SkeletonDefinition(
+        skeleton_definition_cls = _load_primitives_skeleton_definition()
+        return skeleton_definition_cls(
             name=str(self.name),
             bodyparts=tuple(kp.name for kp in self.keypoints),
             edges=edges,

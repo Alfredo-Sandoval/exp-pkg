@@ -9,8 +9,8 @@ Use ``xpkg.adapters`` when another repo needs to transform xpkg objects into
 JSON-friendly payloads, numpy arrays, or tabular structures without coupling
 to project storage internals.
 
-The :mod:`xpkg.adapters.primitives` submodule depends on the optional sibling
-``primitives`` package. Its exports are loaded lazily so importing
+The :mod:`xpkg.adapters.primitives` submodule can hand objects to an optional
+``primitives`` install at runtime. Its exports are loaded lazily so importing
 ``xpkg.adapters`` (or unrelated re-exports like :func:`vicon_recording_from_json_payload`)
 does not require ``primitives`` to be installed.
 """

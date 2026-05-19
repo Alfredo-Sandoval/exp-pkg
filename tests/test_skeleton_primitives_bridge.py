@@ -5,8 +5,8 @@
 from __future__ import annotations
 import pytest
 
-pytest.importorskip("primitives.skeletons.registry")
-from primitives.skeletons.registry import SkeletonDefinition
+primitives_registry = pytest.importorskip("primitives.skeletons.registry")
+skeleton_definition_cls = primitives_registry.SkeletonDefinition
 
 from xpkg.pose.skeleton import Keypoint, Skeleton
 
@@ -28,7 +28,7 @@ def test_as_definition_returns_primitives_view() -> None:
 
     definition = skeleton.as_definition()
 
-    assert isinstance(definition, SkeletonDefinition)
+    assert isinstance(definition, skeleton_definition_cls)
     assert definition.name == "mouse"
     assert definition.bodyparts == ("nose", "ear_l", "ear_r")
     assert definition.edges == (("nose", "ear_l"), ("nose", "ear_r"))
