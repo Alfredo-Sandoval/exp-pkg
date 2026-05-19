@@ -1,7 +1,11 @@
 """Bridge between xpkg.Skeleton and primitives.SkeletonDefinition."""
 
-from __future__ import annotations
+# ruff: noqa: E402, I001
 
+from __future__ import annotations
+import pytest
+
+pytest.importorskip("primitives.skeletons.registry")
 from primitives.skeletons.registry import SkeletonDefinition
 
 from xpkg.pose.skeleton import Keypoint, Skeleton

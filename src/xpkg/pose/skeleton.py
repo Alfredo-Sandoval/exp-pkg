@@ -425,8 +425,8 @@ class Skeleton:
         editor-free. xpkg is the layer that knows both shapes, so the bridge
         is owned here.
         """
-        # Local import — primitives is a hard runtime dep but we import lazily
-        # so that error messages on a missing install are clear at call time.
+        # Local import: the primitives bridge is an optional extra, so missing
+        # installs should fail only when callers request the bridge.
         from primitives.skeletons.registry import SkeletonDefinition
 
         id_to_kp = {kp.id: kp for kp in self.keypoints}

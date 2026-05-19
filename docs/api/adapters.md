@@ -41,6 +41,8 @@ Convert loaded xpkg `Labels` into a `primitives.PrimitivesSession`. This bridge
 belongs in xpkg because it depends on xpkg's label, instance, track, and video
 contracts while returning the analysis-side primitives object.
 
+Install `exp-pkg[primitives]` before using this bridge.
+
 ### `project_to_primitives_session(project, *, video=None, track=None, use_predicted=True)`
 
 Open a path-like project root or use a `ProjectService`-like object, call

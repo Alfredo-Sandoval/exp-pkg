@@ -1,10 +1,13 @@
 """Importing a primitives-format YAML into an xpkg.Skeleton."""
 
-from __future__ import annotations
+# ruff: noqa: E402, I001
 
+from __future__ import annotations
 from pathlib import Path
 
 import pytest
+
+pytest.importorskip("primitives.skeletons.registry")
 
 from xpkg.io.skeleton_loaders import (
     build_skeleton_from_primitives,

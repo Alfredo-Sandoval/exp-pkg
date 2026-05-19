@@ -1,10 +1,13 @@
-from __future__ import annotations
+# ruff: noqa: E402, I001
 
+from __future__ import annotations
 from pathlib import Path
 
 import numpy as np
 import pytest
-from primitives import PrimitivesSession
+
+primitives = pytest.importorskip("primitives")
+PrimitivesSession = primitives.PrimitivesSession
 
 from xpkg.adapters import labels_to_primitives_session, project_to_primitives_session
 from xpkg.io.labels.model import Labels
