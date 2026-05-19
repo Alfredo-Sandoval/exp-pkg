@@ -60,7 +60,7 @@ def test_cli_routes_init_project(monkeypatch, capsys) -> None:
             "--title",
             "My Project",
             "--id",
-            "project-123",
+            "00000000-0000-4000-8000-000000000001",
             "--force",
         ]
     )
@@ -69,7 +69,7 @@ def test_cli_routes_init_project(monkeypatch, capsys) -> None:
     assert captured == {
         "project": "My Project",
         "title": "My Project",
-        "project_id": "project-123",
+        "project_id": "00000000-0000-4000-8000-000000000001",
         "force": True,
     }
     assert "Initialized project My Project" in capsys.readouterr().out

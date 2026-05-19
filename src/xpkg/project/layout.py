@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -19,6 +20,25 @@ ARTIFACTS_DIRNAME = "artifacts"
 CURRENT_STATE_FILENAME = "current.json"
 MEDIA_DIRNAME = "Media"
 EXPORTS_DIRNAME = "Exports"
+
+_PROJECT_DESCRIPTOR_FIELDS = {
+    "format",
+    "project_schema_version",
+    "layout_version",
+    "title",
+    "project_id",
+    "created_at",
+    "updated_at",
+    "store_path",
+    "media_root",
+    "exports_root",
+}
+_UUID_PATTERN = (
+    r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-"
+    r"[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}"
+)
+_ULID_PATTERN = r"[0-9A-HJKMNP-TV-Z]{26}"
+_PROJECT_ID_PATTERN = re.compile(rf"^(?:{_UUID_PATTERN}|{_ULID_PATTERN})$")
 
 
 def _now_utc_iso() -> str:
@@ -57,21 +77,15 @@ class ProjectDescriptor:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> ProjectDescriptor:
-        required = {
-            "format",
-            "project_schema_version",
-            "layout_version",
-            "title",
-            "project_id",
-            "created_at",
-            "updated_at",
-            "store_path",
-            "media_root",
-            "exports_root",
-        }
-        missing = sorted(required.difference(data))
+        missing = sorted(_PROJECT_DESCRIPTOR_FIELDS.difference(data))
         if missing:
             raise ValueError(f"PROJECT.json missing required field(s): {', '.join(missing)}")
+        unsupported = sorted(set(data).difference(_PROJECT_DESCRIPTOR_FIELDS))
+        if unsupported:
+            raise ValueError(
+                "PROJECT.json contains unsupported field(s): "
+                + ", ".join(unsupported)
+            )
         descriptor = cls(
             format=str(data["format"]),
             project_schema_version=int(data["project_schema_version"]),
@@ -100,6 +114,8 @@ class ProjectDescriptor:
             raise ValueError("PROJECT.json title cannot be empty")
         if not self.project_id.strip():
             raise ValueError("PROJECT.json project_id cannot be empty")
+        if _PROJECT_ID_PATTERN.fullmatch(self.project_id) is None:
+            raise ValueError("PROJECT.json project_id must be a UUID or ULID")
         if self.store_path != STORE_DIRNAME:
             raise ValueError(f"Unsupported store_path: {self.store_path!r}")
         if self.media_root != MEDIA_DIRNAME:

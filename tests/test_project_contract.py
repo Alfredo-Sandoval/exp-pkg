@@ -256,6 +256,30 @@ def test_init_project_writes_project_contract(tmp_path: Path) -> None:
     assert loaded.labeled_frames == []
 
 
+def test_project_descriptor_rejects_unsupported_fields(tmp_path: Path) -> None:
+    from xpkg.project import init_project, load_project_descriptor
+
+    project = tmp_path / "Strict Descriptor"
+    init_project(project, title="Strict Descriptor")
+    descriptor_path = project / "PROJECT.json"
+    payload = json.loads(descriptor_path.read_text(encoding="utf-8"))
+    payload["default_pack_mode"] = "portable"
+    descriptor_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="unsupported field.*default_pack_mode"):
+        load_project_descriptor(project)
+
+
+def test_project_descriptor_rejects_invalid_project_id() -> None:
+    from xpkg.project import ProjectDescriptor
+
+    payload = ProjectDescriptor.new(title="Strict Descriptor").to_dict()
+    payload["project_id"] = "project-123"
+
+    with pytest.raises(ValueError, match="project_id must be a UUID or ULID"):
+        ProjectDescriptor.from_dict(payload)
+
+
 def test_project_metadata_helpers_roundtrip_without_existing_labels(tmp_path: Path) -> None:
     from xpkg.project import (
         init_project,
