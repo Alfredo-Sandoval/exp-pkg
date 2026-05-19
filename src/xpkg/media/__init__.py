@@ -25,8 +25,15 @@ from xpkg.media.frame_sampling import (
     extract_frame_indices,
     probe_video_path,
     read_frame_indices,
+    select_frame_indices,
 )
-from xpkg.media.images import read_bgr, read_rgb, read_rgb_bytes
+from xpkg.media.images import (
+    SUPPORTED_IMAGE_SUFFIXES,
+    collect_image_paths,
+    read_bgr,
+    read_rgb,
+    read_rgb_bytes,
+)
 from xpkg.media.pyav import PyAVCursorState, open_pyav_container
 from xpkg.media.video import (
     PyAVVideoResource,
@@ -58,6 +65,7 @@ __all__ = [
     "PyAVCursorState",
     "PyAVVideoResource",
     "SingleImageVideo",
+    "SUPPORTED_IMAGE_SUFFIXES",
     "Video",
     "VideoWithFrames",
     "VideoPathMetadata",
@@ -71,6 +79,7 @@ __all__ = [
     "available_video_exts",
     "build_video_writer",
     "can_use_ffmpeg_writer",
+    "collect_image_paths",
     "decord_frame_bgr",
     "extract_frame_indices",
     "ffmpeg_encoders",
@@ -92,6 +101,7 @@ __all__ = [
     "require_media_backend",
     "resize_image",
     "resize_images",
+    "select_frame_indices",
     "supported_nvenc_flags",
     "video_total_frames",
     "write_video",

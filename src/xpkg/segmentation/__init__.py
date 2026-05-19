@@ -13,11 +13,15 @@ from xpkg.segmentation.coco import (
     segmentation_to_masks,
 )
 from xpkg.segmentation.images import (
+    best_mask_index,
     masks_from_label_image,
     read_binary_mask,
     read_label_image,
+    select_masks_for_save,
     write_binary_mask,
+    write_binary_masks,
     write_label_image,
+    write_mask_overlay,
 )
 from xpkg.segmentation.model import (
     ROI,
@@ -86,6 +90,7 @@ __all__ = [
     "SegmentationPrompt",
     "annotation_to_masks",
     "annotations_to_masks",
+    "best_mask_index",
     "coco_rle_to_mask",
     "decode_mask_rle",
     "encode_mask_rle",
@@ -108,9 +113,12 @@ __all__ = [
     "rle_decode",
     "rle_encode",
     "segmentation_to_masks",
+    "select_masks_for_save",
     "write_binary_mask",
+    "write_binary_masks",
     "write_mask_table",
     "write_label_image",
+    "write_mask_overlay",
     "write_normalized_polygon_dataset_yaml",
     "write_normalized_polygon_labels",
     "write_normalized_polygon_rows",

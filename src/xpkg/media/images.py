@@ -10,10 +10,23 @@ callers don't sprinkle cv2 and conversions throughout the codebase.
 
 from __future__ import annotations
 
+from collections.abc import Collection
+from pathlib import Path
+
 import cv2
 import numpy as np
 
 from .._core.colors import bgr_to_rgb
+
+SUPPORTED_IMAGE_SUFFIXES: tuple[str, ...] = (
+    ".jpg",
+    ".jpeg",
+    ".png",
+    ".webp",
+    ".bmp",
+    ".tif",
+    ".tiff",
+)
 
 
 def _cv2_imread_bgr(path: str):
@@ -65,3 +78,33 @@ def read_rgb_bytes(buf: bytes | bytearray | memoryview) -> np.ndarray:
     if arr is None:
         raise RuntimeError("Could not decode image bytes (cv2.imdecode returned None)")
     return bgr_to_rgb(arr)
+
+
+def collect_image_paths(
+    directory: str | Path,
+    *,
+    allowed_exts: Collection[str] = SUPPORTED_IMAGE_SUFFIXES,
+) -> list[Path]:
+    """Return sorted image files under one directory using explicit suffix policy."""
+
+    root = Path(directory).expanduser().resolve()
+    if not root.is_dir():
+        raise FileNotFoundError(f"image directory not found: {root}")
+    allowed = {ext.lower() for ext in allowed_exts}
+    paths = [
+        path
+        for path in sorted(root.iterdir())
+        if path.is_file() and path.suffix.lower() in allowed
+    ]
+    if not paths:
+        raise ValueError(f"No supported image files found in {root}")
+    return paths
+
+
+__all__ = [
+    "SUPPORTED_IMAGE_SUFFIXES",
+    "collect_image_paths",
+    "read_bgr",
+    "read_rgb",
+    "read_rgb_bytes",
+]

@@ -47,3 +47,15 @@ def test_read_rgb_bytes_rejects_invalid_payload() -> None:
 
     with pytest.raises(RuntimeError, match="Could not decode"):
         read_rgb_bytes(b"not an image")
+
+
+def test_collect_image_paths_returns_sorted_supported_files(tmp_path) -> None:
+    from xpkg.media import collect_image_paths
+
+    (tmp_path / "b.png").write_bytes(b"fake")
+    (tmp_path / "a.JPG").write_bytes(b"fake")
+    (tmp_path / "notes.txt").write_text("skip", encoding="utf-8")
+
+    paths = collect_image_paths(tmp_path)
+
+    assert [path.name for path in paths] == ["a.JPG", "b.png"]

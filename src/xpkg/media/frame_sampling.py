@@ -51,6 +51,35 @@ def _target_frame_set(frame_indices: Sequence[int]) -> set[int]:
     return target
 
 
+def select_frame_indices(
+    total_frames: int,
+    *,
+    start_frame: int = 0,
+    max_frames: int | None = None,
+    frame_stride: int = 1,
+) -> list[int]:
+    """Resolve a deterministic list of source frame indices."""
+
+    if total_frames < 1:
+        raise ValueError("total_frames must be >= 1.")
+    if start_frame < 0:
+        raise ValueError("start_frame must be >= 0.")
+    if start_frame >= total_frames:
+        raise ValueError(
+            f"start_frame={start_frame} is out of range for {total_frames} frame(s)."
+        )
+    if frame_stride < 1:
+        raise ValueError("frame_stride must be >= 1.")
+    if max_frames is not None and max_frames < 1:
+        raise ValueError("max_frames must be >= 1 when provided.")
+    selected = list(range(start_frame, total_frames, frame_stride))
+    if max_frames is not None:
+        selected = selected[:max_frames]
+    if not selected:
+        raise ValueError("Frame selection produced no frames.")
+    return selected
+
+
 def _stream_selected_frames(
     video_path: Path,
     *,
@@ -121,4 +150,5 @@ __all__ = [
     "is_supported_video_path",
     "probe_video_path",
     "read_frame_indices",
+    "select_frame_indices",
 ]

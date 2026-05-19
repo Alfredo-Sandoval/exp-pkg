@@ -78,3 +78,14 @@ def test_frame_sampling_rejects_negative_and_missing_indices(tmp_path: Path) -> 
         read_frame_indices(video_path, frame_indices=[-1])
     with pytest.raises(RuntimeError, match="Failed to extract requested video frames"):
         read_frame_indices(video_path, frame_indices=[5])
+
+
+def test_select_frame_indices_applies_start_stride_and_limit() -> None:
+    from xpkg.media import select_frame_indices
+
+    assert select_frame_indices(
+        12,
+        start_frame=2,
+        frame_stride=3,
+        max_frames=3,
+    ) == [2, 5, 8]

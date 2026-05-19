@@ -2,13 +2,16 @@ from __future__ import annotations
 
 import json
 
+import cv2
 import numpy as np
+import pytest
 
 import xpkg
 from xpkg.segmentation import (
     PromptType,
     SegmentationMask,
     SegmentationPrompt,
+    best_mask_index,
     coco_rle_to_mask,
     decode_mask_rle,
     encode_mask_rle,
@@ -23,8 +26,11 @@ from xpkg.segmentation import (
     read_normalized_polygon_dataset_yaml,
     read_normalized_polygon_labels,
     read_normalized_polygon_rows,
+    select_masks_for_save,
     write_binary_mask,
+    write_binary_masks,
     write_label_image,
+    write_mask_overlay,
     write_normalized_polygon_dataset_yaml,
     write_normalized_polygon_labels,
 )
@@ -103,6 +109,91 @@ def test_binary_and_label_mask_images_round_trip(tmp_path) -> None:
     assert sorted(split) == [3, 7]
     assert int(split[3].sum()) == 6
     assert int(split[7].sum()) == 9
+
+
+def test_write_binary_masks_preserves_ordered_names(tmp_path) -> None:
+    first = np.eye(3, dtype=np.uint8)
+    second = np.fliplr(first)
+
+    paths = write_binary_masks(
+        tmp_path,
+        [first, second],
+        png_compression=0,
+    )
+
+    assert [path.name for path in paths] == ["mask_000.png", "mask_001.png"]
+    np.testing.assert_array_equal(read_binary_mask(paths[0]), first)
+    np.testing.assert_array_equal(read_binary_mask(paths[1]), second)
+
+
+def test_best_mask_index_returns_argmax_and_rejects_non_finite() -> None:
+    assert best_mask_index([0.1, 0.9, 0.2]) == 1
+    assert best_mask_index([]) == 0
+    with pytest.raises(ValueError, match="scores must contain only finite numeric values"):
+        best_mask_index([0.5, np.nan])
+
+
+def test_select_masks_for_save_obeys_policy() -> None:
+    masks = [
+        np.zeros((2, 2), dtype=np.uint8),
+        np.ones((2, 2), dtype=np.uint8),
+    ]
+
+    assert select_masks_for_save(masks, save_masks="none") == []
+
+    top1_masks = select_masks_for_save(masks, save_masks="top1")
+    assert len(top1_masks) == 1
+    np.testing.assert_array_equal(top1_masks[0], masks[0])
+
+    all_masks = select_masks_for_save(masks, save_masks="all")
+    assert len(all_masks) == 2
+    for saved, original in zip(all_masks, masks, strict=True):
+        np.testing.assert_array_equal(saved, original)
+
+
+def test_write_mask_overlay_tints_masked_pixels(tmp_path) -> None:
+    image = np.full((6, 6, 3), 100, dtype=np.uint8)
+    mask = np.zeros((6, 6), dtype=np.uint8)
+    mask[2:4, 2:4] = 1
+    path = tmp_path / "overlay.png"
+
+    write_mask_overlay(
+        path,
+        image,
+        mask,
+        tint_rgb=(200, 0, 0),
+        opacity=0.5,
+        png_compression=0,
+    )
+
+    loaded = cv2.imread(path.as_posix(), cv2.IMREAD_COLOR)
+    assert loaded is not None
+    rgb = cv2.cvtColor(loaded, cv2.COLOR_BGR2RGB)
+    np.testing.assert_array_equal(rgb[0, 0], np.array([100, 100, 100], dtype=np.uint8))
+    np.testing.assert_array_equal(rgb[2, 2], np.array([150, 50, 50], dtype=np.uint8))
+
+
+def test_write_mask_overlay_can_resize_mask_and_draw_box(tmp_path) -> None:
+    image = np.full((8, 8, 3), 20, dtype=np.uint8)
+    mask = np.ones((4, 4), dtype=np.uint8)
+    path = tmp_path / "boxed_overlay.png"
+
+    write_mask_overlay(
+        path,
+        image,
+        mask,
+        tint_rgb=(20, 20, 120),
+        opacity=0.25,
+        box=(1, 1, 6, 6),
+        box_outline_rgb=(0, 255, 0),
+        resize_mask_to_image=True,
+        png_compression=0,
+    )
+
+    loaded = cv2.imread(path.as_posix(), cv2.IMREAD_COLOR)
+    assert loaded is not None
+    rgb = cv2.cvtColor(loaded, cv2.COLOR_BGR2RGB)
+    np.testing.assert_array_equal(rgb[1, 1], np.array([0, 255, 0], dtype=np.uint8))
 
 
 def test_coco_uncompressed_rle_round_trips_with_column_major_contract() -> None:
