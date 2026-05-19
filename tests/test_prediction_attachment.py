@@ -412,10 +412,14 @@ def test_restore_prediction_frames_uses_targeted_cache_updates(
         skeleton=labels.skeleton,
         conf_thresh=0.0,
     )
+
+    def fail_full_cache_update() -> None:
+        raise AssertionError("Restore should not rebuild the full labels cache.")
+
     monkeypatch.setattr(
         labels,
         "update_cache",
-        lambda: pytest.fail("Restore should not rebuild the full labels cache."),
+        fail_full_cache_update,
     )
 
     restore_prediction_frames(labels=labels, snapshot=snapshot)
@@ -446,15 +450,22 @@ def test_restore_prediction_frames_does_not_trigger_whole_label_validation(
         conf_thresh=0.0,
     )
     labels.labeled_frames = _NoIterList(labels.labeled_frames)
+
+    def fail_targeted_cache_update() -> None:
+        raise AssertionError("Targeted restore should not rebuild the full labels cache.")
+
+    def fail_whole_label_validation() -> None:
+        raise AssertionError("Targeted restore should not trigger whole-label validation.")
+
     monkeypatch.setattr(
         labels,
         "update_cache",
-        lambda: pytest.fail("Targeted restore should not rebuild the full labels cache."),
+        fail_targeted_cache_update,
     )
     monkeypatch.setattr(
         labels,
         "validate",
-        lambda: pytest.fail("Targeted restore should not trigger whole-label validation."),
+        fail_whole_label_validation,
     )
 
     restore_prediction_frames(labels=labels, snapshot=snapshot)

@@ -62,7 +62,8 @@ def _as_binary_mask(mask: np.ndarray) -> np.ndarray:
 def _rgb_triplet(values: Sequence[int], *, field: str) -> tuple[int, int, int]:
     if len(values) != 3:
         raise ValueError(f"{field} must contain three RGB channel values.")
-    channels = tuple(int(value) for value in values)
+    red, green, blue = (int(value) for value in values)
+    channels = (red, green, blue)
     if any(value < 0 or value > 255 for value in channels):
         raise ValueError(f"{field} channel values must be between 0 and 255.")
     return channels

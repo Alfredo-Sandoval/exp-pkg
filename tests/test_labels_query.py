@@ -6,11 +6,26 @@ from xpkg.io.labels.query import (
     find_frames,
     group_labeled_frames_by_video,
 )
-from xpkg.model import LabeledFrame, VideoStub
+from xpkg.io.labels.video_types import VideoProtocol
+from xpkg.media.video import Video
+from xpkg.model import LabeledFrame
 
 
-def _video(filename: str) -> VideoStub:
-    return VideoStub(filename=filename, frames=20, height=64, width=64)
+def _video(filename: str) -> Video:
+    video = Video.__new__(Video)
+    video.filename = filename
+    video.id = None
+    video.label = None
+    video.sha256 = None
+    video._image_filenames = []
+    video.width = 64
+    video.height = 64
+    video.frames = 20
+    video.fps = 0.0
+    video.channels = 3
+    video.backend = "test"
+    video.last_frame_idx = 19
+    return video
 
 
 def test_group_labeled_frames_by_video_includes_unknown_frame_videos() -> None:
@@ -40,7 +55,9 @@ def test_find_frames_supports_all_single_multiple_and_missing_queries() -> None:
     unknown_video = _video("unknown.mp4")
     frame0 = LabeledFrame(video=video, frame_idx=0)
     frame5 = LabeledFrame(video=video, frame_idx=5)
-    frame_idx_map = {video: {0: frame0, 5: frame5}}
+    frame_idx_map: dict[VideoProtocol, dict[int, LabeledFrame]] = {
+        video: {0: frame0, 5: frame5}
+    }
 
     assert find_frames(frame_idx_map, video) == [frame0, frame5]
     assert find_frames(frame_idx_map, video, frame_idx=5) == [frame5]
