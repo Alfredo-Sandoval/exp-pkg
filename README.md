@@ -283,7 +283,7 @@ uv pip install dist/exp_pkg-*.whl
 Before a PyPI/TestPyPI cut, run the local release gate against real lab data:
 
 ```bash
-make release-check REAL_DATA_ROOT=/path/to/xpkg-real-data
+make release-check REAL_DATA_ROOT=../xpkg-real-data
 ```
 
 Hosted CI mirrors the synthetic local gates on pull requests and pushes. The
@@ -460,7 +460,7 @@ existing functionality:
 1. Open an issue or local task describing the change.
 2. Create a focused feature branch.
 3. Run `make qa` for the fast gate.
-4. Run `make release-check REAL_DATA_ROOT=/path/to/xpkg-real-data` before a
+4. Run `make release-check REAL_DATA_ROOT=../xpkg-real-data` before a
    package handoff or PyPI/TestPyPI cut.
 
 Please follow the existing code style (enforced by [Ruff](https://docs.astral.sh/ruff/) with the settings in `pyproject.toml`).

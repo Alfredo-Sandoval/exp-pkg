@@ -40,7 +40,7 @@ test:
 require-real-data:
 	@root="$${XPKG_REAL_DATA_ROOT:-$(REAL_DATA_ROOT)}"; \
 	test -n "$$root" || { \
-		echo "Set XPKG_REAL_DATA_ROOT or pass REAL_DATA_ROOT=/path/to/real-data"; \
+		echo "Set XPKG_REAL_DATA_ROOT or pass REAL_DATA_ROOT=../xpkg-real-data"; \
 		exit 1; \
 	}; \
 	test -d "$$root" || { \
@@ -60,13 +60,13 @@ ci-local: lint typecheck test package-check docs-build
 release-check: require-real-data qa package-check docs-build test-real
 
 build:
-	$(RUN_IN_ENV) env UV_CACHE_DIR="$${UV_CACHE_DIR:-/tmp/uv-cache}" uv build --out-dir dist --clear
+	$(RUN_IN_ENV) env UV_CACHE_DIR="$${UV_CACHE_DIR:-.cache/uv}" uv build --out-dir dist --clear
 
 package-check:
 	@set -eu; \
 	tmpdir="$$(mktemp -d)"; \
 	trap 'rm -rf "$$tmpdir"' EXIT; \
-	$(RUN_IN_ENV) env UV_CACHE_DIR="$${UV_CACHE_DIR:-/tmp/uv-cache}" uv build --out-dir "$$tmpdir" --clear; \
+	$(RUN_IN_ENV) env UV_CACHE_DIR="$${UV_CACHE_DIR:-.cache/uv}" uv build --out-dir "$$tmpdir" --clear; \
 	$(RUN_IN_ENV) python -m twine check "$$tmpdir"/*; \
 	wheel="$$(find "$$tmpdir" -maxdepth 1 -type f -name '*.whl' -print -quit)"; \
 	test -n "$$wheel"; \

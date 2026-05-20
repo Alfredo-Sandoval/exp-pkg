@@ -22,7 +22,7 @@ checks distributions before publishing.
 Run the full local release gate against representative private data:
 
 ```bash
-make release-check REAL_DATA_ROOT=/path/to/xpkg-real-data
+make release-check REAL_DATA_ROOT=../xpkg-real-data
 ```
 
 If the private corpus is split, set `XPKG_REAL_DATA_MANIFEST` to the manifest
@@ -46,14 +46,16 @@ uvx twine upload --repository testpypi dist/*
 After it publishes, smoke-test in a fresh environment:
 
 ```bash
-uv venv /tmp/xpkg-testpypi-smoke
-/tmp/xpkg-testpypi-smoke/bin/python -m pip install --upgrade pip
-/tmp/xpkg-testpypi-smoke/bin/python -m pip install \
+smoke_env="$(mktemp -d -t xpkg-testpypi-smoke.XXXXXX)"
+trap 'rm -rf "$smoke_env"' EXIT
+uv venv "$smoke_env"
+"$smoke_env/bin/python" -m pip install --upgrade pip
+"$smoke_env/bin/python" -m pip install \
   --index-url https://test.pypi.org/simple/ \
   --extra-index-url https://pypi.org/simple/ \
   exp-pkg
-/tmp/xpkg-testpypi-smoke/bin/xpkg --help
-/tmp/xpkg-testpypi-smoke/bin/python -c "from xpkg.services import ProjectService; assert ProjectService"
+"$smoke_env/bin/xpkg" --help
+"$smoke_env/bin/python" -c "from xpkg.services import ProjectService; assert ProjectService"
 ```
 
 ## PyPI Release

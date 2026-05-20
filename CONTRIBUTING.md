@@ -38,7 +38,7 @@ Run the full release gate with private representative data before a
 TestPyPI/PyPI cut:
 
 ```bash
-make release-check REAL_DATA_ROOT=/path/to/xpkg-real-data
+make release-check REAL_DATA_ROOT=../xpkg-real-data
 ```
 
 ## Package Boundary

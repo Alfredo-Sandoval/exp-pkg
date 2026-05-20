@@ -52,7 +52,7 @@ that `ProjectService` imports from the installed package.
 Run the release gate before a package handoff or PyPI/TestPyPI cut:
 
 ```bash
-make release-check REAL_DATA_ROOT=/path/to/xpkg-real-data
+make release-check REAL_DATA_ROOT=../xpkg-real-data
 ```
 
 The installed wheel should include `xpkg/py.typed` and
@@ -97,7 +97,8 @@ entrypoint.
 
 Put `xpkg-real-data.json` at the root of your private corpus, or set
 `XPKG_REAL_DATA_MANIFEST` to a manifest file. Paths inside the manifest are
-resolved relative to `XPKG_REAL_DATA_ROOT` unless they are absolute.
+resolved relative to `XPKG_REAL_DATA_ROOT`; keep manifest entries relative for
+portability.
 
 ```json
 {

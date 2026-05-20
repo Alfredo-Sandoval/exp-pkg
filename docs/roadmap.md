@@ -203,7 +203,7 @@ Before public package release:
 make qa
 make package-check
 make docs-build
-make release-check REAL_DATA_ROOT=/path/to/xpkg-real-data
+make release-check REAL_DATA_ROOT=../xpkg-real-data
 ```
 
 `make release-check` is the gate that uses private representative data. The

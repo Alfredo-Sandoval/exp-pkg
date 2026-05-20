@@ -56,7 +56,7 @@ uv pip install dist/exp_pkg-*.whl
 Before a release cut, run the gate against a private real-data corpus:
 
 ```bash
-make release-check REAL_DATA_ROOT=/path/to/xpkg-real-data
+make release-check REAL_DATA_ROOT=../xpkg-real-data
 ```
 
 ## Preview the docs
