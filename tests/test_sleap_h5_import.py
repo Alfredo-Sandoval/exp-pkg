@@ -41,8 +41,8 @@ def test_convert_sleap_h5_builds_multi_track_labels(tmp_path: Path) -> None:
     )
 
     assert result.metadata["source"] == "sleap_h5_import"
-    assert result.metadata["source_h5"] == tracking_path.as_posix()
-    assert result.metadata["source_video"] == video_path.as_posix()
+    assert result.metadata["source_h5"] == tracking_path.name
+    assert result.metadata["source_video"] == video_path.name
 
     labels = result.labels
     assert len(labels.videos) == 1

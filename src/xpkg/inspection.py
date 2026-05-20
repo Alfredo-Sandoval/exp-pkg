@@ -23,7 +23,7 @@ from xpkg.project.layout import (
     project_summary_path,
     resolve_project_root,
 )
-from xpkg.project.summary import refresh_project_summary
+from xpkg.project.summary import snapshot_project_summary
 
 from ._core.json_utils import load_json, parse_json
 
@@ -148,7 +148,7 @@ def _inspect_project_dir(path: Path) -> dict[str, Any]:
     if project_root is None:
         raise FileNotFoundError(f"Not an xpkg project: {path}")
     descriptor = load_project_descriptor(project_root).to_dict()
-    summary = refresh_project_summary(project_root)
+    summary = snapshot_project_summary(project_root)
     return {
         "kind": "xpkg_project",
         "likely_importers": [],

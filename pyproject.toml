@@ -54,7 +54,7 @@ dependencies = [
   "numpy>=1.26,<3",
   "opencv-python-headless>=4.10,<5",
   "pandas>=2.2,<4",
-  "pyarrow>=16,<23",
+  "pyarrow>=23.0.1,<24",
   "pyyaml>=6.0,<7",
   "rich>=13.7,<16",
   "tables>=3.9,<4",
@@ -136,6 +136,8 @@ path = "src/xpkg/version.py"
 exclude = [
   "/.github",
   "/AGENTS.md",
+  "/CLAUDE.md",
+  "/.gitignore",
   "/deep-research-report (1).md",
   "/papers",
   "/plan.md",

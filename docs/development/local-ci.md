@@ -1,7 +1,8 @@
 # Local Quality Gates
 
-`xpkg` is set up to run its quality gates locally on macOS and Linux. Hosted
-CI mirrors the synthetic gate; the real-data release gate remains local/private.
+`xpkg` is set up to run its quality gates locally on macOS and Linux. The
+synthetic gate is the canonical public check; the real-data release gate remains
+local/private.
 
 ## First-Time Setup
 

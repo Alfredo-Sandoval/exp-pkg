@@ -322,7 +322,7 @@ def convert_sleap_package(
     metadata = {
         "project_name": proj_root.name,
         "source": "sleap_pkg_import",
-        "source_package": slp_path.as_posix(),
+        "source_package": slp_path.name,
     }
     emit_progress(progress_callback, _PREPARE_RESULT_MARKER)
     emit_progress(progress_callback, _OK_RESULT_READY_MARKER)

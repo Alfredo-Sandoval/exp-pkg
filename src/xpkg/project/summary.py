@@ -170,12 +170,12 @@ def load_project_summary(project: str | Path) -> ProjectSummaryIndex:
     return ProjectSummaryIndex.from_dict(load_json_dict(project_summary_path(project)))
 
 
-def refresh_project_summary(
+def snapshot_project_summary(
     project: str | Path,
     *,
     state_summary: Mapping[str, JsonScalar] | None = None,
 ) -> ProjectSummaryIndex:
-    """Refresh and write the generated shallow summary index."""
+    """Build the generated shallow summary index without writing it."""
 
     project_root = resolve_project_root(project)
     if project_root is None:
@@ -204,6 +204,21 @@ def refresh_project_summary(
         modalities=_modalities(state.kind, state_details, metadata_slots, artifact_count),
         warnings=warnings,
     )
+    return summary
+
+
+def refresh_project_summary(
+    project: str | Path,
+    *,
+    state_summary: Mapping[str, JsonScalar] | None = None,
+) -> ProjectSummaryIndex:
+    """Refresh and write the generated shallow summary index."""
+
+    project_root = resolve_project_root(project)
+    if project_root is None:
+        raise FileNotFoundError(f"Not an xpkg project: {project}")
+    existing, _existing_warnings = _existing_summary(project_root)
+    summary = snapshot_project_summary(project_root, state_summary=state_summary)
     if existing is not None and _equivalent_summary(existing, summary):
         return existing
     target = project_summary_path(project_root)
@@ -418,5 +433,6 @@ __all__ = [
     "labels_state_summary",
     "load_project_summary",
     "refresh_project_summary",
+    "snapshot_project_summary",
     "vicon_state_summary",
 ]

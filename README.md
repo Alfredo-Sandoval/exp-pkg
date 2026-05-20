@@ -286,8 +286,8 @@ Before a PyPI/TestPyPI cut, run the local release gate against real lab data:
 make release-check REAL_DATA_ROOT=../xpkg-real-data
 ```
 
-Hosted CI mirrors the synthetic local gates on pull requests and pushes. The
-local release gate additionally runs the opt-in real-data suite before a
+The local synthetic gates are the canonical public checks for this repository.
+The local release gate additionally runs the opt-in real-data suite before a
 package handoff or PyPI/TestPyPI cut.
 
 ## Real Data Tests

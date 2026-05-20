@@ -136,7 +136,7 @@ class LabelsQuery:
                     return None
                 return _hit
             if isinstance(frame_selector, list):
-                frame_indices = [int(idx) for idx in frame_selector]
+                frame_indices = [int(cast("int | float | str", idx)) for idx in frame_selector]
                 return self.find(video=video, frame_idx=frame_indices)
             if isinstance(frame_selector, range):
                 return self.find(video=video, frame_idx=frame_selector)

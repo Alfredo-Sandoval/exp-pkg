@@ -79,9 +79,9 @@ def _coerce_frame_idx(frame_idx: object) -> int:
 def _stored_project_path(path: Path, *, project_root: Path) -> str:
     resolved = resolve_path(path)
     try:
-        return resolved.relative_to(project_root).as_posix()
+        return resolved.relative_to(resolve_path(project_root)).as_posix()
     except ValueError:
-        return resolved.as_posix()
+        return resolved.name
 
 
 def _resolve_tracking_path(data_path: Path | str) -> Path:
@@ -401,8 +401,8 @@ def _tracking_conversion_result(
 ) -> ConversionResult:
     metadata = {
         "source": source_label,
-        source_metadata_key: data_path.as_posix(),
-        "source_video": video_path.as_posix(),
+        source_metadata_key: _stored_project_path(data_path, project_root=data_path.parent),
+        "source_video": _stored_project_path(video_path, project_root=data_path.parent),
     }
 
     emit_progress(progress_callback, "IMPORT: Prepared project state")

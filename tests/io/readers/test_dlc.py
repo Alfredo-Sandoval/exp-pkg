@@ -57,6 +57,15 @@ def _write_dlc_h5(path: Path, *, include_likelihood: bool = True) -> None:
     _make_dlc_dataframe(include_likelihood=include_likelihood).to_hdf(path, key="df")
 
 
+def test_read_dlc_h5_rejects_pickled_object_nodes(tmp_path: Path) -> None:
+    path = tmp_path / "tracking.h5"
+    with pytest.warns(pd.errors.PerformanceWarning):
+        pd.DataFrame({"payload": [{"unsafe": "object"}]}).to_hdf(path, key="df")
+
+    with pytest.raises(ValueError, match="object/pickled PyTables data"):
+        read_track(path, file_type="h5", track_index=0)
+
+
 @pytest.mark.parametrize(
     ("file_type", "writer"),
     [("csv", _write_dlc_csv), ("h5", _write_dlc_h5), ("hdf5", _write_dlc_h5)],

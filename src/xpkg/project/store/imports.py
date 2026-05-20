@@ -251,7 +251,7 @@ def import_dlc_project_directory(
         metadata = {
             "project_name": resolved_project_dir.name,
             "source": "dlc_project_import",
-            "source_project": resolved_project_dir.as_posix(),
+            "source_project": resolved_project_dir.name,
             "source_items": source_items,
             "skipped_items": [
                 {"name": skipped_item.name, "reason": skipped_item.reason}
@@ -409,4 +409,3 @@ def import_mediapipe_pose_landmarks_json_project(
             progress_callback=progress_callback,
         ),
     )
-

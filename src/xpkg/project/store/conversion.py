@@ -34,6 +34,16 @@ if TYPE_CHECKING:
     from xpkg.model import Labels, ViconRecording
 
 
+def _project_relative_path(path: str | Path | None, project_root: Path) -> str | None:
+    if path is None:
+        return None
+    resolved = resolve_path(path)
+    try:
+        return resolved.relative_to(resolve_path(project_root)).as_posix()
+    except ValueError:
+        return resolved.name
+
+
 def _import_project_from_conversion(
     project: str | Path,
     *,
@@ -174,12 +184,12 @@ def _import_vicon_project_recording(
     managed_recording = _copy_vicon_import_bundle(recording, root)
     metadata = {
         "source": source_name,
-        "source_recording": resolve_path(recording_path).as_posix(),
+        "source_recording": _project_relative_path(managed_recording.path, root),
     }
     if recording.xcp_path is not None:
-        metadata["source_xcp"] = resolve_path(recording.xcp_path).as_posix()
+        metadata["source_xcp"] = _project_relative_path(managed_recording.xcp_path, root)
     if recording.vsk_path is not None:
-        metadata["source_vsk"] = resolve_path(recording.vsk_path).as_posix()
+        metadata["source_vsk"] = _project_relative_path(managed_recording.vsk_path, root)
     state_path = _commit_vicon_to_project(
         root,
         recording=managed_recording,

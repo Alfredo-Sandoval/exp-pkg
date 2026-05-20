@@ -36,8 +36,8 @@ def test_convert_mediapipe_pose_landmarks_json_builds_labels(tmp_path: Path) -> 
     )
 
     assert result.metadata["source"] == "mediapipe_pose_landmarks_json_import"
-    assert result.metadata["source_json"] == json_path.as_posix()
-    assert result.metadata["source_video"] == video_path.as_posix()
+    assert result.metadata["source_json"] == json_path.name
+    assert result.metadata["source_video"] == video_path.name
 
     labels = result.labels
     assert len(labels.skeletons[0].keypoint_names) == 33
@@ -125,7 +125,7 @@ def test_import_mediapipe_pose_landmarks_json_project_imports_sequence_into_proj
     assert state_path == current_project_state_path(project)
     payload = read_project_state_payload(state_path)
     assert payload["metadata"]["source"] == "mediapipe_pose_landmarks_json_import"
-    assert payload["metadata"]["source_json"] == json_path.as_posix()
+    assert payload["metadata"]["source_json"] == json_path.name
 
     labels = Labels.load_file(project.as_posix())
     assert len(labels.skeletons[0].keypoint_names) == 33

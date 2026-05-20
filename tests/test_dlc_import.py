@@ -247,11 +247,11 @@ def test_import_lightning_pose_csv_project_uses_dlc_style_predictions(
     assert "IMPORT: Reading Lightning Pose CSV session0.csv" in progress
     payload = read_project_state_payload(state_path)
     assert payload["metadata"]["source"] == "lightning_pose_csv_import"
-    assert payload["metadata"]["source_csv"] == csv_path.as_posix()
+    assert payload["metadata"]["source_csv"] == csv_path.name
     provenance = payload["provenance"]["pose_prediction"]
     assert provenance["tool"]["name"] == "Lightning Pose"
     assert provenance["source_format"] == "csv"
-    assert provenance["inputs"]["source_csv"] == csv_path.as_posix()
+    assert provenance["inputs"]["source_csv"] == csv_path.name
     assert provenance["model"] == {
         "name": "lp-demo-model",
         "version": "1.2.3",

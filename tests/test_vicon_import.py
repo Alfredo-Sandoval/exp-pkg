@@ -36,7 +36,8 @@ def test_import_vicon_project_roundtrips_through_project_and_expkg(tmp_path: Pat
     assert state_path == current_project_state_path(project)
     payload = read_vicon_json_payload(state_path)
     assert payload["metadata"]["source"] == "vicon_import"
-    assert payload["metadata"]["source_recording"] == c3d_path.resolve().as_posix()
+    assert payload["metadata"]["source_recording"].endswith("/trial.c3d")
+    assert not Path(payload["metadata"]["source_recording"]).is_absolute()
 
     recording = load_project_vicon_recording(project)
     assert recording.path.is_file()

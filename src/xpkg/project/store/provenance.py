@@ -175,11 +175,10 @@ def _persist_pose_provenance(
 
     fields: dict[str, Any] = {}
     if record.imported_from is None:
-        fields["imported_from"] = resolve_path(source_path).as_posix()
+        fields["imported_from"] = resolve_path(source_path).name
     if record.imported_at is None:
         fields["imported_at"] = _now_utc_iso()
     if fields:
         record = PoseModelProvenance.from_dict({**record.to_dict(), **fields})
     save_project_pose_provenance(root, record)
-
 

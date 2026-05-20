@@ -81,9 +81,35 @@ def read_dlc_csv_table(csv_path: Path) -> tuple[pd.DataFrame, list[str]]:
     return df, _extract_keypoints_from_columns(df.columns)
 
 
+def _reject_pickled_hdf_nodes(h5_path: Path) -> None:
+    """Reject PyTables object nodes before pandas can deserialize them."""
+
+    import tables
+
+    with tables.open_file(h5_path.as_posix(), mode="r") as handle:
+        for node in handle.walk_nodes("/"):
+            atom = getattr(node, "atom", None)
+            atom_kind = str(getattr(atom, "kind", "")).lower()
+            atom_type = str(getattr(atom, "type", "")).lower()
+            attrs = node._v_attrs
+            pseudoatom = str(getattr(attrs, "PSEUDOATOM", "")).lower()
+            node_class = str(getattr(attrs, "CLASS", "")).lower()
+            if (
+                atom_kind == "object"
+                or atom_type == "object"
+                or pseudoatom == "object"
+                or node_class == "vlarray"
+            ):
+                raise ValueError(
+                    "DLC H5 file contains object/pickled PyTables data and is not safe "
+                    f"to read as an untrusted input: {h5_path}"
+                )
+
+
 def read_dlc_h5_table(h5_path: Path) -> tuple[pd.DataFrame, list[str]]:
     """Read a DLC-style H5 tracking file into a flat coordinate table."""
 
+    _reject_pickled_hdf_nodes(h5_path)
     df = cast(pd.DataFrame, pd.read_hdf(h5_path))
     if isinstance(df.columns, pd.MultiIndex):
         df.columns = _flatten_dlc_columns(df.columns)

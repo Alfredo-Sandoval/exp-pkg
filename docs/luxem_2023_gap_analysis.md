@@ -4,8 +4,8 @@ Source paper: Luxem K, Sun JJ, Bradley SP, Krishnan K, Yttri E, Zimmermann J,
 Pereira TD, Laubach M (2023). *Open-source tools for behavioral video
 analysis: Setup, methods, and best practices.* eLife 12:e79305.
 DOI: [10.7554/eLife.79305](https://doi.org/10.7554/eLife.79305).
-Development checkouts may keep local reference copies under `papers/`; those
-files are not part of the published source distribution.
+Reference copies should not be committed to this repository; use the DOI link
+above for the source paper.
 
 ## Scope reminder
 

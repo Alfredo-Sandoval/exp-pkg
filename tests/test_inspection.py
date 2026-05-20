@@ -157,6 +157,22 @@ def test_inspect_path_reports_empty_project(tmp_path: Path) -> None:
     assert report.summary["has_current_state"] is False
 
 
+def test_inspect_path_does_not_write_project_summary(tmp_path: Path) -> None:
+    from xpkg.project import project_summary_path
+    from xpkg.services import ProjectService
+
+    project = ProjectService.create(tmp_path / "Read Only Project", title="Read Only Project")
+    summary_path = project_summary_path(project.project_root)
+    if summary_path.exists():
+        summary_path.unlink()
+
+    report = inspect_path(project.project_root)
+
+    assert report.kind is InspectionKind.XPKG_PROJECT
+    assert report.summary["title"] == "Read Only Project"
+    assert not summary_path.exists()
+
+
 def test_inspect_path_summarizes_project_state_without_payload_load(tmp_path: Path) -> None:
     from xpkg.project import current_project_state_path
     from xpkg.services import ProjectService

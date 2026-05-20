@@ -50,10 +50,12 @@ smoke_env="$(mktemp -d -t xpkg-testpypi-smoke.XXXXXX)"
 trap 'rm -rf "$smoke_env"' EXIT
 uv venv "$smoke_env"
 "$smoke_env/bin/python" -m pip install --upgrade pip
-"$smoke_env/bin/python" -m pip install \
+"$smoke_env/bin/python" -m pip download \
+  --no-deps \
   --index-url https://test.pypi.org/simple/ \
-  --extra-index-url https://pypi.org/simple/ \
-  exp-pkg
+  --dest "$smoke_env/downloads" \
+  exp-pkg==0.1.0
+"$smoke_env/bin/python" -m pip install "$smoke_env"/downloads/exp_pkg-*.whl
 "$smoke_env/bin/xpkg" --help
 "$smoke_env/bin/python" -c "from xpkg.services import ProjectService; assert ProjectService"
 ```
