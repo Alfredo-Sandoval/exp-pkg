@@ -137,6 +137,7 @@ exclude = [
   "/.github",
   "/AGENTS.md",
   "/deep-research-report (1).md",
+  "/papers",
   "/plan.md",
 ]
 

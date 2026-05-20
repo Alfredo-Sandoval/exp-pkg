@@ -5,8 +5,14 @@ ship a hosted service or network daemon.
 
 ## Reporting
 
-Please report security-sensitive issues privately to the maintainers before
-opening a public issue.
+Please report security-sensitive issues through GitHub private vulnerability
+reporting:
+
+https://github.com/Alfredo-Sandoval/exp-pkg/security/advisories/new
+
+If private reporting is unavailable, open a minimal public issue asking for a
+private maintainer contact. Do not include exploit details, private data, or
+credentials in the public issue.
 
 If the issue is not security-sensitive, use the public issue tracker.
 

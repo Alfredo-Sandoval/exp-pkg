@@ -98,8 +98,12 @@ project-list path.
 
 New xpkg APIs should make their cost visible:
 
-- `describe`, `inspect`, `list`, and `summary` surfaces should be shallow unless
-  their docstring explicitly says otherwise.
+- `describe`, `list`, and `summary` surfaces should be shallow unless their
+  docstring explicitly says otherwise.
+- `xpkg inspect PATH --json` and `xpkg.inspection.inspect_path(PATH)` are shallow
+  for project directories. `ProjectService.inspect()` is a full-state service
+  inspection and should be reserved for explicit open, validation, analysis, or
+  publish paths.
 - `load`, `hydrate`, `validate`, `pack`, and `unpack` surfaces may read full
   state, media, and artifacts.
 - If a summary API must parse state payloads, document the reason and add a

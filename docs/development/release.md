@@ -2,19 +2,20 @@
 
 Use this checklist before publishing a public `exp-pkg` release.
 
-## One-Time Repository Setup
+## One-Time Package Index Setup
 
-Configure PyPI Trusted Publishing for this repository:
+The repository currently does not ship GitHub Actions publishing workflows. A
+maintainer with PyPI/TestPyPI project permissions must publish the checked local
+distributions manually, or add a reviewed publish workflow before using Trusted
+Publishing.
 
 - PyPI project: `exp-pkg`
-- Repository owner: `Alfredo-Sandoval`
-- Repository name: `exp-pkg`
-- Workflow file: `publish.yml`
-- PyPI environment: `pypi`
-- TestPyPI environment: `testpypi`
+- TestPyPI project: `exp-pkg`
 
-Protect the `pypi` GitHub Environment with required manual approval. TestPyPI
-approval is optional.
+If a future GitHub Actions publish workflow is added, configure PyPI Trusted
+Publishing for `Alfredo-Sandoval/exp-pkg`, protect the `pypi` GitHub
+Environment with required manual approval, and verify the workflow builds and
+checks distributions before publishing.
 
 ## Pre-Release Gate
 
@@ -29,8 +30,18 @@ file for the intended release pass.
 
 ## TestPyPI Dry Run
 
-Use the `Publish Python Package` workflow with `workflow_dispatch` and
-`target=testpypi`.
+Build and check local distributions:
+
+```bash
+uv build --out-dir dist --clear
+uvx twine check dist/*
+```
+
+Publish to TestPyPI from a maintainer account:
+
+```bash
+uvx twine upload --repository testpypi dist/*
+```
 
 After it publishes, smoke-test in a fresh environment:
 
@@ -49,16 +60,13 @@ uv venv /tmp/xpkg-testpypi-smoke
 
 1. Confirm `src/xpkg/version.py` matches the intended tag.
 2. Confirm `CHANGELOG.md` has a dated section for the release.
-3. Push a tag named `vX.Y.Z` that matches `__version__`.
-4. Draft and publish a GitHub Release for that tag.
+3. Build and check distributions with `uv build --out-dir dist --clear` and
+   `uvx twine check dist/*`.
+4. Publish the checked distributions to PyPI from a maintainer account:
+   `uvx twine upload dist/*`.
+5. Push a tag named `vX.Y.Z` that matches `__version__`.
+6. Draft and publish a GitHub Release for that tag, attaching the checked
+   wheel and sdist from `dist/`.
 
-Publishing the GitHub Release runs `.github/workflows/publish.yml`, which:
-
-- verifies the release tag matches `src/xpkg/version.py`
-- builds the sdist and wheel
-- runs `twine check`
-- attaches distributions to the GitHub Release
-- publishes to PyPI through Trusted Publishing
-
-The workflow uses short-lived OIDC credentials and does not require a stored
-PyPI API token.
+Keep the package files attached to the GitHub Release byte-for-byte identical
+to the files uploaded to PyPI.
