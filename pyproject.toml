@@ -94,11 +94,7 @@ inference = [
 mlx = [
   "mlx>=0.31,<1",
 ]
-nvpkg = [
-  "nvpkg>=0.1,<1; platform_system == 'Linux'",
-]
 nvidia = [
-  "nvpkg>=0.1,<1; platform_system == 'Linux'",
   "torch>=2.11,<2.12",
   "torchcodec>=0.11,<0.12",
   "torchvision>=0.26,<0.27",
@@ -109,17 +105,15 @@ vision = [
 ]
 hardware-accel = [
   "mlx>=0.31,<1",
-  "nvpkg>=0.1,<1; platform_system == 'Linux'",
   "torch>=2.11,<2.12",
   "torchcodec>=0.11,<0.12",
   "torchvision>=0.26,<0.27",
 ]
 media-dl = [
   "av>=16,<17",
-  "decord>=0.6,<1",
+  "decord>=0.6,<1; platform_machine == 'x86_64' or platform_machine == 'AMD64'",
   "kornia>=0.8,<1",
   "mlx>=0.31,<1",
-  "nvpkg>=0.1,<1; platform_system == 'Linux'",
   "onnxruntime>=1.24,<2",
   "torch>=2.11,<2.12",
   "torchcodec>=0.11,<0.12",

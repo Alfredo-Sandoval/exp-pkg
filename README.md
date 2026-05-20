@@ -204,7 +204,6 @@ uv pip install -e ".[media-rich]"  # PyAV / rich FFmpeg media handling
 uv pip install -e ".[dl]"          # PyTorch + TorchCodec + TorchVision
 uv pip install -e ".[inference]"   # ONNX Runtime
 uv pip install -e ".[mlx]"         # MLX / Metal acceleration
-uv pip install -e ".[nvpkg]"       # nvpkg bridge for Linux NVIDIA media packages
 uv pip install -e ".[nvidia]"      # PyTorch + TorchCodec for NVIDIA CUDA
 uv pip install -e ".[vision]"      # Kornia + PyTorch
 uv pip install -e ".[hardware-accel]"  # MLX + NVIDIA optional runtimes
@@ -231,7 +230,8 @@ video = Video.from_filename("session.mp4", backend="pyav")
 ```
 
 On Linux NVIDIA hosts, use `nvpkg` as the provisioning layer for CUDA-enabled
-media libraries, then let `xpkg.media` verify the result:
+media libraries, then let `xpkg.media` verify the result. `nvpkg` is an
+external provisioning tool and is not installed by exp-pkg extras.
 
 ```bash
 nvpkg system doctor

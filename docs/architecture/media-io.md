@@ -174,13 +174,15 @@ The package extras encode this split:
 | `dl` | `torch`, `torchcodec`, `torchvision` | PyTorch tensor pipelines |
 | `inference` | `onnxruntime` | Exported model inference |
 | `mlx` | `mlx` | Apple/Metal tensor acceleration |
-| `nvpkg` | `nvpkg` on Linux | nvpkg verification bridge for CUDA media packages |
 | `nvidia` | `torch`, `torchcodec`, `torchvision` | NVIDIA CUDA tensor/video pipelines |
 | `vision` | `kornia`, `torch` | Differentiable tensor CV |
-| `hardware-accel` | `mlx`, `nvpkg` on Linux, `torch`, `torchcodec`, `torchvision` | MLX plus NVIDIA optional runtimes |
-| `media-dl` | all of the above | Full media/deep-learning stack |
+| `hardware-accel` | `mlx`, `torch`, `torchcodec`, `torchvision` | MLX plus NVIDIA optional runtimes |
+| `media-dl` | all of the above plus `decord` where wheels exist | Full media/deep-learning stack |
 
 This choice follows the current upstream direction:
+
+- Decord is platform-gated in the install metadata because public wheels are
+  not available on every supported host architecture.
 
 - PyTorch positions TorchCodec as the video-to-tensor path for PyTorch model
   workflows:
@@ -276,9 +278,12 @@ The CUDA backend should prioritize:
 - explicit failure when requested hardware capabilities are not available
 
 `nvpkg` owns the Linux NVIDIA provisioning layer so xpkg does not need to carry
-CUDA build scripts or host-specific wheel logic. The expected setup sequence is:
+CUDA build scripts or host-specific wheel logic. It is installed and managed
+outside exp-pkg extras until a public package line is available. The expected
+setup sequence is:
 
 ```bash
+nvpkg --help
 nvpkg system doctor
 nvpkg package install ffmpeg
 nvpkg package install opencv_cuda

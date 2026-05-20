@@ -166,9 +166,8 @@ _MEDIA_BACKENDS: tuple[_MediaBackendSpec, ...] = (
     ),
     _MediaBackendSpec(
         name="nvpkg",
-        modules=("nvpkg_core",),
+        modules=("nvpkg",),
         role="Linux NVIDIA media-stack provisioning and verification bridge",
-        extra="nvpkg",
     ),
 )
 
@@ -279,7 +278,12 @@ def require_media_backend(name: str) -> MediaBackendStatus:
     if status.available:
         return status
     missing = ", ".join(status.missing_modules)
-    if status.extra:
+    if status.name == "nvpkg":
+        install_hint = (
+            "Install nvpkg separately and ensure the `nvpkg` command or Python "
+            "package is available."
+        )
+    elif status.extra:
         install_hint = f"Install `exp-pkg[{status.extra}]` to enable it."
     else:
         install_hint = "Reinstall the base exp-pkg environment to enable it."
@@ -514,9 +518,9 @@ def _nvpkg_command_details(package_name: str) -> dict[str, str]:
 
 
 def _nvpkg_verify_payload(package_name: str) -> dict[str, Any] | None:
-    if _module_available("nvpkg_core.verify"):
+    if _module_available("nvpkg.verify"):
         try:
-            verify_module: Any = import_module("nvpkg_core.verify")
+            verify_module: Any = import_module("nvpkg.verify")
             payload = verify_module.verify_package(package_name, include_benchmark=False)
         except Exception as exc:  # pragma: no cover - optional external package boundary.
             return {

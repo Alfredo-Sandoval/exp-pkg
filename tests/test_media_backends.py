@@ -48,7 +48,8 @@ def test_media_backend_registry_keeps_heavy_stacks_optional() -> None:
     assert statuses["onnxruntime"].extra == "inference"
     assert statuses["kornia"].extra == "vision"
     assert statuses["mlx"].extra == "mlx"
-    assert statuses["nvpkg"].extra == "nvpkg"
+    assert statuses["nvpkg"].extra is None
+    assert statuses["nvpkg"].modules == ("nvpkg",)
     assert set(missing_media_backends()).isdisjoint({"images", "opencv", "imageio"})
 
 
@@ -133,6 +134,15 @@ def test_require_media_backend_raises_actionable_error_for_missing_backend() -> 
         require_media_backend("pyav")
 
 
+def test_require_media_backend_reports_external_nvpkg_install() -> None:
+    status = media_backend_status("nvpkg")
+    if status.available:
+        pytest.skip()
+
+    with pytest.raises(ImportError, match="Install nvpkg separately"):
+        require_media_backend("nvpkg")
+
+
 def test_media_surface_exports_backend_registry() -> None:
     assert callable(xpkg.media.hardware_acceleration_status)
     assert callable(xpkg.media.available_hardware_accelerators)
@@ -155,9 +165,7 @@ def test_pyproject_declares_media_and_deep_learning_extras() -> None:
     ]
     assert extras["inference"] == ["onnxruntime>=1.24,<2"]
     assert extras["mlx"] == ["mlx>=0.31,<1"]
-    assert extras["nvpkg"] == ["nvpkg>=0.1,<1; platform_system == 'Linux'"]
     assert extras["nvidia"] == [
-        "nvpkg>=0.1,<1; platform_system == 'Linux'",
         "torch>=2.11,<2.12",
         "torchcodec>=0.11,<0.12",
         "torchvision>=0.26,<0.27",
@@ -165,17 +173,15 @@ def test_pyproject_declares_media_and_deep_learning_extras() -> None:
     assert extras["vision"] == ["kornia>=0.8,<1", "torch>=2.11,<2.12"]
     assert extras["hardware-accel"] == [
         "mlx>=0.31,<1",
-        "nvpkg>=0.1,<1; platform_system == 'Linux'",
         "torch>=2.11,<2.12",
         "torchcodec>=0.11,<0.12",
         "torchvision>=0.26,<0.27",
     ]
     assert extras["media-dl"] == [
         "av>=16,<17",
-        "decord>=0.6,<1",
+        "decord>=0.6,<1; platform_machine == 'x86_64' or platform_machine == 'AMD64'",
         "kornia>=0.8,<1",
         "mlx>=0.31,<1",
-        "nvpkg>=0.1,<1; platform_system == 'Linux'",
         "onnxruntime>=1.24,<2",
         "torch>=2.11,<2.12",
         "torchcodec>=0.11,<0.12",
