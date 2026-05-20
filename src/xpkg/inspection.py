@@ -16,14 +16,23 @@ import numpy as np
 import pandas as pd
 
 from xpkg.io.readers.pose import read_pose_track
+from xpkg.model.metadata import AcquisitionMetadata, DatasetShareMetadata, PoseModelProvenance
+from xpkg.model.reporting import DatasetDatasheet, ModelCard
 from xpkg.project.artifact import EXPKG_MANIFEST_FILENAME
 from xpkg.project.layout import (
     PROJECT_DESCRIPTOR_FILENAME,
+    STORE_DIRNAME,
     load_project_descriptor,
     project_summary_path,
     resolve_project_root,
 )
 from xpkg.project.metadata import (
+    ACQUISITION_METADATA_FILENAME,
+    DATASET_SHARE_METADATA_FILENAME,
+    DATASHEET_FILENAME,
+    MODEL_CARD_FILENAME,
+    POSE_PROVENANCE_FILENAME,
+    PROJECT_METADATA_DIRNAME,
     load_project_acquisition_metadata,
     load_project_dataset_share_metadata,
     load_project_datasheet,
@@ -132,6 +141,17 @@ _PROJECT_METADATA_SLOTS: tuple[
     ("datasheet", project_datasheet_path, load_project_datasheet),
     ("model_card", project_model_card_path, load_project_model_card),
     ("pose_provenance", project_pose_provenance_path, load_project_pose_provenance),
+)
+
+_PROJECT_METADATA_ARCHIVE_SLOTS: tuple[
+    tuple[str, str, Callable[[Mapping[str, Any]], object]],
+    ...,
+] = (
+    ("acquisition", ACQUISITION_METADATA_FILENAME, AcquisitionMetadata.from_dict),
+    ("dataset_share", DATASET_SHARE_METADATA_FILENAME, DatasetShareMetadata.from_dict),
+    ("datasheet", DATASHEET_FILENAME, DatasetDatasheet.from_dict),
+    ("model_card", MODEL_CARD_FILENAME, ModelCard.from_dict),
+    ("pose_provenance", POSE_PROVENANCE_FILENAME, PoseModelProvenance.from_dict),
 )
 
 
@@ -820,6 +840,9 @@ def _inspect_expkg(path: Path) -> dict[str, Any]:
     with zipfile.ZipFile(path, "r") as archive:
         names = archive.namelist()
         summary["members"] = len(names)
+        metadata_slots, metadata_warnings = _inspect_expkg_metadata_slots(archive, names)
+        summary["metadata_slots"] = metadata_slots
+        warnings.extend(metadata_warnings)
         if EXPKG_MANIFEST_FILENAME in names:
             manifest = parse_json(archive.read(EXPKG_MANIFEST_FILENAME))
             manifest_map = _object_mapping(manifest)
@@ -837,6 +860,38 @@ def _inspect_expkg(path: Path) -> dict[str, Any]:
         "summary": summary,
         "warnings": warnings,
     }
+
+
+def _inspect_expkg_metadata_slots(
+    archive: zipfile.ZipFile,
+    names: Sequence[str],
+) -> tuple[dict[str, dict[str, Any]], list[str]]:
+    name_set = set(names)
+    slots: dict[str, dict[str, Any]] = {}
+    warnings: list[str] = []
+    for name, filename, load in _PROJECT_METADATA_ARCHIVE_SLOTS:
+        member_path = f"{STORE_DIRNAME}/{PROJECT_METADATA_DIRNAME}/{filename}"
+        present = member_path in name_set
+        slot: dict[str, Any] = {
+            "path": member_path,
+            "present": present,
+            "valid": None,
+        }
+        if present:
+            try:
+                payload = parse_json(archive.read(member_path))
+                payload_map = _object_mapping(payload)
+                if payload_map is None:
+                    raise TypeError("metadata payload must be a JSON object")
+                load(payload_map)
+            except (KeyError, OSError, TypeError, ValueError) as exc:
+                slot["valid"] = False
+                slot["error"] = str(exc)
+                warnings.append(f"Packed project metadata slot {name!r} is invalid: {exc}")
+            else:
+                slot["valid"] = True
+        slots[name] = slot
+    return slots, warnings
 
 
 def inspect_path(

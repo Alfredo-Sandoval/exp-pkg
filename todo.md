@@ -54,10 +54,14 @@ Done for project directories:
   as required.
 - Add tests around absent, valid, and malformed metadata files.
 
+Done for packed `.expkg` artifacts:
+
+- Report the same metadata-slot presence and parseability by reading canonical
+  archive members without unpacking.
+- Add tests around absent, valid, and malformed packed metadata files.
+
 Remaining follow-up:
 
-- Decide whether packed `.expkg` inspect should expose the same metadata-slot
-  status before unpacking.
 - Decide which missing FAIR metadata slots should become warnings for release
   readiness versus ordinary project inspection.
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import zipfile
 from pathlib import Path
 
 import numpy as np
@@ -310,6 +311,64 @@ def test_inspect_path_reports_project_media_from_summary_without_payload_load(
     ]
     assert any(
         "Project media item 'source.avi' is missing: Media/source.avi" == warning
+        for warning in report.warnings
+    )
+
+
+def test_inspect_path_reports_expkg_metadata_slots_without_unpacking(tmp_path: Path) -> None:
+    artifact = tmp_path / "metadata.expkg"
+    with zipfile.ZipFile(artifact, mode="w") as archive:
+        archive.writestr(
+            "EXPKG.json",
+            json.dumps(
+                {
+                    "format": "xpkg-packed-project",
+                    "artifact_schema_version": 1,
+                    "media": {"mode": "manifest"},
+                }
+            ),
+        )
+        archive.writestr(
+            ".xpkg/metadata/datasheet.json",
+            json.dumps(
+                {
+                    "title": "Packed Metadata Project",
+                    "summary": "Hand-authored packed project datasheet.",
+                }
+            ),
+        )
+        archive.writestr(".xpkg/metadata/model_card.json", json.dumps({"intended_use": {}}))
+
+    report = inspect_path(artifact)
+
+    assert report.kind is InspectionKind.EXPKG_ARTIFACT
+    slots = report.summary["metadata_slots"]
+    assert list(slots) == [
+        "acquisition",
+        "dataset_share",
+        "datasheet",
+        "model_card",
+        "pose_provenance",
+    ]
+    assert slots["datasheet"] == {
+        "path": ".xpkg/metadata/datasheet.json",
+        "present": True,
+        "valid": True,
+    }
+    assert slots["model_card"]["path"] == ".xpkg/metadata/model_card.json"
+    assert slots["model_card"]["present"] is True
+    assert slots["model_card"]["valid"] is False
+    assert "details" in slots["model_card"]["error"]
+    assert slots["acquisition"] == {
+        "path": ".xpkg/metadata/acquisition.json",
+        "present": False,
+        "valid": None,
+    }
+    assert slots["dataset_share"]["present"] is False
+    assert slots["pose_provenance"]["present"] is False
+    assert any(
+        "Packed project metadata slot 'model_card' is invalid" in warning
+        and "details" in warning
         for warning in report.warnings
     )
 
