@@ -157,7 +157,7 @@ implementations.
 | `onnxruntime` | Portable exported-model inference | macOS, Linux | Optional `inference` backend |
 | `kornia` | Differentiable computer-vision tensor operations | macOS, Linux | Optional `vision` backend |
 | `mlx` | Apple MLX tensor runtime | macOS, Linux | Optional `mlx` backend for model/tensor acceleration |
-| `nvpkg` | NVIDIA media-stack provisioning and verification | Linux | Optional `nvpkg` bridge for CUDA media packages |
+| `nvpkg` | NVIDIA media-stack provisioning and verification | Linux | External bridge for CUDA media packages, not an `exp-pkg` extra |
 
 PyAV and TorchCodec should be explicit implementation backends, not hidden
 dependencies. PyAV is the better fit for FFmpeg-level media ownership and
@@ -178,6 +178,11 @@ The package extras encode this split:
 | `vision` | `kornia`, `torch` | Differentiable tensor CV |
 | `hardware-accel` | `mlx`, `torch`, `torchcodec`, `torchvision` | MLX plus NVIDIA optional runtimes |
 | `media-dl` | all of the above plus `decord` where wheels exist | Full media/deep-learning stack |
+
+`nvpkg` is intentionally absent from every `exp-pkg[...]` extra. xpkg can
+detect it and consume its structured verification output when it is installed,
+but nvpkg remains a host provisioning tool rather than a runtime dependency of
+portable project, descriptor, media, or model APIs.
 
 This choice follows the current upstream direction:
 
@@ -279,8 +284,8 @@ The CUDA backend should prioritize:
 
 `nvpkg` owns the Linux NVIDIA provisioning layer so xpkg does not need to carry
 CUDA build scripts or host-specific wheel logic. It is installed and managed
-outside exp-pkg extras until a public package line is available. The expected
-setup sequence is:
+outside exp-pkg extras because it is a workstation provisioning tool, not a
+portable xpkg runtime dependency. The expected setup sequence is:
 
 ```bash
 nvpkg --help

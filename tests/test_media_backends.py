@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import tomllib
 from pathlib import Path
 
@@ -187,3 +188,17 @@ def test_pyproject_declares_media_and_deep_learning_extras() -> None:
         "torchcodec>=0.11,<0.12",
         "torchvision>=0.26,<0.27",
     ]
+
+
+def test_pyproject_keeps_nvpkg_as_external_provisioning_tool() -> None:
+    extras = _pyproject()["project"]["optional-dependencies"]
+
+    normalized_extra_deps = {
+        re.split(r"[\[<>=!~; ]", dependency, maxsplit=1)[0]
+        for dependencies in extras.values()
+        for dependency in dependencies
+    }
+
+    assert "nvpkg" not in extras
+    assert "nvidia-provisioning" not in extras
+    assert "nvpkg" not in normalized_extra_deps

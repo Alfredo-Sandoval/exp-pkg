@@ -167,7 +167,7 @@ _MEDIA_BACKENDS: tuple[_MediaBackendSpec, ...] = (
     _MediaBackendSpec(
         name="nvpkg",
         modules=("nvpkg",),
-        role="Linux NVIDIA media-stack provisioning and verification bridge",
+        role="external Linux NVIDIA media-stack provisioning and verification bridge",
     ),
 )
 
@@ -280,8 +280,8 @@ def require_media_backend(name: str) -> MediaBackendStatus:
     missing = ", ".join(status.missing_modules)
     if status.name == "nvpkg":
         install_hint = (
-            "Install nvpkg separately and ensure the `nvpkg` command or Python "
-            "package is available."
+            "Install nvpkg separately; it is not provided by any exp-pkg extra. "
+            "Ensure the `nvpkg` command or Python package is available."
         )
     elif status.extra:
         install_hint = f"Install `exp-pkg[{status.extra}]` to enable it."
