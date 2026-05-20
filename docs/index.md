@@ -15,8 +15,7 @@ portable artifacts, no analysis platform attached.
 </p>
 
 <div class="terminal">
-<span class="prompt">$</span> git clone https://github.com/Alfredo-Sandoval/exp-pkg.git<br>
-<span class="prompt">$</span> cd exp-pkg && make env<br>
+<span class="prompt">$</span> uv pip install exp-pkg<br>
 <span class="prompt">$</span> xpkg project init "./My Experiment"<br>
 <span class="prompt">$</span> xpkg import pose dlc-csv --path tracking.csv --video clip.mp4 --out "./My Experiment"
 </div>
@@ -49,7 +48,7 @@ dicts crossing the IO boundary.
 <div class="feature" markdown>
 <span class="label">Portable</span>
 ### `.expkg` is the only export
-A signed zip with `EXPKG.json` declaring members, sizes, and SHA-256
+A portable zip with `EXPKG.json` declaring members, sizes, and SHA-256
 digests. Three media policies — full, package, manifest — for any size.
 </div>
 

@@ -398,7 +398,7 @@ class Labels:
             lfs = [selected]
 
         videos_used = set([lf.video for lf in lfs])
-        videos = list(videos_used)
+        videos: list[VideoProtocol] = list(videos_used)
 
         suggestions = [
             suggestion for suggestion in self.suggestions if suggestion.video in videos_used

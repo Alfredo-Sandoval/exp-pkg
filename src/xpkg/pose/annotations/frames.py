@@ -111,9 +111,12 @@ class InstancesList(list[InstanceLike]):
         if isinstance(index, slice):
             if not isinstance(value, Iterable):
                 raise TypeError("Slice assignment requires an iterable of instances.")
-            values = list(value)
-            for instance in values:
+            values: list[InstanceLike] = []
+            for instance in value:
+                if not isinstance(instance, Instance):
+                    raise TypeError("InstancesList items must be Instance-like objects.")
                 instance.frame = self.labeled_frame
+                values.append(instance)
             super().__setitem__(index, values)
             return
         idx = operator.index(index)

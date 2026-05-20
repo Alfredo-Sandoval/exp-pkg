@@ -1,7 +1,7 @@
 # Local Quality Gates
 
-`xpkg` is set up to run its quality gates locally on macOS and Linux without
-needing hosted CI.
+`xpkg` is set up to run its quality gates locally on macOS and Linux. Hosted
+CI mirrors the synthetic gate; the real-data release gate remains local/private.
 
 ## First-Time Setup
 
@@ -87,11 +87,11 @@ manually activate the environment before using the normal development targets.
 If the environment is missing, the wrapper will tell you to run `make env`
 first.
 
-If conda or mamba is unavailable but a local virtualenv or non-base conda
-environment is already activated and already has the project dependencies
-installed, the wrapper runs the quality command in that active environment.
-This is a fallback for prepared developer machines; `make env` remains the
-canonical setup entrypoint.
+If conda or mamba is unavailable but a local virtualenv, repo-local `.venv`, or
+non-base conda environment already has the project dependencies installed, the
+wrapper runs the quality command in that environment. This is a fallback for
+prepared developer machines and CI; `make env` remains the canonical setup
+entrypoint.
 
 ## Real Data Manifest
 

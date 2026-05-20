@@ -66,13 +66,22 @@ if [[ -n "${CONDA_PREFIX:-}" && -n "${CONDA_DEFAULT_ENV:-}" && "${CONDA_DEFAULT_
   exec "$@"
 fi
 
+REPO_ROOT="$(cd -- "${SCRIPT_DIR}/.." && pwd)"
+LOCAL_VENV="${REPO_ROOT}/.venv"
+if [[ -x "${LOCAL_VENV}/bin/python" ]]; then
+  export VIRTUAL_ENV="${LOCAL_VENV}"
+  export PATH="${LOCAL_VENV}/bin:${PATH}"
+  hash -r
+  exec "$@"
+fi
+
 if command -v mamba >/dev/null 2>&1; then
   RUNNER="mamba"
 elif command -v conda >/dev/null 2>&1; then
   RUNNER="conda"
 else
   echo "[run-in-env] Missing dependency: install mamba or conda, then run 'make env'." >&2
-  echo "[run-in-env] Fallback: activate a local virtualenv or non-base conda env with project dependencies installed, then rerun this command." >&2
+  echo "[run-in-env] Fallback: activate a local virtualenv or non-base conda env with project dependencies installed, or create .venv with 'uv sync --extra dev --extra docs', then rerun this command." >&2
   exit 1
 fi
 

@@ -97,6 +97,7 @@ nav:
       - Project Durability: architecture/experimental-store.md
   - Development:
       - Local Quality Gates: development/local-ci.md
+      - Release Checklist: development/release.md
   - API Guide:
       - Model: api/model.md
       - Adapters: api/adapters.md

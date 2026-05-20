@@ -81,7 +81,7 @@ Choose the public surface by job:
 | Save figure outputs and their lineage manifests | `project.figures.*` from `xpkg.services.ProjectService` |
 | Save or load frame-level segmentation masks | `project.segmentation.*` from `xpkg.services.ProjectService` |
 | Save or window-read dense instance-mask outputs | `xpkg.segmentation.MaskTableReader` / `write_mask_table` |
-| Populate GUI or project-picker rows | `xpkg project describe --json`, `ProjectService.describe()`, `xpkg inspect --json`, or `load_project_descriptor(...)` |
+| Populate GUI or project-picker rows | `xpkg project describe --json`, `ProjectService.describe()`, `xpkg inspect --json`, or `load_project_summary(...)` |
 
 For downstream GUIs and catalog scans, keep list views shallow. Use descriptor,
 layout, metadata, and current-state file stats for rows; hydrate labels,
@@ -191,10 +191,16 @@ electrophysiology surfaces, not fiber-photometry IO.
 
 ## Install
 
-Not on PyPI yet. Clone and install locally:
+Install the released package from PyPI:
 
-When published, the distribution name will be `exp-pkg`. The Python import
-name and CLI command remain `xpkg`.
+```bash
+uv pip install exp-pkg
+```
+
+The distribution name is `exp-pkg`. The Python import name and CLI command are
+both `xpkg`.
+
+For a source checkout or local development:
 
 ```bash
 git clone https://github.com/Alfredo-Sandoval/exp-pkg.git
@@ -209,9 +215,10 @@ bash environment/setup.sh
 ```
 
 If conda or mamba is unavailable on a machine that already has project
-dependencies installed in an activated local virtualenv or non-base conda
-environment, the quality-gate wrapper can run inside that active environment.
-This is only a runner fallback; `make env` remains the canonical setup path.
+dependencies installed in an activated local virtualenv, a repo-local `.venv`,
+or a non-base conda environment, the quality-gate wrapper can run inside that
+active environment. This is only a runner fallback; `make env` remains the
+canonical setup path.
 
 The base install keeps heavyweight media/model stacks optional. Add extras when
 you need richer media or deep-learning functionality:
@@ -265,18 +272,12 @@ make qa
 make ci-local
 ```
 
-Build and check the Python package:
+Build and check the Python package from a source checkout:
 
 ```bash
 make package-check
 make build
 uv pip install dist/exp_pkg-*.whl
-```
-
-After the first PyPI release, users will install the distribution directly:
-
-```bash
-uv pip install exp-pkg
 ```
 
 Before a PyPI/TestPyPI cut, run the local release gate against real lab data:
@@ -285,9 +286,9 @@ Before a PyPI/TestPyPI cut, run the local release gate against real lab data:
 make release-check REAL_DATA_ROOT=/path/to/xpkg-real-data
 ```
 
-There is intentionally no hosted CI requirement for this repo. The local
-release gate runs linting, type checking, synthetic tests, package build/check,
-strict docs build, and the opt-in real-data suite.
+Hosted CI mirrors the synthetic local gates on pull requests and pushes. The
+local release gate additionally runs the opt-in real-data suite before a
+package handoff or PyPI/TestPyPI cut.
 
 ## Real Data Tests
 

@@ -1,10 +1,20 @@
 # Getting started
 
 xpkg is the canonical IO and artifact layer for multimodal neuroscience
-experiment projects. It is not on PyPI yet — clone the repo and install
-locally.
+experiment projects.
 
 ## Install
+
+Install the released package from PyPI:
+
+```bash
+uv pip install exp-pkg
+```
+
+The distribution name is `exp-pkg`. Import the Python package as `xpkg` and use
+the `xpkg` CLI.
+
+For a source checkout or local development:
 
 ```bash
 git clone https://github.com/Alfredo-Sandoval/exp-pkg.git
@@ -21,10 +31,10 @@ bash environment/setup.sh
 ```
 
 If conda or mamba is unavailable but you have already activated a local
-virtualenv or non-base conda environment with the project dependencies
-installed, the quality-gate wrapper will use that active environment. This is
-only for running checks in a prepared environment; `make env` remains the
-canonical setup path.
+virtualenv, created a repo-local `.venv`, or activated a non-base conda
+environment with the project dependencies installed, the quality-gate wrapper
+will use that environment. This is only for running checks in a prepared
+environment; `make env` remains the canonical setup path.
 
 ## Local checks
 
@@ -41,12 +51,6 @@ make ci-local    # qa + package-check + docs-build
 make package-check
 make build
 uv pip install dist/exp_pkg-*.whl
-```
-
-After the first PyPI release the direct package install will be:
-
-```bash
-uv pip install exp-pkg
 ```
 
 Before a release cut, run the gate against a private real-data corpus:
@@ -121,7 +125,7 @@ managed media manifest.
 Project pickers, startup scans, and agents should not hydrate full project
 state just to show a row. Use `xpkg project describe PATH --json`,
 `ProjectService.open(PATH).describe()`, `xpkg inspect PATH --json`, or
-`load_project_descriptor(PATH)` for list and catalog work. Reserve
+`load_project_summary(PATH)` for list and catalog work. Reserve
 `ProjectService.load_labels()`, `load_project_payload(PATH)`,
 `ProjectService.inspect()`, and `project.validate()` for explicit open,
 analysis, validation, or publish actions.
