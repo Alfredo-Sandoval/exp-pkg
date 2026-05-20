@@ -46,20 +46,6 @@ uvx twine upload --repository testpypi dist/*
 After it publishes, run an installed-wheel contract check in a fresh environment:
 
 ```bash
-<<<<<<< HEAD
-smoke_env="$(mktemp -d -t xpkg-testpypi-smoke.XXXXXX)"
-trap 'rm -rf "$smoke_env"' EXIT
-uv venv "$smoke_env"
-"$smoke_env/bin/python" -m pip install --upgrade pip
-"$smoke_env/bin/python" -m pip download \
-  --no-deps \
-  --index-url https://test.pypi.org/simple/ \
-  --dest "$smoke_env/downloads" \
-  exp-pkg==0.1.0
-"$smoke_env/bin/python" -m pip install "$smoke_env"/downloads/exp_pkg-*.whl
-"$smoke_env/bin/xpkg" --help
-"$smoke_env/bin/python" -c "from xpkg.services import ProjectService; assert ProjectService"
-=======
 check_env="$(mktemp -d -t xpkg-testpypi-check.XXXXXX)"
 trap 'rm -rf "$check_env"' EXIT
 uv venv "$check_env"
@@ -90,10 +76,11 @@ assert "project init" in contract["commands"]
 with tempfile.TemporaryDirectory() as tmp:
     project = ProjectService.create(Path(tmp) / "Wheel Project", title="Wheel Project")
     descriptor = json.loads((project.project_root / "PROJECT.json").read_text())
+    assert descriptor["format"] == "xpkg-project"
     assert descriptor["title"] == "Wheel Project"
+    assert descriptor["store_path"] == ".xpkg"
     assert (project.project_root / ".xpkg" / "indexes" / "project_summary.json").is_file()
 PY
->>>>>>> d6469b9 (refactor: update package-check to verify installed-wheel contract and project descriptor)
 ```
 
 ## PyPI Release

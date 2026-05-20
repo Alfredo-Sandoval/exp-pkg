@@ -45,7 +45,8 @@ The relevant question for Luxem alignment is therefore:
 - **Calibration**: pinhole/fisheye/omnidir intrinsics, OpenCV / fisheye
   distortion models, multi-camera extrinsics, Anipose TOML round-trip.
 - **Project metadata**: `AcquisitionMetadata` (cameras, arena, lighting, IR,
-  software/hardware), `DatasetShareMetadata`, `PoseModelProvenance`.
+  software/hardware), `DatasetShareMetadata`, `PoseModelProvenance`,
+  `DatasetDatasheet`, and `ModelCard`.
 - **Media stack**: backend discovery (OpenCV/PyAV/FFmpeg/TorchCodec/ONNX,
   CUDA/MLX/Metal), frame readers/writers, `nvpkg` accelerator bridge.
 - **Inspection CLI**: `xpkg inspect` autodetects DLC/SLEAP/MMPose/MediaPipe/
@@ -92,21 +93,33 @@ MOT, swap markers, manual proofreading flags. Add identity-provenance fields
 and a confidence-interval type on tracks, plus SLEAP/DLC multi-animal track
 ingest that populates them.
 
-### 4. FAIR: Datasheet + Model Card schemas
+### 4. FAIR: Datasheet + Model Card schemas — first contract now present
 
-`DatasetShareMetadata` and `PoseModelProvenance` already exist. Promote to
-formal **Datasheet for Datasets** (Gebru et al. 2021) and **Model Card**
-(Mitchell et al. 2019) schemas the paper's "Best practices for developers"
-explicitly recommends. Validate in `inspect`, include in `.expkg` manifests.
+`DatasetDatasheet` and `ModelCard` are now formal typed metadata slots, with
+project service helpers, CLI set/show commands, `.expkg` manifest round-trips,
+and shallow project-directory inspect reporting for metadata slot presence and
+parseability. This covers the first FAIR schema step the paper's "Best
+practices for developers" section motivates.
+
+Remaining work:
+
+- Extend the same metadata slot reporting to packed `.expkg` inputs if users
+  need inspect-time FAIR checks before unpacking.
+- `xpkg inspect` should surface practical completeness warnings for required
+  release/share fields without turning the schemas into a mandatory ontology.
+- Project-level summaries should make these FAIR metadata slots visible without
+  loading full labels, predictions, masks, or media payloads.
 
 ### 5. Acquisition QC in `inspect`
 
-Metadata fields exist but nothing checks them. Add inspect-time QC the paper
-calls for explicitly:
+File-level inspect already reports basic media/timing and pose-confidence
+signals. Project-level acquisition QC is still shallow. Add inspect-time checks
+the paper calls for explicitly:
 
-- dropped-frame / FPS-drift evidence from video timestamps
+- dropped-frame / FPS-drift evidence across associated videos
 - sync coverage between video timebase and event/photometry streams
-- per-keypoint confidence histograms + below-threshold spans
+- per-keypoint confidence histograms + below-threshold spans across imported
+  pose state
 - camera-coverage check for multi-camera projects (≥ 1 camera sees each
   keypoint at all times)
 
@@ -120,10 +133,11 @@ from other 3D stacks aren't locked out.
 
 ### 7. Cross-file / project-level inspection
 
-`inspect` is per-file today. Add a project-level inspector that pairs videos
-↔ pose ↔ events ↔ calibration and reports completeness, timebase alignment,
-and missing sidecars. This is the "common file format / interoperability"
-pitch from the paper's closing section.
+`xpkg inspect` can identify project directories today, but it does not yet pair
+videos ↔ pose ↔ events ↔ calibration into one completeness report. Add a
+project-level inspector that reports completeness, timebase alignment, and
+missing sidecars. This is the "common file format / interoperability" pitch
+from the paper's closing section.
 
 ## Explicit non-recommendations
 
@@ -134,5 +148,7 @@ supports keeping them out.
 
 ## Suggested order
 
-1 → 5 → 2 → 4 → 3 → 6 → 7. Items 1 and 5 give the most user-visible coverage
-of Luxem's framework with the least scope creep.
+The first contracts for items 1 and 4 are now present. The remaining order is
+5 → 2 → 3 → 6 → 7, with item 4's completeness checks folded into project-level
+inspection. Item 5 gives the most user-visible coverage of Luxem's framework
+with the least scope creep.

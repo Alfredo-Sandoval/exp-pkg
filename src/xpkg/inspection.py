@@ -5,7 +5,7 @@ from __future__ import annotations
 import importlib
 import math
 import zipfile
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
@@ -22,6 +22,18 @@ from xpkg.project.layout import (
     load_project_descriptor,
     project_summary_path,
     resolve_project_root,
+)
+from xpkg.project.metadata import (
+    load_project_acquisition_metadata,
+    load_project_dataset_share_metadata,
+    load_project_datasheet,
+    load_project_model_card,
+    load_project_pose_provenance,
+    project_acquisition_metadata_path,
+    project_dataset_share_metadata_path,
+    project_datasheet_path,
+    project_model_card_path,
+    project_pose_provenance_path,
 )
 from xpkg.project.summary import snapshot_project_summary
 
@@ -111,6 +123,17 @@ _TIME_COLUMNS = {"time", "timestamp", "timestamps", "time_s", "seconds", "sec"}
 _EVENT_COLUMNS = {"event", "kind", "label", "behavior", "start", "start_s", "duration"}
 _PHOTOMETRY_HINTS = {"405", "410", "415", "465", "470", "560", "gcamp", "isosbestic", "dff"}
 
+_PROJECT_METADATA_SLOTS: tuple[
+    tuple[str, Callable[[str | Path], Path], Callable[[str | Path], object]],
+    ...,
+] = (
+    ("acquisition", project_acquisition_metadata_path, load_project_acquisition_metadata),
+    ("dataset_share", project_dataset_share_metadata_path, load_project_dataset_share_metadata),
+    ("datasheet", project_datasheet_path, load_project_datasheet),
+    ("model_card", project_model_card_path, load_project_model_card),
+    ("pose_provenance", project_pose_provenance_path, load_project_pose_provenance),
+)
+
 
 def _path_payload(path: Path) -> dict[str, Any]:
     stat = path.stat()
@@ -149,6 +172,7 @@ def _inspect_project_dir(path: Path) -> dict[str, Any]:
         raise FileNotFoundError(f"Not an xpkg project: {path}")
     descriptor = load_project_descriptor(project_root).to_dict()
     summary = snapshot_project_summary(project_root)
+    metadata_slots, metadata_warnings = _inspect_project_metadata_slots(project_root)
     return {
         "kind": "xpkg_project",
         "likely_importers": [],
@@ -161,9 +185,36 @@ def _inspect_project_dir(path: Path) -> dict[str, Any]:
             "commit_id": summary.commit_id,
             "modalities": list(summary.modalities),
             "summary_path": str(project_summary_path(project_root)),
+            "metadata_slots": metadata_slots,
         },
-        "warnings": list(summary.warnings),
+        "warnings": [*summary.warnings, *metadata_warnings],
     }
+
+
+def _inspect_project_metadata_slots(
+    project_root: Path,
+) -> tuple[dict[str, dict[str, Any]], list[str]]:
+    slots: dict[str, dict[str, Any]] = {}
+    warnings: list[str] = []
+    for name, path_for, load in _PROJECT_METADATA_SLOTS:
+        metadata_path = path_for(project_root)
+        present = metadata_path.is_file()
+        slot: dict[str, Any] = {
+            "path": str(metadata_path),
+            "present": present,
+            "valid": None,
+        }
+        if present:
+            try:
+                load(project_root)
+            except (OSError, TypeError, ValueError) as exc:
+                slot["valid"] = False
+                slot["error"] = str(exc)
+                warnings.append(f"Project metadata slot {name!r} is invalid: {exc}")
+            else:
+                slot["valid"] = True
+        slots[name] = slot
+    return slots, warnings
 
 
 def _inspect_directory(path: Path) -> dict[str, Any]:
