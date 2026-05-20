@@ -4,7 +4,7 @@
 <p>
 <code>xpkg.model</code> holds the canonical in-memory objects used across the
 library: pose labels, media, Vicon payloads, sampled signals, events, and the
-session/time primitives that keep modalities aligned.
+behavior/session/time primitives that keep modalities aligned.
 </p>
 </div>
 
@@ -13,6 +13,10 @@ session/time primitives that keep modalities aligned.
 ```mermaid
 flowchart LR
     RecordingSession --> EventTable
+    BehaviorLabels --> BehaviorInterval
+    BehaviorLabels --> BehaviorFrameLabel
+    BehaviorLabels --> BehaviorEmbedding
+    BehaviorLabels --> EventTable
     RecordingSession --> TimeSeries
     RecordingSession --> PhotometryRecording
     Labels --> Skeleton
@@ -72,6 +76,9 @@ model outputs.
 - `Timebase`, `Timeline`, and `TimeRange` define shared time coordinates.
 - `Event`, `SyncEvent`, and `EventTable` represent behavior and synchronization
   markers on those timelines.
+- `BehaviorInterval`, `BehaviorFrameLabel`, `BehaviorEmbedding`, and
+  `BehaviorLabels` represent ethogram outputs from human annotation or behavior
+  analysis packages. Time-indexed intervals can be projected to `EventTable`.
 - `SignalChannel`, `TimeSeries`, `PhotometryChannel`, and
   `PhotometryRecording` represent sampled signals such as fiber photometry.
 

@@ -115,17 +115,19 @@ def init_project(
         entries = list(root.iterdir())
         if entries and not force:
             raise FileExistsError(f"Project directory is not empty: {root}")
-    else:
-        ensure_dir(root)
-
-    ensure_dir(project_store_root(root))
-    ensure_dir(project_media_root(root))
-    ensure_dir(project_exports_root(root))
 
     descriptor = ProjectDescriptor.new(
         title=(title or root.name or "exp-pkg Project").strip(),
         project_id=project_id,
     )
+    descriptor.validate()
+
+    if not root.exists():
+        ensure_dir(root)
+    ensure_dir(project_store_root(root))
+    ensure_dir(project_media_root(root))
+    ensure_dir(project_exports_root(root))
+
     write_project_descriptor(root, descriptor)
     from xpkg.project.summary import refresh_project_summary
 

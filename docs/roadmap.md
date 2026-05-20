@@ -92,6 +92,8 @@ from xpkg import readers
 
 readers.read_photometry_csv(...)
 readers.read_events_csv(...)
+readers.read_behavior_events_csv(...)
+readers.read_behavior_events_json(...)
 readers.read_pyphotometry_ppd(...)
 readers.read_pyphotometry_csv(...)
 readers.read_pmat_photometry_csv(...)
@@ -103,9 +105,9 @@ readers.read_teleopto_h5(...)
 readers.read_tdt_photometry_block(...)
 ```
 
-These return `PhotometryRecording`, `EventTable`, or session-level objects
-without requiring users to create a project first. `read_sync_csv(...)` is
-still the next direct reader in this family.
+These return `PhotometryRecording`, `EventTable`, `BehaviorLabels`, or
+session-level objects without requiring users to create a project first.
+`read_sync_csv(...)` is still the next direct reader in this family.
 
 The fiber-photometry reader set is scoped to fiber/session IO. Inscopix
 miniscope files, Blackrock NEV/NSx, and Neuralynx Cheetah files are deliberately
@@ -163,7 +165,7 @@ coordinate systems, and timing assumptions.
 ### 5. Behavioral Segmentation Imports
 
 Support behavior segmentation results as imported outputs from upstream tools
-or lab workflows. The package should preserve:
+or lab workflows. The first `BehaviorLabels` contract now preserves:
 
 - behavior labels or motif identifiers
 - start/end frames or start/end times
@@ -171,6 +173,9 @@ or lab workflows. The package should preserve:
 - producer metadata, parameters, and software version when available
 - confidence scores or uncertainty fields when provided
 - import-time QC warnings when segments do not align to available timelines
+
+Package-specific importers for B-SOiD, A-SOiD, Keypoint-MoSeq, SimBA, VAME,
+DeepEthogram, BORIS, and JAABA are still explicit follow-on work.
 
 This is an IO priority, not an algorithmic one. `xpkg` should help compare and
 share behavior annotations across tools by normalizing their outputs under the

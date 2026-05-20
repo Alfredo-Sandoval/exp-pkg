@@ -25,12 +25,12 @@ setup: env
 bootstrap: env
 
 env-macos:
-	@test -f environment/macos/setup.sh || { echo "Missing setup script: environment/macos/setup.sh"; exit 1; }
-	bash environment/macos/setup.sh $(ENV_ARGS)
+	@test -f environment/setup.sh || { echo "Missing setup script: environment/setup.sh"; exit 1; }
+	bash environment/setup.sh $(ENV_ARGS) --target macos
 
 env-linux:
-	@test -f environment/linux/setup.sh || { echo "Missing setup script: environment/linux/setup.sh"; exit 1; }
-	bash environment/linux/setup.sh $(ENV_ARGS)
+	@test -f environment/setup.sh || { echo "Missing setup script: environment/setup.sh"; exit 1; }
+	bash environment/setup.sh $(ENV_ARGS) --target linux
 
 lint:
 	$(RUN_IN_ENV) ruff check .
@@ -79,7 +79,7 @@ package-check:
 	"$$venv/bin/python" -m pip install --upgrade pip; \
 	"$$venv/bin/python" -m pip install "$$wheel"; \
 	"$$venv/bin/xpkg" --help >/dev/null; \
-	"$$venv/bin/python" -c "from xpkg.services import WorkspaceService; assert WorkspaceService"
+	"$$venv/bin/python" -c "from xpkg.services import ProjectService; assert ProjectService"
 
 docs-build:
 	$(RUN_IN_ENV) python -m mkdocs build --strict

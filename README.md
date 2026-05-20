@@ -105,6 +105,7 @@ The shipped project import surface currently covers:
 - MMPose top-down demo JSON (`--save-predictions`)
 - MediaPipe pose-landmarks JSON
 - Generic photometry CSV and event CSV
+- Generic behavior-label CSV and behavior-event JSON
 - pMAT-compatible photometry/event CSV
 - pyPhotometry PPD and CSV+JSON
 - RWD OFRS CSV session bundles
@@ -131,6 +132,7 @@ The shipped project import surface currently covers:
 Implemented today:
 
 - canonical annotation and media data objects
+- canonical behavior-label objects for intervals, framewise motifs, and embeddings
 - readers and project importers for external formats
 - project/store/artifact lifecycle operations
 - media-aware packaging and portable exports
@@ -162,6 +164,7 @@ Mission direction:
 | MediaPipe | Pose landmarks JSON | Supported |
 | Generic photometry | CSV | Supported |
 | Generic events | CSV | Supported |
+| Generic behavior labels | CSV / behavior-event JSON | Supported |
 | pMAT | Photometry/event CSV | Supported |
 | pyPhotometry | PPD, CSV+JSON | Supported |
 | RWD OFRS | CSV session bundle | Supported |
@@ -356,9 +359,9 @@ The primary project-first CLI surface is:
 
 ```bash
 xpkg project init "./My Project"
-xpkg import dlc csv --csv tracking.csv --video video.mp4 --out "./My Project"
-xpkg import lightning-pose --csv predictions.csv --video video.mp4 --out "./My Project"
-xpkg import sleap package --slp labels.pkg.slp --out "./My Project"
+xpkg import pose dlc-csv --path tracking.csv --video video.mp4 --out "./My Project"
+xpkg import pose lightning-pose-csv --path predictions.csv --video video.mp4 --out "./My Project"
+xpkg import pose sleap-package --path labels.pkg.slp --out "./My Project"
 xpkg inspect tracking.csv --json
 xpkg project pack "./My Project"
 xpkg project pack "./My Project" --media package
@@ -425,9 +428,9 @@ artifact = project.pack()
 CLI examples:
 
 ```bash
-xpkg import vicon recording --recording trial.c3d --out "./Vicon Project"
-xpkg import vicon csv --csv trial.csv --out "./Vicon Project"
-xpkg import vicon c3d --c3d trial.c3d --out "./Vicon Project"
+xpkg import motion vicon --path trial.c3d --out "./Vicon Project"
+xpkg import motion vicon-csv --path trial.csv --out "./Vicon Project"
+xpkg import motion vicon-c3d --path trial.c3d --out "./Vicon Project"
 ```
 
 ## Development

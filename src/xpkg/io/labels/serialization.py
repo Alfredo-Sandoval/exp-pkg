@@ -10,7 +10,7 @@ import numpy as np
 
 from xpkg.io.labels.json_format import read_labels_json_payload, write_labels_json
 from xpkg.io.labels.video_types import VideoProtocol
-from xpkg.media.video import Video, gui_playback_backend_for_path
+from xpkg.media.video import Video
 from xpkg.pose.annotations import (
     ROI,
     Instance,
@@ -106,10 +106,7 @@ def build_video_object(
     resolved = str(filename or "").strip()
     if not resolved:
         raise ValueError("Video filename is empty")
-    return Video.from_filename(
-        resolved,
-        backend=gui_playback_backend_for_path(resolved),
-    )
+    return Video.from_filename(resolved)
 
 
 def finalize_hydrated_video(video_obj: VideoProtocol) -> None:

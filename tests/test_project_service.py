@@ -25,6 +25,7 @@ from xpkg.services import ProjectService
 
 def _assert_sample_subject_labels(labels: Labels) -> None:
     assert len(labels.videos) == 1
+    assert labels.videos[0].backend == "opencv"
     assert len(labels.skeletons) == 1
     assert len(labels.labeled_frames) == 2
     assert labels.skeletons[0].keypoint_names == ["nose", "tail"]

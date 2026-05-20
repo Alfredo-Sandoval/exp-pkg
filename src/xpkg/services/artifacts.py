@@ -12,6 +12,7 @@ from xpkg.project.artifacts import (
     ArtifactIndexEntry,
     ArtifactManifest,
     ArtifactOutputSpec,
+    delete_project_artifact,
     list_project_artifact_index,
     list_project_artifacts,
     load_project_artifact,
@@ -135,6 +136,23 @@ class ProjectArtifacts:
             artifact_id,
             artifact_type=kind,
             namespace=namespace,
+        )
+
+    def delete(
+        self,
+        artifact_id: str,
+        *,
+        kind: str,
+        namespace: str | None = None,
+        missing_ok: bool = False,
+    ) -> bool:
+        """Delete one saved artifact and remove it from the project index."""
+        return delete_project_artifact(
+            self.project_root,
+            artifact_id,
+            artifact_type=kind,
+            namespace=namespace,
+            missing_ok=missing_ok,
         )
 
     def rebuild_index(self) -> builtins.list[ArtifactIndexEntry]:

@@ -16,7 +16,12 @@ from xpkg.adapters import (
     vicon_recording_to_json_payload,
 )
 from xpkg.model import (
+    BEHAVIOR_LABELS_SCHEMA_VERSION,
     AcquisitionMetadata,
+    BehaviorEmbedding,
+    BehaviorFrameLabel,
+    BehaviorInterval,
+    BehaviorLabels,
     CameraMetadata,
     DatasetShareMetadata,
     EMGSignalData,
@@ -153,7 +158,10 @@ from xpkg.project import (
     write_project_descriptor,
 )
 from xpkg.readers import (
+    KNOWN_BEHAVIOR_SOURCE_TYPES,
     read_abf,
+    read_behavior_events_csv,
+    read_behavior_events_json,
     read_doric_photometry,
     read_ephys_csv,
     read_events_csv,
@@ -228,6 +236,8 @@ def test_root_namespace_is_curated_to_project_first_modules() -> None:
     assert reloaded.services is not None
 
     assert callable(reloaded.readers.read_abf)
+    assert callable(reloaded.readers.read_behavior_events_csv)
+    assert callable(reloaded.readers.read_behavior_events_json)
     assert callable(reloaded.readers.read_doric_photometry)
     assert callable(reloaded.readers.read_ephys_csv)
     assert callable(reloaded.readers.read_events_csv)
@@ -360,6 +370,9 @@ def test_public_exports_are_callable() -> None:
     assert callable(vicon_recording_from_json_payload)
     assert callable(vicon_recording_to_json_payload)
     assert callable(read_abf)
+    assert "keypoint_moseq" in KNOWN_BEHAVIOR_SOURCE_TYPES
+    assert callable(read_behavior_events_csv)
+    assert callable(read_behavior_events_json)
     assert callable(read_doric_photometry)
     assert callable(read_ephys_csv)
     assert callable(read_events_csv)
@@ -383,6 +396,7 @@ def test_public_exports_are_callable() -> None:
 
 
 def test_services_surface_lists_project_service_first() -> None:
+    assert not hasattr(xpkg.services, "WorkspaceService")
     assert xpkg.services.__all__ == [
         "ProjectService",
         "ProjectLayout",
@@ -423,6 +437,11 @@ def test_project_service_dispatches_supported_pose_calibration_and_motion_format
 
 def test_model_exports_are_available() -> None:
     assert AcquisitionMetadata is not None
+    assert BEHAVIOR_LABELS_SCHEMA_VERSION == "xpkg.behavior_labels.v1"
+    assert BehaviorEmbedding is not None
+    assert BehaviorFrameLabel is not None
+    assert BehaviorInterval is not None
+    assert BehaviorLabels is not None
     assert CameraMetadata is not None
     assert DatasetShareMetadata is not None
     assert Labels is not None

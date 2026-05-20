@@ -11,6 +11,13 @@ from xpkg.io.skeleton_loaders import (
     load_skeleton_xpkg_json,
 )
 from xpkg.media.video import Video
+from xpkg.model.behavior import (
+    BEHAVIOR_LABELS_SCHEMA_VERSION,
+    BehaviorEmbedding,
+    BehaviorFrameLabel,
+    BehaviorInterval,
+    BehaviorLabels,
+)
 from xpkg.model.calibration import (
     CALIBRATION_SCHEMA_VERSION,
     Calibration,
@@ -108,6 +115,11 @@ from xpkg.segmentation import (
 
 __all__ = [
     "AcquisitionMetadata",
+    "BEHAVIOR_LABELS_SCHEMA_VERSION",
+    "BehaviorEmbedding",
+    "BehaviorFrameLabel",
+    "BehaviorInterval",
+    "BehaviorLabels",
     "build_keypoint_skeleton",
     "CALIBRATION_SCHEMA_VERSION",
     "Calibration",

@@ -31,6 +31,7 @@ from xpkg.project.artifacts import (
     ArtifactOutputSpec,
     FigureArtifact,
     artifact_kind_dir,
+    delete_project_artifact,
     list_project_artifact_index,
     list_project_artifacts,
     list_project_figures,
@@ -249,6 +250,7 @@ __all__ = [
     "project_calibrations_root",
     "artifact_kind_dir",
     # Artifact registry
+    "delete_project_artifact",
     "list_project_artifacts",
     "list_project_artifact_index",
     "load_project_artifact",

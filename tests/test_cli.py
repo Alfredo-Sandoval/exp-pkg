@@ -118,6 +118,38 @@ def test_cli_init_json_mode(monkeypatch, capsys) -> None:
     }
 
 
+def test_cli_init_invalid_project_id_leaves_no_partial_layout(
+    tmp_path: Path,
+    capsys,
+) -> None:
+    from xpkg.cli import main
+
+    project = tmp_path / "Invalid Project"
+
+    code = main(
+        [
+            "project",
+            "init",
+            str(project),
+            "--id",
+            "not-a-project-id",
+            "--json",
+        ]
+    )
+
+    assert code == 1
+    captured_streams = capsys.readouterr()
+    assert captured_streams.out == ""
+    payload = json.loads(captured_streams.err)
+    assert payload["ok"] is False
+    assert payload["error"]["code"] == "invalid_input"
+    assert (
+        payload["error"]["message"]
+        == "PROJECT.json project_id must be a UUID or ULID"
+    )
+    assert not project.exists()
+
+
 def test_cli_project_describe_json_includes_summary_index(
     tmp_path: Path,
     capsys,

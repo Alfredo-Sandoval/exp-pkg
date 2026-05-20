@@ -55,20 +55,26 @@ The relevant question for Luxem alignment is therefore:
 
 ## Prioritized adds
 
-### 1. Behavior labels / ethogram model — biggest missing piece
+### 1. Behavior labels / ethogram model — first contract now present
 
 `segmentation/` today is pixel masks only. Luxem's entire §"Behavior
 quantification" produces *temporal* labels: intervals (SimBA, MARS,
 DeepEthogram), per-frame motif IDs (B-SOiD, VAME), or continuous embeddings
-(TREBA, MotionMapper). Add a first-class `Ethogram` / `BehaviorLabels` model
-alongside `Labels`:
+(TREBA, MotionMapper). `xpkg.model.BehaviorLabels` is now the first
+source-neutral contract alongside `Labels`:
 
 - intervals (start/end in frames or seconds, label, score, annotator/model)
 - per-frame discrete motifs + confidence
 - per-frame continuous embeddings (latent codes)
-- classifier/model provenance (mirrors `PoseModelProvenance`)
-- importers: SimBA CSV, B-SOiD output, VAME motif export, DeepEthogram
-  predictions, BORIS/JAABA exports
+- source metadata and package-specific row metadata
+- generic behavior CSV and behavior-event JSON readers
+
+Remaining importer work:
+
+- package-specific adapters for SimBA CSV, B-SOiD output, A-SOiD output,
+  Keypoint-MoSeq syllables, VAME motif export, DeepEthogram predictions, and
+  BORIS/JAABA exports
+- classifier/model provenance mirroring `PoseModelProvenance`
 - `inspect` autodetect + label-count / coverage summary
 
 ### 2. 3D pose support in `Labels`

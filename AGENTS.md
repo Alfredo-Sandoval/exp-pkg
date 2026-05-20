@@ -27,10 +27,8 @@ the repository instruction source.
 
 - Canonical setup entrypoint: `make env`
 - Fallback setup entrypoint: `bash environment/setup.sh`
-- Setup scripts:
-  - `environment/setup.sh` (dispatcher)
-  - `environment/macos/setup.sh`
-  - `environment/linux/setup.sh`
+- Setup script: `environment/setup.sh` owns macOS/Linux routing.
+- OS folders hold specs only: `environment/<target>/environment.yml`.
 - Do not add `environment/windows/` unless explicitly requested by the user.
 - Use `mamba` (or `conda` fallback) with OS-local `environment.yml`.
 - Install Python dependencies with environment-bound `uv pip`.

@@ -215,8 +215,8 @@ HDF5 archive.
 Examples:
 
 ```bash
-xpkg import dlc csv --csv tracking.csv --video video.mp4 --out "./My Project"
-xpkg import sleap package --slp labels.pkg.slp --out "./My Project"
+xpkg import pose dlc-csv --path tracking.csv --video video.mp4 --out "./My Project"
+xpkg import pose sleap-package --path labels.pkg.slp --out "./My Project"
 ```
 
 The locked command surface is documented in `docs/cli_command_spec_v1.md`.

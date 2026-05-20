@@ -71,6 +71,27 @@ trial_events = events.query(kind="trial")
 events_during_window = events.query(overlaps=TimeRange(10.0, 11.0))
 ```
 
+### Behavior Labels
+
+`BehaviorLabels` is the ethogram-oriented layer above generic events. It can
+hold interval bouts, framewise labels or motifs, and per-frame embedding vectors
+from human annotation tools or upstream behavior-analysis packages. Time-indexed
+intervals can be projected down to `EventTable` when downstream code only needs
+the generic event surface.
+
+```python
+from xpkg.model import BehaviorInterval, BehaviorLabels
+
+labels = BehaviorLabels(
+    source_type="bsoid",
+    intervals=[
+        BehaviorInterval(label="rear", start_s=10.0, end_s=11.2, score=0.93)
+    ],
+)
+
+events = labels.to_event_table()
+```
+
 ### Signals And Photometry
 
 `SignalChannel` and `TimeSeries` represent source-neutral sampled signals.
@@ -123,12 +144,14 @@ Implemented now:
 
 - typed timing primitives
 - event and event-table primitives
+- behavior-label primitives for intervals, framewise motifs, and embeddings
 - source-neutral signal channels and time series
 - photometry recording wrapper
 - session container
 - direct readers for photometry CSV, event CSV, pMAT CSV, pyPhotometry PPD/CSV,
   RWD OFRS, Neurophotometrics CSV, Doric `.doric`, Teleopto H5, and optional
   TDT tank/block streams
+- direct readers for generic behavior CSVs and behavior-event JSON sidecars
 - read-only `xpkg inspect PATH --json` summaries for projects, common files,
   pose exports, media, and `.expkg` artifacts
 - acquisition and dataset-share metadata model primitives
@@ -155,7 +178,8 @@ Still ahead:
   media, missing columns, keypoint identity/confidence fields, and sync coverage
 - FAIR/share metadata for source files, software producers, parameter summaries,
   checksums, units, coordinate systems, and experimental context
-- behavior segmentation output imports from upstream tools or lab workflows
+- project import/storage for behavior segmentation outputs from upstream tools
+  or lab workflows
 
 ## Design Constraints
 
@@ -181,7 +205,7 @@ requiring a user to run analysis code:
 - Which camera, acquisition, or synchronization assumptions affect alignment?
 - Which software and parameters produced each derived output?
 - Which QC warnings were observed during import?
-- Which behavior labels, motifs, or intervals were imported, and what source
+- Which behavior labels, motifs, intervals, or embeddings were imported, and what source
   pose/video/session do they reference?
 
 These questions define the near-term manifest work. The manifest should make

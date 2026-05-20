@@ -777,6 +777,48 @@ def save_project_artifact(
     return artifact
 
 
+def delete_project_artifact(
+    project: str | Path,
+    artifact_id: str,
+    *,
+    artifact_type: str,
+    namespace: str | None = None,
+    missing_ok: bool = False,
+) -> bool:
+    """Delete one saved artifact and remove it from the compact index."""
+
+    root = _project_root(project)
+    normalized_id = _artifact_id(artifact_id)
+    normalized_type = _artifact_type(artifact_type)
+    normalized_namespace = _namespace(namespace)
+    artifact_root = project_artifact_root(
+        root,
+        normalized_id,
+        normalized_type,
+        namespace=normalized_namespace,
+    )
+    if not artifact_root.exists():
+        if missing_ok:
+            return False
+        raise FileNotFoundError(f"Project artifact does not exist: {artifact_root}")
+    if not artifact_root.is_dir():
+        raise ValueError(f"Project artifact root is not a directory: {artifact_root}")
+
+    shutil.rmtree(artifact_root)
+    entries = _load_index_entries(project_artifact_index_path(root))
+    entries = [
+        entry
+        for entry in entries
+        if not (
+            entry.artifact_id == normalized_id
+            and entry.artifact_type == normalized_type
+            and entry.namespace == normalized_namespace
+        )
+    ]
+    _write_index_entries(root, entries)
+    return True
+
+
 def save_project_figure(
     project: str | Path,
     *,
@@ -1070,6 +1112,7 @@ __all__ = [
     "FigureArtifact",
     "FigureOutputSpec",
     "artifact_kind_dir",
+    "delete_project_artifact",
     "list_project_figures",
     "list_project_artifact_index",
     "list_project_artifacts",

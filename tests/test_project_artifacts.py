@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 
 from xpkg.project import (
+    delete_project_artifact,
     list_project_artifact_index,
     list_project_artifacts,
     load_project_artifact,
@@ -87,6 +88,45 @@ def test_project_artifacts_support_namespaces_without_known_package_names(
         kind="report",
         namespace="arbitrary-downstream-tool",
     ).namespace == "arbitrary-downstream-tool"
+
+
+def test_project_artifacts_delete_namespaced_custom_kind(tmp_path: Path) -> None:
+    project = ProjectService.create(tmp_path / "OpenOperant Project")
+    alignment = _write_text(tmp_path / "alignment.json", '{"offset": 4.25}\n')
+
+    artifact = project.artifacts.register(
+        artifact_id="session_a_medpc_alignment",
+        artifact_type="medpc-alignment",
+        namespace="openoperant",
+        outputs={"openoperant_manifest.json": alignment},
+        metadata={"video_offset_seconds": 4.25},
+    )
+
+    assert artifact.artifact_type == "medpc-alignment"
+    assert artifact.namespace == "openoperant"
+    assert (project.project_root / artifact.manifest_path).exists()
+    assert len(project.artifacts.index(kind="medpc-alignment")) == 1
+
+    assert project.artifacts.delete(
+        "session_a_medpc_alignment",
+        kind="medpc-alignment",
+        namespace="openoperant",
+    )
+    assert not (project.project_root / artifact.artifact_root).exists()
+    assert project.artifacts.index(kind="medpc-alignment") == []
+    assert not delete_project_artifact(
+        project.project_root,
+        "session_a_medpc_alignment",
+        artifact_type="medpc-alignment",
+        namespace="openoperant",
+        missing_ok=True,
+    )
+    with pytest.raises(FileNotFoundError, match="Project artifact does not exist"):
+        project.artifacts.delete(
+            "session_a_medpc_alignment",
+            kind="medpc-alignment",
+            namespace="openoperant",
+        )
 
 
 def test_project_artifact_free_functions_and_pack_include_index(

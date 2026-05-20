@@ -13,6 +13,7 @@ Example:
 from __future__ import annotations
 
 from xpkg.io.readers import (
+    KNOWN_BEHAVIOR_SOURCE_TYPES,
     PoseTrack,
     ViconAdditionalPointData,
     ViconAnalogData,
@@ -26,6 +27,8 @@ from xpkg.io.readers import (
     extract_vicon_emg,
     read_abf,
     read_anipose_calibration,
+    read_behavior_events_csv,
+    read_behavior_events_json,
     read_doric_photometry,
     read_ephys_csv,
     read_events_csv,
@@ -56,11 +59,14 @@ __all__ = [
     "ViconForcePlatformMetadata",
     "ViconMarkerModel",
     "ViconRecording",
+    "KNOWN_BEHAVIOR_SOURCE_TYPES",
     "build_force_plate_data_from_vicon_recording",
     "candidate_vicon_emg_channels",
     "extract_vicon_emg",
     "read_abf",
     "read_anipose_calibration",
+    "read_behavior_events_csv",
+    "read_behavior_events_json",
     "read_doric_photometry",
     "read_ephys_csv",
     "read_events_csv",
