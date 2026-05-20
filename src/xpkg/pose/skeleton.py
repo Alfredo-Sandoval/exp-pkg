@@ -19,9 +19,8 @@ import re
 import warnings
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
-from importlib import import_module
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Any
 
 from .._core.json_utils import parse_json_dict
 from .._core.logging_utils import get_logger
@@ -73,27 +72,6 @@ ROLE_ENUM: set[str] = {
     "tail",
     "pelvis",
 }
-
-
-class _SkeletonDefinitionView(Protocol):
-    name: str
-    bodyparts: tuple[str, ...]
-    edges: tuple[tuple[str, str], ...]
-    path: Path
-
-
-def _load_primitives_skeleton_definition() -> Any:
-    try:
-        module = import_module("primitives.skeletons.registry")
-    except ModuleNotFoundError as exc:
-        if exc.name and exc.name.startswith("primitives"):
-            raise ModuleNotFoundError(
-                "Skeleton.as_definition() requires the optional primitives package. "
-                "Install primitives in the active environment before requesting "
-                "this adapter view."
-            ) from exc
-        raise
-    return module.SkeletonDefinition
 
 
 def to_snake(name: str) -> str:
@@ -212,13 +190,12 @@ class Skeleton:
     """Schema-aware keypoint graph with normalization and validation routines.
 
     Editor-side storage is id-keyed (``keypoints`` + ``links_ids``). The
-    primitives-shape concepts — ``aliases``, ``triads``, ``node_properties`` —
+    analysis-shape concepts — ``aliases``, ``triads``, ``node_properties`` —
     are first-class fields here too so they round-trip through
     :func:`from_dict` / :func:`to_dict` and survive editor mutations.
 
-    Use :meth:`as_definition` to expose a frozen
-    :class:`primitives.skeletons.SkeletonDefinition` view for analysis-side
-    consumers.
+    Analysis-side metadata fields are retained directly on the xpkg object
+    instead of depending on an external skeleton model package.
     """
 
     name: str
@@ -431,40 +408,6 @@ class Skeleton:
             A list of keypoint names.
         """
         return [kp.name for kp in self.keypoints]
-
-    def as_definition(self) -> _SkeletonDefinitionView:
-        """Return a `primitives.SkeletonDefinition` view of this skeleton.
-
-        The returned object is the canonical analysis-shaped skeleton (frozen,
-        string-keyed bodyparts + edges). Use it when handing pose data to
-        `primitives` consumers — gait/stride/angle kernels, laterality helpers,
-        etc. — that don't need xpkg's id-based access or mutation surface.
-
-        Why this lives here, not in primitives: primitives must remain
-        editor-free. xpkg is the layer that knows both shapes, so the bridge
-        is owned here.
-        """
-        id_to_kp = {kp.id: kp for kp in self.keypoints}
-        edges = tuple(
-            (id_to_kp[a].name, id_to_kp[b].name)
-            for a, b in self.links_ids
-            if a in id_to_kp and b in id_to_kp
-        )
-        source_path = self.extras.get("source_path") if isinstance(self.extras, dict) else None
-        skeleton_definition_cls = _load_primitives_skeleton_definition()
-        return skeleton_definition_cls(
-            name=str(self.name),
-            bodyparts=tuple(kp.name for kp in self.keypoints),
-            edges=edges,
-            path=Path(source_path) if isinstance(source_path, str) else Path(""),
-            triads=dict(self.triads) if self.triads else None,
-            aliases=dict(self.aliases) if self.aliases else None,
-            node_properties=(
-                {k: dict(v) if isinstance(v, dict) else v for k, v in self.node_properties.items()}
-                if self.node_properties
-                else None
-            ),
-        )
 
     def __len__(self) -> int:
         return len(self.keypoints)

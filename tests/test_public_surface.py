@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import importlib
-import importlib.util
 
 import pytest
 
@@ -188,15 +187,6 @@ from xpkg.services import (
     ProjectInspection as ServiceProjectInspection,
 )
 
-if importlib.util.find_spec("primitives") is not None:
-    from xpkg.adapters import (  # noqa: E402
-        labels_to_primitives_session,
-        project_to_primitives_session,
-    )
-else:
-    labels_to_primitives_session = None
-    project_to_primitives_session = None
-
 
 def test_root_namespace_is_curated_to_project_first_modules() -> None:
     reloaded = importlib.reload(xpkg)
@@ -362,10 +352,6 @@ def test_public_exports_are_callable() -> None:
     assert callable(labels_numpy)
     assert callable(labels_to_dataframe)
     assert callable(labels_to_json_payload)
-    if labels_to_primitives_session is not None:
-        assert callable(labels_to_primitives_session)
-    if project_to_primitives_session is not None:
-        assert callable(project_to_primitives_session)
     assert callable(read_vicon_json_payload)
     assert callable(vicon_recording_from_json_payload)
     assert callable(vicon_recording_to_json_payload)
@@ -602,8 +588,6 @@ def test_adapters_surface_is_curated() -> None:
         "labels_numpy",
         "labels_to_dataframe",
         "labels_to_json_payload",
-        "labels_to_primitives_session",
-        "project_to_primitives_session",
         "read_vicon_json_payload",
         "vicon_recording_from_json_payload",
         "vicon_recording_to_json_payload",

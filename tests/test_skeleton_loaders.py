@@ -207,11 +207,25 @@ def test_load_skeleton_rejects_unsupported_yaml_schema(tmp_path: Path) -> None:
 
     with pytest.raises(
         ValueError,
-        match=(
-            "Unsupported YAML skeleton format; expected DLC, SLEAP, Ultralytics, "
-            "or primitives schema."
-        ),
+        match="Unsupported YAML skeleton format; expected DLC, SLEAP, or Ultralytics schema.",
     ):
+        load_skeleton(yaml_file)
+
+
+def test_load_skeleton_rejects_primitives_yaml_schema(tmp_path: Path) -> None:
+    yaml_file = tmp_path / "primitives.yaml"
+    yaml_file.write_text(
+        yaml.safe_dump(
+            {
+                "bodyparts": ["nose", "tail"],
+                "aliases": {"tail": "tail_base"},
+                "triads": {"spine": ["nose", "spine", "tail"]},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="primitives YAML is not supported"):
         load_skeleton(yaml_file)
 
 

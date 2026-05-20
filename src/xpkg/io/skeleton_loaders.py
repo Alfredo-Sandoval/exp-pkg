@@ -1,23 +1,14 @@
 """Unified skeleton loader supporting multiple external formats.
 
-Imports skeletons from DeepLabCut, SLEAP, Ultralytics/YOLO, xpkg skeleton
-JSON, and ``primitives``-format YAML. Returns ``xpkg.pose.skeleton.Skeleton``
-instances directly.
-
-The ``primitives``-format intake (:func:`build_skeleton_from_primitives` and
-:func:`load_primitives_yaml_skeleton`) wraps a
-:class:`primitives.skeletons.SkeletonDefinition` into an xpkg ``Skeleton`` by
-assigning sequential integer IDs to bodyparts. Use this when an analysis-side
-skeleton (canonical bodyparts + edges + aliases + triads) needs to enter the
-editor model.
+Imports skeletons from DeepLabCut, SLEAP, Ultralytics/YOLO, and xpkg skeleton
+JSON. Returns ``xpkg.pose.skeleton.Skeleton`` instances directly.
 """
 
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from importlib import import_module
 from pathlib import Path
-from typing import Any, Literal, Protocol
+from typing import Any, Literal
 
 import h5py
 
@@ -32,90 +23,8 @@ logger = get_logger(__name__)
 EDGE_TYPE_BODY = 1
 EDGE_TYPE_SYMMETRY = 2
 
-type YamlSkeletonFormat = Literal["dlc", "sleap", "ultralytics", "primitives"]
-type SkeletonFormat = Literal[
-    "dlc", "xpkg_json", "sleap", "sleap_pkg_slp", "ultralytics", "primitives"
-]
-
-
-class _PrimitivesSkeletonDefinition(Protocol):
-    name: object
-    bodyparts: Sequence[object]
-    edges: Sequence[Sequence[object]]
-    path: object
-    triads: Mapping[str, Sequence[object]] | None
-    aliases: Mapping[str, str] | None
-    node_properties: Mapping[str, Mapping[str, Any]] | None
-
-
-def _load_primitives_skeleton_loader() -> Any:
-    try:
-        module = import_module("primitives.skeletons.registry")
-    except ModuleNotFoundError as exc:
-        if exc.name and exc.name.startswith("primitives"):
-            raise ModuleNotFoundError(
-                "Loading primitives YAML skeletons requires the optional "
-                "primitives package. Install primitives in the active environment "
-                "before loading this skeleton format."
-            ) from exc
-        raise
-    return module.load_skeleton
-
-
-def build_skeleton_from_primitives(
-    definition: _PrimitivesSkeletonDefinition,
-    *,
-    name: str | None = None,
-) -> Skeleton:
-    """Wrap a primitives :class:`SkeletonDefinition` into an xpkg ``Skeleton``.
-
-    Bodyparts receive sequential integer IDs (0..N-1). Aliases/triads/
-    node_properties from the definition are preserved under ``Skeleton.extras``
-    so they survive round-trips through xpkg's editor model.
-    """
-    from xpkg.pose.skeleton import Keypoint
-
-    keypoints = [
-        Keypoint(id=idx, name=str(part))
-        for idx, part in enumerate(definition.bodyparts)
-    ]
-    name_to_id = {kp.name: kp.id for kp in keypoints}
-    links_ids: list[tuple[int, int]] = []
-    for src, dst in definition.edges:
-        src_id = name_to_id.get(str(src))
-        dst_id = name_to_id.get(str(dst))
-        if src_id is None or dst_id is None:
-            continue
-        links_ids.append((src_id, dst_id))
-
-    extras: dict[str, Any] = {"source_path": str(definition.path)}
-    triads: dict[str, tuple[str, str, str]] | None = None
-    if definition.triads:
-        triads = {
-            k: (str(v[0]), str(v[1]), str(v[2]))
-            for k, v in definition.triads.items()
-        }
-
-    return Skeleton(
-        name=str(name) if name else str(definition.name),
-        keypoints=keypoints,
-        links_ids=links_ids,
-        extras=extras,
-        aliases=dict(definition.aliases) if definition.aliases else None,
-        triads=triads,
-        node_properties=(
-            {k: dict(v) for k, v in definition.node_properties.items()}
-            if definition.node_properties
-            else None
-        ),
-    )
-
-
-def load_primitives_yaml_skeleton(path: str | Path) -> Skeleton:
-    """Read a ``primitives``-format YAML and return an xpkg ``Skeleton``."""
-    _load_primitives = _load_primitives_skeleton_loader()
-    definition = _load_primitives(Path(path))
-    return build_skeleton_from_primitives(definition)
+type YamlSkeletonFormat = Literal["dlc", "sleap", "ultralytics"]
+type SkeletonFormat = Literal["dlc", "xpkg_json", "sleap", "sleap_pkg_slp", "ultralytics"]
 
 
 def _load_yaml_mapping(path: str | Path) -> dict[str, Any]:
@@ -298,20 +207,21 @@ def _classify_yaml_skeleton_mapping(data: Mapping[str, Any]) -> YamlSkeletonForm
         return "ultralytics"
     if "nodes" in data and isinstance(data.get("nodes"), list):
         return "sleap"
-    primitives_only_keys = {
+    unsupported_analysis_keys = {
         "aliases",
         "triads",
         "node_properties",
         "profile_id",
         "source_schema",
     }
-    if "bodyparts" in data and any(key in data for key in primitives_only_keys):
-        return "primitives"
+    if "bodyparts" in data and any(key in data for key in unsupported_analysis_keys):
+        raise ValueError(
+            "Unsupported YAML skeleton format: primitives YAML is not supported."
+        )
     if "bodyparts" in data:
         return "dlc"
     raise ValueError(
-        "Unsupported YAML skeleton format; expected DLC, SLEAP, Ultralytics, "
-        "or primitives schema."
+        "Unsupported YAML skeleton format; expected DLC, SLEAP, or Ultralytics schema."
     )
 
 
@@ -358,8 +268,6 @@ def load_skeleton(path: str | Path) -> Skeleton:
         return _load_skeleton_sleap_yaml(path)
     if detected_format == "dlc":
         return load_skeleton_dlc(path)
-    if detected_format == "primitives":
-        return load_primitives_yaml_skeleton(path)
     if detected_format == "ultralytics":
         return load_skeleton_ultralytics(path)
     raise AssertionError(f"Unhandled skeleton format: {detected_format}")
@@ -562,9 +470,7 @@ def load_skeleton_ultralytics(path: str | Path) -> Skeleton:
 __all__ = [
     "detect_skeleton_format",
     "detect_yaml_skeleton_format",
-    "build_skeleton_from_primitives",
     "load_skeleton",
-    "load_primitives_yaml_skeleton",
     "load_skeleton_dlc",
     "load_skeleton_xpkg_json",
     "load_skeleton_archive_json",
