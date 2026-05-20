@@ -47,8 +47,9 @@ make package-check
 ```
 
 That gate builds the sdist and wheel, runs `twine check`, installs the wheel in
-a temporary fresh virtual environment, smoke-tests `xpkg --help`, and verifies
-that `ProjectService` imports from the installed package.
+a temporary fresh virtual environment, verifies `xpkg describe --json` exposes
+the expected machine contract, and checks that installed-wheel
+`ProjectService.create()` writes a valid project descriptor and summary index.
 
 Run the release gate before a package handoff or PyPI/TestPyPI cut:
 

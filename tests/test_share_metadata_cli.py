@@ -1,4 +1,4 @@
-"""CLI smoke tests for ``xpkg project metadata set/show`` (dataset-share, acquisition)."""
+"""CLI contract tests for ``xpkg project metadata set/show`` slots."""
 
 from __future__ import annotations
 

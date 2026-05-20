@@ -25,7 +25,7 @@ def _datasheet_payload() -> dict:
         "title": "FAIR demo dataset",
         "dataset_id": "fair-demo-2026",
         "version": "1.0",
-        "summary": "Smoke-test datasheet for CLI round-trip.",
+        "summary": "Contract datasheet for CLI round-trip.",
         "motivation": {
             "purpose": "Verify Datasheet CLI plumbing.",
             "creators": ["Sandoval, A."],
@@ -75,6 +75,9 @@ def test_save_and_load_project_datasheet(tmp_path: Path) -> None:
 def test_load_project_datasheet_returns_none_when_unset(tmp_path: Path) -> None:
     project = tmp_path / "No Datasheet Project"
     init_project(project, title="No Datasheet Project")
+    metadata_path = project_datasheet_path(project)
+    assert metadata_path == project / ".xpkg" / "metadata" / "datasheet.json"
+    assert metadata_path.is_file() is False
     assert load_project_datasheet(project) is None
 
 

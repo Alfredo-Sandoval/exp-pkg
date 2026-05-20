@@ -70,12 +70,11 @@ package-check:
 	$(RUN_IN_ENV) python -m twine check "$$tmpdir"/*; \
 	wheel="$$(find "$$tmpdir" -maxdepth 1 -type f -name '*.whl' -print -quit)"; \
 	test -n "$$wheel"; \
-	venv="$$tmpdir/install-smoke-venv"; \
+	venv="$$tmpdir/install-contract-venv"; \
 	$(RUN_IN_ENV) python -m venv "$$venv"; \
 	"$$venv/bin/python" -m pip install --upgrade pip; \
 	"$$venv/bin/python" -m pip install "$$wheel"; \
-	"$$venv/bin/xpkg" --help >/dev/null; \
-	"$$venv/bin/python" -c "from xpkg.services import ProjectService; assert ProjectService"
+	XPKG_PACKAGE_CHECK_TMPDIR="$$tmpdir" "$$venv/bin/python" -c 'import json, os, subprocess, sys; from pathlib import Path; from xpkg.services import ProjectService; describe = subprocess.run([sys.executable, "-m", "xpkg", "describe", "--json"], check=True, capture_output=True, text=True); envelope = json.loads(describe.stdout); assert envelope["ok"] is True; contract = envelope["data"]; assert contract["profile"] == "built-for-agents"; assert contract["resources"]["project"] == ["describe", "init", "metadata set", "metadata show", "pack", "unpack", "validate"]; assert "import pose dlc-h5" in contract["commands"]; project = ProjectService.create(Path(os.environ["XPKG_PACKAGE_CHECK_TMPDIR"]) / "Installed Wheel Project", title="Installed Wheel Project"); descriptor = json.loads((project.project_root / "PROJECT.json").read_text(encoding="utf-8")); assert descriptor["format"] == "xpkg-project"; assert descriptor["title"] == "Installed Wheel Project"; assert descriptor["store_path"] == ".xpkg"; assert (project.project_root / ".xpkg" / "indexes" / "project_summary.json").is_file()'
 
 docs-build:
 	$(RUN_IN_ENV) python -m mkdocs build --strict

@@ -65,7 +65,7 @@ def test_save_and_load_project_model_card(tmp_path: Path) -> None:
 
     card = ModelCard(
         details=ModelCardDetails(name="round-trip"),
-        intended_use=ModelCardIntendedUse(primary_uses="Smoke test"),
+        intended_use=ModelCardIntendedUse(primary_uses="Validate persistence"),
     )
 
     saved = save_project_model_card(project, card)
@@ -79,6 +79,9 @@ def test_save_and_load_project_model_card(tmp_path: Path) -> None:
 def test_load_project_model_card_returns_none_when_unset(tmp_path: Path) -> None:
     project = tmp_path / "No Card Project"
     init_project(project, title="No Card Project")
+    metadata_path = project_model_card_path(project)
+    assert metadata_path == project / ".xpkg" / "metadata" / "model_card.json"
+    assert metadata_path.is_file() is False
     assert load_project_model_card(project) is None
 
 

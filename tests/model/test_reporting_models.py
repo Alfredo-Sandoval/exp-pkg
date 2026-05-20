@@ -106,10 +106,10 @@ def test_datasheet_requires_non_empty_title() -> None:
 def test_datasheet_accepts_section_payload_dicts_directly() -> None:
     datasheet = DatasetDatasheet(
         title="From dict",
-        motivation={"purpose": "Smoke test"},
+        motivation={"purpose": "Verify dict coercion"},
         composition={"instance_count": 4},
     )
-    assert datasheet.motivation.purpose == "Smoke test"
+    assert datasheet.motivation.purpose == "Verify dict coercion"
     assert datasheet.composition.instance_count == 4
 
 

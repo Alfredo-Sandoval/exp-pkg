@@ -43,9 +43,10 @@ Publish to TestPyPI from a maintainer account:
 uvx twine upload --repository testpypi dist/*
 ```
 
-After it publishes, smoke-test in a fresh environment:
+After it publishes, run an installed-wheel contract check in a fresh environment:
 
 ```bash
+<<<<<<< HEAD
 smoke_env="$(mktemp -d -t xpkg-testpypi-smoke.XXXXXX)"
 trap 'rm -rf "$smoke_env"' EXIT
 uv venv "$smoke_env"
@@ -58,6 +59,41 @@ uv venv "$smoke_env"
 "$smoke_env/bin/python" -m pip install "$smoke_env"/downloads/exp_pkg-*.whl
 "$smoke_env/bin/xpkg" --help
 "$smoke_env/bin/python" -c "from xpkg.services import ProjectService; assert ProjectService"
+=======
+check_env="$(mktemp -d -t xpkg-testpypi-check.XXXXXX)"
+trap 'rm -rf "$check_env"' EXIT
+uv venv "$check_env"
+"$check_env/bin/python" -m pip install --upgrade pip
+"$check_env/bin/python" -m pip install \
+  --index-url https://test.pypi.org/simple/ \
+  --extra-index-url https://pypi.org/simple/ \
+  exp-pkg
+"$check_env/bin/python" - <<'PY'
+import json
+import subprocess
+import tempfile
+import sys
+from pathlib import Path
+
+from xpkg.services import ProjectService
+
+describe = subprocess.run(
+    [sys.executable, "-m", "xpkg", "describe", "--json"],
+    check=True,
+    capture_output=True,
+    text=True,
+)
+contract = json.loads(describe.stdout)["data"]
+assert contract["profile"] == "built-for-agents"
+assert "project init" in contract["commands"]
+
+with tempfile.TemporaryDirectory() as tmp:
+    project = ProjectService.create(Path(tmp) / "Wheel Project", title="Wheel Project")
+    descriptor = json.loads((project.project_root / "PROJECT.json").read_text())
+    assert descriptor["title"] == "Wheel Project"
+    assert (project.project_root / ".xpkg" / "indexes" / "project_summary.json").is_file()
+PY
+>>>>>>> d6469b9 (refactor: update package-check to verify installed-wheel contract and project descriptor)
 ```
 
 ## PyPI Release
