@@ -211,6 +211,12 @@ def _inspect_project_dir(path: Path) -> dict[str, Any]:
         "warnings": [
             *summary.warnings,
             *metadata_warnings,
+            *_project_media_inventory_warnings(
+                state_kind=summary.state_kind,
+                has_current_state=summary.has_current_state,
+                state_summary=summary.state_summary,
+                media_items=summary.media,
+            ),
             *_project_media_warnings(project_root, summary.media),
         ],
     }
@@ -255,6 +261,29 @@ def _inspect_project_media(
             payload["current_image_count"] = _image_sequence_file_count(media_path)
         inspected.append(payload)
     return inspected
+
+
+def _project_media_inventory_warnings(
+    *,
+    state_kind: object,
+    has_current_state: bool,
+    state_summary: Mapping[str, Any],
+    media_items: Sequence[Mapping[str, Any]],
+) -> list[str]:
+    if state_kind != "labels" or not has_current_state or media_items:
+        return []
+    video_count = _optional_non_negative_int(state_summary.get("video_count"))
+    if video_count == 0:
+        return []
+    if video_count is None:
+        return [
+            "Project media inventory is unavailable for labels state; no "
+            "summary-recorded media item(s) are available."
+        ]
+    return [
+        "Project media inventory is unavailable for labels state with "
+        f"{video_count} recorded video(s)."
+    ]
 
 
 def _project_media_warnings(

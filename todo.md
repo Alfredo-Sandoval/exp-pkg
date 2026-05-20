@@ -76,11 +76,11 @@ Done for newly saved/imported project directories:
   hydrating labels.
 - Warn when a recorded media path is missing or known label/prediction frame
   indices exceed the stored frame count.
+- Warn when an older labels project summary does not have refreshed media
+  inventory available.
 
 Remaining follow-up:
 
-- Decide whether old projects without refreshed summaries should get an
-  explicit "media inventory unavailable" warning.
 - Keep deeper video timing/FPS work behind the acquisition-QC item unless it
   can use already-recorded metadata.
 

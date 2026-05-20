@@ -315,6 +315,42 @@ def test_inspect_path_reports_project_media_from_summary_without_payload_load(
     )
 
 
+def test_inspect_path_warns_when_project_media_inventory_unavailable(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from tests.test_project_contract import _make_media_labels, _write_test_video
+    from xpkg.project import project_summary_path
+    from xpkg.services import ProjectService
+
+    source_video = tmp_path / "source.avi"
+    _write_test_video(source_video)
+    project = ProjectService.create(tmp_path / "Old Media Project", title="Old Media Project")
+    project.save_labels(_make_media_labels(source_video, x=3.0, y=4.0))
+
+    summary_path = project_summary_path(project.project_root)
+    summary_payload = json.loads(summary_path.read_text(encoding="utf-8"))
+    assert summary_payload["state"]["summary"]["video_count"] == 1
+    assert summary_payload["media"]["items"]
+    summary_payload["media"]["items"] = []
+    summary_path.write_text(json.dumps(summary_payload), encoding="utf-8")
+
+    def fail_load_payload(*_args: object, **_kwargs: object) -> object:
+        raise AssertionError("inspect must not materialize project payload")
+
+    monkeypatch.setattr("xpkg.project.store.load_project_payload", fail_load_payload)
+
+    report = inspect_path(project.project_root)
+
+    assert report.kind is InspectionKind.XPKG_PROJECT
+    assert report.summary["media"] == []
+    assert any(
+        warning
+        == "Project media inventory is unavailable for labels state with 1 recorded video(s)."
+        for warning in report.warnings
+    )
+
+
 def test_inspect_path_reports_expkg_metadata_slots_without_unpacking(tmp_path: Path) -> None:
     artifact = tmp_path / "metadata.expkg"
     with zipfile.ZipFile(artifact, mode="w") as archive:
