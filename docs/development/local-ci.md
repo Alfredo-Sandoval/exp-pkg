@@ -87,6 +87,12 @@ manually activate the environment before using the normal development targets.
 If the environment is missing, the wrapper will tell you to run `make env`
 first.
 
+If conda or mamba is unavailable but a local virtualenv or non-base conda
+environment is already activated and already has the project dependencies
+installed, the wrapper runs the quality command in that active environment.
+This is a fallback for prepared developer machines; `make env` remains the
+canonical setup entrypoint.
+
 ## Real Data Manifest
 
 Put `xpkg-real-data.json` at the root of your private corpus, or set

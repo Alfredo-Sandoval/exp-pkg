@@ -15,7 +15,8 @@ portable artifacts, no analysis platform attached.
 </p>
 
 <div class="terminal">
-<span class="prompt">$</span> pip install exp-pkg<br>
+<span class="prompt">$</span> git clone https://github.com/Alfredo-Sandoval/exp-pkg.git<br>
+<span class="prompt">$</span> cd exp-pkg && make env<br>
 <span class="prompt">$</span> xpkg project init "./My Experiment"<br>
 <span class="prompt">$</span> xpkg import pose dlc-csv --path tracking.csv --video clip.mp4 --out "./My Experiment"
 </div>
@@ -41,7 +42,8 @@ projects. No surface to memorize beyond the dispatch methods.
 <span class="label">Typed throughout</span>
 ### From bytes to dataclasses
 External pose, motion-capture, and signal formats normalize into typed
-`xpkg.model` objects. No untyped dicts crossing the IO boundary.
+`xpkg.model` objects through project importers or direct readers. No untyped
+dicts crossing the IO boundary.
 </div>
 
 <div class="feature" markdown>
@@ -91,7 +93,7 @@ plus EMG and force-plate channels read off the same recording.
 </div>
 
 <div class="card" markdown>
-### Signals + events
+### Direct signals + events
 Photometry (Doric, Neurophotometrics, pyPhotometry, RWD OFRS, Teleopto, TDT,
 pMAT, generic CSV) and event tables, all through `xpkg.readers`.
 </div>
@@ -191,7 +193,8 @@ sequenceDiagram
   `validate_project`, path helpers)
 
 `ProjectService` is the public import path for pose, calibration, and motion
-formats.
+formats. Photometry, event, and behavior sources are direct readers today, not
+service-bound project imports.
 </div>
 
 </div>

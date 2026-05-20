@@ -58,12 +58,21 @@ if [[ "${CONDA_DEFAULT_ENV:-}" == "${ENV_NAME}" ]]; then
   exec "$@"
 fi
 
+if [[ -n "${VIRTUAL_ENV:-}" ]]; then
+  exec "$@"
+fi
+
+if [[ -n "${CONDA_PREFIX:-}" && -n "${CONDA_DEFAULT_ENV:-}" && "${CONDA_DEFAULT_ENV}" != "base" ]]; then
+  exec "$@"
+fi
+
 if command -v mamba >/dev/null 2>&1; then
   RUNNER="mamba"
 elif command -v conda >/dev/null 2>&1; then
   RUNNER="conda"
 else
   echo "[run-in-env] Missing dependency: install mamba or conda, then run 'make env'." >&2
+  echo "[run-in-env] Fallback: activate a local virtualenv or non-base conda env with project dependencies installed, then rerun this command." >&2
   exit 1
 fi
 

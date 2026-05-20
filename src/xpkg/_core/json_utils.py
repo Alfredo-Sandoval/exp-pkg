@@ -31,7 +31,7 @@ def parse_json(text: str | bytes | bytearray) -> object:
         json.JSONDecodeError: If the input is not valid JSON.
         UnicodeDecodeError: If byte input cannot be decoded as UTF-8.
     """
-    if isinstance(text, (bytes, bytearray)):
+    if isinstance(text, bytes | bytearray):
         text = bytes(text).decode("utf-8")
     return json.loads(text)
 

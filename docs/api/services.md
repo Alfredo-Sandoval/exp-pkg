@@ -181,8 +181,8 @@ The service dispatch is the public path for new project-facing code.
 
 ## Multimodal Reader And Import Plan
 
-The session/time/events/signals model layer is public. Direct fiber-photometry
-and event readers are available now:
+The session/time/events/signals model layer is public. Direct
+fiber-photometry, event, and behavior readers are available now:
 
 ```python
 from xpkg import readers
@@ -198,6 +198,8 @@ readers.read_neurophotometrics_csv(...)
 readers.read_doric_photometry(...)
 readers.read_teleopto_h5(...)
 readers.read_tdt_photometry_block(...)
+readers.read_behavior_events_csv(...)
+readers.read_behavior_events_json(...)
 ```
 
 Service-bound dispatch for these signal kinds is not implemented yet (planned

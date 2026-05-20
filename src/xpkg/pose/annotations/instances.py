@@ -25,6 +25,18 @@ else:
     from typing import Any as LabeledFrame
     from typing import Any as Video
 
+_KeypointIndex = str | Keypoint | int
+_KeypointIndexSequence = list[_KeypointIndex] | tuple[_KeypointIndex, ...]
+_PointValueSequence = list[Point] | tuple[Point, ...] | np.ndarray
+
+
+def _is_keypoint_index_sequence(value: object) -> TypeGuard[_KeypointIndexSequence]:
+    return isinstance(value, list | tuple)
+
+
+def _is_point_value_sequence(value: object) -> TypeGuard[_PointValueSequence]:
+    return isinstance(value, list | tuple | np.ndarray)
+
 
 @dataclass(eq=False)
 class Track:
@@ -99,7 +111,7 @@ class Instance:
     def _normalize_key(key: str | Keypoint | int | np.integer[Any]) -> str | Keypoint | int:
         if isinstance(key, np.integer):
             return int(key)
-        if isinstance(key, (str, Keypoint, int)):
+        if isinstance(key, str | Keypoint | int):
             return key
         raise TypeError("Keypoint key must be a str, Keypoint, or int.")
 
@@ -150,14 +162,14 @@ class Instance:
         if isinstance(value, np.ndarray):
             if value.shape != (2,):
                 raise ValueError("Instance point values must be (x, y) coordinates.")
-            coords = tuple(value)
+            coords = tuple(cast(Iterable[Any], value))
             if len(coords) != 2:
                 raise ValueError("Instance point values must be (x, y) coordinates.")
             x = cls._coerce_coordinate(coords[0], axis="x")
             y = cls._coerce_coordinate(coords[1], axis="y")
             return PointCtor(x=x, y=y)
         if isinstance(value, Sequence) and not isinstance(value, bytes | str):
-            coords = tuple(value)
+            coords = tuple(cast(Sequence[Any], value))
             if len(coords) != 2:
                 raise ValueError("Instance point values must be (x, y) coordinates.")
             x = cls._coerce_coordinate(coords[0], axis="x")
@@ -275,11 +287,13 @@ class Instance:
             kp_list = Instance._normalize_key_seq(cast(Iterable[Any], kp_raw))
             pts = [self._get_point_at(kp) for kp in kp_list]
             return np.array([[pt.x, pt.y] for pt in pts])
-        if isinstance(keypoint, (list, tuple)):
+        if _is_keypoint_index_sequence(keypoint):
             kp_list = Instance._normalize_key_seq(cast(Iterable[Any], keypoint))
             pts = [self._get_point_at(kp) for kp in kp_list]
             return pts
-        normalized_key = Instance._normalize_key(keypoint)
+        normalized_key = Instance._normalize_key(
+            cast(str | Keypoint | int | np.integer[Any], keypoint)
+        )
         return self._get_point_at(normalized_key)
 
     def __contains__(self, keypoint: str | Keypoint | int | np.integer[Any]) -> bool:
@@ -333,20 +347,22 @@ class Instance:
         self._assert_points_synced()
         if isinstance(keypoint, np.ndarray):
             keypoint_list = Instance._normalize_key_seq(cast(Iterable[Any], keypoint.tolist()))
-        elif isinstance(keypoint, (list, tuple)):
+        elif _is_keypoint_index_sequence(keypoint):
             keypoint_list = Instance._normalize_key_seq(cast(Iterable[Any], keypoint))
         else:
-            normalized_key = Instance._normalize_key(keypoint)
+            normalized_key = Instance._normalize_key(
+                cast(str | Keypoint | int | np.integer[Any], keypoint)
+            )
             self._set_point_at(normalized_key, value)
             return
 
-        if not isinstance(value, (list, tuple, np.ndarray)):
+        if not _is_point_value_sequence(value):
             raise IndexError("Keypoint list for indexing must be same length and value list.")
 
         if isinstance(value, np.ndarray):
-            val_list = [v for v in value]
+            val_list = [v for v in cast(Iterable[Any], value)]
         else:
-            val_list = list(value)
+            val_list = list(cast(list[Point] | tuple[Point, ...], value))
         if len(val_list) != len(keypoint_list):
             raise IndexError("Keypoint list for indexing must be same length and value list.")
         for n, v in zip(keypoint_list, val_list, strict=False):

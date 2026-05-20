@@ -5,7 +5,7 @@ from __future__ import annotations
 import sys
 from collections.abc import Callable, Sequence
 from enum import StrEnum
-from typing import Annotated, Any, NoReturn
+from typing import Annotated, Any, NoReturn, overload
 
 import click
 import typer
@@ -191,7 +191,19 @@ def argv_requests_json(argv: Sequence[str] | None) -> bool:
     return "--json" in argv
 
 
-def require_option_value[OptionValue](value: OptionValue | None, option_name: str) -> OptionValue:
+@overload
+def require_option_value(value: str | None, option_name: str) -> str: ...
+
+
+@overload
+def require_option_value[OptionValue: object](
+    value: OptionValue | None, option_name: str
+) -> OptionValue: ...
+
+
+def require_option_value[OptionValue: object](
+    value: OptionValue | None, option_name: str
+) -> OptionValue:
     """Raise a Click-style missing-option error when Typer passes `None`."""
     if value is None:
         raise click.MissingParameter(param=click.Option([option_name]))

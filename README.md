@@ -96,7 +96,7 @@ kind directories such as `figures`, `tables`, `analyses`, `reports`, and
 treats namespaces as caller-owned strings; it does not reserve or hard-code
 downstream package names.
 
-The shipped project import surface currently covers:
+The shipped service/CLI project import surface currently covers:
 
 - Vicon CSV and C3D recordings
 - DeepLabCut CSV, H5, and project imports
@@ -104,8 +104,11 @@ The shipped project import surface currently covers:
 - SLEAP analysis H5 and `.pkg.slp`
 - MMPose top-down demo JSON (`--save-predictions`)
 - MediaPipe pose-landmarks JSON
+
+The direct reader surface also includes typed, project-free readers for:
+
 - Generic photometry CSV and event CSV
-- Generic behavior-label CSV and behavior-event JSON
+- Generic behavior-event CSV and JSON
 - pMAT-compatible photometry/event CSV
 - pyPhotometry PPD and CSV+JSON
 - RWD OFRS CSV session bundles
@@ -133,7 +136,8 @@ Implemented today:
 
 - canonical annotation and media data objects
 - canonical behavior-label objects for intervals, framewise motifs, and embeddings
-- readers and project importers for external formats
+- service/CLI project importers for pose, calibration, and motion formats
+- direct readers for signal, event, behavior, pose, calibration, and motion files
 - project/store/artifact lifecycle operations
 - media-aware packaging and portable exports
 - Parquet-backed `xpkg.rle.v1` mask tables for dense instance-mask outputs
@@ -148,7 +152,7 @@ Mission direction:
   their own project formats
 - keep project storage centered on projects and portable `.expkg` exports
 
-## Supported Project
+## Supported Project Imports
 
 | Source | Format | Status |
 |--------|--------|--------|
@@ -162,16 +166,24 @@ Mission direction:
 | SLEAP | `.pkg.slp` | Supported |
 | MMPose | Top-down demo JSON (`--save-predictions`) | Supported |
 | MediaPipe | Pose landmarks JSON | Supported |
-| Generic photometry | CSV | Supported |
-| Generic events | CSV | Supported |
-| Generic behavior labels | CSV / behavior-event JSON | Supported |
-| pMAT | Photometry/event CSV | Supported |
-| pyPhotometry | PPD, CSV+JSON | Supported |
-| RWD OFRS | CSV session bundle | Supported |
-| Neurophotometrics/Bonsai | CSV | Supported |
-| Doric | `.doric` HDF5 photometry container | Supported |
-| Teleopto | H5 export | Supported |
-| TDT | Tank/block streams | Supported with optional `tdt` dependency |
+
+## Supported Direct Readers
+
+These formats can be read into typed in-memory objects through `xpkg.readers`.
+They are not yet exposed as `ProjectService` signal/event project imports.
+
+| Source | Format | Status |
+|--------|--------|--------|
+| Generic photometry | CSV | Direct reader |
+| Generic events | CSV | Direct reader |
+| Generic behavior events | CSV / JSON | Direct reader |
+| pMAT | Photometry/event CSV | Direct reader |
+| pyPhotometry | PPD, CSV+JSON | Direct reader |
+| RWD OFRS | CSV session bundle | Direct reader |
+| Neurophotometrics/Bonsai | CSV | Direct reader |
+| Doric | `.doric` HDF5 photometry container | Direct reader |
+| Teleopto | H5 export | Direct reader |
+| TDT | Tank/block streams | Direct reader with optional `tdt` dependency |
 
 The fiber-photometry layer intentionally does not claim Inscopix `.isx` /
 `.isxd`, Blackrock NEV/NSx, or Neuralynx Cheetah support. Those are imaging or
@@ -195,6 +207,11 @@ Fallback if you do not want the canonical setup target:
 ```bash
 bash environment/setup.sh
 ```
+
+If conda or mamba is unavailable on a machine that already has project
+dependencies installed in an activated local virtualenv or non-base conda
+environment, the quality-gate wrapper can run inside that active environment.
+This is only a runner fallback; `make env` remains the canonical setup path.
 
 The base install keeps heavyweight media/model stacks optional. Add extras when
 you need richer media or deep-learning functionality:
@@ -374,7 +391,8 @@ xpkg artifacts validate "./My Project" --kind figure
 ```
 
 The same `xpkg import` command also ships source-specific project imports for
-Vicon recordings, Lightning Pose CSV, SLEAP, MMPose JSON, and MediaPipe JSON.
+Vicon recordings, Anipose calibration, Lightning Pose CSV, SLEAP, MMPose JSON,
+and MediaPipe JSON.
 Every canonical command supports `--json` for machine-readable output, and
 `xpkg describe --json` reports the current command contract for agents.
 Use `xpkg inspect PATH --json` before import to identify likely formats,

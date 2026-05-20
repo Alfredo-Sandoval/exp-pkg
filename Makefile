@@ -32,7 +32,7 @@ lint:
 	$(RUN_IN_ENV) ruff check .
 
 typecheck:
-	$(RUN_IN_ENV) sh -c 'ty check --python "$$CONDA_PREFIX/bin/python" $(TY_EXTRA_SEARCH_PATHS)'
+	$(RUN_IN_ENV) sh -c 'ty check --python "$$(command -v python)" $(TY_EXTRA_SEARCH_PATHS)'
 
 test:
 	PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 $(RUN_IN_ENV) pytest

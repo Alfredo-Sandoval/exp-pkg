@@ -20,6 +20,12 @@ target, fall back to the dispatcher:
 bash environment/setup.sh
 ```
 
+If conda or mamba is unavailable but you have already activated a local
+virtualenv or non-base conda environment with the project dependencies
+installed, the quality-gate wrapper will use that active environment. This is
+only for running checks in a prepared environment; `make env` remains the
+canonical setup path.
+
 ## Local checks
 
 ```bash
@@ -37,7 +43,7 @@ make build
 uv pip install dist/exp_pkg-*.whl
 ```
 
-After the first PyPI release the canonical install will be:
+After the first PyPI release the direct package install will be:
 
 ```bash
 uv pip install exp-pkg
