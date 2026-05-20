@@ -9,7 +9,6 @@ from pathlib import Path
 from typing import Any
 
 from xpkg.io.calibration import read_calibration_json, write_calibration_json
-from xpkg.io.readers.anipose import read_anipose_calibration
 from xpkg.model.calibration import Calibration, CalibrationSource, WorldFrame
 from xpkg.project.layout import (
     project_store_root,
@@ -123,6 +122,7 @@ def import_anipose_calibration_project(
     force: bool = False,
 ) -> Path:
     """Import an Anipose ``calibration.toml`` into the project calibration store."""
+    from xpkg.io.readers.anipose import read_anipose_calibration
 
     source_path = resolve_path(toml_path)
     if not source_path.is_file():

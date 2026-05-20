@@ -8,7 +8,13 @@ from typing import Annotated, Any
 import typer
 
 from xpkg.cli.shared import JsonOption, require_likelihood_threshold, run_command
-from xpkg.inspection import inspect_path
+
+
+def inspect_path(path: str, *, confidence_threshold: float) -> Any:
+    """Inspect a path through the heavy inspection module, imported lazily."""
+    from xpkg.inspection import inspect_path as _inspect_path
+
+    return _inspect_path(path, confidence_threshold=confidence_threshold)
 
 
 def inspect_target(

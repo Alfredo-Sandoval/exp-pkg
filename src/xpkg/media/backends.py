@@ -6,6 +6,7 @@ import shutil
 import subprocess
 from collections.abc import Callable
 from dataclasses import dataclass
+from functools import cache
 from importlib import import_module
 from importlib.util import find_spec
 from json import JSONDecodeError
@@ -61,7 +62,7 @@ class _MediaBackendSpec:
     required: bool = False
 
     def status(self) -> MediaBackendStatus:
-        missing = tuple(module for module in self.modules if find_spec(module) is None)
+        missing = tuple(module for module in self.modules if not _module_available(module))
         return MediaBackendStatus(
             name=self.name,
             modules=self.modules,
@@ -93,7 +94,7 @@ class _HardwareAccelerationSpec:
             extra=self.extra,
             available=available,
             reason=reason,
-            details=details,
+            details=dict(details),
         )
 
 
@@ -395,6 +396,7 @@ def _normalize_hardware_name(name: str) -> str:
     return aliases.get(normalized, normalized)
 
 
+@cache
 def _module_available(module: str) -> bool:
     try:
         return find_spec(module) is not None
@@ -402,6 +404,7 @@ def _module_available(module: str) -> bool:
         return False
 
 
+@cache
 def _detect_mlx_metal() -> tuple[bool, str, dict[str, str]]:
     if not _module_available("mlx"):
         return False, "Python module `mlx` is not installed", {}
@@ -416,6 +419,7 @@ def _detect_mlx_metal() -> tuple[bool, str, dict[str, str]]:
     return True, "MLX Metal acceleration is available", info
 
 
+@cache
 def _detect_torch_cuda() -> tuple[bool, str, dict[str, str]]:
     if not _module_available("torch"):
         return False, "Python module `torch` is not installed", {}
@@ -434,6 +438,7 @@ def _detect_torch_cuda() -> tuple[bool, str, dict[str, str]]:
     return True, "PyTorch CUDA acceleration is available", details
 
 
+@cache
 def _detect_torchcodec_cuda() -> tuple[bool, str, dict[str, str]]:
     if not _module_available("torchcodec"):
         return False, "Python module `torchcodec` is not installed", {}
@@ -443,6 +448,7 @@ def _detect_torchcodec_cuda() -> tuple[bool, str, dict[str, str]]:
     return True, "TorchCodec CUDA path is importable and PyTorch CUDA is available", torch_details
 
 
+@cache
 def _detect_ffmpeg_nvidia() -> tuple[bool, str, dict[str, str]]:
     ffmpeg = shutil.which("ffmpeg")
     if ffmpeg is None:
@@ -461,6 +467,7 @@ def _detect_ffmpeg_nvidia() -> tuple[bool, str, dict[str, str]]:
     return False, "FFmpeg is installed but does not expose NVDEC/NVENC support", details
 
 
+@cache
 def _detect_opencv_cuda() -> tuple[bool, str, dict[str, str]]:
     details = _nvpkg_command_details("opencv_cuda")
     if not _module_available("cv2"):
@@ -489,6 +496,7 @@ def _detect_opencv_cuda() -> tuple[bool, str, dict[str, str]]:
     return False, f"OpenCV CUDA is unavailable: {nvpkg_reason}", details
 
 
+@cache
 def _detect_nvpkg_package(package_name: str) -> tuple[bool, str, dict[str, str]]:
     details = _nvpkg_command_details(package_name)
     payload = _nvpkg_verify_payload(package_name)
@@ -517,6 +525,7 @@ def _nvpkg_command_details(package_name: str) -> dict[str, str]:
     }
 
 
+@cache
 def _nvpkg_verify_payload(package_name: str) -> dict[str, Any] | None:
     if _module_available("nvpkg.verify"):
         try:
@@ -613,6 +622,7 @@ def _nvpkg_failed_check(payload: dict[str, Any]) -> str | None:
     return None
 
 
+@cache
 def _ffmpeg_table(ffmpeg: str, option: str) -> str:
     result = subprocess.run(
         [ffmpeg, "-hide_banner", option],

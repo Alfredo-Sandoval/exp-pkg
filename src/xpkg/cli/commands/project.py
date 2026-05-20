@@ -12,37 +12,40 @@ import typer
 
 from xpkg.cli.shared import JsonOption, PackMedia, require_option_value, run_command, write_path
 from xpkg.model import AcquisitionMetadata, DatasetDatasheet, DatasetShareMetadata, ModelCard
-from xpkg.project import (
-    current_project_state_path,
-    init_project,
-    load_project_acquisition_metadata,
-    load_project_dataset_share_metadata,
-    load_project_datasheet,
-    load_project_descriptor,
-    load_project_model_card,
+from xpkg.project.artifact import (
     pack_project,
-    project_acquisition_metadata_path,
-    project_artifacts_root,
-    project_dataset_share_metadata_path,
-    project_datasheet_path,
+    unpack_project,
+)
+from xpkg.project.artifact import (
+    validate_artifact as validate_artifact_target,
+)
+from xpkg.project.artifacts import project_artifacts_root
+from xpkg.project.layout import (
+    load_project_descriptor,
     project_descriptor_path,
     project_exports_root,
     project_media_root,
-    project_model_card_path,
     project_state_root,
     project_store_root,
     project_summary_path,
-    refresh_project_summary,
     resolve_project_root,
+)
+from xpkg.project.metadata import (
+    load_project_acquisition_metadata,
+    load_project_dataset_share_metadata,
+    load_project_datasheet,
+    load_project_model_card,
+    project_acquisition_metadata_path,
+    project_dataset_share_metadata_path,
+    project_datasheet_path,
+    project_model_card_path,
     save_project_acquisition_metadata,
     save_project_dataset_share_metadata,
     save_project_datasheet,
     save_project_model_card,
-    unpack_project,
 )
-from xpkg.project import (
-    validate_artifact as validate_artifact_target,
-)
+from xpkg.project.store import current_project_state_path, init_project
+from xpkg.project.summary import refresh_project_summary
 
 from ..._core.json_utils import load_json_dict
 

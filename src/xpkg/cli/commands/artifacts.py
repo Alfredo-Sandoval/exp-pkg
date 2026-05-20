@@ -8,7 +8,7 @@ from typing import Annotated, Any
 import typer
 
 from xpkg.cli.shared import JsonOption, run_command
-from xpkg.project import (
+from xpkg.project.artifacts import (
     list_project_artifact_index,
     load_project_artifact,
     rebuild_project_artifact_index,
