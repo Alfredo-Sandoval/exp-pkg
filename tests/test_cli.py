@@ -10,6 +10,18 @@ def _project_state_path(project: str) -> Path:
     return Path(project) / ".xpkg" / "state" / "current.json"
 
 
+def test_cli_version_prints_package_version_contract(capsys) -> None:
+    from xpkg.cli import main
+    from xpkg.version import __version__
+
+    code = main(["--version"])
+
+    assert code == 0
+    captured_streams = capsys.readouterr()
+    assert captured_streams.err == ""
+    assert captured_streams.out == f"xpkg {__version__}\n"
+
+
 def test_cli_rejects_removed_compat_commands() -> None:
     from xpkg.cli import main
 
@@ -234,6 +246,80 @@ def test_cli_routes_import_dlc_csv_project(monkeypatch, capsys) -> None:
     assert "import-progress" in stdout
     assert "Imported DLC CSV into My Project" in stdout
     assert ".xpkg/state/current.json" in stdout
+
+
+def test_cli_routes_import_dlc_h5_project_json(monkeypatch, capsys) -> None:
+    from xpkg.cli import main
+
+    captured: dict[str, object] = {}
+
+    def fake_import_dlc_h5_project(
+        h5_path: str,
+        video_path: str,
+        project: str,
+        *,
+        skeleton_name: str,
+        likelihood_threshold: float,
+        prediction_provenance=None,
+        provenance=None,
+        force: bool = False,
+        progress_callback,
+    ) -> Path:
+        del prediction_provenance, provenance
+        captured["h5_path"] = h5_path
+        captured["video_path"] = video_path
+        captured["project"] = project
+        captured["skeleton_name"] = skeleton_name
+        captured["likelihood_threshold"] = likelihood_threshold
+        captured["force"] = force
+        progress_callback("dlc-h5-import-progress")
+        return _project_state_path(project)
+
+    monkeypatch.setattr(
+        "xpkg.cli.commands.imports.import_dlc_h5_project",
+        fake_import_dlc_h5_project,
+    )
+
+    code = main(
+        [
+            "import",
+            "pose",
+            "dlc-h5",
+            "--path",
+            "tracking.h5",
+            "--video",
+            "clip.mp4",
+            "--out",
+            "My Project",
+            "--threshold",
+            "0.45",
+            "--force",
+            "--json",
+        ]
+    )
+
+    assert code == 0
+    assert captured == {
+        "h5_path": "tracking.h5",
+        "video_path": "clip.mp4",
+        "project": "My Project",
+        "skeleton_name": "imported",
+        "likelihood_threshold": 0.45,
+        "force": True,
+    }
+    captured_streams = capsys.readouterr()
+    assert captured_streams.err == ""
+    assert "dlc-h5-import-progress" not in captured_streams.out
+    payload = json.loads(captured_streams.out)
+    assert payload == {
+        "ok": True,
+        "data": {
+            "status": "imported",
+            "source": "dlc-h5",
+            "project": "My Project",
+            "state_path": "My Project/.xpkg/state/current.json",
+        },
+    }
 
 
 def test_cli_routes_pose_prediction_provenance_json(monkeypatch, tmp_path: Path) -> None:
@@ -1006,7 +1092,7 @@ def test_cli_project_describe_json_mode(tmp_path: Path, capsys) -> None:
     assert payload["has_current_state"] is False
 
 
-def test_cli_describe_lists_top_level_inspect(capsys) -> None:
+def test_cli_describe_json_pins_machine_contract(capsys) -> None:
     from xpkg.cli import main
 
     code = main(["describe", "--json"])
@@ -1017,8 +1103,135 @@ def test_cli_describe_lists_top_level_inspect(capsys) -> None:
     envelope = json.loads(captured_streams.out)
     assert envelope["ok"] is True
     payload = envelope["data"]
-    assert payload["resources"]["inspect"] == ["path"]
-    assert "inspect" in payload["commands"]
+    assert payload["name"] == "xpkg"
+    assert payload["distribution"] == "exp-pkg"
+    assert payload["entrypoint"] == "xpkg"
+    assert payload["profile"] == "built-for-agents"
+    assert payload["json_contract"] == {
+        "success_stream": "stdout",
+        "error_stream": "stderr",
+        "success": {"shape": {"ok": True, "data": "<command-specific JSON object>"}},
+        "error": {
+            "shape": {
+                "ok": False,
+                "error": {
+                    "code": "string",
+                    "message": "string",
+                    "hint": "string",
+                },
+            }
+        },
+        "progress": "Progress messages are suppressed in --json mode.",
+    }
+    assert payload["exit_codes"] == {
+        "0": "success",
+        "1": "usage or runtime error",
+        "2": "reserved for auth or config failure",
+        "3": "not found",
+    }
+    assert payload["resources"] == {
+        "artifacts": ["inspect", "list", "rebuild-index", "validate"],
+        "completion": ["bash", "fish", "zsh"],
+        "inspect": ["path"],
+        "import": [
+            "calibration anipose",
+            "motion vicon",
+            "motion vicon-c3d",
+            "motion vicon-csv",
+            "pose dlc-csv",
+            "pose dlc-h5",
+            "pose dlc-project",
+            "pose lightning-pose-csv",
+            "pose mediapipe-pose-landmarks-json",
+            "pose mmpose-topdown-json",
+            "pose sleap-h5",
+            "pose sleap-package",
+        ],
+        "project": [
+            "describe",
+            "init",
+            "metadata set",
+            "metadata show",
+            "pack",
+            "unpack",
+            "validate",
+        ],
+        "metadata_slots": ["acquisition", "dataset-share", "datasheet", "model-card"],
+    }
+    assert payload["commands"] == [
+        "artifacts inspect",
+        "artifacts list",
+        "artifacts rebuild-index",
+        "artifacts validate",
+        "completion bash",
+        "completion fish",
+        "completion zsh",
+        "describe",
+        "inspect",
+        "import calibration anipose",
+        "import motion vicon",
+        "import motion vicon-c3d",
+        "import motion vicon-csv",
+        "import pose dlc-csv",
+        "import pose dlc-h5",
+        "import pose dlc-project",
+        "import pose lightning-pose-csv",
+        "import pose mediapipe-pose-landmarks-json",
+        "import pose mmpose-topdown-json",
+        "import pose sleap-h5",
+        "import pose sleap-package",
+        "project describe",
+        "project init",
+        "project metadata set",
+        "project metadata show",
+        "project pack",
+        "project unpack",
+        "project validate",
+    ]
+
+
+@pytest.mark.parametrize(
+    ("shell", "complete_marker", "registration_marker"),
+    [
+        pytest.param(
+            "bash",
+            "_XPKG_COMPLETE=bash_complete",
+            "complete -o nosort -F _xpkg_completion xpkg",
+            id="bash",
+        ),
+        pytest.param(
+            "fish",
+            "_XPKG_COMPLETE=fish_complete",
+            "complete --no-files --command xpkg",
+            id="fish",
+        ),
+        pytest.param(
+            "zsh",
+            "_XPKG_COMPLETE=zsh_complete",
+            "compdef _xpkg_completion xpkg",
+            id="zsh",
+        ),
+    ],
+)
+def test_cli_completion_json_pins_shell_contract(
+    shell: str,
+    complete_marker: str,
+    registration_marker: str,
+    capsys,
+) -> None:
+    from xpkg.cli import main
+
+    code = main(["completion", shell, "--json"])
+
+    assert code == 0
+    captured_streams = capsys.readouterr()
+    assert captured_streams.err == ""
+    envelope = json.loads(captured_streams.out)
+    assert envelope["ok"] is True
+    assert envelope["data"]["shell"] == shell
+    script = envelope["data"]["script"]
+    assert complete_marker in script
+    assert registration_marker in script
 
 
 def test_cli_inspect_json_mode(monkeypatch, capsys) -> None:
@@ -1139,3 +1352,61 @@ def test_cli_artifacts_list_inspect_validate_and_rebuild(tmp_path: Path, capsys)
 
     assert main(["artifacts", "rebuild-index", str(project.project_root)]) == 0
     assert "Indexed artifacts 1" in capsys.readouterr().out
+
+
+def test_cli_artifacts_validate_all_matching_json_filters_kind_and_namespace(
+    tmp_path: Path,
+    capsys,
+) -> None:
+    from xpkg.cli import main
+    from xpkg.services import ProjectService
+
+    project = ProjectService.create(tmp_path / "Artifact Validate CLI")
+    qc_table = tmp_path / "qc.csv"
+    qc_table.write_text("metric,value\nframes,12\n", encoding="utf-8")
+    other_table = tmp_path / "other.csv"
+    other_table.write_text("metric,value\nframes,2\n", encoding="utf-8")
+    figure = tmp_path / "summary.svg"
+    figure.write_text("<svg></svg>\n", encoding="utf-8")
+    project.artifacts.register(
+        artifact_id="qc_table",
+        artifact_type="table",
+        namespace="quality-control",
+        outputs=[qc_table],
+    )
+    project.artifacts.register(
+        artifact_id="other_table",
+        artifact_type="table",
+        namespace="other-tool",
+        outputs=[other_table],
+    )
+    project.figures.save(figure_id="summary", outputs=[figure])
+
+    code = main(
+        [
+            "artifacts",
+            "validate",
+            str(project.project_root),
+            "--kind",
+            "table",
+            "--namespace",
+            "quality-control",
+            "--json",
+        ]
+    )
+
+    assert code == 0
+    captured_streams = capsys.readouterr()
+    assert captured_streams.err == ""
+    envelope = json.loads(captured_streams.out)
+    assert envelope["ok"] is True
+    payload = envelope["data"]
+    assert payload["status"] == "valid"
+    assert payload["project"] == str(project.project_root)
+    assert payload["count"] == 1
+    assert len(payload["artifacts"]) == 1
+    artifact = payload["artifacts"][0]
+    assert artifact["artifact_id"] == "qc-table"
+    assert artifact["artifact_type"] == "table"
+    assert artifact["namespace"] == "quality-control"
+    assert artifact["outputs"] == [".xpkg/quality-control/tables/qc-table/qc.csv"]
