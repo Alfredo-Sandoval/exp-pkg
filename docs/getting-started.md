@@ -39,7 +39,7 @@ environment; `make env` remains the canonical setup path.
 ## Local checks
 
 ```bash
-make qa          # ruff + ty + pytest
+make qa          # conflict-check + ruff + ty + pytest
 make ci-local    # qa + package-check + docs-build
 ```
 

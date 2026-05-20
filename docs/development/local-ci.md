@@ -20,6 +20,7 @@ local development toolchain, and installs the package in editable mode.
 Run the standard quality gates individually:
 
 ```bash
+make conflict-check
 make lint
 make typecheck
 make test

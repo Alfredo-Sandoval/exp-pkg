@@ -1,4 +1,4 @@
-.PHONY: env setup bootstrap env-macos env-linux loc lint typecheck test require-real-data test-real qa ci-local release-check build package-check docs-build docs-serve clean
+.PHONY: env setup bootstrap env-macos env-linux loc conflict-check lint typecheck test require-real-data test-real qa ci-local release-check build package-check docs-build docs-serve clean
 
 ENV_ARGS ?=
 PYTHON ?= python
@@ -28,6 +28,19 @@ env-linux:
 	@test -f environment/setup.sh || { echo "Missing setup script: environment/setup.sh"; exit 1; }
 	bash environment/setup.sh $(ENV_ARGS) --target linux
 
+conflict-check:
+	@set -eu; \
+	if matches="$$(rg -n '(<){7}|(=){7}|(>){7}' .)"; then \
+		printf '%s\n' "$$matches"; \
+		echo "Conflict markers found."; \
+		exit 1; \
+	else \
+		status="$$?"; \
+		if [ "$$status" -gt 1 ]; then \
+			exit "$$status"; \
+		fi; \
+	fi
+
 lint:
 	$(RUN_IN_ENV) ruff check .
 
@@ -53,9 +66,9 @@ test-real: require-real-data
 	XPKG_REAL_DATA_MANIFEST="$${XPKG_REAL_DATA_MANIFEST:-$(REAL_DATA_MANIFEST)}" \
 	PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 $(RUN_IN_ENV) pytest -m realdata tests/real_data
 
-qa: lint typecheck test
+qa: conflict-check lint typecheck test
 
-ci-local: lint typecheck test package-check docs-build
+ci-local: qa package-check docs-build
 
 release-check: require-real-data qa package-check docs-build test-real
 
