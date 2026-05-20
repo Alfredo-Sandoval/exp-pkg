@@ -74,14 +74,13 @@ def _import_project_from_conversion(
             metadata=result.metadata,
             reason=reason,
         )
-    from xpkg.project.summary import labels_state_summary
+    from xpkg.project.summary import labels_media_summary, labels_state_summary
 
+    predictions = predictions_payload_from_labels(result.labels)
     _touch_descriptor(
         root,
-        state_summary=labels_state_summary(
-            result.labels,
-            predictions_payload_from_labels(result.labels),
-        ),
+        state_summary=labels_state_summary(result.labels, predictions),
+        media_summary=labels_media_summary(result.labels, predictions, project_root=root),
     )
     return state_path
 

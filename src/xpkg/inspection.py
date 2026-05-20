@@ -186,8 +186,13 @@ def _inspect_project_dir(path: Path) -> dict[str, Any]:
             "modalities": list(summary.modalities),
             "summary_path": str(project_summary_path(project_root)),
             "metadata_slots": metadata_slots,
+            "media": _inspect_project_media(project_root, summary.media),
         },
-        "warnings": [*summary.warnings, *metadata_warnings],
+        "warnings": [
+            *summary.warnings,
+            *metadata_warnings,
+            *_project_media_warnings(project_root, summary.media),
+        ],
     }
 
 
@@ -215,6 +220,96 @@ def _inspect_project_metadata_slots(
                 slot["valid"] = True
         slots[name] = slot
     return slots, warnings
+
+
+def _inspect_project_media(
+    project_root: Path,
+    media_items: Sequence[Mapping[str, Any]],
+) -> list[dict[str, Any]]:
+    inspected: list[dict[str, Any]] = []
+    for item in media_items:
+        payload = dict(item)
+        media_path = _resolve_project_media_path(project_root, payload.get("path"))
+        payload["exists"] = _media_item_exists(media_path, payload.get("kind"))
+        if payload.get("kind") == "image_sequence" and media_path is not None:
+            payload["current_image_count"] = _image_sequence_file_count(media_path)
+        inspected.append(payload)
+    return inspected
+
+
+def _project_media_warnings(
+    project_root: Path,
+    media_items: Sequence[Mapping[str, Any]],
+) -> list[str]:
+    warnings: list[str] = []
+    for item in media_items:
+        label = str(item.get("label") or item.get("path") or item.get("index") or "unknown")
+        media_path = _resolve_project_media_path(project_root, item.get("path"))
+        if not _media_item_exists(media_path, item.get("kind")):
+            warnings.append(f"Project media item {label!r} is missing: {item.get('path')}")
+            continue
+        expected_images = _optional_positive_int(item.get("image_count"))
+        if item.get("kind") == "image_sequence" and expected_images is not None:
+            current_images = _image_sequence_file_count(media_path)
+            if current_images != expected_images:
+                warnings.append(
+                    f"Project media item {label!r} expected {expected_images} image file(s), "
+                    f"found {current_images}."
+                )
+
+        frame_count = _optional_positive_int(item.get("frame_count"))
+        if frame_count is None:
+            continue
+        max_label = _optional_non_negative_int(item.get("max_label_frame_index"))
+        if max_label is not None and max_label >= frame_count:
+            warnings.append(
+                f"Project media item {label!r} has label frame index {max_label} "
+                f"outside {frame_count} frame(s)."
+            )
+        max_prediction = _optional_non_negative_int(item.get("max_prediction_frame_index"))
+        if max_prediction is not None and max_prediction >= frame_count:
+            warnings.append(
+                f"Project media item {label!r} has prediction frame index {max_prediction} "
+                f"outside {frame_count} frame(s)."
+            )
+    return warnings
+
+
+def _resolve_project_media_path(project_root: Path, raw_path: object) -> Path | None:
+    path_text = str(raw_path or "").strip()
+    if not path_text:
+        return None
+    path = Path(path_text)
+    return path if path.is_absolute() else project_root / path
+
+
+def _media_item_exists(path: Path | None, kind: object) -> bool:
+    if path is None:
+        return False
+    return path.is_dir() if kind == "image_sequence" else path.is_file()
+
+
+def _image_sequence_file_count(path: Path | None) -> int | None:
+    if path is None or not path.is_dir():
+        return None
+    return sum(1 for candidate in path.iterdir() if candidate.is_file())
+
+
+def _optional_positive_int(value: object) -> int | None:
+    result = _optional_non_negative_int(value)
+    if result is None or result <= 0:
+        return None
+    return result
+
+
+def _optional_non_negative_int(value: object) -> int | None:
+    if value is None:
+        return None
+    try:
+        result = int(cast("str | bytes | bytearray | int | float | bool", value))
+    except (TypeError, ValueError):
+        return None
+    return result if result >= 0 else None
 
 
 def _inspect_directory(path: Path) -> dict[str, Any]:

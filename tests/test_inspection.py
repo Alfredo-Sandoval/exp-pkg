@@ -260,6 +260,60 @@ def test_inspect_path_reports_project_metadata_slots_without_payload_load(tmp_pa
     )
 
 
+def test_inspect_path_reports_project_media_from_summary_without_payload_load(
+    tmp_path: Path,
+) -> None:
+    from tests.test_project_contract import _make_media_labels, _write_test_video
+    from xpkg.project import current_project_state_path, load_project_summary
+    from xpkg.services import ProjectService
+
+    source_video = tmp_path / "source.avi"
+    _write_test_video(source_video)
+    project = ProjectService.create(tmp_path / "Media Project", title="Media Project")
+    project.save_labels(_make_media_labels(source_video, x=3.0, y=4.0))
+    summary = load_project_summary(project.project_root)
+    managed_media = project.project_root / str(summary.media[0]["path"])
+    managed_media.unlink()
+    for superblock in (project.project_root / ".xpkg").glob("superblock.*.json"):
+        superblock.unlink()
+    state_path = current_project_state_path(project.project_root)
+    state_path.write_text(
+        '{"format":"xpkg.labels-json","version":1,"payload":{"metadata":{},"predictions":'
+        + ("0" * 16_384),
+        encoding="utf-8",
+    )
+
+    report = inspect_path(project.project_root)
+
+    assert report.kind is InspectionKind.XPKG_PROJECT
+    assert report.summary["state_kind"] == "labels"
+    assert report.summary["state_bytes"] == state_path.stat().st_size
+    assert report.summary["media"] == [
+        {
+            "index": 0,
+            "kind": "video_file",
+            "path": "Media/source.avi",
+            "backend": "opencv",
+            "video_id": "video_0",
+            "label": "source.avi",
+            "frame_count": 3,
+            "height": 12,
+            "width": 16,
+            "channels": 3,
+            "image_count": 0,
+            "label_frame_count": 1,
+            "max_label_frame_index": 0,
+            "prediction_frame_count": 0,
+            "max_prediction_frame_index": None,
+            "exists": False,
+        }
+    ]
+    assert any(
+        "Project media item 'source.avi' is missing: Media/source.avi" == warning
+        for warning in report.warnings
+    )
+
+
 def test_inspection_report_to_dict_round_trips_wire_format(tmp_path: Path) -> None:
     csv_path = tmp_path / "events.csv"
     csv_path.write_text("time,label,duration\n0.1,cue,0.2\n", encoding="utf-8")

@@ -419,11 +419,12 @@ def save_project_labels(
             predictions=initial_predictions,
             reason="project.save.init",
         )
-        from xpkg.project.summary import labels_state_summary
+        from xpkg.project.summary import labels_media_summary, labels_state_summary
 
         _touch_descriptor(
             root,
             state_summary=labels_state_summary(labels, initial_predictions),
+            media_summary=labels_media_summary(labels, initial_predictions, project_root=root),
         )
         labels.path = root
         return state_path
@@ -458,8 +459,12 @@ def save_project_labels(
         predictions=predictions,
         reason="project.save",
     )
-    from xpkg.project.summary import labels_state_summary
+    from xpkg.project.summary import labels_media_summary, labels_state_summary
 
-    _touch_descriptor(root, state_summary=labels_state_summary(labels, predictions))
+    _touch_descriptor(
+        root,
+        state_summary=labels_state_summary(labels, predictions),
+        media_summary=labels_media_summary(labels, predictions, project_root=root),
+    )
     labels.path = root
     return state_path

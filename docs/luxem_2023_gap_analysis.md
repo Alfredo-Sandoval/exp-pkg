@@ -133,11 +133,11 @@ from other 3D stacks aren't locked out.
 
 ### 7. Cross-file / project-level inspection
 
-`xpkg inspect` can identify project directories today, but it does not yet pair
-videos ↔ pose ↔ events ↔ calibration into one completeness report. Add a
-project-level inspector that reports completeness, timebase alignment, and
-missing sidecars. This is the "common file format / interoperability" pitch
-from the paper's closing section.
+`xpkg inspect` can identify project directories and report summary-recorded
+media presence/frame coverage today, but it does not yet pair videos ↔ pose ↔
+events ↔ calibration into one completeness report. Add a broader project-level
+inspector that reports timebase alignment and missing sidecars. This is the
+"common file format / interoperability" pitch from the paper's closing section.
 
 ## Explicit non-recommendations
 
@@ -148,7 +148,7 @@ supports keeping them out.
 
 ## Suggested order
 
-The first contracts for items 1 and 4 are now present. The remaining order is
-5 → 2 → 3 → 6 → 7, with item 4's completeness checks folded into project-level
+The first contracts for items 1, 3, and 4 are now present. The remaining order
+is 5 → 2 → 6 → 7, with item 4's completeness checks folded into project-level
 inspection. Item 5 gives the most user-visible coverage of Luxem's framework
 with the least scope creep.

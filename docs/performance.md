@@ -91,6 +91,10 @@ project-list path.
 - Save model cards, acquisition metadata, dataset-share metadata, and
   datasheets in typed metadata slots when that information belongs in catalog
   views.
+- Persist compact associated-media inventory during save/import, when labels
+  and media descriptors are already in memory. Inspect can then re-check path
+  presence and known frame-index ranges without decoding media or hydrating the
+  label payload.
 - Keep frame labels and predictions for open/edit/analyze paths, not catalog
   refresh paths.
 

@@ -165,10 +165,15 @@ def _touch_descriptor(
     root: Path,
     *,
     state_summary: dict[str, Any] | None = None,
+    media_summary: list[dict[str, Any]] | tuple[dict[str, Any], ...] | None = None,
 ) -> None:
     descriptor = load_project_descriptor(root)
     descriptor.updated_at = _now_utc_iso()
     write_project_descriptor(root, descriptor)
     from xpkg.project.summary import refresh_project_summary
 
-    refresh_project_summary(root, state_summary=state_summary)
+    refresh_project_summary(
+        root,
+        state_summary=state_summary,
+        media_summary=media_summary,
+    )

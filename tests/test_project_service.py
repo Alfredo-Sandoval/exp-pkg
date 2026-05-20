@@ -131,6 +131,29 @@ def test_project_service_describe_uses_shallow_summary_index(
     assert project_summary_path(project.project_root).read_text(encoding="utf-8") == summary_text
 
 
+def test_project_summary_tracks_media_frame_inventory(tmp_path: Path) -> None:
+    from tests.test_project_contract import _make_media_labels, _write_test_video
+
+    source_video = tmp_path / "source.avi"
+    _write_test_video(source_video)
+    project = ProjectService.create(tmp_path / "Media Summary", title="Media Summary")
+
+    project.save_labels(_make_media_labels(source_video, x=3.0, y=4.0))
+
+    summary = load_project_summary(project.project_root)
+    assert len(summary.media) == 1
+    media = summary.media[0]
+    assert media["kind"] == "video_file"
+    assert media["path"] == "Media/source.avi"
+    assert media["frame_count"] == 3
+    assert media["height"] == 12
+    assert media["width"] == 16
+    assert media["label_frame_count"] == 1
+    assert media["max_label_frame_index"] == 0
+    assert media["prediction_frame_count"] == 0
+    assert media["max_prediction_frame_index"] is None
+
+
 def test_project_summary_tracks_project_metadata_slots(tmp_path: Path) -> None:
     project = ProjectService.create(tmp_path / "Metadata Summary", title="Metadata Summary")
 

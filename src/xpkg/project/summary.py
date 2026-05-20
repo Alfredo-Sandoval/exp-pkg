@@ -45,6 +45,7 @@ _METADATA_SLOT_FILES = {
 
 ProjectSummaryStateKind = Literal["empty", "labels", "vicon", "present", "unreadable"]
 JsonScalar = str | int | float | bool | None
+MediaSummaryItem = dict[str, JsonScalar]
 
 
 @dataclass(frozen=True, slots=True)
@@ -61,6 +62,7 @@ class ProjectSummaryIndex:
     state_bytes: int | None
     commit_id: str | None
     state_summary: dict[str, JsonScalar] = field(default_factory=dict)
+    media: tuple[MediaSummaryItem, ...] = ()
     metadata_slots: tuple[str, ...] = ()
     artifact_count: int = 0
     artifact_types: dict[str, int] = field(default_factory=dict)
@@ -74,6 +76,7 @@ class ProjectSummaryIndex:
             raise ValueError(f"Unsupported project summary schema: {schema_version!r}")
         project = _mapping(data.get("project"), name="project_summary.project")
         state = _mapping(data.get("state"), name="project_summary.state")
+        media = _mapping(data.get("media") or {}, name="project_summary.media")
         artifacts = _mapping(data.get("artifacts"), name="project_summary.artifacts")
         metadata = _mapping(data.get("metadata"), name="project_summary.metadata")
         return cls(
@@ -87,6 +90,7 @@ class ProjectSummaryIndex:
             state_bytes=_optional_int(state.get("bytes")),
             commit_id=_optional_str(state.get("commit_id")),
             state_summary=_scalar_dict(state.get("summary") or {}),
+            media=_media_items(media.get("items") or ()),
             metadata_slots=_string_tuple(metadata.get("slots") or ()),
             artifact_count=int(artifacts.get("count", 0) or 0),
             artifact_types=_int_dict(artifacts.get("types") or {}),
@@ -110,6 +114,7 @@ class ProjectSummaryIndex:
                 "commit_id": self.commit_id,
                 "summary": dict(self.state_summary),
             },
+            "media": {"items": [dict(item) for item in self.media]},
             "metadata": {"slots": list(self.metadata_slots)},
             "artifacts": {
                 "count": int(self.artifact_count),
@@ -149,6 +154,49 @@ def labels_state_summary(
     }
 
 
+def labels_media_summary(
+    labels: Labels,
+    predictions: Mapping[str, Any] | None = None,
+    *,
+    project_root: str | Path | None = None,
+) -> tuple[MediaSummaryItem, ...]:
+    """Return cheap media inventory from in-memory labels during save/import."""
+
+    root = Path(project_root).resolve() if project_root is not None else None
+    video_lookup: dict[object, int] = {video: idx for idx, video in enumerate(labels.videos)}
+    label_stats = _frame_stats_by_video(labels.labeled_frames, video_lookup)
+    prediction_stats = _prediction_stats_by_video(predictions)
+    items: list[MediaSummaryItem] = []
+    for index, video in enumerate(labels.videos):
+        image_filenames = tuple(str(path) for path in (video.image_filenames or ()))
+        raw_path = str(video.filename or "")
+        if image_filenames and not raw_path:
+            raw_path = str(Path(image_filenames[0]).parent)
+        fallback_label = Path(raw_path).name if raw_path else f"video-{index}"
+        label_entry = label_stats.get(index, {})
+        prediction_entry = prediction_stats.get(index, {})
+        items.append(
+            {
+                "index": index,
+                "kind": "image_sequence" if image_filenames else "video_file",
+                "path": _summary_media_path(raw_path, root),
+                "backend": str(video.backend or ""),
+                "video_id": str(video.id or f"video_{index}"),
+                "label": str(video.label or fallback_label),
+                "frame_count": _safe_int(getattr(video, "frames", 0)),
+                "height": _safe_int(getattr(video, "height", 0)),
+                "width": _safe_int(getattr(video, "width", 0)),
+                "channels": _safe_int(getattr(video, "channels", 0)),
+                "image_count": len(image_filenames),
+                "label_frame_count": int(label_entry.get("count", 0) or 0),
+                "max_label_frame_index": label_entry.get("max_frame_index"),
+                "prediction_frame_count": int(prediction_entry.get("count", 0) or 0),
+                "max_prediction_frame_index": prediction_entry.get("max_frame_index"),
+            }
+        )
+    return tuple(items)
+
+
 def vicon_state_summary(recording: ViconRecording) -> dict[str, JsonScalar]:
     """Return shallow counts from an in-memory Vicon recording during import."""
 
@@ -174,6 +222,7 @@ def snapshot_project_summary(
     project: str | Path,
     *,
     state_summary: Mapping[str, JsonScalar] | None = None,
+    media_summary: Sequence[Mapping[str, JsonScalar]] | None = None,
 ) -> ProjectSummaryIndex:
     """Build the generated shallow summary index without writing it."""
 
@@ -184,6 +233,7 @@ def snapshot_project_summary(
     state = _state_source(project_root)
     existing, existing_warnings = _existing_summary(project_root)
     state_details = _state_details(state, existing, state_summary)
+    media_details = _media_details(state, existing, media_summary)
     artifact_count, artifact_types, artifact_warnings = _artifact_inventory(project_root)
     metadata_slots = _metadata_slots(project_root)
     warnings = (*state.warnings, *existing_warnings, *artifact_warnings)
@@ -198,6 +248,7 @@ def snapshot_project_summary(
         state_bytes=state.bytes,
         commit_id=state.commit_id,
         state_summary=state_details,
+        media=media_details,
         metadata_slots=metadata_slots,
         artifact_count=artifact_count,
         artifact_types=artifact_types,
@@ -211,6 +262,7 @@ def refresh_project_summary(
     project: str | Path,
     *,
     state_summary: Mapping[str, JsonScalar] | None = None,
+    media_summary: Sequence[Mapping[str, JsonScalar]] | None = None,
 ) -> ProjectSummaryIndex:
     """Refresh and write the generated shallow summary index."""
 
@@ -218,7 +270,11 @@ def refresh_project_summary(
     if project_root is None:
         raise FileNotFoundError(f"Not an xpkg project: {project}")
     existing, _existing_warnings = _existing_summary(project_root)
-    summary = snapshot_project_summary(project_root, state_summary=state_summary)
+    summary = snapshot_project_summary(
+        project_root,
+        state_summary=state_summary,
+        media_summary=media_summary,
+    )
     if existing is not None and _equivalent_summary(existing, summary):
         return existing
     target = project_summary_path(project_root)
@@ -268,6 +324,12 @@ def _scalar_dict(value: object) -> dict[str, JsonScalar]:
     return out
 
 
+def _media_items(value: object) -> tuple[MediaSummaryItem, ...]:
+    if not isinstance(value, Sequence) or isinstance(value, str | bytes | bytearray):
+        raise TypeError("Project summary media items must be a list")
+    return tuple(_scalar_dict(item) for item in value)
+
+
 def _int_dict(value: object) -> dict[str, int]:
     payload = _mapping(value, name="project_summary.int_dict")
     return {str(key): int(item) for key, item in payload.items()}
@@ -315,6 +377,20 @@ def _state_details(
     if existing.state_kind == state.kind:
         return dict(existing.state_summary)
     return {}
+
+
+def _media_details(
+    state: _StateSource,
+    existing: ProjectSummaryIndex | None,
+    media_summary: Sequence[Mapping[str, JsonScalar]] | None,
+) -> tuple[MediaSummaryItem, ...]:
+    if media_summary is not None:
+        return _media_items(tuple(dict(item) for item in media_summary))
+    if existing is None:
+        return ()
+    if existing.state_kind == state.kind:
+        return existing.media
+    return ()
 
 
 def _state_source(project_root: Path) -> _StateSource:
@@ -426,11 +502,82 @@ def _modalities(
     return tuple(modalities)
 
 
+def _safe_int(value: object) -> int:
+    try:
+        return int(cast("str | bytes | bytearray | int | float | bool", value))
+    except (TypeError, ValueError):
+        return 0
+
+
+def _summary_media_path(raw_path: str, project_root: Path | None) -> str:
+    path_text = str(raw_path).strip()
+    if not path_text:
+        return ""
+    if project_root is None:
+        return path_text
+    path = Path(path_text)
+    resolved = path.resolve() if path.is_absolute() else (project_root / path).resolve()
+    try:
+        return resolved.relative_to(project_root).as_posix()
+    except ValueError:
+        return path_text
+
+
+def _frame_stats_by_video(
+    labeled_frames: Sequence[Any],
+    video_lookup: Mapping[object, int],
+) -> dict[int, dict[str, JsonScalar]]:
+    stats: dict[int, dict[str, JsonScalar]] = {}
+    for frame in labeled_frames:
+        video_index = video_lookup.get(getattr(frame, "video", None))
+        if video_index is None or not getattr(frame, "user_instances", ()):
+            continue
+        frame_index = _safe_int(getattr(frame, "frame_idx", 0))
+        entry = stats.setdefault(video_index, {"count": 0, "max_frame_index": None})
+        entry["count"] = int(entry.get("count", 0) or 0) + 1
+        current_max = entry.get("max_frame_index")
+        if current_max is None or frame_index > int(current_max):
+            entry["max_frame_index"] = frame_index
+    return stats
+
+
+def _prediction_stats_by_video(
+    predictions: Mapping[str, Any] | None,
+) -> dict[int, dict[str, JsonScalar]]:
+    if predictions is None:
+        return {}
+    frames = predictions.get("frames")
+    if not isinstance(frames, Mapping):
+        return {}
+    video_indices = _json_sequence(frames.get("video_index"))
+    frame_indices = _json_sequence(frames.get("frame_index"))
+    stats: dict[int, dict[str, JsonScalar]] = {}
+    for raw_video, raw_frame in zip(video_indices, frame_indices, strict=False):
+        video_index = _safe_int(raw_video)
+        frame_index = _safe_int(raw_frame)
+        entry = stats.setdefault(video_index, {"count": 0, "max_frame_index": None})
+        entry["count"] = int(entry.get("count", 0) or 0) + 1
+        current_max = entry.get("max_frame_index")
+        if current_max is None or frame_index > int(current_max):
+            entry["max_frame_index"] = frame_index
+    return stats
+
+
+def _json_sequence(value: object) -> list[object]:
+    tolist = getattr(value, "tolist", None)
+    if callable(tolist):
+        value = tolist()
+    if not isinstance(value, Sequence) or isinstance(value, str | bytes | bytearray):
+        return []
+    return list(value)
+
+
 __all__ = [
     "PROJECT_SUMMARY_SCHEMA_VERSION",
     "ProjectSummaryIndex",
     "ProjectSummaryStateKind",
     "labels_state_summary",
+    "labels_media_summary",
     "load_project_summary",
     "refresh_project_summary",
     "snapshot_project_summary",
