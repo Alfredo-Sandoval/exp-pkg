@@ -37,12 +37,30 @@ Definition of done:
 
 ### 1. Project-Level Inspection Shape
 
-- Define the public JSON shape for `xpkg inspect PROJECT --json`.
-- Keep the shape agent-friendly: stable top-level keys, explicit warning
-  records, and predictable metadata-slot names.
-- Reuse existing project summary/index data where possible.
-- Add regression tests that would fail if inspect loads full labels,
-  predictions, dense masks, Vicon recordings, or media payloads.
+Done:
+
+- Public JSON shape for `xpkg inspect PROJECT --json` is documented in
+  `docs/cli_command_spec_v1.md`.
+- The runtime shape follows the existing CLI envelope:
+  `{"ok": true, "data": <inspection-report>}`.
+- Project inspection report keys are stable:
+  `status`, `path`, `name`, `suffix`, `exists`, `is_dir`, `size_bytes`,
+  `kind`, `description`, `likely_importers`, `summary`, and `warnings`.
+- Project `summary` keys are stable:
+  `project_id`, `title`, `state_kind`, `has_current_state`, `state_bytes`,
+  `commit_id`, `modalities`, `summary_path`, `metadata_slots`, and `media`.
+- `metadata_slots` uses predictable slot names:
+  `acquisition`, `dataset_share`, `datasheet`, `model_card`, and
+  `pose_provenance`.
+- `media` is the shallow summary-recorded associated-media inventory plus
+  cheap existence checks and `current_image_count` for resolvable image
+  sequences.
+- `warnings` is a stable list of strings. Ordinary inspect does not warn for
+  absent optional metadata slots; it does warn for invalid present metadata,
+  missing media, media count/frame drift, unavailable media inventory, and
+  unreadable shallow indexes.
+- Regression tests lock the project JSON shape, metadata-slot shape, media
+  shape, warnings behavior, and shallow/no-full-payload inspection behavior.
 
 ### 2. Metadata Slot Reporting
 

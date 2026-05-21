@@ -80,6 +80,66 @@ xpkg inspect "./My Project" --json
   inspect.
 - Uses `--confidence-threshold` / `--threshold` only for pose-confidence QC.
 
+### Project JSON shape
+
+In `--json` mode, `xpkg inspect PROJECT --json` uses the standard success
+envelope:
+
+```json
+{
+  "ok": true,
+  "data": {
+    "status": "inspected",
+    "path": "/path/to/My Project",
+    "name": "My Project",
+    "suffix": "",
+    "exists": true,
+    "is_dir": true,
+    "size_bytes": null,
+    "kind": "xpkg_project",
+    "description": "xpkg project",
+    "likely_importers": [],
+    "summary": {},
+    "warnings": []
+  }
+}
+```
+
+For project directories, `data.summary` has these stable top-level keys:
+
+- `project_id`: project descriptor id.
+- `title`: project descriptor title.
+- `state_kind`: shallow current-state kind, one of `empty`, `labels`, `vicon`,
+  `present`, or `unreadable`.
+- `has_current_state`: whether `.xpkg/state/current.json` exists.
+- `state_bytes`: byte size of the current state, or `null`.
+- `commit_id`: durable-store commit id when available, or `null`.
+- `modalities`: shallow modality labels inferred from summary/index data.
+- `summary_path`: canonical `.xpkg/indexes/project_summary.json` path.
+- `metadata_slots`: slot status map described below.
+- `media`: associated-media inventory described below.
+
+`metadata_slots` is always an object with these keys, in this order:
+`acquisition`, `dataset_share`, `datasheet`, `model_card`, and
+`pose_provenance`. Each slot contains `path`, `present`, and `valid`. When a
+slot is absent, `present` is `false` and `valid` is `null`. When present and
+parseable, `valid` is `true`. When present but invalid, `valid` is `false` and
+the slot also includes an `error` string.
+
+`media` is a list copied from the generated shallow project summary. Inspect
+adds `exists` for every media item without decoding media. Summary-recorded
+items can include `index`, `kind`, `path`, `backend`, `video_id`, `label`,
+`frame_count`, `height`, `width`, `channels`, `image_count`,
+`label_frame_count`, `max_label_frame_index`, `prediction_frame_count`, and
+`max_prediction_frame_index`. Image-sequence items also include
+`current_image_count` when the sequence directory is resolvable.
+
+`warnings` is always a list of strings. Ordinary project inspect does not warn
+for absent optional metadata slots. It does warn for invalid present metadata,
+missing recorded media, image-sequence count drift, out-of-range recorded
+label/prediction frame indices, unreadable summaries or artifact indexes, and
+older labels summaries that do not contain associated-media inventory.
+
 ## `xpkg project`
 
 Manage project-first project lifecycle operations.

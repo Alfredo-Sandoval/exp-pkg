@@ -160,6 +160,88 @@ def test_inspect_path_reports_empty_project(tmp_path: Path) -> None:
     assert report.warnings == ()
 
 
+def test_inspect_path_project_json_shape_is_stable(tmp_path: Path) -> None:
+    from xpkg.services import ProjectService
+
+    project = ProjectService.create(tmp_path / "Shape Project", title="Shape Project")
+
+    payload = inspect_path(project.project_root).to_dict()
+
+    assert list(payload) == [
+        "status",
+        "path",
+        "name",
+        "suffix",
+        "exists",
+        "is_dir",
+        "size_bytes",
+        "kind",
+        "description",
+        "likely_importers",
+        "summary",
+        "warnings",
+    ]
+    assert payload["kind"] == "xpkg_project"
+    assert payload["likely_importers"] == []
+    assert payload["warnings"] == []
+    summary = payload["summary"]
+    assert list(summary) == [
+        "project_id",
+        "title",
+        "state_kind",
+        "has_current_state",
+        "state_bytes",
+        "commit_id",
+        "modalities",
+        "summary_path",
+        "metadata_slots",
+        "media",
+    ]
+    assert summary["title"] == "Shape Project"
+    assert summary["state_kind"] == "empty"
+    assert summary["has_current_state"] is False
+    assert summary["state_bytes"] is None
+    assert summary["commit_id"] is None
+    assert summary["modalities"] == []
+    assert summary["media"] == []
+
+    slots = summary["metadata_slots"]
+    assert list(slots) == [
+        "acquisition",
+        "dataset_share",
+        "datasheet",
+        "model_card",
+        "pose_provenance",
+    ]
+    assert slots == {
+        "acquisition": {
+            "path": str(project.project_root / ".xpkg" / "metadata" / "acquisition.json"),
+            "present": False,
+            "valid": None,
+        },
+        "dataset_share": {
+            "path": str(project.project_root / ".xpkg" / "metadata" / "dataset_share.json"),
+            "present": False,
+            "valid": None,
+        },
+        "datasheet": {
+            "path": str(project.project_root / ".xpkg" / "metadata" / "datasheet.json"),
+            "present": False,
+            "valid": None,
+        },
+        "model_card": {
+            "path": str(project.project_root / ".xpkg" / "metadata" / "model_card.json"),
+            "present": False,
+            "valid": None,
+        },
+        "pose_provenance": {
+            "path": str(project.project_root / ".xpkg" / "metadata" / "pose_provenance.json"),
+            "present": False,
+            "valid": None,
+        },
+    }
+
+
 def test_inspect_path_does_not_write_project_summary(tmp_path: Path) -> None:
     from xpkg.project import project_summary_path
     from xpkg.services import ProjectService
@@ -314,6 +396,31 @@ def test_inspect_path_reports_project_media_from_summary_without_payload_load(
         "Project media item 'source.avi' is missing: Media/source.avi" == warning
         for warning in report.warnings
     )
+
+
+def test_inspect_path_project_image_sequence_media_reports_current_count(
+    tmp_path: Path,
+) -> None:
+    from tests.test_project_contract import _make_labels
+    from xpkg.services import ProjectService
+
+    project = ProjectService.create(
+        tmp_path / "Image Sequence Project",
+        title="Image Sequence Project",
+    )
+    project.save_labels(_make_labels(tmp_path, x=3.0, y=4.0))
+
+    report = inspect_path(project.project_root)
+
+    assert report.kind is InspectionKind.XPKG_PROJECT
+    assert len(report.summary["media"]) == 1
+    media = report.summary["media"][0]
+    assert media["kind"] == "image_sequence"
+    assert media["path"].startswith("Media/")
+    assert media["exists"] is True
+    assert media["image_count"] == 1
+    assert media["current_image_count"] == 1
+    assert report.warnings == ()
 
 
 def test_inspect_path_warns_when_project_media_inventory_unavailable(
