@@ -11,6 +11,7 @@ import numpy as np
 from xpkg.io.labels.json_format import read_labels_json_payload, write_labels_json
 from xpkg.io.labels.video_types import VideoProtocol
 from xpkg.media.video import Video
+from xpkg.model.identity import identity_provenance_records
 from xpkg.pose.annotations import (
     ROI,
     Instance,
@@ -1027,6 +1028,7 @@ def labels_from_payload(
 
     provenance = payload.get("provenance") or {}
     session = payload.get("session") or {}
+    identity_provenance = identity_provenance_records(payload.get("identity_provenance"))
 
     suggestions = load_suggestions(suggestions_payload, videos)
     has_explicit_skeleton = bool(skeleton_info)
@@ -1038,6 +1040,7 @@ def labels_from_payload(
         keypoints=list(keypoints),
         suggestions=suggestions,
         provenance=provenance,
+        identity_provenance=identity_provenance,
         session=session,
         preferences=metadata.get("preferences", {}),
     )

@@ -8,6 +8,8 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
+from xpkg.model.identity import identity_provenance_payload
+
 from ..._core.json_utils import load_json_dict, write_json
 from ..._core.path_registry import ensure_dir, make_path_id
 
@@ -233,6 +235,10 @@ def labels_to_json_payload(
     tracks_payload = _tracks_payload(labels)
     if tracks_payload is not None:
         payload["payload"]["tracks"] = tracks_payload
+
+    identity_payload = identity_provenance_payload(labels.identity_provenance)
+    if identity_payload is not None:
+        payload["payload"]["identity_provenance"] = identity_payload
 
     segmentation_payload = _segmentation_payload(labels, video_lookup)
     if segmentation_payload is not None:

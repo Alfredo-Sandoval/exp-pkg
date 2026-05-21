@@ -186,9 +186,17 @@ Done for design docs:
 
 Remaining follow-up:
 
-- Add schema/model support for identity provenance companion records.
-- Populate those records from SLEAP/DLC multi-animal track ingestion when the
-  source files expose enough evidence.
+- Populate identity provenance records from DLC multi-animal track ingestion
+  when source files expose enough evidence.
+- Add stronger ReID/MOT source and confidence population when source exports
+  distinguish those facts.
+
+Done for schema/model support:
+
+- Added identity provenance companion records on `Labels` without widening
+  `Track`.
+- SLEAP H5 track ingestion populates source-tool/file/name provenance with
+  `unknown` identity source when the export does not distinguish ReID from MOT.
 
 This should remain data provenance, not a ReID model implementation.
 

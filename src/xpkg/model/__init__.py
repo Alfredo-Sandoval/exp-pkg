@@ -41,6 +41,14 @@ from xpkg.model.ephys import (
 )
 from xpkg.model.events import Event, EventTable, SyncEvent
 from xpkg.model.force import ForcePlateData
+from xpkg.model.identity import (
+    IDENTITY_PROVENANCE_SCHEMA_VERSION,
+    IDENTITY_SOURCES,
+    IdentityConfidenceSpan,
+    IdentityEvent,
+    IdentityProofreadingSpan,
+    IdentityProvenanceRecord,
+)
 from xpkg.model.metadata import (
     AcquisitionMetadata,
     CameraMetadata,
@@ -154,7 +162,13 @@ __all__ = [
     "Event",
     "EventTable",
     "ForcePlateData",
+    "IDENTITY_PROVENANCE_SCHEMA_VERSION",
+    "IDENTITY_SOURCES",
     "Instance",
+    "IdentityConfidenceSpan",
+    "IdentityEvent",
+    "IdentityProofreadingSpan",
+    "IdentityProvenanceRecord",
     "KPFlag",
     "Keypoint",
     "Labels",

@@ -52,6 +52,16 @@ def test_convert_sleap_h5_builds_multi_track_labels(tmp_path: Path) -> None:
     assert sorted(
         inst.track.id for inst in first_frame.instances if inst.track is not None
     ) == [0, 1]
+    assert [record.track_id for record in labels.identity_provenance] == ["0", "1"]
+    assert [record.track_name for record in labels.identity_provenance] == [
+        "track_0",
+        "track_1",
+    ]
+    assert {record.source_tool for record in labels.identity_provenance} == {"sleap"}
+    assert {record.source_file for record in labels.identity_provenance} == {
+        tracking_path.name
+    }
+    assert {record.identity_source for record in labels.identity_provenance} == {"unknown"}
 
     frame_five = next(frame for frame in labels.labeled_frames if frame.frame_idx == 5)
     track_one = next(inst for inst in frame_five.instances if inst.track and inst.track.id == 1)

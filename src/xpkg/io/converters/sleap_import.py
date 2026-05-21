@@ -48,6 +48,7 @@ from ..._core.json_utils import parse_json_dict
 from ..._core.path_registry import ensure_dir, resolve_path
 
 if TYPE_CHECKING:
+    from xpkg.model import IdentityProvenanceRecord
     from xpkg.model import Labels as _Labels
     from xpkg.pose.skeleton import Keypoint
     from xpkg.pose.skeleton import Skeleton as _Skeleton
@@ -206,6 +207,26 @@ def _labels_from_sleap_h5_tracks(
     )
 
 
+def _sleap_identity_provenance_records(
+    track_names: list[str],
+    *,
+    source_path: Path,
+) -> list[IdentityProvenanceRecord]:
+    from xpkg.model import IdentityProvenanceRecord
+
+    return [
+        IdentityProvenanceRecord(
+            track_id=str(track_idx),
+            track_name=track_name,
+            source_tool="sleap",
+            source_file=source_path.name,
+            identity_source="unknown",
+            metadata={"source_track_index": track_idx},
+        )
+        for track_idx, track_name in enumerate(track_names)
+    ]
+
+
 def convert_sleap_h5(
     h5_path: Path | str,
     video_path: Path | str,
@@ -246,6 +267,10 @@ def convert_sleap_h5(
         skeleton_name=skeleton_name,
         video=video,
         likelihood_threshold=likelihood_threshold,
+    )
+    labels.identity_provenance = _sleap_identity_provenance_records(
+        track_names,
+        source_path=resolved_h5_path,
     )
     labels.validate()
 

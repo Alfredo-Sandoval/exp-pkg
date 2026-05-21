@@ -134,6 +134,7 @@ def test_labels_json_payload_preserves_keypoint_scores(tmp_path: Path) -> None:
 
 def test_labels_json_roundtrip_preserves_tracks_and_segmentation(tmp_path: Path) -> None:
     from xpkg.model import Labels, Video, build_keypoint_skeleton
+    from xpkg.model.identity import IdentityProvenanceRecord
     from xpkg.pose.annotations import (
         ROI,
         Instance,
@@ -171,11 +172,23 @@ def test_labels_json_roundtrip_preserves_tracks_and_segmentation(tmp_path: Path)
     )
 
     labels = Labels(labeled_frames=[frame], videos=[video], skeletons=[skeleton], tracks=[track])
+    labels.identity_provenance = [
+        IdentityProvenanceRecord(
+            track_id=str(track.id),
+            track_name=track.name,
+            source_tool="manual",
+            source_file="labels.json",
+            identity_source="manual",
+        )
+    ]
     json_path = tmp_path / "labels.json"
     labels.save_file(labels, json_path.as_posix())
 
     loaded = Labels.load_file(json_path.as_posix())
     assert [track.name for track in loaded.tracks] == ["seg-track"]
+    assert loaded.identity_provenance[0].track_id == "7"
+    assert loaded.identity_provenance[0].track_name == "seg-track"
+    assert loaded.identity_provenance[0].identity_source == "manual"
     assert len(loaded.labeled_frames[0].masks) == 1
     assert loaded.labeled_frames[0].masks[0].track is not None
     assert loaded.labeled_frames[0].masks[0].track.name == "seg-track"

@@ -21,6 +21,7 @@ from xpkg.io.labels.merge import merge_matching_frames as _merge_matching_frames
 from xpkg.io.labels.query import LabelsQuery
 from xpkg.io.labels.tracks import add_track as _add_track
 from xpkg.io.labels.video_types import VideoProtocol
+from xpkg.model.identity import IdentityProvenanceRecord
 from xpkg.pose.annotations import (
     Instance,
     LabeledFrame,
@@ -125,6 +126,7 @@ class Labels:
     suggestions: list[SuggestionFrame] = field(default_factory=list)
     negative_anchors: dict[VideoProtocol, list] = field(default_factory=dict)
     provenance: dict[str, Any] = field(default_factory=dict)
+    identity_provenance: list[IdentityProvenanceRecord] = field(default_factory=list)
     preferences: dict[str, Any] = field(default_factory=dict)
     session: dict[str, Any] = field(default_factory=dict)
     _path: Path | None = field(default=None, init=False, repr=False)
@@ -411,6 +413,7 @@ class Labels:
             tracks=self.tracks,
             suggestions=suggestions,
             provenance=self.provenance,
+            identity_provenance=list(self.identity_provenance),
         )
         new_labels.path = self.path
         if copy:
@@ -427,6 +430,7 @@ class Labels:
             tracks=list(self.tracks),
             suggestions=list(self.suggestions),
             provenance=dict(self.provenance),
+            identity_provenance=list(self.identity_provenance),
             session=dict(self.session),
         )
         clone.path = self.path
