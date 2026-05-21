@@ -12,6 +12,7 @@ from xpkg.io.readers.behavior import (
     read_simba_csv,
 )
 from xpkg.io.readers.ephys import read_abf, read_ephys_csv
+from xpkg.io.readers.opencv_stereo import read_opencv_stereo_calibration
 from xpkg.io.readers.photometry import read_events_csv, read_photometry_csv
 from xpkg.io.readers.photometry.fiber import (
     read_doric_photometry,
@@ -74,6 +75,7 @@ __all__ = [
     "read_ephys_csv",
     "read_events_csv",
     "read_neurophotometrics_csv",
+    "read_opencv_stereo_calibration",
     "read_photometry_csv",
     "read_pmat_events_csv",
     "read_pmat_photometry_csv",

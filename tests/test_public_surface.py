@@ -167,6 +167,7 @@ from xpkg.readers import (
     read_events_csv,
     read_keypoint_moseq_syllables_csv,
     read_neurophotometrics_csv,
+    read_opencv_stereo_calibration,
     read_photometry_csv,
     read_pmat_events_csv,
     read_pmat_photometry_csv,
@@ -372,6 +373,7 @@ def test_public_exports_are_callable() -> None:
     assert callable(read_ephys_csv)
     assert callable(read_events_csv)
     assert callable(read_neurophotometrics_csv)
+    assert callable(read_opencv_stereo_calibration)
     assert callable(read_photometry_csv)
     assert callable(read_pmat_events_csv)
     assert callable(read_pmat_photometry_csv)

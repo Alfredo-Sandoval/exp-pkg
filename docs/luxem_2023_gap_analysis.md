@@ -135,7 +135,8 @@ Surface as warnings in `xpkg inspect --json` output.
 
 ### 6. More calibration importers
 
-`anipose.py` is great. Add OpenCV stereo YAML, Kalibr (`camchain.yaml`), and
+`anipose.py` is great. OpenCV stereo YAML can now be read into the generic
+calibration model. Add project import wiring plus Kalibr (`camchain.yaml`) and
 MC-calib (Rameau et al. 2022, cited in §"Data acquisition") so users coming
 from other 3D stacks aren't locked out.
 

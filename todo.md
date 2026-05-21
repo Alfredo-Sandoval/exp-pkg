@@ -186,10 +186,20 @@ This should remain data provenance, not a ReID model implementation.
 
 ### 8. Calibration Importers
 
-After project-level QC and the 3D coordinate contract are clearer, add more
-calibration importers:
+Done for direct readers:
 
-- OpenCV stereo YAML.
+- OpenCV stereo YAML files with `M1`/`D1`/`M2`/`D2`/`R`/`T` and image size can
+  be read into the generic `Calibration` model.
+- Source provenance, coordinate-frame assumptions, units, optional
+  essential/fundamental matrices, and source distortion coefficient counts are
+  preserved.
+- Rectification-only files and unsupported distortion coefficient layouts are
+  rejected rather than guessed.
+
+Remaining follow-up:
+
+- Wire OpenCV stereo YAML through project calibration import if that command
+  surface is needed.
 - Kalibr `camchain.yaml`.
 - MC-calib outputs.
 
