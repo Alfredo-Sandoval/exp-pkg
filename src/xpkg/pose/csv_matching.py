@@ -1,4 +1,4 @@
-"""Filename matching for externally produced DLC-style pose CSVs."""
+"""Filename matching and skeleton resolution for DLC-style pose CSV exports."""
 
 from __future__ import annotations
 
@@ -82,7 +82,9 @@ def find_matching_pose_csvs(search_root: Path, media_path: Path) -> tuple[Path, 
 
     matches: list[Path] = []
     for candidate in sorted(search_root.rglob("*.csv")):
-        if candidate.is_file() and pose_csv_matches_media(candidate, media_path):
+        if not candidate.is_file():
+            continue
+        if pose_csv_matches_media(candidate, media_path):
             matches.append(candidate.resolve())
     return tuple(matches)
 
@@ -92,7 +94,10 @@ def resolve_skeleton_edges(
     *,
     requested_edges: Sequence[tuple[str, str]] | None = None,
 ) -> tuple[tuple[str, str], ...]:
-    """Filter the requested edge list down to bodyparts present in one CSV."""
+    """Filter requested skeleton edges down to bodyparts present in one CSV.
+
+    Raises ValueError when no requested edge survives the lookup.
+    """
 
     name_by_key = {_bodypart_lookup_key(name): name for name in bodypart_names}
     edges = requested_edges or DEFAULT_RAT_SKELETON_EDGES
@@ -103,7 +108,9 @@ def resolve_skeleton_edges(
         if actual_start is not None and actual_end is not None:
             resolved.append((actual_start, actual_end))
     if not resolved:
-        raise ValueError("No requested skeleton edges were present in the bodyparts.")
+        raise ValueError(
+            "No requested skeleton edges were present in the predictions CSV bodyparts."
+        )
     return tuple(resolved)
 
 
