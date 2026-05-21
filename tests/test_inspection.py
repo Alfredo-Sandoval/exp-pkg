@@ -157,6 +157,7 @@ def test_inspect_path_reports_empty_project(tmp_path: Path) -> None:
     assert report.summary["title"] == "Empty Project"
     assert report.summary["state_kind"] == "empty"
     assert report.summary["has_current_state"] is False
+    assert report.warnings == ()
 
 
 def test_inspect_path_does_not_write_project_summary(tmp_path: Path) -> None:

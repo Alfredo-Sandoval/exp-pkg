@@ -26,8 +26,9 @@ Definition of done:
   explicit command contract says so.
 - Metadata slot presence is visible for acquisition, dataset-share, datasheet,
   model-card, and pose provenance.
-- Missing datasheet/model-card/acquisition metadata can be reported as warnings
-  without making those schemas mandatory.
+- Missing datasheet/model-card/acquisition metadata is reported as absent slot
+  status by ordinary inspect; completeness warnings belong in a future explicit
+  release-readiness check.
 - Common imported pose projects get basic media/frame/timing checks.
 - Tests prove project inspect remains descriptor/summary-level and does not
   materialize full state payloads.
@@ -59,11 +60,8 @@ Done for packed `.expkg` artifacts:
 - Report the same metadata-slot presence and parseability by reading canonical
   archive members without unpacking.
 - Add tests around absent, valid, and malformed packed metadata files.
-
-Remaining follow-up:
-
-- Decide which missing FAIR metadata slots should become warnings for release
-  readiness versus ordinary project inspection.
+- Ordinary inspect does not warn on absent optional FAIR slots; missing-slot
+  completeness belongs in a future explicit release-readiness check.
 
 ### 3. Associated Media And Frame-Count Checks
 

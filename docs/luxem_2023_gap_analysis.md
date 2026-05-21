@@ -97,18 +97,18 @@ ingest that populates them.
 
 `DatasetDatasheet` and `ModelCard` are now formal typed metadata slots, with
 project service helpers, CLI set/show commands, `.expkg` manifest round-trips,
-and shallow project-directory inspect reporting for metadata slot presence and
-parseability. This covers the first FAIR schema step the paper's "Best
-practices for developers" section motivates.
+and shallow inspect reporting for project-directory and packed-artifact metadata
+slot presence and parseability. This covers the first FAIR schema step the
+paper's "Best practices for developers" section motivates.
 
 Remaining work:
 
-- Extend the same metadata slot reporting to packed `.expkg` inputs if users
-  need inspect-time FAIR checks before unpacking.
-- `xpkg inspect` should surface practical completeness warnings for required
-  release/share fields without turning the schemas into a mandatory ontology.
 - Project-level summaries should make these FAIR metadata slots visible without
   loading full labels, predictions, masks, or media payloads.
+- A future release-readiness check can add practical completeness warnings for
+  required release/share fields. Ordinary `xpkg inspect` reports absent optional
+  FAIR slots as status, not warnings, so the schemas do not become a mandatory
+  ontology.
 
 ### 5. Acquisition QC in `inspect`
 

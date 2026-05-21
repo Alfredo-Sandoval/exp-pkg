@@ -74,8 +74,10 @@ xpkg inspect "./My Project" --json
   metadata can be read safely.
 - For project folders, reports descriptor/current-state presence without
   materializing full labels, predictions, Vicon recordings, or media.
-- Emits warnings for missing metadata, unknown formats, failed QC reads, or
-  unavailable media backends.
+- Emits warnings for invalid present metadata, missing referenced media, unknown
+  formats, failed QC reads, or unavailable media backends. Optional FAIR
+  metadata slots are reported as absent rather than warned on by ordinary
+  inspect.
 - Uses `--confidence-threshold` / `--threshold` only for pose-confidence QC.
 
 ## `xpkg project`
