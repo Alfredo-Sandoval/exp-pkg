@@ -14,8 +14,9 @@ from xpkg.cli.shared import JsonOption, run_command
 
 def _completion_script(root_app: typer.Typer, shell: str) -> str:
     command = typer.main.get_command(root_app)
-    buffer = io.StringIO()
-    with contextlib.redirect_stdout(buffer):
+    out_buffer = io.StringIO()
+    err_buffer = io.StringIO()
+    with contextlib.redirect_stdout(out_buffer), contextlib.redirect_stderr(err_buffer):
         exit_code = shell_complete(
             command,
             {},
@@ -24,8 +25,12 @@ def _completion_script(root_app: typer.Typer, shell: str) -> str:
             f"{shell}_source",
         )
     if exit_code != 0:
-        raise RuntimeError(f"Could not generate {shell} completion script.")
-    return buffer.getvalue()
+        detail = err_buffer.getvalue().strip()
+        message = f"Could not generate {shell} completion script."
+        if detail:
+            message = f"{message} {detail}"
+        raise RuntimeError(message)
+    return out_buffer.getvalue()
 
 
 def build_app(root_app: typer.Typer) -> typer.Typer:
