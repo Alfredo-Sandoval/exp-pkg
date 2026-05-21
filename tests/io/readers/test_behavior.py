@@ -4,7 +4,12 @@ import json
 
 import pytest
 
-from xpkg.io.readers import read_behavior_events_csv, read_behavior_events_json, read_boris_csv
+from xpkg.io.readers import (
+    read_behavior_events_csv,
+    read_behavior_events_json,
+    read_boris_csv,
+    read_simba_csv,
+)
 from xpkg.model import BehaviorLabels
 
 
@@ -105,6 +110,64 @@ def test_read_boris_csv_maps_tabular_event_exports(tmp_path) -> None:
     assert labels.intervals[0].metadata["Behavior type"] == "STATE"
     assert labels.intervals[0].metadata["Comment start"] == "clean start"
     assert labels.to_event_table().query(label="groom")[0].end_s == pytest.approx(5.0)
+
+
+def test_read_simba_csv_maps_machine_results_frame_labels(tmp_path) -> None:
+    path = tmp_path / "trial_machine_results.csv"
+    path.write_text(
+        "\n".join(
+            [
+                "Frame,Time,Attack,Probability_Attack,Confidence_Attack,"
+                "Sniffing,Probability_Sniffing,nose_x",
+                "0,0.000,0,0.12,low,1,0.88,23.1",
+                "1,0.033,1,0.91,high,0,0.22,24.0",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    labels = read_simba_csv(path, media_path="trial.mp4")
+
+    assert labels.source_type == "simba"
+    assert labels.media_path == "trial.mp4"
+    assert labels.metadata["source"]["format"] == "framewise_classifier_csv"
+    assert labels.metadata["source"]["behavior_columns"] == ["Attack", "Sniffing"]
+    assert labels.metadata["source"]["probability_columns"] == [
+        "Probability_Attack",
+        "Probability_Sniffing",
+    ]
+    assert [(item.frame_index, item.label) for item in labels.frame_labels] == [
+        (0, "Sniffing"),
+        (1, "Attack"),
+    ]
+    assert labels.frame_labels[0].score == pytest.approx(0.88)
+    assert labels.frame_labels[0].metadata["time_s"] == pytest.approx(0.0)
+    assert labels.frame_labels[0].metadata["Probability_Attack"] == pytest.approx(0.12)
+    assert labels.frame_labels[0].metadata["nose_x"] == pytest.approx(23.1)
+    assert labels.frame_labels[1].score == pytest.approx(0.91)
+    assert labels.frame_labels[1].confidence == "high"
+    assert labels.frame_labels[1].metadata["Probability_Sniffing"] == pytest.approx(0.22)
+
+
+def test_read_simba_csv_accepts_probability_only_validation_outputs(tmp_path) -> None:
+    path = tmp_path / "trial_validation.csv"
+    path.write_text(
+        "\n".join(
+            [
+                "Probability_Rearing,velocity",
+                "0.2,1.4",
+                "0.7,1.9",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    labels = read_simba_csv(path, probability_threshold=0.5)
+
+    assert [(item.frame_index, item.label) for item in labels.frame_labels] == [(1, "Rearing")]
+    assert labels.frame_labels[0].score == pytest.approx(0.7)
+    assert labels.frame_labels[0].metadata["frame_index_source"] == "row_index"
+    assert labels.frame_labels[0].metadata["velocity"] == pytest.approx(1.9)
 
 
 def test_read_behavior_events_csv_accepts_framewise_motif_labels(tmp_path) -> None:

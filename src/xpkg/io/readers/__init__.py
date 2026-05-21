@@ -8,6 +8,7 @@ from xpkg.io.readers.behavior import (
     read_behavior_events_csv,
     read_behavior_events_json,
     read_boris_csv,
+    read_simba_csv,
 )
 from xpkg.io.readers.ephys import read_abf, read_ephys_csv
 from xpkg.io.readers.photometry import read_events_csv, read_photometry_csv
@@ -66,6 +67,7 @@ __all__ = [
     "read_boris_csv",
     "read_behavior_events_csv",
     "read_behavior_events_json",
+    "read_simba_csv",
     "read_doric_photometry",
     "read_ephys_csv",
     "read_events_csv",

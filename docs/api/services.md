@@ -201,6 +201,7 @@ readers.read_tdt_photometry_block(...)
 readers.read_behavior_events_csv(...)
 readers.read_behavior_events_json(...)
 readers.read_boris_csv(...)
+readers.read_simba_csv(...)
 ```
 
 Service-bound dispatch for these signal kinds is not implemented yet (planned

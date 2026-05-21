@@ -73,6 +73,28 @@ _BORIS_END_TIME_CANDIDATES = ("Stop (seconds)", "Stop (s)", "stop")
 _BORIS_DURATION_CANDIDATES = ("Duration (seconds)", "Duration (s)", "duration")
 _BORIS_MEDIA_CANDIDATES = ("Media file name", "media_file_name")
 _BORIS_SOURCE_ID_CANDIDATES = ("Observation id", "observation")
+_SIMBA_FRAME_CANDIDATES = (
+    "frame",
+    "Frame",
+    "frame_index",
+    "Frame_index",
+    "frame_idx",
+    "Frame_idx",
+    "frame_number",
+    "Frame_number",
+)
+_SIMBA_TIME_CANDIDATES = (
+    "time",
+    "Time",
+    "timestamp",
+    "Timestamp",
+    "time_s",
+    "Time_s",
+    "seconds",
+    "Seconds",
+)
+_SIMBA_PROBABILITY_PREFIX = "Probability_"
+_SIMBA_CONFIDENCE_PREFIXES = ("Confidence_", "confidence_")
 
 
 def read_behavior_events_json(
@@ -195,6 +217,79 @@ def read_boris_csv(
                 "path": str(source_path),
                 "size_bytes": size_bytes,
                 "format": "tabular_events_csv",
+            }
+        },
+    )
+
+
+def read_simba_csv(
+    path: str | Path,
+    *,
+    media_path: str | Path | None = None,
+    frame_column: str | None = None,
+    time_column: str | None = None,
+    behavior_columns: Sequence[str] | None = None,
+    time_unit: TimeUnit = "s",
+    probability_threshold: float | None = None,
+    max_mb: float | None = None,
+) -> BehaviorLabels:
+    """Read SimBA framewise classifier CSV outputs as external behavior labels.
+
+    SimBA machine-result and validation CSVs commonly include per-frame columns
+    named ``Probability_<classifier>`` plus optional binary classifier columns.
+    This reader preserves those outputs as imported frame labels and row
+    metadata; it does not threshold probabilities unless
+    ``probability_threshold`` is explicitly provided.
+    """
+
+    source_path = Path(path)
+    frame, size_bytes = _read_csv(source_path, max_mb=max_mb)
+    if frame.empty:
+        raise ValueError(f"SimBA CSV '{source_path}' is empty.")
+    if probability_threshold is not None:
+        threshold = float(probability_threshold)
+        if not np.isfinite(threshold):
+            raise ValueError("probability_threshold must be finite when provided.")
+    else:
+        threshold = None
+    simba_columns = _SimbaColumns.resolve(
+        frame,
+        frame_column=frame_column,
+        time_column=time_column,
+        behavior_columns=behavior_columns,
+    )
+    frame_labels = _simba_frame_labels(
+        frame,
+        simba_columns,
+        time_scale=_time_scale(time_unit),
+        probability_threshold=threshold,
+    )
+    if not frame_labels:
+        raise ValueError("SimBA CSV did not contain any behavior labels to import.")
+    return BehaviorLabels(
+        source_type="simba",
+        frame_labels=frame_labels,
+        media_path=None if media_path is None else Path(media_path).as_posix(),
+        metadata={
+            "source": {
+                "type": "simba",
+                "path": str(source_path),
+                "size_bytes": size_bytes,
+                "format": "framewise_classifier_csv",
+                "frame_column": simba_columns.frame,
+                "time_column": simba_columns.time,
+                "time_unit": time_unit,
+                "classifier_labels": [item.label for item in simba_columns.behaviors],
+                "behavior_columns": [
+                    item.behavior
+                    for item in simba_columns.behaviors
+                    if item.behavior is not None
+                ],
+                "probability_columns": [
+                    item.probability
+                    for item in simba_columns.behaviors
+                    if item.probability is not None
+                ],
             }
         },
     )
@@ -391,6 +486,245 @@ def _optional_int(value: Any) -> int | None:
     if coerced < 0:
         raise ValueError(f"Expected non-negative frame index, got {coerced}.")
     return coerced
+
+
+class _SimbaBehaviorColumns:
+    def __init__(
+        self,
+        *,
+        label: str,
+        behavior: str | None,
+        probability: str | None,
+        confidence: str | None,
+    ) -> None:
+        self.label = label
+        self.behavior = behavior
+        self.probability = probability
+        self.confidence = confidence
+
+
+class _SimbaColumns:
+    def __init__(
+        self,
+        *,
+        frame: str | None,
+        time: str | None,
+        behaviors: tuple[_SimbaBehaviorColumns, ...],
+    ) -> None:
+        self.frame = frame
+        self.time = time
+        self.behaviors = behaviors
+
+    @classmethod
+    def resolve(
+        cls,
+        frame: pd.DataFrame,
+        *,
+        frame_column: str | None,
+        time_column: str | None,
+        behavior_columns: Sequence[str] | None,
+    ) -> _SimbaColumns:
+        resolved_frame = _resolve_column(frame, frame_column, _SIMBA_FRAME_CANDIDATES)
+        resolved_time = _resolve_column(frame, time_column, _SIMBA_TIME_CANDIDATES)
+        behaviors = _resolve_simba_behavior_columns(frame, behavior_columns)
+        if not behaviors:
+            raise ValueError(
+                "SimBA CSV must include Probability_<classifier> columns or explicit "
+                "behavior_columns."
+            )
+        return cls(frame=resolved_frame, time=resolved_time, behaviors=behaviors)
+
+
+def _resolve_simba_behavior_columns(
+    frame: pd.DataFrame,
+    behavior_columns: Sequence[str] | None,
+) -> tuple[_SimbaBehaviorColumns, ...]:
+    if behavior_columns is not None:
+        return tuple(
+            _simba_behavior_from_column(frame, _column_by_name(frame, column))
+            for column in behavior_columns
+        )
+    probability_columns = _simba_probability_columns(frame)
+    return tuple(_simba_behavior_from_probability(frame, column) for column in probability_columns)
+
+
+def _simba_probability_columns(frame: pd.DataFrame) -> tuple[str, ...]:
+    columns: list[str] = []
+    for column in frame.columns:
+        column_name = str(column)
+        if column_name.lower().startswith(_SIMBA_PROBABILITY_PREFIX.lower()):
+            columns.append(column_name)
+    return tuple(columns)
+
+
+def _simba_behavior_from_column(frame: pd.DataFrame, column: str) -> _SimbaBehaviorColumns:
+    label = _simba_label_from_behavior_column(column)
+    return _SimbaBehaviorColumns(
+        label=label,
+        behavior=column,
+        probability=_case_insensitive_column(frame, f"{_SIMBA_PROBABILITY_PREFIX}{label}"),
+        confidence=_simba_confidence_column(frame, label),
+    )
+
+
+def _simba_behavior_from_probability(frame: pd.DataFrame, column: str) -> _SimbaBehaviorColumns:
+    label = _simba_label_from_probability_column(column)
+    behavior_column = _case_insensitive_column(frame, label)
+    return _SimbaBehaviorColumns(
+        label=label,
+        behavior=behavior_column,
+        probability=column,
+        confidence=_simba_confidence_column(frame, label),
+    )
+
+
+def _simba_label_from_probability_column(column: str) -> str:
+    if column.lower().startswith(_SIMBA_PROBABILITY_PREFIX.lower()):
+        label = column[len(_SIMBA_PROBABILITY_PREFIX) :]
+        if label:
+            return label
+    return column
+
+
+def _simba_label_from_behavior_column(column: str) -> str:
+    if column.lower().startswith(_SIMBA_PROBABILITY_PREFIX.lower()):
+        return _simba_label_from_probability_column(column)
+    return column
+
+
+def _simba_confidence_column(frame: pd.DataFrame, label: str) -> str | None:
+    for prefix in _SIMBA_CONFIDENCE_PREFIXES:
+        match = _case_insensitive_column(frame, f"{prefix}{label}")
+        if match is not None:
+            return match
+    for suffix in ("_confidence", "_Confidence"):
+        match = _case_insensitive_column(frame, f"{label}{suffix}")
+        if match is not None:
+            return match
+    return None
+
+
+def _case_insensitive_column(frame: pd.DataFrame, name: str) -> str | None:
+    names = {str(column).lower(): str(column) for column in frame.columns}
+    return names.get(name.lower())
+
+
+def _simba_frame_labels(
+    frame: pd.DataFrame,
+    columns: _SimbaColumns,
+    *,
+    time_scale: float,
+    probability_threshold: float | None,
+) -> tuple[BehaviorFrameLabel, ...]:
+    labels: list[BehaviorFrameLabel] = []
+    for index in range(len(frame)):
+        frame_index = _simba_frame_index(frame, columns.frame, index)
+        for behavior in columns.behaviors:
+            if not _simba_row_has_label(
+                frame,
+                behavior,
+                index,
+                probability_threshold=probability_threshold,
+            ):
+                continue
+            labels.append(
+                BehaviorFrameLabel(
+                    frame_index=frame_index,
+                    label=behavior.label,
+                    score=_optional_float_from_frame(frame, behavior.probability, index),
+                    confidence=_optional_text_from_frame(frame, behavior.confidence, index),
+                    metadata=_simba_row_metadata(
+                        frame,
+                        columns,
+                        behavior,
+                        index,
+                        time_scale=time_scale,
+                    ),
+                )
+            )
+    return tuple(labels)
+
+
+def _simba_frame_index(frame: pd.DataFrame, column: str | None, index: int) -> int:
+    if column is None:
+        return index
+    return _required_row_int(frame, column, index)
+
+
+def _simba_row_has_label(
+    frame: pd.DataFrame,
+    behavior: _SimbaBehaviorColumns,
+    index: int,
+    *,
+    probability_threshold: float | None,
+) -> bool:
+    if behavior.behavior is not None:
+        return _simba_behavior_present(frame[behavior.behavior].iloc[index])
+    if probability_threshold is None:
+        return _optional_float_from_frame(frame, behavior.probability, index) is not None
+    score = _optional_float_from_frame(frame, behavior.probability, index)
+    return score is not None and score >= probability_threshold
+
+
+def _simba_behavior_present(value: Any) -> bool:
+    if _is_missing(value):
+        return False
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized in {"1", "true", "t", "yes", "y", "present"}:
+            return True
+        if normalized in {"0", "false", "f", "no", "n", "absent"}:
+            return False
+    try:
+        coerced = _optional_float(value)
+        return coerced is not None and coerced > 0
+    except (TypeError, ValueError):
+        return bool(value)
+
+
+def _simba_row_metadata(
+    frame: pd.DataFrame,
+    columns: _SimbaColumns,
+    behavior: _SimbaBehaviorColumns,
+    index: int,
+    *,
+    time_scale: float,
+) -> dict[str, Any]:
+    metadata: dict[str, Any] = {"row_index": index}
+    time_s = _optional_float_from_frame(frame, columns.time, index)
+    if time_s is not None:
+        metadata["time_s"] = time_s * time_scale
+    if columns.frame is None:
+        metadata["frame_index_source"] = "row_index"
+    metadata["source_label"] = behavior.label
+    for key, value in (
+        ("source_behavior_column", behavior.behavior),
+        ("source_probability_column", behavior.probability),
+        ("source_confidence_column", behavior.confidence),
+    ):
+        if value is not None:
+            metadata[key] = value
+
+    used_columns = {
+        column
+        for column in (
+            columns.frame,
+            columns.time,
+            behavior.behavior,
+            behavior.probability,
+            behavior.confidence,
+        )
+        if column is not None
+    }
+    for column in frame.columns:
+        column_name = str(column)
+        if column_name in used_columns:
+            continue
+        value = frame[column].iloc[index]
+        if _is_missing(value):
+            continue
+        metadata[column_name] = _json_scalar(value)
+    return metadata
 
 
 class _BehaviorColumns:
@@ -630,4 +964,5 @@ __all__ = [
     "read_boris_csv",
     "read_behavior_events_csv",
     "read_behavior_events_json",
+    "read_simba_csv",
 ]

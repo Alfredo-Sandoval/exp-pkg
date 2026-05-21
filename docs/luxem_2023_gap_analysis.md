@@ -71,12 +71,12 @@ source-neutral contract alongside `Labels`:
 - source metadata and package-specific row metadata
 - generic behavior CSV and behavior-event JSON readers
 - BORIS tabular event CSV reader for manual ethogram intervals
+- SimBA framewise classifier CSV reader for imported upstream outputs
 
 Remaining importer work:
 
-- package-specific adapters for SimBA CSV, B-SOiD output, A-SOiD output,
-  Keypoint-MoSeq syllables, VAME motif export, DeepEthogram predictions, and
-  JAABA exports
+- package-specific adapters for B-SOiD output, A-SOiD output, Keypoint-MoSeq
+  syllables, VAME motif export, DeepEthogram predictions, and JAABA exports
 - classifier/model provenance mirroring `PoseModelProvenance`
 - `inspect` autodetect + label-count / coverage summary
 

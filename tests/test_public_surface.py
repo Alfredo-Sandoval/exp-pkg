@@ -172,6 +172,7 @@ from xpkg.readers import (
     read_pyphotometry_csv,
     read_pyphotometry_ppd,
     read_rwd_ofrs_session,
+    read_simba_csv,
     read_tdt_photometry_block,
     read_teleopto_h5,
 )
@@ -230,6 +231,7 @@ def test_root_namespace_is_curated_to_project_first_modules() -> None:
     assert callable(reloaded.readers.read_boris_csv)
     assert callable(reloaded.readers.read_behavior_events_csv)
     assert callable(reloaded.readers.read_behavior_events_json)
+    assert callable(reloaded.readers.read_simba_csv)
     assert callable(reloaded.readers.read_doric_photometry)
     assert callable(reloaded.readers.read_ephys_csv)
     assert callable(reloaded.readers.read_events_csv)
@@ -362,6 +364,7 @@ def test_public_exports_are_callable() -> None:
     assert callable(read_boris_csv)
     assert callable(read_behavior_events_csv)
     assert callable(read_behavior_events_json)
+    assert callable(read_simba_csv)
     assert callable(read_doric_photometry)
     assert callable(read_ephys_csv)
     assert callable(read_events_csv)
