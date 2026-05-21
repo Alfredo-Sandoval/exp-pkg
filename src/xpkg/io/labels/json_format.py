@@ -8,8 +8,6 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
-from xpkg.model.identity import identity_provenance_payload
-
 from ..._core.json_utils import load_json_dict, write_json
 from ..._core.path_registry import ensure_dir, make_path_id
 
@@ -193,6 +191,8 @@ def labels_to_json_payload(
     *,
     metadata: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
+    from xpkg.model.identity import identity_provenance_payload
+
     if len(labels.skeletons) != 1:
         raise ValueError("Labels JSON export requires exactly one skeleton")
 

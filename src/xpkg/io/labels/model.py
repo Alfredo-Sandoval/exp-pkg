@@ -7,7 +7,7 @@ import os
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Protocol, cast, overload, runtime_checkable
+from typing import TYPE_CHECKING, Any, Protocol, cast, overload, runtime_checkable
 
 import numpy as np
 
@@ -21,7 +21,6 @@ from xpkg.io.labels.merge import merge_matching_frames as _merge_matching_frames
 from xpkg.io.labels.query import LabelsQuery
 from xpkg.io.labels.tracks import add_track as _add_track
 from xpkg.io.labels.video_types import VideoProtocol
-from xpkg.model.identity import IdentityProvenanceRecord
 from xpkg.pose.annotations import (
     Instance,
     LabeledFrame,
@@ -36,6 +35,9 @@ from xpkg.pose.skeleton import (
 from ..._core.logging_utils import get_logger
 
 logger = get_logger(__name__)
+
+if TYPE_CHECKING:
+    from xpkg.model.identity import IdentityProvenanceRecord
 
 LABELS_JSON_FILE_VERSION = "2.0.0"
 
