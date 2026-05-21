@@ -45,7 +45,8 @@ Done:
   `{"ok": true, "data": <inspection-report>}`.
 - Project inspection report keys are stable:
   `status`, `path`, `name`, `suffix`, `exists`, `is_dir`, `size_bytes`,
-  `kind`, `description`, `likely_importers`, `summary`, and `warnings`.
+  `kind`, `description`, `likely_importers`, `summary`, `warnings`, and
+  `warning_records`.
 - Project `summary` keys are stable:
   `project_id`, `title`, `state_kind`, `has_current_state`, `state_bytes`,
   `commit_id`, `modalities`, `summary_path`, `metadata_slots`, and `media`.
@@ -55,10 +56,12 @@ Done:
 - `media` is the shallow summary-recorded associated-media inventory plus
   cheap existence checks and `current_image_count` for resolvable image
   sequences.
-- `warnings` is a stable list of strings. Ordinary inspect does not warn for
-  absent optional metadata slots; it does warn for invalid present metadata,
-  missing media, media count/frame drift, unavailable media inventory, and
-  unreadable shallow indexes.
+- `warnings` remains a backward-compatible list of strings, and
+  `warning_records` is the stable machine-readable list with
+  `code`/`message`/`path`/`severity`. Ordinary inspect does not warn for absent
+  optional metadata slots; it does warn for invalid present metadata, missing
+  media, media count/frame drift, unavailable media inventory, and unreadable
+  shallow indexes.
 - Regression tests lock the project JSON shape, metadata-slot shape, media
   shape, warnings behavior, and shallow/no-full-payload inspection behavior.
 

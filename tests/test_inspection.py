@@ -180,10 +180,12 @@ def test_inspect_path_project_json_shape_is_stable(tmp_path: Path) -> None:
         "likely_importers",
         "summary",
         "warnings",
+        "warning_records",
     ]
     assert payload["kind"] == "xpkg_project"
     assert payload["likely_importers"] == []
     assert payload["warnings"] == []
+    assert payload["warning_records"] == []
     summary = payload["summary"]
     assert list(summary) == [
         "project_id",
@@ -342,6 +344,18 @@ def test_inspect_path_reports_project_metadata_slots_without_payload_load(tmp_pa
         "metadata slot 'model_card' is invalid" in warning and "details" in warning
         for warning in report.warnings
     )
+    warning_records = report.to_dict()["warning_records"]
+    assert any(
+        record == {
+            "code": "project_metadata_invalid",
+            "message": warning,
+            "path": str(model_card_path),
+            "severity": "warning",
+        }
+        for warning in report.warnings
+        for record in warning_records
+        if "metadata slot 'model_card' is invalid" in warning
+    )
 
 
 def test_inspect_path_reports_project_media_from_summary_without_payload_load(
@@ -396,6 +410,12 @@ def test_inspect_path_reports_project_media_from_summary_without_payload_load(
         "Project media item 'source.avi' is missing: Media/source.avi" == warning
         for warning in report.warnings
     )
+    assert {
+        "code": "project_media_missing",
+        "message": "Project media item 'source.avi' is missing: Media/source.avi",
+        "path": "Media/source.avi",
+        "severity": "warning",
+    } in report.to_dict()["warning_records"]
 
 
 def test_inspect_path_project_image_sequence_media_reports_current_count(
@@ -457,6 +477,13 @@ def test_inspect_path_warns_when_project_media_inventory_unavailable(
         == "Project media inventory is unavailable for labels state with 1 recorded video(s)."
         for warning in report.warnings
     )
+    assert {
+        "code": "project_media_inventory_unavailable",
+        "message": "Project media inventory is unavailable for labels state with "
+        "1 recorded video(s).",
+        "path": str(summary_path),
+        "severity": "warning",
+    } in report.to_dict()["warning_records"]
 
 
 def test_inspect_path_reports_expkg_metadata_slots_without_unpacking(tmp_path: Path) -> None:
@@ -515,6 +542,44 @@ def test_inspect_path_reports_expkg_metadata_slots_without_unpacking(tmp_path: P
         and "details" in warning
         for warning in report.warnings
     )
+    assert any(
+        record["code"] == "packed_project_metadata_invalid"
+        and record["path"] == ".xpkg/metadata/model_card.json"
+        and "details" in record["message"]
+        for record in report.to_dict()["warning_records"]
+    )
+
+
+def test_inspect_path_reports_malformed_expkg_metadata_warning_record(
+    tmp_path: Path,
+) -> None:
+    artifact = tmp_path / "malformed-metadata.expkg"
+    with zipfile.ZipFile(artifact, mode="w") as archive:
+        archive.writestr(
+            "EXPKG.json",
+            json.dumps(
+                {
+                    "format": "xpkg-packed-project",
+                    "artifact_schema_version": 1,
+                    "media": {"mode": "manifest"},
+                }
+            ),
+        )
+        archive.writestr(".xpkg/metadata/datasheet.json", '{"title":')
+
+    report = inspect_path(artifact)
+
+    assert report.kind is InspectionKind.EXPKG_ARTIFACT
+    assert any(
+        "Packed project metadata slot 'datasheet' is invalid" in warning
+        for warning in report.warnings
+    )
+    assert any(
+        record["code"] == "packed_project_metadata_invalid"
+        and record["path"] == ".xpkg/metadata/datasheet.json"
+        and "datasheet" in record["message"]
+        for record in report.to_dict()["warning_records"]
+    )
 
 
 def test_inspection_report_to_dict_round_trips_wire_format(tmp_path: Path) -> None:
@@ -529,3 +594,4 @@ def test_inspection_report_to_dict_round_trips_wire_format(tmp_path: Path) -> No
     assert payload["likely_importers"] == ["events_csv"]
     assert isinstance(payload["summary"], dict)
     assert isinstance(payload["warnings"], list)
+    assert isinstance(payload["warning_records"], list)

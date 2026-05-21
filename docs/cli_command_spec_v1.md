@@ -100,7 +100,8 @@ envelope:
     "description": "xpkg project",
     "likely_importers": [],
     "summary": {},
-    "warnings": []
+    "warnings": [],
+    "warning_records": []
   }
 }
 ```
@@ -135,10 +136,21 @@ items can include `index`, `kind`, `path`, `backend`, `video_id`, `label`,
 `current_image_count` when the sequence directory is resolvable.
 
 `warnings` is always a list of strings. Ordinary project inspect does not warn
-for absent optional metadata slots. It does warn for invalid present metadata,
-missing recorded media, image-sequence count drift, out-of-range recorded
-label/prediction frame indices, unreadable summaries or artifact indexes, and
-older labels summaries that do not contain associated-media inventory.
+for absent optional metadata slots. It remains a backward-compatible human
+message list.
+
+`warning_records` is always a list of objects with `code`, `message`, `path`,
+and `severity`. For project directories and packed `.expkg` metadata, this is
+the stable machine-readable warning surface. Current codes include
+`project_metadata_invalid`, `project_media_missing`,
+`project_media_image_count_drift`, `project_media_label_frame_out_of_range`,
+`project_media_prediction_frame_out_of_range`,
+`project_media_inventory_unavailable`, `project_summary_warning`,
+`packed_project_metadata_invalid`, and `packed_project_manifest_missing`.
+Ordinary project inspect warns for invalid present metadata, missing recorded
+media, image-sequence count drift, out-of-range recorded label/prediction frame
+indices, unreadable summaries or artifact indexes, and older labels summaries
+that do not contain associated-media inventory.
 
 ## `xpkg project`
 

@@ -75,6 +75,25 @@ class InspectionKind(StrEnum):
 
 
 @dataclass(frozen=True, slots=True)
+class InspectionWarning:
+    """Stable machine-readable warning record for inspection JSON output."""
+
+    code: str
+    message: str
+    path: str | None = None
+    severity: str = "warning"
+
+    def to_dict(self) -> dict[str, Any]:
+        """Return the JSON-serializable warning record."""
+        return {
+            "code": self.code,
+            "message": self.message,
+            "path": self.path,
+            "severity": self.severity,
+        }
+
+
+@dataclass(frozen=True, slots=True)
 class InspectionReport:
     """Structured inspection result for a single file or folder."""
 
@@ -88,6 +107,7 @@ class InspectionReport:
     likely_importers: tuple[str, ...]
     summary: Mapping[str, Any]
     warnings: tuple[str, ...]
+    warning_records: tuple[InspectionWarning, ...] = ()
 
     @property
     def status(self) -> str:
@@ -112,6 +132,7 @@ class InspectionReport:
             "likely_importers": list(self.likely_importers),
             "summary": dict(self.summary),
             "warnings": list(self.warnings),
+            "warning_records": [warning.to_dict() for warning in self.warning_records],
         }
 
 _VIDEO_SUFFIXES = {
@@ -171,6 +192,63 @@ def _unique(items: Sequence[str]) -> list[str]:
     return list(dict.fromkeys(str(item) for item in items if str(item).strip()))
 
 
+def _warning_record(
+    code: str,
+    message: object,
+    *,
+    path: object | None = None,
+    severity: str = "warning",
+) -> InspectionWarning:
+    path_text = None if path is None else str(path)
+    return InspectionWarning(
+        code=str(code),
+        message=str(message),
+        path=path_text,
+        severity=str(severity),
+    )
+
+
+def _generic_warning_records(
+    warnings: Sequence[str],
+    *,
+    path: object | None = None,
+) -> tuple[InspectionWarning, ...]:
+    return tuple(
+        _warning_record("inspection_warning", warning, path=path) for warning in warnings
+    )
+
+
+def _coerce_warning_records(
+    records: object,
+    *,
+    fallback_warnings: Sequence[str],
+    fallback_path: object | None,
+) -> tuple[InspectionWarning, ...]:
+    if records is None:
+        return _generic_warning_records(fallback_warnings, path=fallback_path)
+    if not isinstance(records, Sequence) or isinstance(records, str | bytes | bytearray):
+        return _generic_warning_records(fallback_warnings, path=fallback_path)
+    out: list[InspectionWarning] = []
+    for record in records:
+        if isinstance(record, InspectionWarning):
+            out.append(record)
+            continue
+        if not isinstance(record, Mapping):
+            continue
+        record_map = cast("Mapping[str, Any]", record)
+        out.append(
+            _warning_record(
+                record_map.get("code", "inspection_warning"),
+                record_map.get("message", ""),
+                path=record_map.get("path"),
+                severity=str(record_map.get("severity", "warning")),
+            )
+        )
+    if len(out) != len(fallback_warnings):
+        return _generic_warning_records(fallback_warnings, path=fallback_path)
+    return tuple(out)
+
+
 def _read_text_lines(path: Path, *, limit: int = 8) -> list[str]:
     lines: list[str] = []
     with path.open("r", encoding="utf-8", errors="replace") as handle:
@@ -192,7 +270,25 @@ def _inspect_project_dir(path: Path) -> dict[str, Any]:
         raise FileNotFoundError(f"Not an xpkg project: {path}")
     descriptor = load_project_descriptor(project_root).to_dict()
     summary = snapshot_project_summary(project_root)
-    metadata_slots, metadata_warnings = _inspect_project_metadata_slots(project_root)
+    metadata_slots, metadata_warnings, metadata_warning_records = (
+        _inspect_project_metadata_slots(project_root)
+    )
+    inventory_warnings, inventory_warning_records = _project_media_inventory_warnings(
+        state_kind=summary.state_kind,
+        has_current_state=summary.has_current_state,
+        state_summary=summary.state_summary,
+        media_items=summary.media,
+        summary_path=project_summary_path(project_root),
+    )
+    media_warnings, media_warning_records = _project_media_warnings(project_root, summary.media)
+    summary_warning_records = [
+        _warning_record(
+            "project_summary_warning",
+            warning,
+            path=project_summary_path(project_root),
+        )
+        for warning in summary.warnings
+    ]
     return {
         "kind": "xpkg_project",
         "likely_importers": [],
@@ -211,22 +307,24 @@ def _inspect_project_dir(path: Path) -> dict[str, Any]:
         "warnings": [
             *summary.warnings,
             *metadata_warnings,
-            *_project_media_inventory_warnings(
-                state_kind=summary.state_kind,
-                has_current_state=summary.has_current_state,
-                state_summary=summary.state_summary,
-                media_items=summary.media,
-            ),
-            *_project_media_warnings(project_root, summary.media),
+            *inventory_warnings,
+            *media_warnings,
+        ],
+        "warning_records": [
+            *summary_warning_records,
+            *metadata_warning_records,
+            *inventory_warning_records,
+            *media_warning_records,
         ],
     }
 
 
 def _inspect_project_metadata_slots(
     project_root: Path,
-) -> tuple[dict[str, dict[str, Any]], list[str]]:
+) -> tuple[dict[str, dict[str, Any]], list[str], list[InspectionWarning]]:
     slots: dict[str, dict[str, Any]] = {}
     warnings: list[str] = []
+    warning_records: list[InspectionWarning] = []
     for name, path_for, load in _PROJECT_METADATA_SLOTS:
         metadata_path = path_for(project_root)
         present = metadata_path.is_file()
@@ -241,11 +339,19 @@ def _inspect_project_metadata_slots(
             except (OSError, TypeError, ValueError) as exc:
                 slot["valid"] = False
                 slot["error"] = str(exc)
-                warnings.append(f"Project metadata slot {name!r} is invalid: {exc}")
+                message = f"Project metadata slot {name!r} is invalid: {exc}"
+                warnings.append(message)
+                warning_records.append(
+                    _warning_record(
+                        "project_metadata_invalid",
+                        message,
+                        path=metadata_path,
+                    )
+                )
             else:
                 slot["valid"] = True
         slots[name] = slot
-    return slots, warnings
+    return slots, warnings, warning_records
 
 
 def _inspect_project_media(
@@ -269,41 +375,69 @@ def _project_media_inventory_warnings(
     has_current_state: bool,
     state_summary: Mapping[str, Any],
     media_items: Sequence[Mapping[str, Any]],
-) -> list[str]:
+    summary_path: Path,
+) -> tuple[list[str], list[InspectionWarning]]:
     if state_kind != "labels" or not has_current_state or media_items:
-        return []
+        return [], []
     video_count = _optional_non_negative_int(state_summary.get("video_count"))
     if video_count == 0:
-        return []
+        return [], []
     if video_count is None:
-        return [
+        message = (
             "Project media inventory is unavailable for labels state; no "
             "summary-recorded media item(s) are available."
-        ]
+        )
+    else:
+        message = (
+            "Project media inventory is unavailable for labels state with "
+            f"{video_count} recorded video(s)."
+        )
     return [
-        "Project media inventory is unavailable for labels state with "
-        f"{video_count} recorded video(s)."
+        message
+    ], [
+        _warning_record(
+            "project_media_inventory_unavailable",
+            message,
+            path=summary_path,
+        )
     ]
 
 
 def _project_media_warnings(
     project_root: Path,
     media_items: Sequence[Mapping[str, Any]],
-) -> list[str]:
+) -> tuple[list[str], list[InspectionWarning]]:
     warnings: list[str] = []
+    warning_records: list[InspectionWarning] = []
     for item in media_items:
         label = str(item.get("label") or item.get("path") or item.get("index") or "unknown")
         media_path = _resolve_project_media_path(project_root, item.get("path"))
         if not _media_item_exists(media_path, item.get("kind")):
-            warnings.append(f"Project media item {label!r} is missing: {item.get('path')}")
+            message = f"Project media item {label!r} is missing: {item.get('path')}"
+            warnings.append(message)
+            warning_records.append(
+                _warning_record(
+                    "project_media_missing",
+                    message,
+                    path=item.get("path"),
+                )
+            )
             continue
         expected_images = _optional_positive_int(item.get("image_count"))
         if item.get("kind") == "image_sequence" and expected_images is not None:
             current_images = _image_sequence_file_count(media_path)
             if current_images != expected_images:
-                warnings.append(
+                message = (
                     f"Project media item {label!r} expected {expected_images} image file(s), "
                     f"found {current_images}."
+                )
+                warnings.append(message)
+                warning_records.append(
+                    _warning_record(
+                        "project_media_image_count_drift",
+                        message,
+                        path=item.get("path"),
+                    )
                 )
 
         frame_count = _optional_positive_int(item.get("frame_count"))
@@ -311,17 +445,33 @@ def _project_media_warnings(
             continue
         max_label = _optional_non_negative_int(item.get("max_label_frame_index"))
         if max_label is not None and max_label >= frame_count:
-            warnings.append(
+            message = (
                 f"Project media item {label!r} has label frame index {max_label} "
                 f"outside {frame_count} frame(s)."
             )
+            warnings.append(message)
+            warning_records.append(
+                _warning_record(
+                    "project_media_label_frame_out_of_range",
+                    message,
+                    path=item.get("path"),
+                )
+            )
         max_prediction = _optional_non_negative_int(item.get("max_prediction_frame_index"))
         if max_prediction is not None and max_prediction >= frame_count:
-            warnings.append(
+            message = (
                 f"Project media item {label!r} has prediction frame index {max_prediction} "
                 f"outside {frame_count} frame(s)."
             )
-    return warnings
+            warnings.append(message)
+            warning_records.append(
+                _warning_record(
+                    "project_media_prediction_frame_out_of_range",
+                    message,
+                    path=item.get("path"),
+                )
+            )
+    return warnings, warning_records
 
 
 def _resolve_project_media_path(project_root: Path, raw_path: object) -> Path | None:
@@ -865,13 +1015,17 @@ def _inspect_image(path: Path) -> dict[str, Any]:
 
 def _inspect_expkg(path: Path) -> dict[str, Any]:
     warnings: list[str] = []
+    warning_records: list[InspectionWarning] = []
     summary: dict[str, Any] = {}
     with zipfile.ZipFile(path, "r") as archive:
         names = archive.namelist()
         summary["members"] = len(names)
-        metadata_slots, metadata_warnings = _inspect_expkg_metadata_slots(archive, names)
+        metadata_slots, metadata_warnings, metadata_warning_records = (
+            _inspect_expkg_metadata_slots(archive, names)
+        )
         summary["metadata_slots"] = metadata_slots
         warnings.extend(metadata_warnings)
+        warning_records.extend(metadata_warning_records)
         if EXPKG_MANIFEST_FILENAME in names:
             manifest = parse_json(archive.read(EXPKG_MANIFEST_FILENAME))
             manifest_map = _object_mapping(manifest)
@@ -882,22 +1036,32 @@ def _inspect_expkg(path: Path) -> dict[str, Any]:
                     "media": manifest_map.get("media"),
                 }
         else:
-            warnings.append(f"Missing {EXPKG_MANIFEST_FILENAME}.")
+            message = f"Missing {EXPKG_MANIFEST_FILENAME}."
+            warnings.append(message)
+            warning_records.append(
+                _warning_record(
+                    "packed_project_manifest_missing",
+                    message,
+                    path=EXPKG_MANIFEST_FILENAME,
+                )
+            )
     return {
         "kind": "expkg_artifact",
         "likely_importers": [],
         "summary": summary,
         "warnings": warnings,
+        "warning_records": warning_records,
     }
 
 
 def _inspect_expkg_metadata_slots(
     archive: zipfile.ZipFile,
     names: Sequence[str],
-) -> tuple[dict[str, dict[str, Any]], list[str]]:
+) -> tuple[dict[str, dict[str, Any]], list[str], list[InspectionWarning]]:
     name_set = set(names)
     slots: dict[str, dict[str, Any]] = {}
     warnings: list[str] = []
+    warning_records: list[InspectionWarning] = []
     for name, filename, load in _PROJECT_METADATA_ARCHIVE_SLOTS:
         member_path = f"{STORE_DIRNAME}/{PROJECT_METADATA_DIRNAME}/{filename}"
         present = member_path in name_set
@@ -916,11 +1080,19 @@ def _inspect_expkg_metadata_slots(
             except (KeyError, OSError, TypeError, ValueError) as exc:
                 slot["valid"] = False
                 slot["error"] = str(exc)
-                warnings.append(f"Packed project metadata slot {name!r} is invalid: {exc}")
+                message = f"Packed project metadata slot {name!r} is invalid: {exc}"
+                warnings.append(message)
+                warning_records.append(
+                    _warning_record(
+                        "packed_project_metadata_invalid",
+                        message,
+                        path=member_path,
+                    )
+                )
             else:
                 slot["valid"] = True
         slots[name] = slot
-    return slots, warnings
+    return slots, warnings, warning_records
 
 
 def inspect_path(
@@ -980,6 +1152,11 @@ def inspect_path(
     warnings = cast(Sequence[str], details["warnings"])
     summary = dict(summary_value) if isinstance(summary_value, Mapping) else {}
     payload = _path_payload(resolved)
+    warning_records = _coerce_warning_records(
+        details.get("warning_records"),
+        fallback_warnings=tuple(str(item) for item in warnings),
+        fallback_path=payload["path"],
+    )
     return InspectionReport(
         path=payload["path"],
         name=payload["name"],
@@ -991,7 +1168,8 @@ def inspect_path(
         likely_importers=tuple(str(item) for item in importers),
         summary=summary,
         warnings=tuple(str(item) for item in warnings),
+        warning_records=warning_records,
     )
 
 
-__all__ = ["InspectionKind", "InspectionReport", "inspect_path"]
+__all__ = ["InspectionKind", "InspectionReport", "InspectionWarning", "inspect_path"]

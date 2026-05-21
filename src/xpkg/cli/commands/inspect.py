@@ -54,6 +54,8 @@ def inspect_target(
                 )
         warnings = payload.get("warnings") or []
         for warning in warnings:
+            if isinstance(warning, dict):
+                warning = warning.get("message", warning)
             sys.stdout.write(f"Warning: {warning}\n")
 
     run_command(json_output=json_output, action=action, human_output=human_output)
