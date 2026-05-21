@@ -111,8 +111,9 @@ These objects are direct model primitives today. `xpkg.readers.read_photometry_c
 `xpkg.readers.read_neurophotometrics_csv`, `xpkg.readers.read_doric_photometry`,
 `xpkg.readers.read_teleopto_h5`, `xpkg.readers.read_tdt_photometry_block`,
 the pMAT CSV readers, and the behavior CSV readers including
-`xpkg.readers.read_simba_csv` are direct APIs on top of this model. Sync readers
-and project imports are planned next; see
+`xpkg.readers.read_simba_csv` and
+`xpkg.readers.read_keypoint_moseq_syllables_csv` are direct APIs on top of this
+model. Sync readers and project imports are planned next; see
 [Multimodal Session Model](../architecture/multimodal-session.md).
 
 ### Geometry and identity

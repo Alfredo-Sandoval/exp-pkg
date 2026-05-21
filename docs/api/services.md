@@ -202,6 +202,7 @@ readers.read_behavior_events_csv(...)
 readers.read_behavior_events_json(...)
 readers.read_boris_csv(...)
 readers.read_simba_csv(...)
+readers.read_keypoint_moseq_syllables_csv(...)
 ```
 
 Service-bound dispatch for these signal kinds is not implemented yet (planned

@@ -151,8 +151,8 @@ Implemented now:
 - direct readers for photometry CSV, event CSV, pMAT CSV, pyPhotometry PPD/CSV,
   RWD OFRS, Neurophotometrics CSV, Doric `.doric`, Teleopto H5, and optional
   TDT tank/block streams
-- direct readers for generic behavior CSVs, BORIS and SimBA CSVs, and
-  behavior-event JSON sidecars
+- direct readers for generic behavior CSVs, BORIS CSVs, SimBA CSVs,
+  Keypoint-MoSeq syllable CSVs, and behavior-event JSON sidecars
 - read-only `xpkg inspect PATH --json` summaries for projects, common files,
   pose exports, media, and `.expkg` artifacts
 - acquisition and dataset-share metadata model primitives

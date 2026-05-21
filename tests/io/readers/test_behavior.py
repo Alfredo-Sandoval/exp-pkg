@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import pytest
 
@@ -8,9 +9,12 @@ from xpkg.io.readers import (
     read_behavior_events_csv,
     read_behavior_events_json,
     read_boris_csv,
+    read_keypoint_moseq_syllables_csv,
     read_simba_csv,
 )
 from xpkg.model import BehaviorLabels
+
+FIXTURES = Path(__file__).resolve().parents[2] / "fixtures"
 
 
 def test_read_behavior_events_json_maps_human_annotation_intervals(tmp_path) -> None:
@@ -168,6 +172,63 @@ def test_read_simba_csv_accepts_probability_only_validation_outputs(tmp_path) ->
     assert labels.frame_labels[0].score == pytest.approx(0.7)
     assert labels.frame_labels[0].metadata["frame_index_source"] == "row_index"
     assert labels.frame_labels[0].metadata["velocity"] == pytest.approx(1.9)
+
+
+def test_read_keypoint_moseq_syllables_csv_maps_row_indexed_exports() -> None:
+    path = FIXTURES / "keypoint_moseq_syllables.csv"
+
+    labels = read_keypoint_moseq_syllables_csv(path, media_path="trial.mp4")
+
+    assert labels.source_type == "keypoint_moseq"
+    assert labels.media_path == "trial.mp4"
+    assert labels.metadata["source"]["format"] == "syllable_csv"
+    assert labels.metadata["source"]["frame_index_source"] == "row_index"
+    assert labels.metadata["source"]["syllable_column"] == "syllable"
+    assert labels.metadata["source"]["recording_name"] == "keypoint_moseq_syllables"
+    assert labels.metadata["source"]["uncertainty_columns"] == ["uncertainty"]
+    assert [(item.frame_index, item.label) for item in labels.frame_labels] == [
+        (0, "syllable_2"),
+        (1, "syllable_2"),
+        (2, "syllable_4"),
+    ]
+    assert labels.frame_labels[0].confidence == "high"
+    assert labels.frame_labels[0].metadata["frame_index_source"] == "row_index"
+    assert labels.frame_labels[0].metadata["recording_name"] == "keypoint_moseq_syllables"
+    assert labels.frame_labels[0].metadata["source_label"] == 2
+    assert labels.frame_labels[0].metadata["source_confidence"] == "high"
+    assert labels.frame_labels[0].metadata["centroid x"] == pytest.approx(10.5)
+    assert labels.frame_labels[0].metadata["latent_state 0"] == pytest.approx(0.1)
+    assert labels.frame_labels[0].metadata["uncertainty"] == pytest.approx(0.03)
+    assert labels.frame_labels[0].metadata["onset"] is True
+
+
+def test_read_keypoint_moseq_syllables_csv_accepts_framewise_motif_outputs(tmp_path) -> None:
+    path = tmp_path / "moseq_df.csv"
+    path.write_text(
+        "\n".join(
+            [
+                "frame_index,motif,score,entropy,name,time_s",
+                "10,5,0.83,0.12,trial-a,0.333",
+                "12,motif_7,0.62,0.31,trial-a,0.400",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    labels = read_keypoint_moseq_syllables_csv(path)
+
+    assert labels.metadata["source"]["frame_column"] == "frame_index"
+    assert labels.metadata["source"]["recording_column"] == "name"
+    assert labels.metadata["source"]["recording_name"] == "trial-a"
+    assert [(item.frame_index, item.label) for item in labels.frame_labels] == [
+        (10, "motif_5"),
+        (12, "motif_7"),
+    ]
+    assert labels.frame_labels[0].score == pytest.approx(0.83)
+    assert labels.frame_labels[0].metadata["recording_name"] == "trial-a"
+    assert labels.frame_labels[0].metadata["time_s"] == pytest.approx(0.333)
+    assert labels.frame_labels[0].metadata["source_score"] == pytest.approx(0.83)
+    assert labels.frame_labels[0].metadata["entropy"] == pytest.approx(0.12)
 
 
 def test_read_behavior_events_csv_accepts_framewise_motif_labels(tmp_path) -> None:

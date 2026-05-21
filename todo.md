@@ -98,11 +98,11 @@ should favor simple, common formats before larger tool-specific surfaces:
 Done:
 
 - BORIS tabular event CSV exports for manual ethogram intervals.
+- SimBA CSV outputs for supervised behavior labels.
+- Keypoint-MoSeq syllable CSV outputs with provenance and row metadata.
 
 Remaining:
 
-- SimBA CSV outputs for supervised behavior labels.
-- Keypoint-MoSeq syllables with careful provenance.
 - B-SOiD, A-SOiD, VAME, DeepEthogram, and JAABA after the first adapters prove
   the importer contract.
 

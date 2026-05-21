@@ -109,6 +109,7 @@ The direct reader surface also includes typed, project-free readers for:
 
 - Generic photometry CSV and event CSV
 - Generic behavior-event CSV and JSON
+- BORIS, SimBA, and Keypoint-MoSeq behavior CSV outputs
 - pMAT-compatible photometry/event CSV
 - pyPhotometry PPD and CSV+JSON
 - RWD OFRS CSV session bundles
@@ -177,6 +178,9 @@ They are not yet exposed as `ProjectService` signal/event project imports.
 | Generic photometry | CSV | Direct reader |
 | Generic events | CSV | Direct reader |
 | Generic behavior events | CSV / JSON | Direct reader |
+| BORIS | Tabular event CSV | Direct reader |
+| SimBA | Framewise classifier CSV | Direct reader |
+| Keypoint-MoSeq | Syllable CSV | Direct reader |
 | pMAT | Photometry/event CSV | Direct reader |
 | pyPhotometry | PPD, CSV+JSON | Direct reader |
 | RWD OFRS | CSV session bundle | Direct reader |

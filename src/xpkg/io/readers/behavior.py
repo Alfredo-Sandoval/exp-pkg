@@ -95,6 +95,55 @@ _SIMBA_TIME_CANDIDATES = (
 )
 _SIMBA_PROBABILITY_PREFIX = "Probability_"
 _SIMBA_CONFIDENCE_PREFIXES = ("Confidence_", "confidence_")
+_KEYPOINT_MOSEQ_FRAME_CANDIDATES = (
+    "frame_index",
+    "frame",
+    "frame_idx",
+    "Frame",
+)
+_KEYPOINT_MOSEQ_TIME_CANDIDATES = (
+    "time_s",
+    "time",
+    "timestamp",
+    "seconds",
+)
+_KEYPOINT_MOSEQ_LABEL_CANDIDATES = (
+    "syllable",
+    "syllable_id",
+    "motif",
+    "motif_id",
+    "state",
+    "z",
+)
+_KEYPOINT_MOSEQ_RECORDING_CANDIDATES = (
+    "recording_name",
+    "recording",
+    "name",
+    "video_name",
+    "video",
+)
+_KEYPOINT_MOSEQ_SCORE_CANDIDATES = (
+    "score",
+    "probability",
+    "prob",
+    "likelihood",
+    "posterior_probability",
+    "syllable_probability",
+    "motif_probability",
+    "confidence_score",
+)
+_KEYPOINT_MOSEQ_CONFIDENCE_CANDIDATES = (
+    "confidence",
+    "confidence_label",
+    "quality",
+)
+_KEYPOINT_MOSEQ_UNCERTAINTY_CANDIDATES = (
+    "uncertainty",
+    "syllable_uncertainty",
+    "motif_uncertainty",
+    "entropy",
+    "marginal_entropy",
+)
 
 
 def read_behavior_events_json(
@@ -290,6 +339,83 @@ def read_simba_csv(
                     for item in simba_columns.behaviors
                     if item.probability is not None
                 ],
+            }
+        },
+    )
+
+
+def read_keypoint_moseq_syllables_csv(
+    path: str | Path,
+    *,
+    media_path: str | Path | None = None,
+    frame_column: str | None = None,
+    time_column: str | None = None,
+    syllable_column: str | None = None,
+    recording_column: str | None = None,
+    score_column: str | None = None,
+    confidence_column: str | None = None,
+    uncertainty_columns: Sequence[str] | None = None,
+    recording_name: str | None = None,
+    time_unit: TimeUnit = "s",
+    max_mb: float | None = None,
+) -> BehaviorLabels:
+    """Read Keypoint-MoSeq syllable CSV outputs as imported frame labels.
+
+    ``keypoint_moseq.io.save_results_as_csv`` writes one row per frame with a
+    ``syllable`` column and no explicit frame column, while analysis dataframes
+    can include ``frame_index`` and recording ``name`` columns. This reader
+    keeps the syllable or motif assignment as a frame label and preserves the
+    remaining Keypoint-MoSeq columns as row metadata.
+    """
+
+    source_path = Path(path)
+    frame, size_bytes = _read_csv(source_path, max_mb=max_mb)
+    if frame.empty:
+        raise ValueError(f"Keypoint-MoSeq syllables CSV '{source_path}' is empty.")
+    columns = _KeypointMoseqColumns.resolve(
+        frame,
+        frame_column=frame_column,
+        time_column=time_column,
+        syllable_column=syllable_column,
+        recording_column=recording_column,
+        score_column=score_column,
+        confidence_column=confidence_column,
+        uncertainty_columns=uncertainty_columns,
+    )
+    resolved_recording = _keypoint_moseq_recording_name(
+        frame,
+        columns.recording,
+        explicit=recording_name,
+        fallback=source_path.stem,
+    )
+    frame_labels = _keypoint_moseq_frame_labels(
+        frame,
+        columns,
+        recording_name=resolved_recording,
+        time_scale=_time_scale(time_unit),
+    )
+    if not frame_labels:
+        raise ValueError("Keypoint-MoSeq syllables CSV did not contain labels to import.")
+    return BehaviorLabels(
+        source_type="keypoint_moseq",
+        frame_labels=frame_labels,
+        media_path=None if media_path is None else Path(media_path).as_posix(),
+        metadata={
+            "source": {
+                "type": "keypoint_moseq",
+                "path": str(source_path),
+                "size_bytes": size_bytes,
+                "format": "syllable_csv",
+                "frame_column": columns.frame,
+                "frame_index_source": "column" if columns.frame is not None else "row_index",
+                "time_column": columns.time,
+                "time_unit": time_unit,
+                "syllable_column": columns.label,
+                "recording_column": columns.recording,
+                "recording_name": resolved_recording,
+                "score_column": columns.score,
+                "confidence_column": columns.confidence,
+                "uncertainty_columns": list(columns.uncertainty),
             }
         },
     )
@@ -727,6 +853,209 @@ def _simba_row_metadata(
     return metadata
 
 
+class _KeypointMoseqColumns:
+    def __init__(
+        self,
+        *,
+        frame: str | None,
+        time: str | None,
+        label: str,
+        recording: str | None,
+        score: str | None,
+        confidence: str | None,
+        uncertainty: tuple[str, ...],
+    ) -> None:
+        self.frame = frame
+        self.time = time
+        self.label = label
+        self.recording = recording
+        self.score = score
+        self.confidence = confidence
+        self.uncertainty = uncertainty
+
+    @classmethod
+    def resolve(
+        cls,
+        frame: pd.DataFrame,
+        *,
+        frame_column: str | None,
+        time_column: str | None,
+        syllable_column: str | None,
+        recording_column: str | None,
+        score_column: str | None,
+        confidence_column: str | None,
+        uncertainty_columns: Sequence[str] | None,
+    ) -> _KeypointMoseqColumns:
+        label = _resolve_column(frame, syllable_column, _KEYPOINT_MOSEQ_LABEL_CANDIDATES)
+        if label is None:
+            raise ValueError(
+                "Keypoint-MoSeq syllables CSV must include a syllable or motif column."
+            )
+        return cls(
+            frame=_resolve_column(frame, frame_column, _KEYPOINT_MOSEQ_FRAME_CANDIDATES),
+            time=_resolve_column(frame, time_column, _KEYPOINT_MOSEQ_TIME_CANDIDATES),
+            label=label,
+            recording=_resolve_column(
+                frame,
+                recording_column,
+                _KEYPOINT_MOSEQ_RECORDING_CANDIDATES,
+            ),
+            score=_resolve_column(frame, score_column, _KEYPOINT_MOSEQ_SCORE_CANDIDATES),
+            confidence=_resolve_column(
+                frame,
+                confidence_column,
+                _KEYPOINT_MOSEQ_CONFIDENCE_CANDIDATES,
+            ),
+            uncertainty=_resolve_keypoint_moseq_uncertainty_columns(
+                frame,
+                uncertainty_columns,
+            ),
+        )
+
+    def used_names(self) -> set[str]:
+        return {
+            str(column)
+            for column in (
+                self.frame,
+                self.time,
+                self.label,
+                self.recording,
+                self.score,
+                self.confidence,
+            )
+            if column is not None
+        }
+
+
+def _resolve_keypoint_moseq_uncertainty_columns(
+    frame: pd.DataFrame,
+    uncertainty_columns: Sequence[str] | None,
+) -> tuple[str, ...]:
+    if uncertainty_columns is not None:
+        return tuple(_column_by_name(frame, column) for column in uncertainty_columns)
+    return tuple(
+        column
+        for column in (
+            _first_matching_column(frame, (candidate,))
+            for candidate in _KEYPOINT_MOSEQ_UNCERTAINTY_CANDIDATES
+        )
+        if column is not None
+    )
+
+
+def _keypoint_moseq_recording_name(
+    frame: pd.DataFrame,
+    column: str | None,
+    *,
+    explicit: str | None,
+    fallback: str,
+) -> str | None:
+    if explicit is not None:
+        return _optional_text(explicit)
+    if column is None:
+        return fallback
+    values = {
+        text
+        for text in (_optional_text(value) for value in frame[column].to_numpy())
+        if text is not None
+    }
+    if len(values) == 1:
+        return next(iter(values))
+    return None
+
+
+def _keypoint_moseq_frame_labels(
+    frame: pd.DataFrame,
+    columns: _KeypointMoseqColumns,
+    *,
+    recording_name: str | None,
+    time_scale: float,
+) -> tuple[BehaviorFrameLabel, ...]:
+    labels: list[BehaviorFrameLabel] = []
+    for index in range(len(frame)):
+        labels.append(
+            BehaviorFrameLabel(
+                frame_index=_keypoint_moseq_frame_index(frame, columns.frame, index),
+                label=_keypoint_moseq_label(frame[columns.label].iloc[index], columns.label),
+                score=_optional_float_from_frame(frame, columns.score, index),
+                confidence=_optional_text_from_frame(frame, columns.confidence, index),
+                metadata=_keypoint_moseq_row_metadata(
+                    frame,
+                    columns,
+                    index,
+                    recording_name=recording_name,
+                    time_scale=time_scale,
+                ),
+            )
+        )
+    return tuple(labels)
+
+
+def _keypoint_moseq_frame_index(frame: pd.DataFrame, column: str | None, index: int) -> int:
+    if column is None:
+        return index
+    return _required_row_int(frame, column, index)
+
+
+def _keypoint_moseq_label(value: Any, column: str) -> str:
+    text = _optional_text(value)
+    if text is None:
+        raise ValueError(f"Keypoint-MoSeq syllable column {column!r} contains an empty value.")
+    prefix = "motif" if "motif" in column.lower() else "syllable"
+    if text.lower().startswith(("syllable", "motif")):
+        return text
+    try:
+        numeric = float(text)
+    except ValueError:
+        return text
+    if np.isfinite(numeric) and numeric.is_integer():
+        return f"{prefix}_{int(numeric)}"
+    return text
+
+
+def _keypoint_moseq_row_metadata(
+    frame: pd.DataFrame,
+    columns: _KeypointMoseqColumns,
+    index: int,
+    *,
+    recording_name: str | None,
+    time_scale: float,
+) -> dict[str, Any]:
+    metadata: dict[str, Any] = {"row_index": index}
+    if columns.frame is None:
+        metadata["frame_index_source"] = "row_index"
+    recording = _optional_text_from_frame(frame, columns.recording, index) or recording_name
+    if recording is not None:
+        metadata["recording_name"] = recording
+    time_s = _optional_float_from_frame(frame, columns.time, index)
+    if time_s is not None:
+        metadata["time_s"] = time_s * time_scale
+    metadata["source_label_column"] = columns.label
+    metadata["source_label"] = _json_scalar(frame[columns.label].iloc[index])
+    for key, column in (
+        ("source_score_column", columns.score),
+        ("source_confidence_column", columns.confidence),
+    ):
+        if column is not None:
+            metadata[key] = column
+            value = frame[column].iloc[index]
+            if not _is_missing(value):
+                metadata[key.removesuffix("_column")] = _json_scalar(value)
+    if columns.uncertainty:
+        metadata["source_uncertainty_columns"] = list(columns.uncertainty)
+
+    used_columns = columns.used_names()
+    for column in frame.columns:
+        column_name = str(column)
+        if column_name in used_columns:
+            continue
+        value = frame[column].iloc[index]
+        if _is_missing(value):
+            continue
+        metadata[column_name] = _json_scalar(value)
+    return metadata
+
+
 class _BehaviorColumns:
     def __init__(
         self,
@@ -964,5 +1293,6 @@ __all__ = [
     "read_boris_csv",
     "read_behavior_events_csv",
     "read_behavior_events_json",
+    "read_keypoint_moseq_syllables_csv",
     "read_simba_csv",
 ]
