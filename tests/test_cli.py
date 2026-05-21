@@ -1135,6 +1135,7 @@ def test_cli_describe_json_pins_machine_contract(capsys) -> None:
         "inspect": ["path"],
         "import": [
             "calibration anipose",
+            "calibration opencv-stereo-yaml",
             "motion vicon",
             "motion vicon-c3d",
             "motion vicon-csv",
@@ -1169,6 +1170,7 @@ def test_cli_describe_json_pins_machine_contract(capsys) -> None:
         "describe",
         "inspect",
         "import calibration anipose",
+        "import calibration opencv-stereo-yaml",
         "import motion vicon",
         "import motion vicon-c3d",
         "import motion vicon-csv",

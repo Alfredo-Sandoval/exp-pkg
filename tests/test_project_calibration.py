@@ -5,6 +5,7 @@ import zipfile
 from pathlib import Path
 from typing import Any, cast
 
+from tests.calibration_helpers import write_anipose_toml, write_opencv_stereo_yaml
 from xpkg.project import (
     init_project,
     list_project_calibrations,
@@ -20,24 +21,6 @@ from xpkg.project.calibration import import_anipose_calibration_project
 from xpkg.services import ProjectService
 
 
-def _write_anipose_toml(path: Path) -> Path:
-    path.write_text(
-        """
-[cam_top]
-name = "cam_top"
-size = [1920, 1080]
-matrix = [[1000.0, 0.0, 960.0], [0.0, 1000.0, 540.0], [0.0, 0.0, 1.0]]
-distortions = [0.1, -0.01, 0.001, 0.002, 0.0]
-rotation = [0.0, 0.0, 0.0]
-translation = [1.0, 2.0, 3.0]
-fisheye = false
-""".strip()
-        + "\n",
-        encoding="utf-8",
-    )
-    return path
-
-
 def _read_expkg_manifest(artifact: Path) -> dict[str, Any]:
     with zipfile.ZipFile(artifact) as archive:
         raw = archive.read("EXPKG.json").decode("utf-8")
@@ -49,7 +32,7 @@ def _read_expkg_manifest(artifact: Path) -> dict[str, Any]:
 def test_project_calibration_store_round_trips_and_packs(tmp_path: Path) -> None:
     project = tmp_path / "Calibration Project"
     init_project(project, title="Calibration Project")
-    source = _write_anipose_toml(tmp_path / "calibration.toml")
+    source = write_anipose_toml(tmp_path / "calibration.toml")
 
     calibration_path = import_anipose_calibration_project(
         source,
@@ -90,7 +73,7 @@ def test_project_calibration_store_round_trips_and_packs(tmp_path: Path) -> None
 
 def test_project_service_imports_anipose_calibration(tmp_path: Path) -> None:
     project = ProjectService.create(tmp_path / "Service Calibration Project")
-    source = _write_anipose_toml(tmp_path / "calibration.toml")
+    source = write_anipose_toml(tmp_path / "calibration.toml")
 
     calibration_path = project.calibrations.import_anipose(
         source,
@@ -121,5 +104,57 @@ def test_project_service_imports_anipose_calibration(tmp_path: Path) -> None:
         / ".xpkg"
         / "calibrations"
         / "rig-from-imports"
+        / "calibration.json"
+    )
+
+
+def test_project_service_imports_opencv_stereo_calibration(tmp_path: Path) -> None:
+    project = ProjectService.create(tmp_path / "OpenCV Calibration Project")
+    source = write_opencv_stereo_yaml(tmp_path / "stereo.yml")
+
+    calibration_path = project.calibrations.import_opencv_stereo(
+        source,
+        calibration_id="stereo-rig",
+        name="arena-stereo",
+        camera_names=("left", "right"),
+        units="mm",
+        captured_at="2026-05-20T15:00:00Z",
+    )
+
+    assert calibration_path == (
+        project.project_root / ".xpkg" / "calibrations" / "stereo-rig" / "calibration.json"
+    )
+    assert (
+        project.project_root / ".xpkg" / "calibrations" / "stereo-rig" / "source" / "stereo.yml"
+    ).is_file()
+    loaded = load_project_calibration(project.project_root, "stereo-rig")
+    assert loaded.name == "arena-stereo"
+    assert loaded.captured_at == "2026-05-20T15:00:00Z"
+    assert loaded.units == "mm"
+    assert loaded.source is not None
+    assert loaded.source.tool == "opencv"
+    assert loaded.source.imported_from == "source/stereo.yml"
+    assert loaded.source.metadata["format"] == "opencv-stereo-yaml"
+    assert loaded.world_frame is not None
+    assert loaded.world_frame.anchor == "left"
+    assert loaded.camera_by_name("right").extrinsics.translation == (10.0, 20.0, 30.0)
+    assert (
+        loaded.metadata["opencv_stereo_transform"]
+        == "R,T transform camera_1 coordinates into camera_2 coordinates."
+    )
+
+    imported_via_dispatch = project.import_calibration(
+        "opencv-stereo-yaml",
+        path=source,
+        calibration_id="stereo-rig-from-imports",
+        name="arena-stereo-from-imports",
+        camera_names=("left", "right"),
+        units="mm",
+    )
+    assert imported_via_dispatch == (
+        project.project_root
+        / ".xpkg"
+        / "calibrations"
+        / "stereo-rig-from-imports"
         / "calibration.json"
     )

@@ -173,6 +173,7 @@ selecting a package-owned implementation by kebab-case ``format`` string:
 | `project.import_pose("mmpose-topdown-json", path=..., video=...)` | MMPose top-down JSON |
 | `project.import_pose("mediapipe-pose-landmarks-json", path=..., video=...)` | MediaPipe pose landmarks JSON |
 | `project.import_calibration("anipose", path=...)` | Anipose calibration TOML |
+| `project.import_calibration("opencv-stereo-yaml", path=...)` | OpenCV stereo calibration YAML |
 | `project.import_motion("vicon", path=...)` | Vicon auto-detect |
 | `project.import_motion("vicon-csv", path=...)` | Vicon CSV |
 | `project.import_motion("vicon-c3d", path=...)` | Vicon C3D |

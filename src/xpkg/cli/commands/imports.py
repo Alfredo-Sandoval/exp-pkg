@@ -24,7 +24,10 @@ from xpkg.cli.shared import (
     run_command,
     write_path,
 )
-from xpkg.project.calibration import import_anipose_calibration_project
+from xpkg.project.calibration import (
+    import_anipose_calibration_project,
+    import_opencv_stereo_calibration_project,
+)
 from xpkg.project.store.imports import (
     import_dlc_csv_project,
     import_dlc_h5_project,
@@ -82,6 +85,12 @@ _MOTION_FORMAT_LABELS: dict[str, str] = {
     "vicon": "Vicon recording",
     "vicon-csv": "Vicon CSV",
     "vicon-c3d": "Vicon C3D",
+}
+
+
+_CALIBRATION_FORMAT_LABELS: dict[str, str] = {
+    "anipose": "Anipose calibration",
+    "opencv-stereo-yaml": "OpenCV stereo calibration",
 }
 
 
@@ -328,7 +337,7 @@ def import_pose(
 def import_calibration(
     format: Annotated[
         str,
-        typer.Argument(help="Calibration format to import (e.g. anipose)."),
+        typer.Argument(help="Calibration format to import (e.g. anipose, opencv-stereo-yaml)."),
     ],
     out: Annotated[str, typer.Option("--out", help="Output project directory.")],
     path: Annotated[
@@ -373,11 +382,21 @@ def import_calibration(
                 captured_at=captured_at,
                 force=force,
             )
+        elif format == "opencv-stereo-yaml":
+            calibration_path = import_opencv_stereo_calibration_project(
+                path,
+                out,
+                calibration_id=calibration_id,
+                name=name,
+                units=units,
+                captured_at=captured_at,
+                force=force,
+            )
         else:  # pragma: no cover - defended above
             raise ValueError(f"Unknown calibration format: {format!r}")
         return _calibration_payload(format, out, calibration_path)
 
-    label = "Anipose calibration" if format == "anipose" else format
+    label = _CALIBRATION_FORMAT_LABELS[format]
     run_command(
         json_output=json_output,
         action=action,

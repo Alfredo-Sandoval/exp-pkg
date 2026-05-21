@@ -53,7 +53,10 @@ from xpkg.project import (
     unpack_project,
     validate_project,
 )
-from xpkg.project.calibration import import_anipose_calibration_project
+from xpkg.project.calibration import (
+    import_anipose_calibration_project,
+    import_opencv_stereo_calibration_project,
+)
 from xpkg.project.state import project_state_kind
 from xpkg.project.store import ensure_current_project_state_cache
 from xpkg.project.store.imports import (
@@ -99,7 +102,7 @@ PoseFormat = Literal[
 """Supported `format` values for ``ProjectService.import_pose``."""
 
 
-CalibrationFormat = Literal["anipose"]
+CalibrationFormat = Literal["anipose", "opencv-stereo-yaml"]
 """Supported `format` values for ``ProjectService.import_calibration``."""
 
 
@@ -186,6 +189,7 @@ _MOTION_IMPORTERS: dict[str, Callable[..., Path]] = {
 
 _CALIBRATION_IMPORTERS: dict[str, Callable[..., Path]] = {
     "anipose": import_anipose_calibration_project,
+    "opencv-stereo-yaml": import_opencv_stereo_calibration_project,
 }
 
 
@@ -423,22 +427,30 @@ class ProjectService:
         path: str | Path,
         calibration_id: str | None = None,
         name: str | None = None,
+        camera_names: tuple[str, str] | None = None,
         units: str = "unknown",
         captured_at: str | None = None,
+        tool_version: str | None = None,
         force: bool = False,
     ) -> Path:
         """Import a camera calibration from one of the supported formats."""
         importer = _CALIBRATION_IMPORTERS.get(format)
         if importer is None:
             raise ValueError(f"Unknown calibration format: {format!r}")
+        kwargs: dict[str, Any] = {
+            "project": self.project_root,
+            "calibration_id": calibration_id,
+            "name": name,
+            "units": units,
+            "captured_at": captured_at,
+            "tool_version": tool_version,
+            "force": force,
+        }
+        if camera_names is not None:
+            kwargs["camera_names"] = camera_names
         return importer(
             path,
-            project=self.project_root,
-            calibration_id=calibration_id,
-            name=name,
-            units=units,
-            captured_at=captured_at,
-            force=force,
+            **kwargs,
         )
 
     def import_motion(

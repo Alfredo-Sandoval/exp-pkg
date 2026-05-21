@@ -203,10 +203,13 @@ Done for direct readers:
 - Rectification-only files and unsupported distortion coefficient layouts are
   rejected rather than guessed.
 
+Done for project imports:
+
+- OpenCV stereo YAML is wired through project calibration import, service
+  dispatch, and CLI import surfaces with source YAML provenance preserved.
+
 Remaining follow-up:
 
-- Wire OpenCV stereo YAML through project calibration import if that command
-  surface is needed.
 - Kalibr `camchain.yaml`.
 - MC-calib outputs.
 

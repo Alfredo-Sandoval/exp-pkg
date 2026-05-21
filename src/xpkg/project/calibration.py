@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import shutil
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import replace
 from pathlib import Path
 from typing import Any
@@ -109,33 +109,32 @@ def _calibration_with_imported_source_path(
     return replace(calibration, source=replace(source, imported_from=imported_from))
 
 
-def import_anipose_calibration_project(
-    toml_path: str | Path,
+def _import_calibration_source_project(
+    source: str | Path,
     project: str | Path,
     *,
+    reader: Callable[..., Calibration],
+    source_label: str,
     calibration_id: str | None = None,
     name: str | None = None,
     units: str = "unknown",
     captured_at: str | None = None,
-    world_frame: WorldFrame | Mapping[str, Any] | None = None,
     tool_version: str | None = None,
     force: bool = False,
+    reader_kwargs: Mapping[str, Any] | None = None,
 ) -> Path:
-    """Import an Anipose ``calibration.toml`` into the project calibration store."""
-    from xpkg.io.readers.anipose import read_anipose_calibration
-
-    source_path = resolve_path(toml_path)
+    source_path = resolve_path(source)
     if not source_path.is_file():
-        raise FileNotFoundError(f"Anipose calibration TOML not found: {source_path}")
+        raise FileNotFoundError(f"{source_label} not found: {source_path}")
     target_id = _calibration_id(calibration_id, fallback=name or source_path.stem)
     source_relative_path = f"{CALIBRATION_SOURCE_DIRNAME}/{source_path.name}"
-    calibration = read_anipose_calibration(
+    calibration = reader(
         source_path,
         name=name,
         units=units,
         captured_at=captured_at,
-        world_frame=world_frame,
         tool_version=tool_version,
+        **dict(reader_kwargs or {}),
     )
     calibration = _calibration_with_imported_source_path(
         calibration,
@@ -153,11 +152,72 @@ def import_anipose_calibration_project(
     return calibration_path
 
 
+def import_anipose_calibration_project(
+    toml_path: str | Path,
+    project: str | Path,
+    *,
+    calibration_id: str | None = None,
+    name: str | None = None,
+    units: str = "unknown",
+    captured_at: str | None = None,
+    world_frame: WorldFrame | Mapping[str, Any] | None = None,
+    tool_version: str | None = None,
+    force: bool = False,
+) -> Path:
+    """Import an Anipose ``calibration.toml`` into the project calibration store."""
+    from xpkg.io.readers.anipose import read_anipose_calibration
+
+    return _import_calibration_source_project(
+        toml_path,
+        project,
+        reader=read_anipose_calibration,
+        source_label="Anipose calibration TOML",
+        calibration_id=calibration_id,
+        name=name,
+        units=units,
+        captured_at=captured_at,
+        tool_version=tool_version,
+        force=force,
+        reader_kwargs={"world_frame": world_frame},
+    )
+
+
+def import_opencv_stereo_calibration_project(
+    yaml_path: str | Path,
+    project: str | Path,
+    *,
+    calibration_id: str | None = None,
+    name: str | None = None,
+    camera_names: tuple[str, str] = ("camera_1", "camera_2"),
+    units: str = "unknown",
+    captured_at: str | None = None,
+    tool_version: str | None = None,
+    force: bool = False,
+) -> Path:
+    """Import an OpenCV stereo-calibration YAML into the project store."""
+    from xpkg.io.readers.opencv_stereo import read_opencv_stereo_calibration
+
+    return _import_calibration_source_project(
+        yaml_path,
+        project,
+        reader=read_opencv_stereo_calibration,
+        source_label="OpenCV stereo calibration YAML",
+        calibration_id=calibration_id,
+        name=name,
+        units=units,
+        captured_at=captured_at,
+        tool_version=tool_version,
+        force=force,
+        reader_kwargs={"camera_names": camera_names},
+    )
+
+
 __all__ = [
     "CALIBRATIONS_DIRNAME",
     "CALIBRATION_FILENAME",
     "CALIBRATION_SOURCE_DIRNAME",
     "import_anipose_calibration_project",
+    "import_opencv_stereo_calibration_project",
     "list_project_calibrations",
     "load_project_calibration",
     "project_calibration_path",

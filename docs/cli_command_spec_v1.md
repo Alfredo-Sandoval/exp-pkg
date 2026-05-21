@@ -216,6 +216,7 @@ xpkg import pose mmpose-topdown-json --input-json results.json --video video.mp4
 xpkg import pose mediapipe-pose-landmarks-json --input-json pose_landmarks.json --video video.mp4 --out "./My Project"
 
 xpkg import calibration anipose --path rig.toml --out "./My Project"
+xpkg import calibration opencv-stereo-yaml --path stereo.yml --out "./My Project"
 
 xpkg import motion vicon --path trial.c3d --out "./My Project"
 xpkg import motion vicon-csv --path trial.csv --out "./My Project"
@@ -233,6 +234,7 @@ xpkg import motion vicon-c3d --path trial.c3d --out "./My Project"
 - `xpkg import pose sleap-h5`
 - `xpkg import pose sleap-package`
 - `xpkg import calibration anipose`
+- `xpkg import calibration opencv-stereo-yaml`
 - `xpkg import motion vicon`
 - `xpkg import motion vicon-csv`
 - `xpkg import motion vicon-c3d`

@@ -71,6 +71,7 @@ def _describe_payload() -> dict[str, object]:
             "inspect": ["path"],
             "import": [
                 "calibration anipose",
+                "calibration opencv-stereo-yaml",
                 "motion vicon",
                 "motion vicon-c3d",
                 "motion vicon-csv",
@@ -105,6 +106,7 @@ def _describe_payload() -> dict[str, object]:
             "describe",
             "inspect",
             "import calibration anipose",
+            "import calibration opencv-stereo-yaml",
             "import motion vicon",
             "import motion vicon-c3d",
             "import motion vicon-csv",

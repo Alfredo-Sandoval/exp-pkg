@@ -420,7 +420,7 @@ def test_project_service_dispatches_supported_pose_calibration_and_motion_format
         "sleap-h5",
         "sleap-package",
     }
-    calibration_formats: set[str] = {"anipose"}
+    calibration_formats: set[str] = {"anipose", "opencv-stereo-yaml"}
     motion_formats: set[str] = {"vicon", "vicon-csv", "vicon-c3d"}
 
     from typing import get_args

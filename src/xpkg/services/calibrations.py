@@ -11,6 +11,7 @@ from typing import Any
 from xpkg.model.calibration import Calibration, WorldFrame
 from xpkg.project.calibration import (
     import_anipose_calibration_project,
+    import_opencv_stereo_calibration_project,
     list_project_calibrations,
     load_project_calibration,
     project_calibration_path,
@@ -95,6 +96,32 @@ class ProjectCalibrations:
             units=units,
             captured_at=captured_at,
             world_frame=world_frame,
+            tool_version=tool_version,
+            force=force,
+        )
+
+    def import_opencv_stereo(
+        self,
+        yaml_path: str | Path,
+        *,
+        calibration_id: str | None = None,
+        name: str | None = None,
+        camera_names: tuple[str, str] = ("camera_1", "camera_2"),
+        units: str = "unknown",
+        captured_at: str | None = None,
+        tool_version: str | None = None,
+        force: bool = False,
+    ) -> Path:
+        """Import an OpenCV stereo-calibration YAML into this project."""
+
+        return import_opencv_stereo_calibration_project(
+            yaml_path,
+            self.project_root,
+            calibration_id=calibration_id,
+            name=name,
+            camera_names=camera_names,
+            units=units,
+            captured_at=captured_at,
             tool_version=tool_version,
             force=force,
         )

@@ -4,65 +4,13 @@ from pathlib import Path
 
 import pytest
 
+from tests.calibration_helpers import write_opencv_stereo_yaml
 from xpkg.io.readers import read_opencv_stereo_calibration
-
-
-def _write_opencv_stereo_yaml(path: Path, *, distortion_key: str = "D2") -> Path:
-    path.write_text(
-        f"""
-%YAML:1.0
----
-image_width: 640
-image_height: 480
-M1: !!opencv-matrix
-   rows: 3
-   cols: 3
-   dt: d
-   data: [ 1000.0, 0.0, 320.0, 0.0, 1001.0, 240.0, 0.0, 0.0, 1.0 ]
-D1: !!opencv-matrix
-   rows: 1
-   cols: 5
-   dt: d
-   data: [ 0.1, -0.01, 0.001, 0.002, 0.0 ]
-M2: !!opencv-matrix
-   rows: 3
-   cols: 3
-   dt: d
-   data: [ 990.0, 0.0, 300.0, 0.0, 991.0, 230.0, 0.0, 0.0, 1.0 ]
-{distortion_key}: !!opencv-matrix
-   rows: 1
-   cols: 4
-   dt: d
-   data: [ 0.02, -0.03, 0.004, -0.005 ]
-R: !!opencv-matrix
-   rows: 3
-   cols: 3
-   dt: d
-   data: [ 0.0, -1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0 ]
-T: !!opencv-matrix
-   rows: 3
-   cols: 1
-   dt: d
-   data: [ 10.0, 20.0, 30.0 ]
-E: !!opencv-matrix
-   rows: 3
-   cols: 3
-   dt: d
-   data: [ 0.0, -30.0, 20.0, 30.0, 0.0, -10.0, -20.0, 10.0, 0.0 ]
-F: !!opencv-matrix
-   rows: 3
-   cols: 3
-   dt: d
-   data: [ 0.0, -0.03, 0.02, 0.03, 0.0, -0.01, -0.02, 0.01, 0.0 ]
-""".lstrip(),
-        encoding="utf-8",
-    )
-    return path
 
 
 def test_read_opencv_stereo_calibration_maps_to_generic_calibration(tmp_path: Path) -> None:
     calibration = read_opencv_stereo_calibration(
-        _write_opencv_stereo_yaml(tmp_path / "stereo.yml"),
+        write_opencv_stereo_yaml(tmp_path / "stereo.yml"),
         name="arena-rig",
         camera_names=("left", "right"),
         units="mm",
@@ -112,14 +60,14 @@ def test_read_opencv_stereo_calibration_maps_to_generic_calibration(tmp_path: Pa
 def test_read_opencv_stereo_calibration_requires_unrectified_stereo_keys(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="missing 'D2'"):
         read_opencv_stereo_calibration(
-            _write_opencv_stereo_yaml(tmp_path / "rectification_only.yml", distortion_key="P2")
+            write_opencv_stereo_yaml(tmp_path / "rectification_only.yml", distortion_key="P2")
         )
 
 
 def test_read_opencv_stereo_calibration_rejects_unsupported_distortion_count(
     tmp_path: Path,
 ) -> None:
-    source = _write_opencv_stereo_yaml(tmp_path / "stereo.yml")
+    source = write_opencv_stereo_yaml(tmp_path / "stereo.yml")
     text = source.read_text(encoding="utf-8")
     source.write_text(
         text.replace(
