@@ -182,6 +182,41 @@ Still ahead:
 - project import/storage for behavior segmentation outputs from upstream tools
   or lab workflows
 
+## Shallow Acquisition QC Evidence
+
+Project inspect can warn about acquisition and sync quality only when the
+generated project summary or a future session manifest records explicit
+evidence. It must not demux videos, hydrate labels, load signal payloads, or
+infer failure from missing optional metadata.
+
+The shallow summary needs three evidence groups before inspect-time warnings
+are meaningful:
+
+- `media_timing`: one record per associated media item with media id/path,
+  nominal FPS, observed FPS or timestamp-derived FPS when already known,
+  frame count, duration, timebase id, timing source, and optional dropped-frame
+  evidence such as count, indices, spans, or source-side warnings.
+- `timed_streams`: one record per pose, behavior, event, photometry, ephys, or
+  other timed stream with stream id, modality, sample/frame count, start/end
+  time, sample rate when known, timebase id, source path, and whether the
+  source explicitly declares that synchronization is required.
+- `sync_evidence`: source-recorded links between timebases or streams, such as
+  TTL pulses, frame clocks, trigger rows, hardware clock names, offset maps,
+  uncertainty, source path, and provenance for the importer that observed the
+  evidence.
+
+Warnings should stay evidence-gated:
+
+- Dropped-frame warnings require recorded dropped-frame evidence, not merely a
+  video file or frame-count mismatch opportunity.
+- FPS-drift warnings require both a nominal rate and an observed or
+  timestamp-derived rate captured during import or summary generation.
+- Missing-sync warnings require an explicit `sync_required` or equivalent
+  multi-timebase declaration plus no usable `sync_evidence` for the declared
+  relationship.
+- Unknown timing, absent acquisition metadata, or older summaries without these
+  fields should remain status information, not warnings.
+
 ## Design Constraints
 
 - Keep the core package IO-focused.

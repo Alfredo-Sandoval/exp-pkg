@@ -114,15 +114,19 @@ Done for newly generated labels media summaries:
   existing shallow media inventory, without decoding media or hydrating project
   payloads.
 
+Done for design docs:
+
+- `docs/architecture/multimodal-session.md` defines the shallow `media_timing`,
+  `timed_streams`, and `sync_evidence` records needed before inspect can warn
+  about dropped frames, FPS drift, or missing sync evidence.
+
 Remaining follow-up:
 
-- Report dropped-frame or FPS-drift evidence only when already recorded in a
-  shallow descriptor/summary; do not demux media during project inspect.
-- Add project-level warnings for missing timebase/sync metadata when the
-  shallow summary can distinguish multi-timed-modality projects from ordinary
-  pose/video projects.
-- Track what is known versus unknown; do not invent certainty from absent
-  metadata.
+- Add shallow summary/session-manifest fields that record dropped-frame,
+  observed-FPS, timed-stream, and sync evidence at import or summary-generation
+  time.
+- Add evidence-gated project-level warnings only after shallow summaries can
+  distinguish required sync from unknown or optional metadata.
 
 ### 5. Behavior Label Importers
 

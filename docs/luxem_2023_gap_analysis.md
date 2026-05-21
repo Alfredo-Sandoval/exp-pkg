@@ -123,24 +123,29 @@ Remaining work:
 File-level inspect already reports basic media/timing and pose-confidence
 signals. Project-level inspect now surfaces summary-recorded media FPS,
 duration, and frame-index timebase status without decoding media. Deeper
-project-level acquisition QC is still shallow. Add inspect-time checks the
-paper calls for explicitly:
+project-level acquisition QC should stay shallow and evidence-gated. Add
+inspect-time checks only after the project summary or a future session manifest
+records the needed evidence:
 
-- dropped-frame / FPS-drift evidence across associated videos
-- sync coverage between video timebase and event/photometry streams
+- dropped-frame / FPS-drift evidence already recorded for associated videos
+- declared sync requirements plus source-recorded sync evidence between video
+  timebases and event/photometry streams
 - per-keypoint confidence histograms + below-threshold spans across imported
   pose state
 - camera-coverage check for multi-camera projects (≥ 1 camera sees each
   keypoint at all times)
 
-Surface as warnings in `xpkg inspect --json` output.
+Surface as warnings in `xpkg inspect --json` only when recorded evidence shows
+a problem or the shallow summary explicitly declares that required sync
+evidence is missing. Unknown timing or absent optional acquisition metadata
+should remain status, not a warning.
 
 ### 6. More calibration importers
 
 `anipose.py` is great. OpenCV stereo YAML can now be read into the generic
-calibration model. Add project import wiring plus Kalibr (`camchain.yaml`) and
-MC-calib (Rameau et al. 2022, cited in §"Data acquisition") so users coming
-from other 3D stacks aren't locked out.
+calibration model and imported into project calibration stores. Add Kalibr
+(`camchain.yaml`) and MC-calib (Rameau et al. 2022, cited in §"Data
+acquisition") so users coming from other 3D stacks aren't locked out.
 
 ### 7. Cross-file / project-level inspection
 
