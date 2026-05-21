@@ -119,8 +119,10 @@ Remaining work:
 ### 5. Acquisition QC in `inspect`
 
 File-level inspect already reports basic media/timing and pose-confidence
-signals. Project-level acquisition QC is still shallow. Add inspect-time checks
-the paper calls for explicitly:
+signals. Project-level inspect now surfaces summary-recorded media FPS,
+duration, and frame-index timebase status without decoding media. Deeper
+project-level acquisition QC is still shallow. Add inspect-time checks the
+paper calls for explicitly:
 
 - dropped-frame / FPS-drift evidence across associated videos
 - sync coverage between video timebase and event/photometry streams

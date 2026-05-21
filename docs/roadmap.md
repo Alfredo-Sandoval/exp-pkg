@@ -140,9 +140,10 @@ xpkg inspect file_or_folder --json
 ```
 
 The command now reports likely kinds, likely importers, selected media/table
-metadata, project summaries, `.expkg` summaries, and basic pose-confidence QC.
-Next it should grow associated-media matching, missing-file checks, acquisition
-metadata, sync evidence, richer timestamp checks, and project-aware warnings.
+metadata, project summaries, `.expkg` summaries, basic pose-confidence QC, and
+summary-recorded project media FPS/duration/timebase hints. Next it should grow
+associated-media matching, missing-file checks, acquisition metadata, sync
+evidence, richer timestamp checks, and project-aware warnings.
 It should remain read-only so users can decide whether a file is safe to import
 before `xpkg` writes project state.
 

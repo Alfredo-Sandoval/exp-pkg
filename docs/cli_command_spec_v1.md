@@ -130,10 +130,13 @@ the slot also includes an `error` string.
 `media` is a list copied from the generated shallow project summary. Inspect
 adds `exists` for every media item without decoding media. Summary-recorded
 items can include `index`, `kind`, `path`, `backend`, `video_id`, `label`,
-`frame_count`, `height`, `width`, `channels`, `image_count`,
+`frame_count`, `fps`, `duration_s`, `timebase`, `height`, `width`, `channels`, `image_count`,
 `label_frame_count`, `max_label_frame_index`, `prediction_frame_count`, and
 `max_prediction_frame_index`. Image-sequence items also include
-`current_image_count` when the sequence directory is resolvable.
+`current_image_count` when the sequence directory is resolvable. `fps`,
+`duration_s`, and `timebase` come from the summary-recorded media object at
+save/import time; project inspect does not demux video containers to infer
+dropped frames or FPS drift.
 
 `warnings` is always a list of strings. Ordinary project inspect does not warn
 for absent optional metadata slots. It remains a backward-compatible human

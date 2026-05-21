@@ -105,9 +105,22 @@ Remaining follow-up:
 
 ### 4. Timing And Acquisition QC
 
-- Report basic dropped-frame or FPS-drift evidence where already cheap.
-- Add project-level warnings for missing timebase/sync metadata when a project
-  has multiple timed modalities.
+Done for newly generated labels media summaries:
+
+- Persist summary-recorded `fps`, derived `duration_s`, and
+  `timebase: "frame_index"` from the already-open media object at save/import
+  time.
+- Report those timing fields through `xpkg inspect PROJECT --json` via the
+  existing shallow media inventory, without decoding media or hydrating project
+  payloads.
+
+Remaining follow-up:
+
+- Report dropped-frame or FPS-drift evidence only when already recorded in a
+  shallow descriptor/summary; do not demux media during project inspect.
+- Add project-level warnings for missing timebase/sync metadata when the
+  shallow summary can distinguish multi-timed-modality projects from ordinary
+  pose/video projects.
 - Track what is known versus unknown; do not invent certainty from absent
   metadata.
 

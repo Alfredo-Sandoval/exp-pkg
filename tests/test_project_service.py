@@ -146,6 +146,9 @@ def test_project_summary_tracks_media_frame_inventory(tmp_path: Path) -> None:
     assert media["kind"] == "video_file"
     assert media["path"] == "Media/source.avi"
     assert media["frame_count"] == 3
+    assert media["fps"] == pytest.approx(5.0)
+    assert media["duration_s"] == pytest.approx(0.6)
+    assert media["timebase"] == "frame_index"
     assert media["height"] == 12
     assert media["width"] == 16
     assert media["label_frame_count"] == 1

@@ -175,6 +175,8 @@ def labels_media_summary(
         fallback_label = Path(raw_path).name if raw_path else f"video-{index}"
         label_entry = label_stats.get(index, {})
         prediction_entry = prediction_stats.get(index, {})
+        fps = _safe_float(getattr(video, "fps", 0.0))
+        frame_count = _safe_int(getattr(video, "frames", 0))
         items.append(
             {
                 "index": index,
@@ -183,7 +185,10 @@ def labels_media_summary(
                 "backend": str(video.backend or ""),
                 "video_id": str(video.id or f"video_{index}"),
                 "label": str(video.label or fallback_label),
-                "frame_count": _safe_int(getattr(video, "frames", 0)),
+                "frame_count": frame_count,
+                "fps": fps,
+                "duration_s": _duration_seconds(frame_count, fps),
+                "timebase": "frame_index" if fps > 0.0 else None,
                 "height": _safe_int(getattr(video, "height", 0)),
                 "width": _safe_int(getattr(video, "width", 0)),
                 "channels": _safe_int(getattr(video, "channels", 0)),
@@ -507,6 +512,19 @@ def _safe_int(value: object) -> int:
         return int(cast("str | bytes | bytearray | int | float | bool", value))
     except (TypeError, ValueError):
         return 0
+
+
+def _safe_float(value: object) -> float:
+    try:
+        return float(cast("str | bytes | bytearray | int | float | bool", value))
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _duration_seconds(frame_count: int, fps: float) -> float | None:
+    if frame_count <= 0 or fps <= 0.0:
+        return None
+    return float(frame_count / fps)
 
 
 def _summary_media_path(raw_path: str, project_root: Path | None) -> str:
