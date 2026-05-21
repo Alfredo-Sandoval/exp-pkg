@@ -88,6 +88,7 @@ nav:
   - Performance Guidance: performance.md
   - Roadmap: roadmap.md
   - Behavior Video Roadmap: luxem_2023_gap_analysis.md
+  - 3D Pose Design: pose_3d_design.md
   - Artifact Contract v1: artifact_contract_v1.md
   - Artifact Namespaces: artifact-namespaces.md
   - CLI Command Spec v1: cli_command_spec_v1.md

@@ -136,18 +136,17 @@ For each adapter:
 
 ### 6. 3D Pose Design
 
-Do not casually add `z` to every 2D point. First decide how 3D coordinates
-should encode coordinate frames and provenance.
+Done for design docs:
 
-Design questions:
-
-- Do we need a separate `PoseTrajectory3D` or `SpatialPointSeries` type?
-- How do we distinguish image coordinates, camera coordinates, world
-  coordinates, lifted-model predictions, and marker-based mocap points?
-- Where do units live?
-- How does a 3D point reference calibration provenance?
-- Where do reprojection error, visibility, confidence, and source-tool metadata
-  live?
+- `docs/pose_3d_design.md` defines the coordinate-frame-first contract.
+- Reuse existing `PoseTrajectory` for 2D/3D skeletal or named-marker
+  trajectories; do not add a separate `PoseTrajectory3D` unless runtime
+  storage diverges.
+- Reserve a future `SpatialPointSeries` for non-skeletal point streams.
+- Keep `Labels`, `Point`, and `PredictedPoint` image-space and 2D.
+- Put units, coordinate frame, calibration provenance, reprojection error,
+  visibility, confidence, and source-tool metadata at trajectory/project/quality
+  sidecar scope rather than casual point fields.
 
 Likely 3D importer sequence:
 

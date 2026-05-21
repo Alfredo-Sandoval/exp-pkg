@@ -81,12 +81,16 @@ Remaining importer work:
 - classifier/model provenance mirroring `PoseModelProvenance`
 - `inspect` autodetect + label-count / coverage summary
 
-### 2. 3D pose support in `Labels`
+### 2. 3D pose coordinate-frame contract
 
-Calibration plumbing exists; `Labels` is 2D-centric. Extend keypoints to
-optional 3D coordinates + reprojection error + back-pointer to the calibration
-used. Add Anipose 3D CSV, DANNCE, and DeepFly3D importers. Natural payoff of
-the calibration work already shipped.
+Calibration plumbing exists and `PoseTrajectory` already represents 2D or 3D
+named-point trajectories, while `Labels` remains image-space and 2D-centric.
+Do not add `z` fields to every 2D label point. First keep 3D pose behind an
+explicit coordinate-frame, unit, calibration-provenance, and quality contract;
+see `docs/pose_3d_design.md`.
+
+Importer follow-up remains Anipose 3D CSV, DANNCE, and DeepFly3D, after the
+runtime storage contract is stable.
 
 ### 3. Multi-animal track + identity provenance
 
