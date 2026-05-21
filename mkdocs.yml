@@ -87,7 +87,7 @@ nav:
   - Getting Started: getting-started.md
   - Performance Guidance: performance.md
   - Roadmap: roadmap.md
-  - Luxem Gap Analysis: luxem_2023_gap_analysis.md
+  - Behavior Video Roadmap: luxem_2023_gap_analysis.md
   - Artifact Contract v1: artifact_contract_v1.md
   - Artifact Namespaces: artifact-namespaces.md
   - CLI Command Spec v1: cli_command_spec_v1.md

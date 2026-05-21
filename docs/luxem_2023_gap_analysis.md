@@ -1,4 +1,4 @@
-# Luxem 2023 vs. exp-pkg — gap analysis
+# Behavior Video Roadmap
 
 Source paper: Luxem K, Sun JJ, Bradley SP, Krishnan K, Yttri E, Zimmermann J,
 Pereira TD, Laubach M (2023). *Open-source tools for behavioral video

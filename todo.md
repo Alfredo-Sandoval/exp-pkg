@@ -159,9 +159,8 @@ Keep the calibration model tool-neutral and preserve source provenance.
 
 ## Documentation Notes
 
-- Consider renaming the public nav label from `Luxem Gap Analysis` to
-  `Behavior Video Roadmap` if the page is meant to be read as product
-  direction rather than an internal audit.
+- Public docs now use `Behavior Video Roadmap` as the nav/page title instead
+  of `Luxem Gap Analysis`.
 - Keep Luxem et al. 2023 as the grounding source inside the page.
 - Keep the explicit non-recommendations visible: no pose-estimation training,
   classifier training, unsupervised motif discovery, ReID models, or
@@ -169,13 +168,10 @@ Keep the calibration model tool-neutral and preserve source provenance.
 
 ## Release Hygiene
 
-- Keep release docs on installed-wheel contract checks, not help-only or
-  import-only checks.
-- Add a cheap conflict-marker check to the quality surface:
-
-```bash
-rg -n '(<){7}|(=){7}|(>){7}' .
-```
+- Release docs and `package-check` cover installed-wheel contract checks, not
+  help-only or import-only checks.
+- `make qa` includes the cheap conflict-marker quality check:
+  `rg -n '(<){7}|(=){7}|(>){7}' .`
 
 - Before a public release, the honest gate remains:
 
