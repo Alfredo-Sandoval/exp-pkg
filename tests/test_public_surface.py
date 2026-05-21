@@ -162,6 +162,7 @@ from xpkg.readers import (
     read_behavior_events_csv,
     read_behavior_events_json,
     read_boris_csv,
+    read_bsoid_csv,
     read_doric_photometry,
     read_ephys_csv,
     read_events_csv,
@@ -231,6 +232,7 @@ def test_root_namespace_is_curated_to_project_first_modules() -> None:
 
     assert callable(reloaded.readers.read_abf)
     assert callable(reloaded.readers.read_boris_csv)
+    assert callable(reloaded.readers.read_bsoid_csv)
     assert callable(reloaded.readers.read_behavior_events_csv)
     assert callable(reloaded.readers.read_behavior_events_json)
     assert callable(reloaded.readers.read_keypoint_moseq_syllables_csv)
@@ -365,6 +367,7 @@ def test_public_exports_are_callable() -> None:
     assert callable(read_abf)
     assert "keypoint_moseq" in KNOWN_BEHAVIOR_SOURCE_TYPES
     assert callable(read_boris_csv)
+    assert callable(read_bsoid_csv)
     assert callable(read_behavior_events_csv)
     assert callable(read_behavior_events_json)
     assert callable(read_keypoint_moseq_syllables_csv)

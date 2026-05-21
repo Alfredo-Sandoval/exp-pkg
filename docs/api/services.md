@@ -202,6 +202,7 @@ readers.read_tdt_photometry_block(...)
 readers.read_behavior_events_csv(...)
 readers.read_behavior_events_json(...)
 readers.read_boris_csv(...)
+readers.read_bsoid_csv(...)
 readers.read_simba_csv(...)
 readers.read_keypoint_moseq_syllables_csv(...)
 ```

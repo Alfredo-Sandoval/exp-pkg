@@ -8,6 +8,7 @@ from xpkg.io.readers.behavior import (
     read_behavior_events_csv,
     read_behavior_events_json,
     read_boris_csv,
+    read_bsoid_csv,
     read_keypoint_moseq_syllables_csv,
     read_simba_csv,
 )
@@ -67,6 +68,7 @@ __all__ = [
     "read_abf",
     "read_anipose_calibration",
     "read_boris_csv",
+    "read_bsoid_csv",
     "read_behavior_events_csv",
     "read_behavior_events_json",
     "read_keypoint_moseq_syllables_csv",

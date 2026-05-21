@@ -71,6 +71,7 @@ source-neutral contract alongside `Labels`:
 - source metadata and package-specific row metadata
 - generic behavior CSV and behavior-event JSON readers
 - BORIS tabular event CSV reader for manual ethogram intervals
+- B-SOiD behavior CSV reader for imported per-frame clusters or derived bouts
 - SimBA framewise classifier CSV reader for imported upstream outputs
 - Keypoint-MoSeq syllable CSV reader for imported motif assignments
 

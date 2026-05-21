@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Mapping, Sequence
+from dataclasses import replace
 from pathlib import Path
 from typing import Any, Literal
 
@@ -67,6 +68,17 @@ _END_FRAME_CANDIDATES = ("end_frame", "endFrame", "end_frame_index", "offset_fra
 _SCORE_CANDIDATES = ("score", "probability", "prob", "likelihood", "confidence_score")
 _CONFIDENCE_CANDIDATES = ("confidence", "confidence_label", "quality")
 _SOURCE_ID_CANDIDATES = ("id", "event_id", "behaviorEventId", "source_id", "uuid")
+_BSOID_LABEL_CANDIDATES = (
+    "behavior",
+    "label",
+    "labels",
+    "prediction",
+    "class",
+    "cluster",
+    "cluster_id",
+    "bsoid_label",
+    "bsoid_class",
+)
 _BORIS_LABEL_CANDIDATES = ("Behavior", "behavior")
 _BORIS_START_TIME_CANDIDATES = ("Start (seconds)", "Start (s)", "start")
 _BORIS_END_TIME_CANDIDATES = ("Stop (seconds)", "Stop (s)", "stop")
@@ -269,6 +281,60 @@ def read_boris_csv(
             }
         },
     )
+
+
+def read_bsoid_csv(
+    path: str | Path,
+    *,
+    media_path: str | Path | None = None,
+    label_column: str | None = None,
+    start_column: str | None = None,
+    end_column: str | None = None,
+    duration_column: str | None = None,
+    frame_column: str | None = None,
+    start_frame_column: str | None = None,
+    end_frame_column: str | None = None,
+    score_column: str | None = None,
+    confidence_column: str | None = None,
+    source_id_column: str | None = None,
+    time_unit: TimeUnit = "s",
+    max_mb: float | None = None,
+) -> BehaviorLabels:
+    """Read B-SOiD CSV outputs as imported behavior labels.
+
+    B-SOiD exports are commonly shared as framewise cluster or behavior-label
+    CSVs, or as derived bout tables. This reader reuses the flexible behavior
+    CSV parser while preserving the source type as imported B-SOiD output.
+    """
+
+    source_path = Path(path)
+    frame, _size_bytes = _read_csv(source_path, max_mb=max_mb)
+    if frame.empty:
+        raise ValueError(f"B-SOiD CSV '{source_path}' is empty.")
+    resolved_label_column = label_column or _first_matching_column(frame, _BSOID_LABEL_CANDIDATES)
+    labels = read_behavior_events_csv(
+        source_path,
+        source_type="bsoid",
+        media_path=media_path,
+        label_column=resolved_label_column,
+        start_column=start_column,
+        end_column=end_column,
+        duration_column=duration_column,
+        frame_column=frame_column,
+        start_frame_column=start_frame_column,
+        end_frame_column=end_frame_column,
+        score_column=score_column,
+        confidence_column=confidence_column,
+        source_id_column=source_id_column,
+        time_unit=time_unit,
+        max_mb=max_mb,
+    )
+    metadata = dict(labels.metadata)
+    source = dict(metadata["source"])
+    source["format"] = "bsoid_csv"
+    source["label_column"] = resolved_label_column
+    metadata["source"] = source
+    return replace(labels, metadata=metadata)
 
 
 def read_simba_csv(
@@ -1291,6 +1357,7 @@ def _required_row_int(frame: pd.DataFrame, column: str, index: int) -> int:
 __all__ = [
     "KNOWN_BEHAVIOR_SOURCE_TYPES",
     "read_boris_csv",
+    "read_bsoid_csv",
     "read_behavior_events_csv",
     "read_behavior_events_json",
     "read_keypoint_moseq_syllables_csv",

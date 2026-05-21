@@ -9,6 +9,7 @@ from xpkg.io.readers import (
     read_behavior_events_csv,
     read_behavior_events_json,
     read_boris_csv,
+    read_bsoid_csv,
     read_keypoint_moseq_syllables_csv,
     read_simba_csv,
 )
@@ -114,6 +115,56 @@ def test_read_boris_csv_maps_tabular_event_exports(tmp_path) -> None:
     assert labels.intervals[0].metadata["Behavior type"] == "STATE"
     assert labels.intervals[0].metadata["Comment start"] == "clean start"
     assert labels.to_event_table().query(label="groom")[0].end_s == pytest.approx(5.0)
+
+
+def test_read_bsoid_csv_maps_framewise_cluster_exports(tmp_path) -> None:
+    path = tmp_path / "bsoid_predictions.csv"
+    path.write_text(
+        "\n".join(
+            [
+                "frame,cluster_id,probability,uncertainty,source_file",
+                "3,2,0.94,0.06,trial_pose.csv",
+                "4,5,0.72,0.28,trial_pose.csv",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    labels = read_bsoid_csv(path, media_path="trial.mp4")
+
+    assert labels.source_type == "bsoid"
+    assert labels.media_path == "trial.mp4"
+    assert labels.metadata["source"]["format"] == "bsoid_csv"
+    assert labels.metadata["source"]["label_column"] == "cluster_id"
+    assert [(item.frame_index, item.label) for item in labels.frame_labels] == [
+        (3, "2"),
+        (4, "5"),
+    ]
+    assert labels.frame_labels[0].score == pytest.approx(0.94)
+    assert labels.frame_labels[0].metadata["source_file"] == "trial_pose.csv"
+    assert labels.frame_labels[0].metadata["uncertainty"] == pytest.approx(0.06)
+
+
+def test_read_bsoid_csv_accepts_interval_bout_exports(tmp_path) -> None:
+    path = tmp_path / "bsoid_bouts.csv"
+    path.write_text(
+        "\n".join(
+            [
+                "start_frame,end_frame,behavior,confidence,bout_id",
+                "10,16,rear,high,bout-1",
+                "20,24,groom,medium,bout-2",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    labels = read_bsoid_csv(path)
+
+    assert [item.label for item in labels.intervals] == ["rear", "groom"]
+    assert labels.intervals[0].start_frame == 10
+    assert labels.intervals[0].end_frame == 16
+    assert labels.intervals[0].confidence == "high"
+    assert labels.intervals[0].metadata["bout_id"] == "bout-1"
 
 
 def test_read_simba_csv_maps_machine_results_frame_labels(tmp_path) -> None:
