@@ -67,6 +67,12 @@ _END_FRAME_CANDIDATES = ("end_frame", "endFrame", "end_frame_index", "offset_fra
 _SCORE_CANDIDATES = ("score", "probability", "prob", "likelihood", "confidence_score")
 _CONFIDENCE_CANDIDATES = ("confidence", "confidence_label", "quality")
 _SOURCE_ID_CANDIDATES = ("id", "event_id", "behaviorEventId", "source_id", "uuid")
+_BORIS_LABEL_CANDIDATES = ("Behavior", "behavior")
+_BORIS_START_TIME_CANDIDATES = ("Start (seconds)", "Start (s)", "start")
+_BORIS_END_TIME_CANDIDATES = ("Stop (seconds)", "Stop (s)", "stop")
+_BORIS_DURATION_CANDIDATES = ("Duration (seconds)", "Duration (s)", "duration")
+_BORIS_MEDIA_CANDIDATES = ("Media file name", "media_file_name")
+_BORIS_SOURCE_ID_CANDIDATES = ("Observation id", "observation")
 
 
 def read_behavior_events_json(
@@ -151,6 +157,49 @@ def read_behavior_events_csv(
     )
 
 
+def read_boris_csv(
+    path: str | Path,
+    *,
+    media_path: str | Path | None = None,
+    max_mb: float | None = None,
+) -> BehaviorLabels:
+    """Read BORIS tabular event CSV exports as behavior intervals."""
+
+    source_path = Path(path)
+    frame, size_bytes = _read_csv(source_path, max_mb=max_mb)
+    if frame.empty:
+        raise ValueError(f"BORIS CSV '{source_path}' is empty.")
+    columns = _BehaviorColumns.resolve(
+        frame,
+        label_column=_first_matching_column(frame, _BORIS_LABEL_CANDIDATES),
+        start_column=_first_matching_column(frame, _BORIS_START_TIME_CANDIDATES),
+        end_column=_first_matching_column(frame, _BORIS_END_TIME_CANDIDATES),
+        duration_column=_first_matching_column(frame, _BORIS_DURATION_CANDIDATES),
+        frame_column=None,
+        start_frame_column=None,
+        end_frame_column=None,
+        score_column=None,
+        confidence_column=None,
+        source_id_column=_first_matching_column(frame, _BORIS_SOURCE_ID_CANDIDATES),
+    )
+    intervals = _csv_intervals(frame, columns, scale=1.0)
+    if not intervals:
+        raise ValueError("BORIS CSV must include interval start columns.")
+    return BehaviorLabels(
+        source_type="boris",
+        intervals=intervals,
+        media_path=_boris_media_path(frame, media_path),
+        metadata={
+            "source": {
+                "type": "boris",
+                "path": str(source_path),
+                "size_bytes": size_bytes,
+                "format": "tabular_events_csv",
+            }
+        },
+    )
+
+
 def _read_json_object(path: Path) -> dict[str, Any]:
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
@@ -177,6 +226,15 @@ def _media_path_from_metadata(
         return Path(media_path).as_posix()
     video_file = _optional_text(metadata.get("videoFileName"))
     return video_file
+
+
+def _boris_media_path(frame: pd.DataFrame, media_path: str | Path | None) -> str | None:
+    if media_path is not None:
+        return Path(media_path).as_posix()
+    media_column = _first_matching_column(frame, _BORIS_MEDIA_CANDIDATES)
+    if media_column is None or frame.empty:
+        return None
+    return _optional_text(frame[media_column].iloc[0])
 
 
 def _behavior_json_metadata(
@@ -390,6 +448,24 @@ class _BehaviorColumns:
             raise ValueError("Behavior CSV must include time or frame index columns.")
         return resolved
 
+    def used_names(self) -> set[str]:
+        return {
+            str(column)
+            for column in (
+                self.label,
+                self.start,
+                self.end,
+                self.duration,
+                self.frame,
+                self.start_frame,
+                self.end_frame,
+                self.score,
+                self.confidence,
+                self.source_id,
+            )
+            if column is not None
+        }
+
 
 def _csv_intervals(
     frame: pd.DataFrame,
@@ -427,7 +503,7 @@ def _csv_interval(
         score=_optional_float_from_frame(frame, columns.score, index),
         confidence=_optional_text_from_frame(frame, columns.confidence, index),
         source_id=_optional_text_from_frame(frame, columns.source_id, index),
-        metadata={"row_index": index},
+        metadata=_csv_row_metadata(frame, columns, index),
     )
 
 
@@ -445,10 +521,36 @@ def _csv_frame_labels(
             score=_optional_float_from_frame(frame, columns.score, index),
             confidence=_optional_text_from_frame(frame, columns.confidence, index),
             source_id=_optional_text_from_frame(frame, columns.source_id, index),
-            metadata={"row_index": index},
+            metadata=_csv_row_metadata(frame, columns, index),
         )
         for index in range(len(frame))
     )
+
+
+def _csv_row_metadata(
+    frame: pd.DataFrame,
+    columns: _BehaviorColumns,
+    index: int,
+) -> dict[str, Any]:
+    metadata: dict[str, Any] = {"row_index": index}
+    used_columns = columns.used_names()
+    for column in frame.columns:
+        column_name = str(column)
+        if column_name in used_columns:
+            continue
+        value = frame[column].iloc[index]
+        if _is_missing(value):
+            continue
+        metadata[column_name] = _json_scalar(value)
+    return metadata
+
+
+def _json_scalar(value: Any) -> Any:
+    if isinstance(value, np.generic):
+        value = value.item()
+    if isinstance(value, str | int | float | bool) or value is None:
+        return value
+    return str(value)
 
 
 def _optional_scaled_float(
@@ -525,6 +627,7 @@ def _required_row_int(frame: pd.DataFrame, column: str, index: int) -> int:
 
 __all__ = [
     "KNOWN_BEHAVIOR_SOURCE_TYPES",
+    "read_boris_csv",
     "read_behavior_events_csv",
     "read_behavior_events_json",
 ]

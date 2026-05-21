@@ -70,12 +70,13 @@ source-neutral contract alongside `Labels`:
 - per-frame continuous embeddings (latent codes)
 - source metadata and package-specific row metadata
 - generic behavior CSV and behavior-event JSON readers
+- BORIS tabular event CSV reader for manual ethogram intervals
 
 Remaining importer work:
 
 - package-specific adapters for SimBA CSV, B-SOiD output, A-SOiD output,
   Keypoint-MoSeq syllables, VAME motif export, DeepEthogram predictions, and
-  BORIS/JAABA exports
+  JAABA exports
 - classifier/model provenance mirroring `PoseModelProvenance`
 - `inspect` autodetect + label-count / coverage summary
 

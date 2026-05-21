@@ -94,6 +94,7 @@ readers.read_photometry_csv(...)
 readers.read_events_csv(...)
 readers.read_behavior_events_csv(...)
 readers.read_behavior_events_json(...)
+readers.read_boris_csv(...)
 readers.read_pyphotometry_ppd(...)
 readers.read_pyphotometry_csv(...)
 readers.read_pmat_photometry_csv(...)
@@ -175,7 +176,8 @@ or lab workflows. The first `BehaviorLabels` contract now preserves:
 - import-time QC warnings when segments do not align to available timelines
 
 Package-specific importers for B-SOiD, A-SOiD, Keypoint-MoSeq, SimBA, VAME,
-DeepEthogram, BORIS, and JAABA are still explicit follow-on work.
+DeepEthogram, and JAABA are still explicit follow-on work. BORIS tabular event
+CSV export is the first behavior-label adapter.
 
 This is an IO priority, not an algorithmic one. `xpkg` should help compare and
 share behavior annotations across tools by normalizing their outputs under the

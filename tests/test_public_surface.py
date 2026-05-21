@@ -161,6 +161,7 @@ from xpkg.readers import (
     read_abf,
     read_behavior_events_csv,
     read_behavior_events_json,
+    read_boris_csv,
     read_doric_photometry,
     read_ephys_csv,
     read_events_csv,
@@ -226,6 +227,7 @@ def test_root_namespace_is_curated_to_project_first_modules() -> None:
     assert reloaded.services is not None
 
     assert callable(reloaded.readers.read_abf)
+    assert callable(reloaded.readers.read_boris_csv)
     assert callable(reloaded.readers.read_behavior_events_csv)
     assert callable(reloaded.readers.read_behavior_events_json)
     assert callable(reloaded.readers.read_doric_photometry)
@@ -357,6 +359,7 @@ def test_public_exports_are_callable() -> None:
     assert callable(vicon_recording_to_json_payload)
     assert callable(read_abf)
     assert "keypoint_moseq" in KNOWN_BEHAVIOR_SOURCE_TYPES
+    assert callable(read_boris_csv)
     assert callable(read_behavior_events_csv)
     assert callable(read_behavior_events_json)
     assert callable(read_doric_photometry)

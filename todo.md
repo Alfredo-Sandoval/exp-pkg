@@ -95,7 +95,12 @@ Remaining follow-up:
 BehaviorLabels is the first source-neutral contract. The next adapter order
 should favor simple, common formats before larger tool-specific surfaces:
 
-- BORIS exports for manual ethogram intervals.
+Done:
+
+- BORIS tabular event CSV exports for manual ethogram intervals.
+
+Remaining:
+
 - SimBA CSV outputs for supervised behavior labels.
 - Keypoint-MoSeq syllables with careful provenance.
 - B-SOiD, A-SOiD, VAME, DeepEthogram, and JAABA after the first adapters prove

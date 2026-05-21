@@ -7,6 +7,7 @@ from xpkg.io.readers.behavior import (
     KNOWN_BEHAVIOR_SOURCE_TYPES,
     read_behavior_events_csv,
     read_behavior_events_json,
+    read_boris_csv,
 )
 from xpkg.io.readers.ephys import read_abf, read_ephys_csv
 from xpkg.io.readers.photometry import read_events_csv, read_photometry_csv
@@ -62,6 +63,7 @@ __all__ = [
     "extract_vicon_emg",
     "read_abf",
     "read_anipose_calibration",
+    "read_boris_csv",
     "read_behavior_events_csv",
     "read_behavior_events_json",
     "read_doric_photometry",

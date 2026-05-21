@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from xpkg.io.readers import read_behavior_events_csv, read_behavior_events_json
+from xpkg.io.readers import read_behavior_events_csv, read_behavior_events_json, read_boris_csv
 from xpkg.model import BehaviorLabels
 
 
@@ -74,6 +74,37 @@ def test_read_behavior_events_csv_accepts_interval_labels_from_package_exports(t
     assert labels.intervals[0].end_frame == 75
     assert labels.intervals[0].score == pytest.approx(0.93)
     assert labels.to_event_table().query(label="groom")[0].start_s == pytest.approx(4.0)
+
+
+def test_read_boris_csv_maps_tabular_event_exports(tmp_path) -> None:
+    path = tmp_path / "boris_events.csv"
+    path.write_text(
+        "\n".join(
+            [
+                "Observation id,Subject,Behavior,Behavioral category,Behavior type,"
+                "Start (seconds),Stop (seconds),Duration (seconds),Media file name,"
+                "Comment start,Comment stop",
+                "obs-1,rat-1,rear,posture,STATE,1.25,2.75,1.5,trial.mp4,clean start,",
+                "obs-1,rat-1,groom,maintenance,STATE,4.0,5.0,1.0,trial.mp4,,clean stop",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    labels = read_boris_csv(path)
+
+    assert labels.source_type == "boris"
+    assert labels.media_path == "trial.mp4"
+    assert labels.metadata["source"]["format"] == "tabular_events_csv"
+    assert [item.label for item in labels.intervals] == ["rear", "groom"]
+    assert labels.intervals[0].source_id == "obs-1"
+    assert labels.intervals[0].start_s == pytest.approx(1.25)
+    assert labels.intervals[0].end_s == pytest.approx(2.75)
+    assert labels.intervals[0].duration_s == pytest.approx(1.5)
+    assert labels.intervals[0].metadata["Subject"] == "rat-1"
+    assert labels.intervals[0].metadata["Behavior type"] == "STATE"
+    assert labels.intervals[0].metadata["Comment start"] == "clean start"
+    assert labels.to_event_table().query(label="groom")[0].end_s == pytest.approx(5.0)
 
 
 def test_read_behavior_events_csv_accepts_framewise_motif_labels(tmp_path) -> None:
