@@ -174,13 +174,20 @@ Likely 3D importer sequence:
 Tracks already exist, but multi-animal workflows need explicit identity
 provenance.
 
-Add fields or companion records for:
+Done for design docs:
 
-- ReID versus MOT identity source.
-- Identity swap markers.
-- Manual proofreading flags.
-- Identity confidence intervals or spans.
-- SLEAP/DLC multi-animal track ingestion that populates those fields.
+- `docs/identity_provenance.md` defines identity provenance as companion
+  records keyed by track identity, not as immediate `Track` widening.
+- The contract names ReID versus MOT source, identity swap events, manual
+  proofreading spans, and confidence spans.
+- Importers should write only facts exposed by the source export and use
+  `unknown` when ReID/MOT source cannot be distinguished.
+
+Remaining follow-up:
+
+- Add schema/model support for identity provenance companion records.
+- Populate those records from SLEAP/DLC multi-animal track ingestion when the
+  source files expose enough evidence.
 
 This should remain data provenance, not a ReID model implementation.
 

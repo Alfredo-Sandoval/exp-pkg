@@ -95,9 +95,10 @@ runtime storage contract is stable.
 ### 3. Multi-animal track + identity provenance
 
 Tracks exist in the model, but Luxem stresses identity provenance: ReID vs.
-MOT, swap markers, manual proofreading flags. Add identity-provenance fields
-and a confidence-interval type on tracks, plus SLEAP/DLC multi-animal track
-ingest that populates them.
+MOT, swap markers, manual proofreading flags. Keep this as companion
+track-provenance data before widening `Track`; see
+`docs/identity_provenance.md`. SLEAP/DLC multi-animal track ingest can populate
+those records once importer-specific source evidence is available.
 
 ### 4. FAIR: Datasheet + Model Card schemas — first contract now present
 
