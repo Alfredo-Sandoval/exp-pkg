@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import subprocess
+import sys
+
 import pytest
 
 import xpkg.model as model
@@ -72,3 +75,21 @@ def test_identity_provenance_rejects_invalid_sources_and_frame_spans() -> None:
 def test_identity_models_are_available_from_public_surface() -> None:
     assert model.IdentityProvenanceRecord is IdentityProvenanceRecord
     assert model.IdentityConfidenceSpan is IdentityConfidenceSpan
+
+
+def test_labels_model_imports_without_identity_cycle() -> None:
+    completed = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            (
+                "from xpkg.io.labels.model import Labels; "
+                "from xpkg.model.identity import IdentityProvenanceRecord; "
+                "assert Labels and IdentityProvenanceRecord"
+            ),
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    assert completed.stderr == ""
