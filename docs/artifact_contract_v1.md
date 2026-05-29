@@ -1,6 +1,16 @@
 # xpkg v1 Artifact Contract
 
-This document defines the locked public artifact contract for xpkg v1.
+This document defines the frozen v1 on-disk artifact contract for xpkg.
+
+The scope of this freeze is the on-disk durability contract only: the `.expkg`
+zip container, its root `EXPKG.json` manifest, and the three-class layout
+(editable project folder / private `.xpkg/` store / portable `.expkg` export).
+Files written by 0.x releases should remain readable by later 0.x and 1.0
+releases.
+
+The Python API and CLI command surface are a separate, pre-1.0 concern and may
+still change before 1.0. The package itself is at 0.x (alpha). This document
+freezes the artifact format, not the code surface.
 
 The contract is project-first because xpkg is aimed at whole experiment
 sessions. The public artifact needs to hold more context than a single archive
@@ -219,7 +229,7 @@ xpkg import pose dlc-csv --path tracking.csv --video video.mp4 --out "./My Proje
 xpkg import pose sleap-package --path labels.pkg.slp --out "./My Project"
 ```
 
-The locked command surface is documented in `docs/cli_command_spec_v1.md`.
+The pre-1.0 command surface is documented in `docs/cli_command_spec_v1.md`.
 
 ## Media Policy
 
@@ -260,7 +270,7 @@ Policy:
 
 - New projects are created as project folders.
 - New portable exports are `.expkg`.
-- No dedicated project-to-`.xpkg` export command is part of the locked v1 surface.
+- No dedicated project-to-`.xpkg` export command is part of the v1 artifact contract.
 - No new core features should depend on direct HDF5 archive handling as a
   project contract.
 
@@ -305,6 +315,6 @@ And this:
 - editable project = project folder
 - authoritative mutable state = `.xpkg/`
 - portable artifact = `.expkg`
-- legacy HDF5 archive compatibility = removed from the locked v1 surface
+- legacy HDF5 archive compatibility = removed from the v1 artifact contract
 - no required symlink layer
 - no `.h5` public contract

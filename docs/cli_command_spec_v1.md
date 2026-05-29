@@ -1,7 +1,10 @@
 # xpkg v1 CLI Command Spec
 
-This document defines the shipped CLI contract for the xpkg v1 project and
-artifact workflow.
+This document defines the shipped CLI for the xpkg project and artifact
+workflow. It targets the v1 artifact format, but the command surface itself is
+pre-1.0 and may still change before 1.0. The package is at 0.x (alpha). The
+frozen guarantee is the `.expkg` on-disk format described in
+[artifact_contract_v1.md](artifact_contract_v1.md), not this command surface.
 
 The current CLI is project-first for project creation, importing, packing,
 unpacking, validation, and artifact inspection.

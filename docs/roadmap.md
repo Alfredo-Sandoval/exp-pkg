@@ -11,11 +11,14 @@ neuroscience IO work that is still ahead.
 installs the `xpkg` console script, publishes typed package metadata, and ships
 the public project schema in the wheel.
 
-The product is not finished. The current package is strongest for project
-lifecycle, portable artifacts, pose labels, video-associated imports, Vicon,
-segmentation masks, and output artifact registration. The next work is to make
-the multimodal session layer usable end to end for pose, video, photometry,
-events, and synchronization.
+The product is not finished. The current focus is project lifecycle, portable
+artifacts, pose labels, video-associated imports, Vicon motion capture,
+segmentation masks, and output artifact registration. Fiber photometry and
+patch-clamp electrophysiology are planned direction, not current capability:
+their readers exist as experimental direct readers in `xpkg.readers`, but
+neither is importable through `ProjectService` or the CLI. The next work is to
+make the multimodal session layer usable end to end for pose, video, events,
+and synchronization, then add photometry and ephys project imports.
 
 ## Current Baseline
 
@@ -85,7 +88,8 @@ segmentation package.
 
 ### 1. Direct Readers
 
-Simple, low-ceremony CSV readers now exist before the project machinery:
+Simple, low-ceremony CSV readers now exist before the project machinery. They
+are experimental and project-free; none is wired into `ProjectService` yet:
 
 ```python
 from xpkg import readers
@@ -107,11 +111,14 @@ readers.read_neurophotometrics_csv(...)
 readers.read_doric_photometry(...)
 readers.read_teleopto_h5(...)
 readers.read_tdt_photometry_block(...)
+readers.read_abf(...)
+readers.read_ephys_csv(...)
 ```
 
-These return `PhotometryRecording`, `EventTable`, `BehaviorLabels`, or
-session-level objects without requiring users to create a project first.
-`read_sync_csv(...)` is still the next direct reader in this family.
+These return `PhotometryRecording`, `EventTable`, `BehaviorLabels`, ephys
+recordings, or session-level objects without requiring users to create a
+project first. `read_sync_csv(...)` is still the next direct reader in this
+family.
 
 The fiber-photometry reader set is scoped to fiber/session IO. Inscopix
 miniscope files, Blackrock NEV/NSx, and Neuralynx Cheetah files are deliberately
@@ -119,9 +126,12 @@ excluded from this layer.
 
 ### 2. Project Imports
 
-After direct readers exist, wire them into `ProjectService`:
+After direct readers exist, wire them into `ProjectService`. This is planned
+work, not current capability. Fiber-photometry and patch-clamp ephys project
+imports are part of this future direction:
 
 ```python
+# planned
 project.import_signals("photometry-csv", ...)
 project.import_signals("events-csv", ...)
 project.import_signals("sync-csv", ...)

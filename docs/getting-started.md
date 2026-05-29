@@ -88,9 +88,9 @@ This matters because the project is the place where media, segmentation,
 labels, and future experiment-side modalities can live together under one
 contract.
 
-Read [Artifact Contract v1](artifact_contract_v1.md) for the full public
-contract and [CLI Command Spec v1](cli_command_spec_v1.md) for the locked
-project command surface.
+Read [Artifact Contract v1](artifact_contract_v1.md) for the frozen `.expkg`
+artifact format and [CLI Command Spec v1](cli_command_spec_v1.md) for the
+project command surface, which is still pre-1.0 and may change.
 
 ## Recommended project-first API
 

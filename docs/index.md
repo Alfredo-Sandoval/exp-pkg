@@ -10,8 +10,8 @@ hide:
 
 <p class="tagline">
 The IO and project boundary for multimodal neuroscience experiments.
-Pose, video, sampled signals, behavioral events — one stable contract,
-portable artifacts, no analysis platform attached.
+Pose, motion capture, synchronized video, segmentation masks — one stable
+contract, portable artifacts, no analysis platform attached.
 </p>
 
 <div class="terminal">
@@ -92,9 +92,11 @@ plus EMG and force-plate channels read off the same recording.
 </div>
 
 <div class="card" markdown>
-### Direct signals + events
+### Direct signals + events (experimental)
 Photometry (Doric, Neurophotometrics, pyPhotometry, RWD OFRS, Teleopto, TDT,
-pMAT, generic CSV) and event tables, all through `xpkg.readers`.
+pMAT, generic CSV), patch-clamp ephys (ABF, ephys CSV), and event tables, all
+through `xpkg.readers`. These are experimental direct readers with no project
+integration yet. Photometry and ephys project imports are planned, not current.
 </div>
 
 </div>

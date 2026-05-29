@@ -8,16 +8,16 @@
 Import from `xpkg` in Python and use `xpkg` for the CLI.
 
 exp-pkg exists to give neuroscience repos one stable boundary for
-experiment-data IO. It is built for multimodal sessions: pose estimates,
-synchronized video, behavioral events, signals such as fiber photometry, and
-the metadata needed to keep those modalities aligned.
+experiment-data IO. Its current focus is pose estimation, motion capture
+(Vicon/C3D), synchronized video, segmentation masks, and portable project
+packaging, plus the metadata needed to keep those modalities aligned.
 
 It imports external formats, normalizes them into canonical `xpkg` objects,
 stores them in a project-first project contract, and emits portable `.expkg`
-artifacts. The implemented import surface is strongest today for pose,
-motion-capture, and video-associated formats; the package direction is a shared
-session/timeline layer that can add photometry and other signals without turning
-into an analysis platform.
+artifacts. The project import surface today covers pose, calibration, and
+motion-capture formats. Fiber photometry and patch-clamp electrophysiology are
+planned future direction, not the current focus; the package keeps to a shared
+session/timeline layer rather than turning into an analysis platform.
 
 This repo is not an analysis platform. It is the IO layer that analysis tools,
 GUIs, and automation can build on when they need a coherent project/project
@@ -105,7 +105,15 @@ The shipped service/CLI project import surface currently covers:
 - MMPose top-down demo JSON (`--save-predictions`)
 - MediaPipe pose-landmarks JSON
 
-The direct reader surface also includes typed, project-free readers for:
+There are two tiers here. Project imports (pose, calibration, motion) go
+through `ProjectService` and the CLI, write project state, and produce portable
+`.expkg` artifacts. Direct readers parse a file into typed in-memory objects
+and stop there. They have no project integration: there is no `ProjectService`
+method and no CLI command that imports a photometry, ephys, or event file into
+a project today.
+
+The direct reader surface includes typed, project-free, experimental readers
+for:
 
 - Generic photometry CSV and event CSV
 - Generic behavior-event CSV and JSON
@@ -117,6 +125,12 @@ The direct reader surface also includes typed, project-free readers for:
 - Doric `.doric` photometry containers
 - Teleopto H5 exports
 - TDT tank/block photometry streams through the optional `tdt` package
+- Patch-clamp electrophysiology ABF and ephys CSV files
+
+These signal and behavior readers are experimental and are not the current
+product focus. Fiber photometry and patch-clamp ephys in particular are planned
+direction. The reader functions exist in `xpkg.readers`, but none of them is
+reachable through `ProjectService` or the CLI yet.
 
 ## What It Does
 
@@ -147,11 +161,19 @@ Mission direction:
 
 - keep xpkg narrow as the stable multimodal neuroscience IO and artifact boundary
 - support more external ecosystems through project importers
-- add first-class timing, event, and signal models for pose, video,
-  photometry, behavior, and synchronization data
+- add first-class timing, event, and signal models for pose, video, behavior,
+  and synchronization data
 - make downstream analysis and GUI repos depend on xpkg instead of inventing
   their own project formats
 - keep project storage centered on projects and portable `.expkg` exports
+
+Planned, not current capability:
+
+- fiber-photometry project imports through `ProjectService` and the CLI
+- patch-clamp electrophysiology project imports through `ProjectService` and
+  the CLI
+- a shared session/timeline layer that carries photometry and ephys alongside
+  pose, video, and events
 
 ## Supported Project Imports
 
@@ -168,30 +190,36 @@ Mission direction:
 | MMPose | Top-down demo JSON (`--save-predictions`) | Supported |
 | MediaPipe | Pose landmarks JSON | Supported |
 
-## Supported Direct Readers
+## Supported Direct Readers (experimental)
 
-These formats can be read into typed in-memory objects through `xpkg.readers`.
-They are not yet exposed as `ProjectService` signal/event project imports.
+These readers are experimental and are not the current product focus. They read
+a file into typed in-memory objects through `xpkg.readers` and stop there. They
+are not project-importable: there is no `ProjectService` method or CLI command
+that brings a photometry, ephys, event, or behavior file into a project, and no
+`.expkg` packaging for these formats yet. Fiber photometry and patch-clamp
+ephys are planned direction, not shipped project capability.
 
 | Source | Format | Status |
 |--------|--------|--------|
-| Generic photometry | CSV | Direct reader |
-| Generic events | CSV | Direct reader |
-| Generic behavior events | CSV / JSON | Direct reader |
-| BORIS | Tabular event CSV | Direct reader |
-| SimBA | Framewise classifier CSV | Direct reader |
-| Keypoint-MoSeq | Syllable CSV | Direct reader |
-| pMAT | Photometry/event CSV | Direct reader |
-| pyPhotometry | PPD, CSV+JSON | Direct reader |
-| RWD OFRS | CSV session bundle | Direct reader |
-| Neurophotometrics/Bonsai | CSV | Direct reader |
-| Doric | `.doric` HDF5 photometry container | Direct reader |
-| Teleopto | H5 export | Direct reader |
-| TDT | Tank/block streams | Direct reader with optional `tdt` dependency |
+| Generic photometry | CSV | Direct reader (experimental) |
+| Generic events | CSV | Direct reader (experimental) |
+| Generic behavior events | CSV / JSON | Direct reader (experimental) |
+| BORIS | Tabular event CSV | Direct reader (experimental) |
+| SimBA | Framewise classifier CSV | Direct reader (experimental) |
+| Keypoint-MoSeq | Syllable CSV | Direct reader (experimental) |
+| pMAT | Photometry/event CSV | Direct reader (experimental) |
+| pyPhotometry | PPD, CSV+JSON | Direct reader (experimental) |
+| RWD OFRS | CSV session bundle | Direct reader (experimental) |
+| Neurophotometrics/Bonsai | CSV | Direct reader (experimental) |
+| Doric | `.doric` HDF5 photometry container | Direct reader (experimental) |
+| Teleopto | H5 export | Direct reader (experimental) |
+| TDT | Tank/block streams | Direct reader with optional `tdt` dependency (experimental) |
+| Patch-clamp ephys | ABF | Direct reader (experimental) |
+| Patch-clamp ephys | Ephys CSV | Direct reader (experimental) |
 
-The fiber-photometry layer intentionally does not claim Inscopix `.isx` /
+The fiber-photometry readers intentionally do not claim Inscopix `.isx` /
 `.isxd`, Blackrock NEV/NSx, or Neuralynx Cheetah support. Those are imaging or
-electrophysiology surfaces, not fiber-photometry IO.
+extracellular electrophysiology surfaces, not fiber-photometry IO.
 
 ## Install
 
@@ -354,7 +382,19 @@ make docs-serve    # live preview at localhost:8123
 
 ## Public Artifact Contract
 
-exp-pkg v1 defines exactly three product-facing artifact classes:
+The `.expkg` on-disk artifact format is the frozen v1 durability contract. The
+format is the zip container, the root `EXPKG.json` manifest, and the three-class
+layout below: the editable project folder, the private `.xpkg/` store, and the
+portable `.expkg` export. Files written by 0.x releases should remain readable
+by later 0.x and 1.0 releases.
+
+The Python API and CLI command surface are a separate concern. They are 0.x and
+pre-1.0, and may still change before 1.0. The documents in
+`docs/artifact_contract_v1.md` and `docs/cli_command_spec_v1.md` describe the
+intended v1 surface; the artifact format is frozen, the command and Python
+surfaces are not yet.
+
+The artifact format defines exactly three product-facing artifact classes:
 
 ```text
 My Project/
@@ -372,8 +412,16 @@ My Project/
 The artifact model is project-first so experiment state, managed media, and
 future aligned modalities have a clear home in one project layout.
 
-The locked spec lives in `docs/artifact_contract_v1.md`, with the matching
-command surface in `docs/cli_command_spec_v1.md`.
+The frozen artifact-format spec lives in `docs/artifact_contract_v1.md`. The
+command surface, which is still pre-1.0 and may change, is in
+`docs/cli_command_spec_v1.md`.
+
+### Stability
+
+- `.expkg` on-disk format (zip container, `EXPKG.json` manifest, and the
+  project / `.xpkg/` / `.expkg` three-class layout) = frozen v1. Files written
+  by 0.x should stay readable.
+- Python API and CLI command surface = 0.x, pre-1.0, may change before 1.0.
 
 ## CLI
 
