@@ -2,35 +2,27 @@
 
 from __future__ import annotations
 
-import contextlib
-import io
 import sys
 
 import typer
-from click.shell_completion import shell_complete
+from typer.completion import get_completion_script
 
 from xpkg.cli.shared import JsonOption, run_command
 
 
-def _completion_script(root_app: typer.Typer, shell: str) -> str:
-    command = typer.main.get_command(root_app)
-    out_buffer = io.StringIO()
-    err_buffer = io.StringIO()
-    with contextlib.redirect_stdout(out_buffer), contextlib.redirect_stderr(err_buffer):
-        exit_code = shell_complete(
-            command,
-            {},
-            "xpkg",
-            "_XPKG_COMPLETE",
-            f"{shell}_source",
-        )
-    if exit_code != 0:
-        detail = err_buffer.getvalue().strip()
-        message = f"Could not generate {shell} completion script."
-        if detail:
-            message = f"{message} {detail}"
-        raise RuntimeError(message)
-    return out_buffer.getvalue()
+def _completion_script(shell: str) -> str:
+    """Return the shell completion script for ``xpkg``.
+
+    typer 0.26 vendors its own click as ``typer._click``, so generate the script
+    through typer's own generator instead of the standalone ``click`` package.
+    This keeps the script consistent with the installed CLI runtime and returns
+    text directly (the standalone-click path wrote bytes).
+    """
+    return get_completion_script(
+        prog_name="xpkg",
+        complete_var="_XPKG_COMPLETE",
+        shell=shell,
+    )
 
 
 def build_app(root_app: typer.Typer) -> typer.Typer:
@@ -44,7 +36,7 @@ def build_app(root_app: typer.Typer) -> typer.Typer:
 
     def show_completion(shell: str, *, json_output: bool) -> None:
         def action() -> dict[str, str]:
-            script = _completion_script(root_app, shell)
+            script = _completion_script(shell)
             return {"shell": shell, "script": script}
 
         def human_output(payload: dict[str, str]) -> None:

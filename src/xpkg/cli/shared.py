@@ -7,8 +7,12 @@ from collections.abc import Callable, Sequence
 from enum import StrEnum
 from typing import Annotated, Any, NoReturn, overload
 
-import click
 import typer
+
+# typer 0.26 vendors its own click as ``typer._click`` and raises those classes
+# (not the standalone ``click`` package) while parsing, so the CLI must catch
+# the vendored exception types to honor its structured-error contract.
+from typer._click.exceptions import ClickException, MissingParameter, NoSuchOption
 
 from .._core.json_utils import dump_json
 
@@ -123,7 +127,7 @@ def run_typer_app(
         result = app(args=args, prog_name=prog_name, standalone_mode=False)
     except typer.Exit as exc:
         return int(exc.exit_code or 0)
-    except click.ClickException as exc:
+    except ClickException as exc:
         payload, exit_code = usage_error_payload(exc)
         if argv_requests_json(args):
             write_json(payload, stderr=True)
@@ -156,10 +160,10 @@ def require_nonnegative_int(value: int) -> int:
     return value
 
 
-def usage_error_payload(exc: click.ClickException) -> tuple[dict[str, Any], int]:
+def usage_error_payload(exc: ClickException) -> tuple[dict[str, Any], int]:
     """Return the structured error payload and exit code for Click parse errors."""
     message = exc.format_message()
-    if isinstance(exc, click.NoSuchOption):
+    if isinstance(exc, NoSuchOption):
         code = "unknown_option"
         exit_code = 1
         hint = "Run `xpkg --help` or `xpkg describe --json` for supported options."
@@ -206,5 +210,6 @@ def require_option_value[OptionValue: object](
 ) -> OptionValue:
     """Raise a Click-style missing-option error when Typer passes `None`."""
     if value is None:
-        raise click.MissingParameter(param=click.Option([option_name]))
+        # Quote the hint to match click's canonical "Missing option '--x'." text.
+        raise MissingParameter(param_hint=f"'{option_name}'", param_type="option")
     return value

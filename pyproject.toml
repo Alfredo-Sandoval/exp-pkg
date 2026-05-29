@@ -48,7 +48,6 @@ classifiers = [
 dependencies = [
   "c3d>=0.6,<1",
   "cattrs>=24.1,<27",
-  "click>=8.1,<9",
   "h5py>=3.11,<4",
   "imageio>=2.36,<3",
   "imageio-ffmpeg>=0.5,<1",
@@ -159,6 +158,12 @@ src = ["src"]
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "UP", "N"]
 ignore = []
+
+[tool.ty.src]
+# Type-check the shipped package. Test files are intentionally out of the type
+# gate: they carry pytest.skip() patterns that ty's pytest model reports as
+# false positives, and exercising runtime behavior is the test suite's job.
+include = ["src"]
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]

@@ -1197,19 +1197,19 @@ def test_cli_describe_json_pins_machine_contract(capsys) -> None:
     [
         pytest.param(
             "bash",
-            "_XPKG_COMPLETE=bash_complete",
-            "complete -o nosort -F _xpkg_completion xpkg",
+            "_XPKG_COMPLETE=complete_bash",
+            "complete -o default -F _xpkg_completion xpkg",
             id="bash",
         ),
         pytest.param(
             "fish",
-            "_XPKG_COMPLETE=fish_complete",
-            "complete --no-files --command xpkg",
+            "_XPKG_COMPLETE=complete_fish",
+            "complete --command xpkg --no-files",
             id="fish",
         ),
         pytest.param(
             "zsh",
-            "_XPKG_COMPLETE=zsh_complete",
+            "_XPKG_COMPLETE=complete_zsh",
             "compdef _xpkg_completion xpkg",
             id="zsh",
         ),
