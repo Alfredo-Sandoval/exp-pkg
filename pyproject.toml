@@ -48,6 +48,7 @@ classifiers = [
 dependencies = [
   "c3d>=0.6,<1",
   "cattrs>=24.1,<27",
+  "click>=8.1,<9",
   "h5py>=3.11,<4",
   "imageio>=2.36,<3",
   "imageio-ffmpeg>=0.5,<1",
