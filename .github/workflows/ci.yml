@@ -1,0 +1,74 @@
+name: CI
+
+# Run on every push to main and on every pull request.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Cancel in-progress runs for the same ref (branch or PR) when a new run starts.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Least privilege: the workflow only needs to read the repository contents.
+permissions:
+  contents: read
+
+jobs:
+  qa:
+    name: QA (${{ matrix.os }}, py${{ matrix.python-version }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      # Surface failures on every platform instead of stopping at the first.
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        python-version: ["3.12"]
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      # uv gives fast, reproducible dependency resolution and a cached install.
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+
+      # Create and activate a project virtualenv. Activating it sets VIRTUAL_ENV,
+      # which is what environment/run-in-env.sh keys off of, so `make coverage`
+      # runs against this env without needing mamba/conda. Every later step in
+      # this job inherits the exported PATH/VIRTUAL_ENV via $GITHUB_ENV.
+      - name: Create virtual environment
+        run: |
+          uv venv --python "${{ matrix.python-version }}" .venv
+          echo "VIRTUAL_ENV=${GITHUB_WORKSPACE}/.venv" >> "$GITHUB_ENV"
+          echo "${GITHUB_WORKSPACE}/.venv/bin" >> "$GITHUB_PATH"
+
+      # Install the package plus the [dev] extra (pytest, ruff, ty, twine).
+      - name: Install package with dev extras
+        run: uv pip install -e ".[dev]"
+
+      # Lint, type-check, and test run as separate steps so a failure points at
+      # the exact gate. ruff/ty are invoked directly rather than through the
+      # `make lint` / `make typecheck` targets, because those route through
+      # environment/run-in-env.sh and must not depend on a conda environment.
+      - name: Lint (ruff)
+        run: ruff check .
+
+      - name: Type check (ty)
+        run: ty check
+
+      # `make coverage` runs pytest with coverage and writes coverage.xml. It is
+      # safe here because the activated virtualenv satisfies run-in-env.sh.
+      - name: Test with coverage
+        run: make coverage
+
+      # coverage.xml may not exist if the coverage target changes; do not fail.
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-${{ matrix.os }}-py${{ matrix.python-version }}
+          path: coverage.xml
+          if-no-files-found: ignore
