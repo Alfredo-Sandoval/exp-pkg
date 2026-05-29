@@ -16,13 +16,15 @@ from xpkg.project import (
     load_project_metadata,
     load_project_payload,
     pack_project,
-    project_acquisition_metadata_path,
-    project_dataset_share_metadata_path,
     save_project_acquisition_metadata,
     save_project_dataset_share_metadata,
     save_project_labels,
     save_project_metadata,
     unpack_project,
+)
+from xpkg.project.metadata import (
+    project_acquisition_metadata_path,
+    project_dataset_share_metadata_path,
 )
 from xpkg.project.state_io import read_project_state_payload
 

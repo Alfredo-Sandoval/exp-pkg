@@ -245,7 +245,7 @@ def test_inspect_path_project_json_shape_is_stable(tmp_path: Path) -> None:
 
 
 def test_inspect_path_does_not_write_project_summary(tmp_path: Path) -> None:
-    from xpkg.project import project_summary_path
+    from xpkg.project.layout import project_summary_path
     from xpkg.services import ProjectService
 
     project = ProjectService.create(tmp_path / "Read Only Project", title="Read Only Project")
@@ -283,12 +283,9 @@ def test_inspect_path_summarizes_project_state_without_payload_load(tmp_path: Pa
 
 
 def test_inspect_path_reports_project_metadata_slots_without_payload_load(tmp_path: Path) -> None:
-    from xpkg.project import (
-        current_project_state_path,
-        project_datasheet_path,
-        project_model_card_path,
-        project_summary_path,
-    )
+    from xpkg.project import current_project_state_path
+    from xpkg.project.layout import project_summary_path
+    from xpkg.project.metadata import project_datasheet_path, project_model_card_path
     from xpkg.services import ProjectService
 
     project = ProjectService.create(tmp_path / "Metadata Project", title="Metadata Project")
@@ -451,7 +448,7 @@ def test_inspect_path_warns_when_project_media_inventory_unavailable(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     from tests.test_project_contract import _make_media_labels, _write_test_video
-    from xpkg.project import project_summary_path
+    from xpkg.project.layout import project_summary_path
     from xpkg.services import ProjectService
 
     source_video = tmp_path / "source.avi"

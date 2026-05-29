@@ -13,10 +13,10 @@ from xpkg.project import (
     init_project,
     load_project_model_card,
     pack_project,
-    project_model_card_path,
     save_project_model_card,
     unpack_project,
 )
+from xpkg.project.metadata import project_model_card_path
 from xpkg.services.project import ProjectService
 
 

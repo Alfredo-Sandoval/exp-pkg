@@ -151,10 +151,8 @@ def test_import_dlc_project_directory_imports_supported_items_into_one_project(
     tmp_path: Path,
 ) -> None:
     from xpkg.model import Labels
-    from xpkg.project import (
-        current_project_state_path,
-        project_media_root,
-    )
+    from xpkg.project import current_project_state_path
+    from xpkg.project.layout import project_media_root
     from xpkg.project.state_io import read_project_state_payload
     from xpkg.project.store.imports import import_dlc_project_directory
 

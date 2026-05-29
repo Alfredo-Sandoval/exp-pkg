@@ -16,10 +16,10 @@ from xpkg.model import AcquisitionMetadata, Labels
 from xpkg.project import (
     current_project_state_path,
     load_project_summary,
-    project_summary_path,
     save_project_acquisition_metadata,
     validate_expkg,
 )
+from xpkg.project.layout import project_summary_path
 from xpkg.services import ProjectService
 
 

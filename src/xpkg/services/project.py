@@ -18,7 +18,6 @@ from xpkg.project import (
     ProjectDescriptor,
     ProjectInspection,
     ProjectSummaryIndex,
-    current_project_state_path,
     init_project,
     inspect_project,
     load_project_acquisition_metadata,
@@ -32,16 +31,7 @@ from xpkg.project import (
     load_project_pose_provenance,
     load_project_vicon_recording,
     pack_project,
-    project_artifacts_root,
-    project_descriptor_path,
-    project_exports_root,
-    project_media_root,
-    project_metadata_root,
-    project_state_root,
-    project_store_root,
-    project_summary_path,
     refresh_project_summary,
-    resolve_project_root,
     save_project_acquisition_metadata,
     save_project_dataset_share_metadata,
     save_project_datasheet,
@@ -57,8 +47,21 @@ from xpkg.project.calibration import (
     import_anipose_calibration_project,
     import_opencv_stereo_calibration_project,
 )
+
+# Private-store layout helpers (not part of the public xpkg.project surface).
+from xpkg.project.layout import (
+    project_artifacts_root,
+    project_descriptor_path,
+    project_exports_root,
+    project_media_root,
+    project_state_root,
+    project_store_root,
+    project_summary_path,
+    resolve_project_root,
+)
+from xpkg.project.metadata import project_metadata_root
 from xpkg.project.state import project_state_kind
-from xpkg.project.store import ensure_current_project_state_cache
+from xpkg.project.store import current_project_state_path, ensure_current_project_state_cache
 from xpkg.project.store.imports import (
     import_dlc_csv_project,
     import_dlc_h5_project,

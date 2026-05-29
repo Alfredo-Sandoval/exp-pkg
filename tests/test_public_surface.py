@@ -64,23 +64,6 @@ from xpkg.model import (
     load_skeleton_xpkg_json,
 )
 from xpkg.project import (
-    ACQUISITION_METADATA_FILENAME,
-    ARTIFACT_INDEX_FILENAME,
-    ARTIFACT_MANIFEST_FILENAME,
-    ARTIFACT_SCHEMA_VERSION,
-    ARTIFACTS_DIRNAME,
-    DATASET_SHARE_METADATA_FILENAME,
-    EXPKG_MANIFEST_FILENAME,
-    EXPKG_SUFFIX,
-    FIGURE_ARTIFACT_SCHEMA_VERSION,
-    FIGURE_ARTIFACT_TYPE,
-    FIGURE_MANIFEST_FILENAME,
-    FIGURES_DIRNAME,
-    INDEXES_DIRNAME,
-    PROJECT_DESCRIPTOR_FILENAME,
-    PROJECT_METADATA_DIRNAME,
-    PROJECT_SUMMARY_FILENAME,
-    PROJECT_SUMMARY_SCHEMA_VERSION,
     ArtifactFile,
     ArtifactIndexEntry,
     ArtifactManifest,
@@ -90,7 +73,6 @@ from xpkg.project import (
     ProjectInspection,
     ProjectSummaryIndex,
     SegmentationFrame,
-    artifact_kind_dir,
     clear_project_segmentation_masks,
     current_project_state_path,
     default_expkg_path,
@@ -117,22 +99,9 @@ from xpkg.project import (
     load_project_summary,
     load_project_vicon_recording,
     pack_project,
-    project_acquisition_metadata_path,
-    project_artifact_index_path,
-    project_artifact_root,
-    project_artifact_type_root,
-    project_artifacts_root,
-    project_dataset_share_metadata_path,
-    project_descriptor_path,
-    project_figure_root,
-    project_figures_root,
-    project_indexes_root,
-    project_metadata_root,
-    project_summary_path,
     read_labels_json_payload,
     rebuild_project_artifact_index,
     refresh_project_summary,
-    resolve_project_root,
     save_project_acquisition_metadata,
     save_project_artifact,
     save_project_dataset_share_metadata,
@@ -266,20 +235,6 @@ def test_root_namespace_is_curated_to_project_first_modules() -> None:
         reloaded.__getattribute__("formats")
 
 def test_public_exports_are_callable() -> None:
-    assert ARTIFACTS_DIRNAME == "artifacts"
-    assert ARTIFACT_INDEX_FILENAME == "index.json"
-    assert ARTIFACT_MANIFEST_FILENAME == "manifest.json"
-    assert ARTIFACT_SCHEMA_VERSION == "1.0.0"
-    assert EXPKG_MANIFEST_FILENAME == "EXPKG.json"
-    assert EXPKG_SUFFIX == ".expkg"
-    assert FIGURE_ARTIFACT_SCHEMA_VERSION == "1.0.0"
-    assert FIGURE_ARTIFACT_TYPE == "figure"
-    assert FIGURE_MANIFEST_FILENAME == "manifest.json"
-    assert FIGURES_DIRNAME == "figures"
-    assert INDEXES_DIRNAME == "indexes"
-    assert PROJECT_DESCRIPTOR_FILENAME == "PROJECT.json"
-    assert PROJECT_SUMMARY_FILENAME == "project_summary.json"
-    assert PROJECT_SUMMARY_SCHEMA_VERSION == 1
     assert ArtifactFile is not None
     assert ArtifactIndexEntry is not None
     assert ArtifactManifest is not None
@@ -289,16 +244,12 @@ def test_public_exports_are_callable() -> None:
     assert SegmentationFrame is not None
     assert ProjectInspection is not None
     assert ProjectSummaryIndex is not None
-    assert ACQUISITION_METADATA_FILENAME == "acquisition.json"
-    assert DATASET_SHARE_METADATA_FILENAME == "dataset_share.json"
-    assert PROJECT_METADATA_DIRNAME == "metadata"
     assert callable(clear_project_segmentation_masks)
     assert callable(current_project_state_path)
     assert callable(default_expkg_path)
     assert callable(init_project)
     assert callable(inspect_project)
     assert callable(is_project_root)
-    assert callable(artifact_kind_dir)
     assert callable(list_project_artifact_index)
     assert callable(list_project_artifacts)
     assert callable(list_project_figures)
@@ -318,10 +269,7 @@ def test_public_exports_are_callable() -> None:
     assert callable(load_project_summary)
     assert callable(load_project_vicon_recording)
     assert callable(pack_project)
-    assert callable(project_acquisition_metadata_path)
-    assert callable(project_descriptor_path)
     assert callable(read_labels_json_payload)
-    assert callable(resolve_project_root)
     assert callable(rebuild_project_artifact_index)
     assert callable(save_project_artifact)
     assert callable(save_project_acquisition_metadata)
@@ -342,16 +290,6 @@ def test_public_exports_are_callable() -> None:
     assert callable(validate_project_figure)
     assert callable(validate_project_figures)
     assert callable(validate_project)
-    assert callable(project_artifacts_root)
-    assert callable(project_artifact_index_path)
-    assert callable(project_artifact_root)
-    assert callable(project_artifact_type_root)
-    assert callable(project_dataset_share_metadata_path)
-    assert callable(project_figure_root)
-    assert callable(project_figures_root)
-    assert callable(project_metadata_root)
-    assert callable(project_indexes_root)
-    assert callable(project_summary_path)
     assert callable(write_labels_json)
     assert callable(write_project_descriptor)
     assert callable(refresh_project_summary)
@@ -542,7 +480,7 @@ def test_project_surface_is_project_first_only() -> None:
     assert "save_project_labels" in xpkg.project.__all__
     assert "list_project_figures" in xpkg.project.__all__
     assert "save_project_figure" in xpkg.project.__all__
-    assert "project_artifacts_root" in xpkg.project.__all__
+    assert "current_project_state_path" in xpkg.project.__all__
     assert "save_project_segmentation_masks" in xpkg.project.__all__
     assert "load_project_segmentation_masks" in xpkg.project.__all__
 
@@ -565,6 +503,67 @@ def test_project_surface_is_project_first_only() -> None:
     assert not_exported.isdisjoint(set(xpkg.project.__all__))
     for name in not_exported:
         assert not hasattr(xpkg.project, name), f"{name} should not be a project export"
+
+    # Private-store layout details -- the .xpkg/ directory and filename
+    # constants and the project_* path helpers -- are intentionally not part of
+    # the public surface; downstream code should locate project files through
+    # ProjectService rather than hard-coding them. They remain importable from
+    # their submodules (xpkg.project.layout, .metadata, .calibration, .artifact).
+    layout_internals = {
+        "ACQUISITION_METADATA_FILENAME",
+        "ARTIFACTS_DIRNAME",
+        "ARTIFACT_INDEX_FILENAME",
+        "ARTIFACT_MANIFEST_FILENAME",
+        "ARTIFACT_SCHEMA_VERSION",
+        "CALIBRATION_FILENAME",
+        "CALIBRATION_SOURCE_DIRNAME",
+        "CALIBRATIONS_DIRNAME",
+        "DATASET_SHARE_METADATA_FILENAME",
+        "DATASHEET_FILENAME",
+        "EXPKG_MANIFEST_FILENAME",
+        "EXPKG_SUFFIX",
+        "FIGURE_ARTIFACT_SCHEMA_VERSION",
+        "FIGURE_ARTIFACT_TYPE",
+        "FIGURE_MANIFEST_FILENAME",
+        "FIGURES_DIRNAME",
+        "INDEXES_DIRNAME",
+        "MODEL_CARD_FILENAME",
+        "POSE_PROVENANCE_FILENAME",
+        "PROJECT_DESCRIPTOR_FILENAME",
+        "PROJECT_METADATA_DIRNAME",
+        "PROJECT_SUMMARY_FILENAME",
+        "PROJECT_SUMMARY_SCHEMA_VERSION",
+        "artifact_kind_dir",
+        "project_acquisition_metadata_path",
+        "project_artifact_index_path",
+        "project_artifact_root",
+        "project_artifact_type_root",
+        "project_artifacts_root",
+        "project_calibration_path",
+        "project_calibration_root",
+        "project_calibration_source_root",
+        "project_calibrations_root",
+        "project_dataset_share_metadata_path",
+        "project_datasheet_path",
+        "project_descriptor_path",
+        "project_exports_root",
+        "project_figure_root",
+        "project_figures_root",
+        "project_indexes_root",
+        "project_media_root",
+        "project_metadata_root",
+        "project_model_card_path",
+        "project_pose_provenance_path",
+        "project_state_root",
+        "project_store_root",
+        "project_summary_path",
+        "resolve_project_root",
+    }
+    assert layout_internals.isdisjoint(set(xpkg.project.__all__))
+    for name in layout_internals:
+        assert not hasattr(xpkg.project, name), f"{name} should not be a project export"
+    # current_project_state_path is the one retained state-file locator.
+    assert hasattr(xpkg.project, "current_project_state_path")
 
     metadata_surface = {
         "load_project_acquisition_metadata",

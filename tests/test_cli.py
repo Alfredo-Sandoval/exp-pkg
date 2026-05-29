@@ -167,7 +167,8 @@ def test_cli_project_describe_json_includes_summary_index(
     capsys,
 ) -> None:
     from xpkg.cli import main
-    from xpkg.project import init_project, project_summary_path
+    from xpkg.project import init_project
+    from xpkg.project.layout import project_summary_path
 
     project = tmp_path / "Describe Project"
     init_project(project, title="Describe Project")

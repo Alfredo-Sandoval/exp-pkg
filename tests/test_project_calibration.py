@@ -11,13 +11,15 @@ from xpkg.project import (
     list_project_calibrations,
     load_project_calibration,
     pack_project,
+    validate_expkg,
+)
+from xpkg.project.calibration import (
+    import_anipose_calibration_project,
     project_calibration_path,
     project_calibration_root,
     project_calibration_source_root,
     project_calibrations_root,
-    validate_expkg,
 )
-from xpkg.project.calibration import import_anipose_calibration_project
 from xpkg.services import ProjectService
 
 

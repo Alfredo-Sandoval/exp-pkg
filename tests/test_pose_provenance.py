@@ -16,10 +16,10 @@ from xpkg.project import (
     init_project,
     load_project_pose_provenance,
     pack_project,
-    project_pose_provenance_path,
     save_project_pose_provenance,
     unpack_project,
 )
+from xpkg.project.metadata import project_pose_provenance_path
 from xpkg.project.store.imports import import_dlc_csv_project
 from xpkg.services import ProjectService
 

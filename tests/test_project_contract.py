@@ -125,7 +125,7 @@ def _is_within(path: Path, root: Path) -> bool:
 
 
 def _read_expkg_manifest(artifact: Path) -> dict[str, Any]:
-    from xpkg.project import EXPKG_MANIFEST_FILENAME
+    from xpkg.project.artifact import EXPKG_MANIFEST_FILENAME
 
     with zipfile.ZipFile(artifact) as archive:
         raw = archive.read(EXPKG_MANIFEST_FILENAME).decode("utf-8")
@@ -561,10 +561,10 @@ def test_pack_portable_and_unpack_uses_managed_media_after_source_removal(tmp_pa
     from xpkg.project import (
         init_project,
         pack_project,
-        project_media_root,
         unpack_project,
         validate_artifact,
     )
+    from xpkg.project.layout import project_media_root
 
     source_root = tmp_path / "source"
     source_root.mkdir()
@@ -619,7 +619,8 @@ def test_pack_portable_and_unpack_uses_managed_media_after_source_removal(tmp_pa
 
 def test_pack_manifest_media_mode_records_media_without_storing_bytes(tmp_path: Path) -> None:
     from xpkg.model import Labels
-    from xpkg.project import init_project, pack_project, project_media_root, unpack_project
+    from xpkg.project import init_project, pack_project, unpack_project
+    from xpkg.project.layout import project_media_root
 
     source_root = tmp_path / "source"
     source_root.mkdir()
@@ -649,7 +650,8 @@ def test_pack_manifest_media_mode_records_media_without_storing_bytes(tmp_path: 
 def test_pack_package_media_mode_includes_images_and_manifests_videos(
     tmp_path: Path,
 ) -> None:
-    from xpkg.project import init_project, pack_project, project_media_root, validate_expkg
+    from xpkg.project import init_project, pack_project, validate_expkg
+    from xpkg.project.layout import project_media_root
 
     project = tmp_path / "Package Media Project"
     init_project(project, title="Package Media Project")
@@ -701,12 +703,9 @@ def test_validate_expkg_rejects_tampered_member_payload(tmp_path: Path) -> None:
 
 def test_labels_save_file_to_project_creates_first_committed_state(tmp_path: Path) -> None:
     from xpkg.model import Labels
-    from xpkg.project import (
-        current_project_state_path,
-        init_project,
-        project_store_root,
-    )
+    from xpkg.project import current_project_state_path, init_project
     from xpkg.project.durable_store import ArchiveStore
+    from xpkg.project.layout import project_store_root
 
     source_root = tmp_path / "source"
     source_root.mkdir()

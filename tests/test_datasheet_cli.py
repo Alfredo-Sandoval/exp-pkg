@@ -13,10 +13,10 @@ from xpkg.project import (
     init_project,
     load_project_datasheet,
     pack_project,
-    project_datasheet_path,
     save_project_datasheet,
     unpack_project,
 )
+from xpkg.project.metadata import project_datasheet_path
 from xpkg.services.project import ProjectService
 
 
