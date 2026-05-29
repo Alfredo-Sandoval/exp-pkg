@@ -54,17 +54,18 @@ jobs:
         run: uv pip install -e ".[dev]"
 
       # Lint, type-check, and test run as separate steps so a failure points at
-      # the exact gate. ruff/ty are invoked directly rather than through the
-      # `make lint` / `make typecheck` targets, because those route through
-      # environment/run-in-env.sh and must not depend on a conda environment.
+      # the exact gate. We use the canonical `make` targets so CI matches the
+      # local gate exactly: environment/run-in-env.sh execs straight through
+      # when VIRTUAL_ENV is set (the venv step above), so no conda is needed,
+      # and `make typecheck` passes `--python "$(command -v python)"` to ty so
+      # it resolves the venv's installed dependencies (click, numpy, ...).
       - name: Lint (ruff)
-        run: ruff check .
+        run: make lint
 
       - name: Type check (ty)
-        run: ty check
+        run: make typecheck
 
-      # `make coverage` runs pytest with coverage and writes coverage.xml. It is
-      # safe here because the activated virtualenv satisfies run-in-env.sh.
+      # `make coverage` runs pytest with coverage and writes coverage.xml.
       - name: Test with coverage
         run: make coverage
 
