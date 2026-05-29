@@ -31,7 +31,7 @@ from xpkg.project.store.provenance import (
 from ..._core.path_registry import resolve_path
 
 if TYPE_CHECKING:
-    from xpkg.model import Labels, ViconRecording
+    from xpkg.model import Labels, PoseModelProvenance, ViconRecording
 
 
 def _project_relative_path(path: str | Path | None, project_root: Path) -> str | None:
@@ -137,7 +137,7 @@ def _import_pose_project(
     reason: str,
     convert: Callable[[Path], Any],
     prediction_provenance: Mapping[str, Any] | None,
-    provenance: Any,
+    provenance: PoseModelProvenance | Mapping[str, Any] | None,
     default_tool: str,
     source_path: str | Path,
 ) -> Path:
@@ -167,7 +167,7 @@ def _import_vicon_project_recording(
     *,
     force: bool,
     reason: str,
-    progress_callback: Any | None,
+    progress_callback: Callable[[str], None] | None,
     reader: Callable[[str | Path], ViconRecording],
     source_name: str,
 ) -> Path:

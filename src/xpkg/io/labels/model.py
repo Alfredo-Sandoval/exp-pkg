@@ -812,23 +812,41 @@ class Labels:
         _merge_matching_frames(self, video)
 
     @classmethod
-    def load_file(cls, filename: str, *args, **kwargs):
-        """Load labels from disk."""
-        return serialization.labels_load_file(cls, filename, *args, **kwargs)
+    def load_file(
+        cls,
+        filename: str,
+        *,
+        video_builder: serialization.VideoBuilder | None = None,
+        video_finalizer: serialization.HydratedVideoFinalizer | None = None,
+    ) -> Labels:
+        """Load labels from a project root or JSON file."""
+        return serialization.labels_load_file(
+            cls,
+            filename,
+            video_builder=video_builder,
+            video_finalizer=video_finalizer,
+        )
 
     @classmethod
-    def save_file(cls, labels: Labels, filename: str, _default_suffix: str = "", *args, **kwargs):
-        """Save labels to disk."""
+    def save_file(
+        cls,
+        labels: Labels,
+        filename: str,
+        _default_suffix: str = "",
+        *,
+        metadata: dict[str, Any] | None = None,
+    ) -> str:
+        """Save labels to a project root or JSON file."""
         return serialization.labels_save_file(
             labels,
             filename,
             default_suffix=_default_suffix,
-            **kwargs,
+            metadata=metadata,
         )
 
-    def save(self, filename: str, *args, **kwargs):
+    def save(self, filename: str, *, metadata: dict[str, Any] | None = None) -> str:
         """Save labels to a project or JSON file."""
-        return self.save_file(self, filename)
+        return self.save_file(self, filename, metadata=metadata)
 
     def numpy(
         self,

@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from xpkg.project.store.conversion import (
     _import_pose_project,
@@ -14,13 +14,16 @@ from xpkg.project.store.conversion import (
 
 from ..._core.path_registry import resolve_path
 
+if TYPE_CHECKING:
+    from xpkg.model import PoseModelProvenance
+
 
 def import_vicon_csv_project(
     csv_path: str | Path,
     project: str | Path,
     *,
     force: bool = False,
-    progress_callback: Any | None = None,
+    progress_callback: Callable[[str], None] | None = None,
 ) -> Path:
     """Import a Vicon CSV recording into a project."""
     from xpkg.io.readers import read_vicon_csv
@@ -41,7 +44,7 @@ def import_vicon_c3d_project(
     project: str | Path,
     *,
     force: bool = False,
-    progress_callback: Any | None = None,
+    progress_callback: Callable[[str], None] | None = None,
 ) -> Path:
     """Import a Vicon C3D recording into a project."""
     from xpkg.io.readers import read_vicon_c3d
@@ -62,7 +65,7 @@ def import_vicon_project(
     project: str | Path,
     *,
     force: bool = False,
-    progress_callback: Any | None = None,
+    progress_callback: Callable[[str], None] | None = None,
 ) -> Path:
     """Import a Vicon CSV or C3D recording into a project."""
     from xpkg.io.readers import read_vicon_recording
@@ -86,9 +89,9 @@ def import_dlc_csv_project(
     skeleton_name: str = "imported",
     likelihood_threshold: float = 0.0,
     prediction_provenance: Mapping[str, Any] | None = None,
-    provenance: Any = None,
+    provenance: PoseModelProvenance | Mapping[str, Any] | None = None,
     force: bool = False,
-    progress_callback: Any | None = None,
+    progress_callback: Callable[[str], None] | None = None,
 ) -> Path:
     """Import a DeepLabCut CSV plus video into a project."""
     from xpkg.io.converters.dlc_import import convert_dlc_csv
@@ -119,9 +122,9 @@ def import_lightning_pose_csv_project(
     skeleton_name: str = "imported",
     likelihood_threshold: float = 0.0,
     prediction_provenance: Mapping[str, Any] | None = None,
-    provenance: Any = None,
+    provenance: PoseModelProvenance | Mapping[str, Any] | None = None,
     force: bool = False,
-    progress_callback: Any | None = None,
+    progress_callback: Callable[[str], None] | None = None,
 ) -> Path:
     """Import a Lightning Pose prediction CSV plus video into a project."""
     from xpkg.io.converters.dlc_import import convert_lightning_pose_csv
@@ -152,9 +155,9 @@ def import_dlc_h5_project(
     skeleton_name: str = "imported",
     likelihood_threshold: float = 0.0,
     prediction_provenance: Mapping[str, Any] | None = None,
-    provenance: Any = None,
+    provenance: PoseModelProvenance | Mapping[str, Any] | None = None,
     force: bool = False,
-    progress_callback: Any | None = None,
+    progress_callback: Callable[[str], None] | None = None,
 ) -> Path:
     """Import a DeepLabCut H5 export plus video into a project."""
     from xpkg.io.converters.dlc_import import convert_dlc_h5
@@ -184,9 +187,9 @@ def import_dlc_project_directory(
     skeleton_name: str | None = None,
     likelihood_threshold: float = 0.0,
     prediction_provenance: Mapping[str, Any] | None = None,
-    provenance: Any = None,
+    provenance: PoseModelProvenance | Mapping[str, Any] | None = None,
     force: bool = False,
-    progress_callback: Any | None = None,
+    progress_callback: Callable[[str], None] | None = None,
 ) -> Path:
     """Import a supported DeepLabCut project into one project."""
     from xpkg.io.converters.dlc_import import (
@@ -285,9 +288,9 @@ def import_sleap_package_project(
     fps: int = 30,
     encode_videos: bool | None = None,
     prediction_provenance: Mapping[str, Any] | None = None,
-    provenance: Any = None,
+    provenance: PoseModelProvenance | Mapping[str, Any] | None = None,
     force: bool = False,
-    progress_callback: Any | None = None,
+    progress_callback: Callable[[str], None] | None = None,
 ) -> Path:
     """Import a SLEAP package into a project."""
     from xpkg.io.converters.sleap_import import convert_sleap_package
@@ -318,9 +321,9 @@ def import_sleap_h5_project(
     skeleton_name: str = "imported",
     likelihood_threshold: float = 0.0,
     prediction_provenance: Mapping[str, Any] | None = None,
-    provenance: Any = None,
+    provenance: PoseModelProvenance | Mapping[str, Any] | None = None,
     force: bool = False,
-    progress_callback: Any | None = None,
+    progress_callback: Callable[[str], None] | None = None,
 ) -> Path:
     """Import a SLEAP analysis H5 export plus video into a project."""
     from xpkg.io.converters.sleap_import import convert_sleap_h5
@@ -352,9 +355,9 @@ def import_mmpose_topdown_json_project(
     instance_index: int = 0,
     likelihood_threshold: float = 0.0,
     prediction_provenance: Mapping[str, Any] | None = None,
-    provenance: Any = None,
+    provenance: PoseModelProvenance | Mapping[str, Any] | None = None,
     force: bool = False,
-    progress_callback: Any | None = None,
+    progress_callback: Callable[[str], None] | None = None,
 ) -> Path:
     """Import an MMPose top-down JSON export plus video into a project."""
     from xpkg.io.converters.mmpose_import import convert_mmpose_topdown_json
@@ -386,9 +389,9 @@ def import_mediapipe_pose_landmarks_json_project(
     skeleton_name: str = "mediapipe_pose",
     likelihood_threshold: float = 0.0,
     prediction_provenance: Mapping[str, Any] | None = None,
-    provenance: Any = None,
+    provenance: PoseModelProvenance | Mapping[str, Any] | None = None,
     force: bool = False,
-    progress_callback: Any | None = None,
+    progress_callback: Callable[[str], None] | None = None,
 ) -> Path:
     """Import MediaPipe pose-landmarks JSON plus video into a project."""
     from xpkg.io.converters.mediapipe_import import convert_mediapipe_pose_landmarks_json

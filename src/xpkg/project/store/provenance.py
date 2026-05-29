@@ -15,7 +15,7 @@ from ..._core.hashing import sha256_file
 from ..._core.path_registry import resolve_path
 
 if TYPE_CHECKING:
-    from xpkg.model import Labels
+    from xpkg.model import Labels, PoseModelProvenance
 
 
 _POSE_PREDICTION_TOOLS: dict[str, tuple[str, str]] = {
@@ -151,7 +151,7 @@ def _attach_prediction_provenance(
 
 def _persist_pose_provenance(
     root: Path,
-    provenance: Any,
+    provenance: PoseModelProvenance | Mapping[str, Any] | None,
     *,
     default_tool: str,
     source_path: str | Path,

@@ -373,29 +373,58 @@ class ProjectService:
         path: str | Path,
         video: str | Path | None = None,
         skeleton_name: str | None = None,
-        likelihood_threshold: float = 0.0,
-        instance_index: int = 0,
-        fps: int = 30,
+        likelihood_threshold: float | None = None,
+        instance_index: int | None = None,
+        fps: int | None = None,
         encode_videos: bool | None = None,
         prediction_provenance: Mapping[str, Any] | None = None,
         provenance: PoseModelProvenance | Mapping[str, Any] | None = None,
         force: bool = False,
-        progress_callback: Any | None = None,
+        progress_callback: Callable[[str], None] | None = None,
     ) -> Path:
         """Import a pose track from one of the supported formats into this project.
 
         The ``video`` keyword is required for the per-clip formats
         (``dlc-csv``, ``dlc-h5``, ``lightning-pose-csv``,
         ``mediapipe-pose-landmarks-json``, ``mmpose-topdown-json``,
-        ``sleap-h5``) and ignored for ``dlc-project`` and ``sleap-package``.
-        ``instance_index`` only applies to ``mmpose-topdown-json``;
-        ``fps`` and ``encode_videos`` only apply to ``sleap-package``.
+        ``sleap-h5``) and is not used by ``dlc-project`` or ``sleap-package``.
+
+        Several options apply only to specific formats: ``instance_index`` to
+        ``mmpose-topdown-json``; ``fps`` and ``encode_videos`` to
+        ``sleap-package``; ``skeleton_name`` and ``likelihood_threshold`` to
+        every format except ``sleap-package``. Passing one of these to a format
+        that does not accept it raises ``ValueError`` instead of silently
+        ignoring it.
+
+        ``prediction_provenance`` is a free-form mapping recorded on the
+        imported prediction records; ``provenance`` is a
+        :class:`~xpkg.model.PoseModelProvenance` (or equivalent mapping)
+        persisted as the project's pose-model provenance metadata slot.
         """
         importer = _POSE_IMPORTERS.get(format)
         if importer is None:
             raise ValueError(f"Unknown pose format: {format!r}")
         if importer.requires_video and video is None:
             raise ValueError(f"import_pose(format={format!r}) requires `video=`.")
+
+        # Reject options that do not apply to this format instead of silently
+        # dropping them, so a misplaced `fps=` or `instance_index=` is a loud
+        # error rather than a no-op.
+        for opt_name, value, accepted in (
+            ("skeleton_name", skeleton_name, importer.accepts_skeleton_name),
+            (
+                "likelihood_threshold",
+                likelihood_threshold,
+                importer.accepts_likelihood_threshold,
+            ),
+            ("instance_index", instance_index, importer.accepts_instance_index),
+            ("fps", fps, importer.accepts_fps),
+            ("encode_videos", encode_videos, importer.accepts_encode_videos),
+        ):
+            if value is not None and not accepted:
+                raise ValueError(
+                    f"import_pose(format={format!r}) does not accept `{opt_name}=`."
+                )
 
         kwargs: dict[str, Any] = {
             "project": self.project_root,
@@ -405,13 +434,15 @@ class ProjectService:
             "progress_callback": progress_callback,
         }
         if importer.accepts_likelihood_threshold:
-            kwargs["likelihood_threshold"] = likelihood_threshold
+            kwargs["likelihood_threshold"] = (
+                0.0 if likelihood_threshold is None else likelihood_threshold
+            )
         if importer.accepts_skeleton_name:
             kwargs["skeleton_name"] = skeleton_name or importer.default_skeleton_name
         if importer.accepts_instance_index:
-            kwargs["instance_index"] = int(instance_index)
+            kwargs["instance_index"] = 0 if instance_index is None else int(instance_index)
         if importer.accepts_fps:
-            kwargs["fps"] = int(fps)
+            kwargs["fps"] = 30 if fps is None else int(fps)
         if importer.accepts_encode_videos:
             kwargs["encode_videos"] = encode_videos
 
@@ -459,7 +490,7 @@ class ProjectService:
         *,
         path: str | Path,
         force: bool = False,
-        progress_callback: Any | None = None,
+        progress_callback: Callable[[str], None] | None = None,
     ) -> Path:
         """Import a motion-capture recording from one of the supported formats.
 
