@@ -71,6 +71,7 @@ Changelog = "https://github.com/Alfredo-Sandoval/exp-pkg/blob/main/CHANGELOG.md"
 [project.optional-dependencies]
 dev = [
   "pytest>=8.3,<9",
+  "pytest-cov>=5,<8",
   "ruff>=0.9,<1",
   "twine>=6.1,<7",
   "ty>=0.0.20,<0.1",
@@ -166,3 +167,25 @@ markers = [
   "realdata: opt-in integration tests that require XPKG_REAL_DATA_ROOT",
   "vendorfixtures: opt-in external vendor fixture tests",
 ]
+# NOTE: `--cov` is intentionally NOT added to addopts. Enabling coverage on
+# every run slows the suite and interferes with debuggers/breakpoints. Use the
+# `make coverage` target (or pass --cov explicitly) when a report is wanted.
+
+[tool.coverage.run]
+# Measure the installed/importable `xpkg` package.
+source = ["xpkg"]
+branch = true
+
+[tool.coverage.report]
+show_missing = true
+precision = 1
+exclude_lines = [
+  "pragma: no cover",
+  "if TYPE_CHECKING:",
+  "raise NotImplementedError",
+  "if __name__ == .__main__.:",
+  "@(abc\\.)?abstractmethod",
+]
+# Enable the hard gate once a real coverage number is measured against the
+# installed dependencies (run `make coverage` in a configured environment).
+# fail_under = NN
