@@ -118,8 +118,12 @@ def test_project_service_describe_uses_shallow_summary_index(
     def fail_load_payload(*_args: object, **_kwargs: object) -> object:
         raise AssertionError("describe must not materialize project payload")
 
+    def fail_refresh_summary(*_args: object, **_kwargs: object) -> object:
+        raise AssertionError("describe must reuse the matching summary index")
+
     monkeypatch.setattr("xpkg.services.project.load_project_payload", fail_load_payload)
     monkeypatch.setattr("xpkg.project.store.load_project_payload", fail_load_payload)
+    monkeypatch.setattr("xpkg.services.project.refresh_project_summary", fail_refresh_summary)
 
     summary_text = project_summary_path(project.project_root).read_text(encoding="utf-8")
     layout = ProjectService.open(project.project_root).describe()
