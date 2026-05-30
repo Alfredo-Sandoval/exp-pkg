@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
 
+from xpkg._core.json_utils import load_json_dict
 from xpkg.project import (
     ProjectDescriptor,
     ProjectInspection,
@@ -47,16 +48,13 @@ from xpkg.project.calibration import (
     import_anipose_calibration_project,
     import_opencv_stereo_calibration_project,
 )
-
-# Private-store layout helpers (not part of the public xpkg.project surface).
 from xpkg.project.layout import (
-    project_artifacts_root,
-    project_descriptor_path,
-    project_exports_root,
-    project_media_root,
-    project_state_root,
-    project_store_root,
-    project_summary_path,
+    ARTIFACTS_DIRNAME,
+    CURRENT_STATE_FILENAME,
+    INDEXES_DIRNAME,
+    PROJECT_DESCRIPTOR_FILENAME,
+    PROJECT_SUMMARY_FILENAME,
+    STORE_STATE_DIRNAME,
     resolve_project_root,
 )
 from xpkg.project.metadata import project_metadata_root
@@ -119,12 +117,7 @@ force the matching reader.
 
 @dataclass(frozen=True, slots=True)
 class _PoseImporter:
-    """Per-format dispatch entry for ``ProjectService.import_pose``.
-
-    Captures the per-format quirks (video requirement, skeleton-name default,
-    extra kwargs, omitted common kwargs) so the dispatch method can stay a
-    single thin pass over the registry.
-    """
+    """Per-format dispatch entry for ``ProjectService.import_pose``."""
 
     fn: Callable[..., Path]
     requires_video: bool
@@ -196,6 +189,26 @@ _CALIBRATION_IMPORTERS: dict[str, Callable[..., Path]] = {
 }
 
 
+def _cached_summary_for_descriptor(
+    summary_path: Path,
+    descriptor: ProjectDescriptor,
+) -> ProjectSummaryIndex | None:
+    """Return the cached summary when it matches the current descriptor."""
+
+    try:
+        summary = ProjectSummaryIndex.from_dict(load_json_dict(summary_path))
+    except (OSError, TypeError, ValueError):
+        return None
+
+    if summary.project_id != descriptor.project_id:
+        return None
+    if summary.title != descriptor.title:
+        return None
+    if summary.descriptor_updated_at != descriptor.updated_at:
+        return None
+    return summary
+
+
 @dataclass(frozen=True, slots=True)
 class ProjectMetadata:
     """Accessor for the durable typed metadata slots under ``.xpkg/metadata/``.
@@ -243,13 +256,7 @@ class ProjectMetadata:
         datasheet: DatasetDatasheet | Mapping[str, Any] | None = None,
         model_card: ModelCard | Mapping[str, Any] | None = None,
     ) -> dict[str, Path]:
-        """Write one or more typed metadata slots and return the paths written.
-
-        Slots left as ``None`` are not touched. Each provided slot accepts the
-        canonical typed value or a JSON-shaped mapping that will be coerced
-        through the slot's ``from_dict``. Writes happen in a fixed order; if a
-        write raises, slots written before it remain on disk.
-        """
+        """Write one or more typed metadata slots and return the paths written."""
         written: dict[str, Path] = {}
         if acquisition is not None:
             written["acquisition"] = save_project_acquisition_metadata(
@@ -385,34 +392,13 @@ class ProjectService:
         force: bool = False,
         progress_callback: Callable[[str], None] | None = None,
     ) -> Path:
-        """Import a pose track from one of the supported formats into this project.
-
-        The ``video`` keyword is required for the per-clip formats
-        (``dlc-csv``, ``dlc-h5``, ``lightning-pose-csv``,
-        ``mediapipe-pose-landmarks-json``, ``mmpose-topdown-json``,
-        ``sleap-h5``) and is not used by ``dlc-project`` or ``sleap-package``.
-
-        Several options apply only to specific formats: ``instance_index`` to
-        ``mmpose-topdown-json``; ``fps`` and ``encode_videos`` to
-        ``sleap-package``; ``skeleton_name`` and ``likelihood_threshold`` to
-        every format except ``sleap-package``. Passing one of these to a format
-        that does not accept it raises ``ValueError`` instead of silently
-        ignoring it.
-
-        ``prediction_provenance`` is a free-form mapping recorded on the
-        imported prediction records; ``provenance`` is a
-        :class:`~xpkg.model.PoseModelProvenance` (or equivalent mapping)
-        persisted as the project's pose-model provenance metadata slot.
-        """
+        """Import a pose track from one of the supported formats into this project."""
         importer = _POSE_IMPORTERS.get(format)
         if importer is None:
             raise ValueError(f"Unknown pose format: {format!r}")
         if importer.requires_video and video is None:
             raise ValueError(f"import_pose(format={format!r}) requires `video=`.")
 
-        # Reject options that do not apply to this format instead of silently
-        # dropping them, so a misplaced `fps=` or `instance_index=` is a loud
-        # error rather than a no-op.
         for opt_name, value, accepted in (
             ("skeleton_name", skeleton_name, importer.accepts_skeleton_name),
             (
@@ -450,7 +436,7 @@ class ProjectService:
             kwargs["encode_videos"] = encode_videos
 
         if importer.requires_video:
-            assert video is not None  # narrowed above
+            assert video is not None
             return importer.fn(path, video, **kwargs)
         return importer.fn(path, **kwargs)
 
@@ -482,10 +468,7 @@ class ProjectService:
         }
         if camera_names is not None:
             kwargs["camera_names"] = camera_names
-        return importer(
-            path,
-            **kwargs,
-        )
+        return importer(path, **kwargs)
 
     def import_motion(
         self,
@@ -495,11 +478,7 @@ class ProjectService:
         force: bool = False,
         progress_callback: Callable[[str], None] | None = None,
     ) -> Path:
-        """Import a motion-capture recording from one of the supported formats.
-
-        ``"vicon"`` auto-detects CSV vs C3D from the path; the dashed forms
-        force the matching reader.
-        """
+        """Import a motion-capture recording from one of the supported formats."""
         importer = _MOTION_IMPORTERS.get(format)
         if importer is None:
             raise ValueError(f"Unknown motion format: {format!r}")
@@ -511,21 +490,33 @@ class ProjectService:
         )
 
     def describe(self) -> ProjectLayout:
-        """Return the normalized managed paths for this project."""
+        """Return the normalized managed paths for this project.
+
+        The describe path prefers the generated shallow summary index when it
+        matches the current descriptor. That keeps repeated project-picker and
+        GUI row rendering calls to descriptor + summary JSON reads, while still
+        regenerating the summary if it is missing, unreadable, or stale.
+        """
+        root = self.project_root
         descriptor = self.descriptor()
-        state_path = current_project_state_path(self.project_root)
-        summary = refresh_project_summary(self.project_root)
+        store_root = root / descriptor.store_path
+        state_root = store_root / STORE_STATE_DIRNAME
+        summary_path = store_root / INDEXES_DIRNAME / PROJECT_SUMMARY_FILENAME
+        summary = _cached_summary_for_descriptor(summary_path, descriptor)
+        if summary is None:
+            summary = refresh_project_summary(root)
+
         return ProjectLayout(
-            project_root=self.project_root,
+            project_root=root,
             descriptor=descriptor,
-            descriptor_path=project_descriptor_path(self.project_root),
-            store_root=project_store_root(self.project_root),
-            artifacts_root=project_artifacts_root(self.project_root),
-            state_root=project_state_root(self.project_root),
-            media_root=project_media_root(self.project_root),
-            exports_root=project_exports_root(self.project_root),
-            current_state_path=state_path,
-            summary_path=project_summary_path(self.project_root),
+            descriptor_path=root / PROJECT_DESCRIPTOR_FILENAME,
+            store_root=store_root,
+            artifacts_root=store_root / ARTIFACTS_DIRNAME,
+            state_root=state_root,
+            media_root=root / descriptor.media_root,
+            exports_root=root / descriptor.exports_root,
+            current_state_path=state_root / CURRENT_STATE_FILENAME,
+            summary_path=summary_path,
             summary=summary,
             has_current_state=summary.has_current_state,
         )
@@ -559,12 +550,7 @@ class ProjectService:
         return load_project_vicon_recording(self.project_root)
 
     def load_state_metadata(self) -> dict[str, Any] | None:
-        """Load the current project state's free-form metadata dict.
-
-        This is distinct from :attr:`metadata` — that accessor reads typed
-        durable slots under ``.xpkg/metadata/``; this method reads the
-        free-form ``metadata`` field on the current project state head.
-        """
+        """Load the current project state's free-form metadata dict."""
         return load_project_metadata(self.project_root)
 
     def load_state_metadata_field(self, field: str) -> dict[str, Any] | None:
