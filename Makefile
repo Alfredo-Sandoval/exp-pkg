@@ -48,13 +48,13 @@ typecheck:
 	$(RUN_IN_ENV) sh -c 'ty check --python "$$(command -v python)" $(TY_EXTRA_SEARCH_PATHS)'
 
 test:
-	PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 $(RUN_IN_ENV) pytest
+	PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 $(RUN_IN_ENV) python -m pytest
 
 # Run the suite under coverage and emit terminal, XML (coverage.xml at repo
 # root, required by CI) and HTML (htmlcov/) reports. pytest-cov is loaded
 # explicitly via -p because plugin autoload is disabled.
 coverage:
-	PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 $(RUN_IN_ENV) pytest -p pytest_cov --cov=xpkg --cov-report=term-missing --cov-report=xml --cov-report=html
+	PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 $(RUN_IN_ENV) python -m pytest -p pytest_cov --cov=xpkg --cov-report=term-missing --cov-report=xml --cov-report=html
 
 require-real-data:
 	@root="$${XPKG_REAL_DATA_ROOT:-$(REAL_DATA_ROOT)}"; \
@@ -70,7 +70,7 @@ require-real-data:
 test-real: require-real-data
 	XPKG_REAL_DATA_ROOT="$${XPKG_REAL_DATA_ROOT:-$(REAL_DATA_ROOT)}" \
 	XPKG_REAL_DATA_MANIFEST="$${XPKG_REAL_DATA_MANIFEST:-$(REAL_DATA_MANIFEST)}" \
-	PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 $(RUN_IN_ENV) pytest -m realdata tests/real_data
+	PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 $(RUN_IN_ENV) python -m pytest -m realdata tests/real_data
 
 qa: conflict-check lint typecheck test
 

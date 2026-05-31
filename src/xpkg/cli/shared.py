@@ -8,11 +8,7 @@ from enum import StrEnum
 from typing import Annotated, Any, NoReturn, overload
 
 import typer
-
-# typer 0.26 vendors its own click as ``typer._click`` and raises those classes
-# (not the standalone ``click`` package) while parsing, so the CLI must catch
-# the vendored exception types to honor its structured-error contract.
-from typer._click.exceptions import ClickException, MissingParameter, NoSuchOption
+from click.exceptions import ClickException, MissingParameter, NoSuchOption
 
 from .._core.json_utils import dump_json
 
@@ -23,6 +19,7 @@ JsonOption = Annotated[
         help="Emit machine-readable JSON to stdout with no progress or prose.",
     ),
 ]
+
 
 class PackMedia(StrEnum):
     """CLI values for packed project media scope."""

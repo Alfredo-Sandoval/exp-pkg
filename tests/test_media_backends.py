@@ -171,7 +171,11 @@ def test_pyproject_declares_media_and_deep_learning_extras() -> None:
         "torchcodec>=0.11,<0.12",
         "torchvision>=0.26,<0.27",
     ]
-    assert extras["vision"] == ["kornia>=0.8,<1", "torch>=2.11,<2.12"]
+    assert extras["vision"] == [
+        "kornia>=0.8,<1",
+        "supervision>=0.28,<0.29",
+        "torch>=2.11,<2.12",
+    ]
     assert extras["hardware-accel"] == [
         "mlx>=0.31,<1",
         "torch>=2.11,<2.12",

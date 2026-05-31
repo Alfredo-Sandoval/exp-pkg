@@ -73,6 +73,7 @@ dev = [
   "pytest>=8.3,<9",
   "pytest-cov>=5,<8",
   "ruff>=0.9,<1",
+  "supervision>=0.28,<0.29",
   "twine>=6.1,<7",
   "ty==0.0.26",
 ]
@@ -102,6 +103,7 @@ nvidia = [
 ]
 vision = [
   "kornia>=0.8,<1",
+  "supervision>=0.28,<0.29",
   "torch>=2.11,<2.12",
 ]
 hardware-accel = [

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 
 import cv2
 import numpy as np
@@ -11,10 +12,12 @@ from xpkg.segmentation import (
     PromptType,
     SegmentationMask,
     SegmentationPrompt,
+    SupervisionOverlayError,
     best_mask_index,
     coco_rle_to_mask,
     decode_mask_rle,
     encode_mask_rle,
+    format_supervision_overlay_labels,
     mask_to_coco_annotation,
     mask_to_coco_rle,
     masks_from_fiesta_summary,
@@ -26,6 +29,7 @@ from xpkg.segmentation import (
     read_normalized_polygon_dataset_yaml,
     read_normalized_polygon_labels,
     read_normalized_polygon_rows,
+    render_supervision_overlay,
     select_masks_for_save,
     write_binary_mask,
     write_binary_masks,
@@ -33,7 +37,9 @@ from xpkg.segmentation import (
     write_mask_overlay,
     write_normalized_polygon_dataset_yaml,
     write_normalized_polygon_labels,
+    write_supervision_overlay,
 )
+from xpkg.segmentation import images as image_helpers
 
 
 def test_segmentation_module_is_public_from_root() -> None:
@@ -194,6 +200,80 @@ def test_write_mask_overlay_can_resize_mask_and_draw_box(tmp_path) -> None:
     assert loaded is not None
     rgb = cv2.cvtColor(loaded, cv2.COLOR_BGR2RGB)
     np.testing.assert_array_equal(rgb[1, 1], np.array([0, 255, 0], dtype=np.uint8))
+
+
+def test_format_supervision_overlay_labels_uses_tracker_prefixes() -> None:
+    labels = format_supervision_overlay_labels(
+        labels=["mouse", "tail"],
+        confidences=[0.8123, 0.634],
+        tracker_ids=[40, None],
+        confidence_digits=1,
+    )
+
+    assert labels == ["#40 mouse 0.8", "#pending tail 0.6"]
+
+
+def test_render_supervision_overlay_draws_masks_boxes_and_labels() -> None:
+    image = np.full((12, 18, 3), 24, dtype=np.uint8)
+    mask_a = np.zeros((12, 18), dtype=np.uint8)
+    mask_a[3:8, 4:10] = 1
+    mask_b = np.zeros((12, 18), dtype=np.uint8)
+    mask_b[5:10, 11:16] = 1
+
+    overlay = render_supervision_overlay(
+        image,
+        masks=[mask_a, mask_b],
+        boxes_xyxy=[(4.0, 3.0, 10.0, 8.0), (11.0, 5.0, 16.0, 10.0)],
+        labels=["mouse", "tail"],
+        confidences=[0.82, 0.63],
+        tracker_ids=[40, None],
+        opacity=0.35,
+        palette_rgb=[(46, 204, 113), (52, 152, 219)],
+    )
+
+    assert overlay.shape == image.shape
+    assert overlay.dtype == np.uint8
+    assert not np.array_equal(overlay, image)
+    assert np.any(overlay[mask_a.astype(bool)] != image[mask_a.astype(bool)])
+
+
+def test_write_supervision_overlay_persists_rgb_png(tmp_path) -> None:
+    image = np.full((8, 8, 3), 20, dtype=np.uint8)
+    mask = np.zeros((8, 8), dtype=np.uint8)
+    mask[2:6, 2:6] = 1
+    path = tmp_path / "supervision_overlay.png"
+
+    write_supervision_overlay(
+        path,
+        image,
+        masks=[mask],
+        labels=["mouse"],
+        confidences=[0.9],
+        png_compression=0,
+    )
+
+    loaded = cv2.imread(path.as_posix(), cv2.IMREAD_COLOR)
+    assert loaded is not None
+    rgb = cv2.cvtColor(loaded, cv2.COLOR_BGR2RGB)
+    assert rgb.shape == image.shape
+    assert not np.array_equal(rgb, image)
+
+
+def test_supervision_overlay_reports_missing_dependency(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+) -> None:
+    def _raise_missing_supervision(_name: str) -> Callable[..., object]:
+        raise ModuleNotFoundError(name="supervision")
+
+    monkeypatch.setattr(image_helpers, "import_module", _raise_missing_supervision)
+
+    with pytest.raises(SupervisionOverlayError, match="Roboflow supervision is required"):
+        write_supervision_overlay(
+            tmp_path / "overlay.png",
+            np.zeros((4, 4, 3), dtype=np.uint8),
+            boxes_xyxy=[(0.0, 0.0, 2.0, 2.0)],
+        )
 
 
 def test_coco_uncompressed_rle_round_trips_with_column_major_contract() -> None:
