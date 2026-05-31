@@ -101,6 +101,9 @@ nvidia = [
   "torchcodec>=0.11,<0.12",
   "torchvision>=0.26,<0.27",
 ]
+segmentation-overlays = [
+  "supervision>=0.28,<0.29",
+]
 vision = [
   "kornia>=0.8,<1",
   "supervision>=0.28,<0.29",
