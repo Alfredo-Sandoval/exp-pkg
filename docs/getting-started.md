@@ -110,8 +110,8 @@ restored = ProjectService.unpack(artifact, "./Restored Project")
 ```
 
 `ProjectService` is the normal project boundary: create or open a project,
-import through `project.import_pose(...)` / `import_calibration(...)` /
-`import_motion(...)`, validate, then pack only when you want a portable
+import through `project.import_pose(...)` / `import_calibration(...)`,
+validate, then pack only when you want a portable
 artifact. The dedicated guide for that surface lives in
 [Services](api/services.md).
 

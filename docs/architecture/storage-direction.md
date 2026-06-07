@@ -76,7 +76,7 @@ xpkg rebuilds it from the durable store before continuing.
 
 The public cleanup now matches that storage model:
 
-- `ProjectService` with `import_pose`/`import_calibration`/`import_motion` is the primary downstream path
+- `ProjectService` with `import_pose`/`import_calibration` is the primary downstream path
 - `xpkg.project` keeps project lifecycle/import helpers
 - package-level `xpkg.adapters` and the CLI `xpkg convert` surface were removed
 - compatibility alias maps for direct `.xpkg` archive files were removed from

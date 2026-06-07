@@ -25,7 +25,7 @@ def _valid_emg(**overrides: object) -> EMGSignalData:
         "sample_rate_hz": 1000.0,
         "units": (("signal", "V"),),
         "processing_state": "raw",
-        "provenance": (("source_path", "trial.c3d"), ("reader", "test")),
+        "provenance": (("source_path", "trial.csv"), ("reader", "test")),
     }
     values.update(overrides)
     return EMGSignalData(**values)

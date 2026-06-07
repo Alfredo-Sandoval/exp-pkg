@@ -19,7 +19,7 @@ for lower-level project layout, artifact, validation, and payload operations.
 ## Start Here
 
 - Use <code>xpkg.services.ProjectService</code> for the normal create/open/import/validate/pack/unpack lifecycle.
-- Use <code>ProjectService.import_pose</code> / <code>import_calibration</code> / <code>import_motion</code> for the preferred service-bound import flow.
+- Use <code>ProjectService.import_pose</code> / <code>import_calibration</code> for the preferred service-bound import flow.
 
 ## Project Contract
 
@@ -59,7 +59,7 @@ project pickers, catalogs, and agent describe paths.
 
 Refresh the generated project summary index from descriptor, state stats,
 typed metadata slot files, and the artifact index without loading full labels,
-predictions, Vicon arrays, dense masks, or media.
+predictions, dense masks, or media.
 
 ### `resolve_project_root(path)`
 

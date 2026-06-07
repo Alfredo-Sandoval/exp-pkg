@@ -15,7 +15,6 @@ from focused submodules:
 from __future__ import annotations
 
 from collections.abc import Mapping
-from copy import deepcopy
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 

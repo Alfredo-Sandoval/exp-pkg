@@ -2,8 +2,8 @@
 
 ``ProjectService`` is the stable consumer-facing boundary for downstream
 integrations that need to create, open, import into, validate, pack, or unpack
-an xpkg project. The ``import_pose`` / ``import_calibration`` /
-``import_calibration`` dispatch methods select package-owned importer
+an xpkg project. The ``import_pose`` / ``import_calibration`` dispatch methods
+select package-owned importer
 implementations by kebab-case ``format`` string.
 """
 

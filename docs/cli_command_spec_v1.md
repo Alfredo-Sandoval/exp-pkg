@@ -76,7 +76,7 @@ xpkg inspect "./My Project" --json
 - Reports lightweight media, table, project, or pose-QC summaries when the
   metadata can be read safely.
 - For project folders, reports descriptor/current-state presence without
-  materializing full labels, predictions, Vicon recordings, or media.
+  materializing full labels, predictions, or media.
 - Emits warnings for invalid present metadata, missing referenced media, unknown
   formats, failed QC reads, or unavailable media backends. Optional FAIR
   metadata slots are reported as absent rather than warned on by ordinary
@@ -113,7 +113,7 @@ For project directories, `data.summary` has these stable top-level keys:
 
 - `project_id`: project descriptor id.
 - `title`: project descriptor title.
-- `state_kind`: shallow current-state kind, one of `empty`, `labels`, `vicon`,
+- `state_kind`: shallow current-state kind, one of `empty`, `labels`,
   `present`, or `unreadable`.
 - `has_current_state`: whether `.xpkg/state/current.json` exists.
 - `state_bytes`: byte size of the current state, or `null`.
@@ -204,7 +204,7 @@ Import supported external data into a project. The CLI mirrors the
 ``ProjectService`` Python dispatch surface and exposes three families
 (``pose``, ``calibration``, ``motion``); each takes a kebab-case ``format``
 positional argument that matches ``ProjectService.import_pose``,
-``ProjectService.import_calibration``, or ``ProjectService.import_motion``.
+``ProjectService.import_calibration``.
 
 ### Synopsis
 
@@ -221,9 +221,6 @@ xpkg import pose mediapipe-pose-landmarks-json --input-json pose_landmarks.json 
 xpkg import calibration anipose --path rig.toml --out "./My Project"
 xpkg import calibration opencv-stereo-yaml --path stereo.yml --out "./My Project"
 
-xpkg import motion vicon --path trial.c3d --out "./My Project"
-xpkg import motion vicon-csv --path trial.csv --out "./My Project"
-xpkg import motion vicon-c3d --path trial.c3d --out "./My Project"
 ```
 
 ### Supported formats today
@@ -238,9 +235,6 @@ xpkg import motion vicon-c3d --path trial.c3d --out "./My Project"
 - `xpkg import pose sleap-package`
 - `xpkg import calibration anipose`
 - `xpkg import calibration opencv-stereo-yaml`
-- `xpkg import motion vicon`
-- `xpkg import motion vicon-csv`
-- `xpkg import motion vicon-c3d`
 
 ### Required behavior
 
@@ -338,7 +332,7 @@ xpkg project describe "./My Project" --json
   `.xpkg/indexes/project_summary.json`.
 - Emits the current `PROJECT.json` descriptor in JSON mode.
 - Refreshes and emits the generated project summary index in JSON mode.
-- Does not validate, load labels, load predictions, or parse Vicon recording
+- Does not validate, load labels, load predictions, or parse media
   payloads.
 
 ## `xpkg project pack`

@@ -7,6 +7,7 @@ from collections.abc import Mapping
 from copy import deepcopy
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
+
 from xpkg.project.layout import (
     CURRENT_STATE_FILENAME,
     project_current_state_path,
@@ -43,7 +44,6 @@ from xpkg.project.store.payloads import (
 )
 
 from ..._core.hashing import sha256_file
-from ..._core.path_registry import ensure_dir
 
 if TYPE_CHECKING:
     from xpkg.model import Labels
@@ -329,4 +329,3 @@ def rebuild_project_state_cache(project_root: Path) -> Path:
         )
 
     raise ValueError(f"Unsupported project state source: {source_kind!r}")
-

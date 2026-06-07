@@ -196,7 +196,7 @@ are meaningful:
   nominal FPS, observed FPS or timestamp-derived FPS when already known,
   frame count, duration, timebase id, timing source, and optional dropped-frame
   evidence such as count, indices, spans, or source-side warnings.
-- `timed_streams`: one record per pose, behavior, event, photometry, ephys, or
+- `timed_streams`: one record per pose, behavior, event, photometry, or
   other timed stream with stream id, modality, sample/frame count, start/end
   time, sample rate when known, timebase id, source path, and whether the
   source explicitly declares that synchronization is required.
@@ -220,7 +220,7 @@ Warnings should stay evidence-gated:
 ## Design Constraints
 
 - Keep the core package IO-focused.
-- Do not require NWB, PyTorch, or a downstream analysis stack.
+- Do not require a downstream analysis stack.
 - Keep direct readers usable without projects.
 - Keep project imports useful for durable projects and artifacts.
 - Preserve provenance and time alignment.

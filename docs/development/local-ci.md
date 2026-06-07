@@ -119,14 +119,6 @@ portability.
         "skeletons": 1,
         "min_labeled_frames": 1
       }
-    },
-    {
-      "id": "vicon-trial-001",
-      "kind": "vicon",
-      "recording": "vicon/trial_001.c3d",
-      "expect": {
-        "state": "vicon"
-      }
     }
   ]
 }
@@ -134,15 +126,13 @@ portability.
 
 Supported case kinds are:
 
-- `vicon`
 - `dlc`
 - `lightning_pose`
 - `sleap`
 - `mmpose`, `mediapipe`
 
-Use `kind: "vicon"` for both CSV and C3D recordings; the importer chooses the
-reader from the file extension. Use `kind: "dlc"` with either `tracking` plus
-`video` for a single CSV/H5 tracking file, or `project` for a full DLC project
+Use `kind: "dlc"` with either `tracking` plus `video` for a single CSV/H5
+tracking file, or `project` for a full DLC project
 folder. Use `kind: "lightning_pose"` with `tracking` plus `video` for a
 Lightning Pose prediction CSV produced by `litpose predict`. Use
 `kind: "sleap"` with a `labels` file ending in `.slp`, `.pkg.slp`, `.h5`, or

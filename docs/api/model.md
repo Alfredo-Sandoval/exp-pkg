@@ -3,7 +3,7 @@
 <div class="page-intro">
 <p>
 <code>xpkg.model</code> holds the canonical in-memory objects used across the
-library: pose labels, media, Vicon payloads, sampled signals, events, and the
+library: pose labels, media, sampled signals, events, and the
 behavior/session/time primitives that keep modalities aligned.
 </p>
 </div>

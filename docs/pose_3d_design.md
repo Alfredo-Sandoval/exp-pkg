@@ -25,7 +25,7 @@ frame vocabulary should distinguish:
 - `camera`: 3D coordinates in one calibrated camera frame.
 - `calibration_world`: triangulated or reconstructed coordinates in a recorded
   calibration world frame.
-- `mocap_world`: marker-based motion-capture coordinates in the source mocap
+- `marker_world`: marker-based coordinates in the source tracking
   lab frame.
 - `lifted_model`: model-lifted 3D predictions whose frame is learned or
   source-defined rather than directly calibrated.
