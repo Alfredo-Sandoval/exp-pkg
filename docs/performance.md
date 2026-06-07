@@ -6,7 +6,7 @@ xpkg has two different usage modes:
 - full hydration or validation when a user opens, edits, validates, or publishes a project
 
 Use the shallowest public surface that answers the current question. Project
-state can hold dense frame labels, predictions, masks, and recording payloads,
+state can hold dense frame labels, predictions, masks, and media references,
 so materializing it during a list refresh turns a cheap UI action into a full
 data load.
 
@@ -22,7 +22,7 @@ is the generated inventory for "what is in this project".
 | Show a project row | `xpkg project describe PATH --json`, `ProjectService.open(PATH).describe()`, `load_project_summary(PATH)` | `validate_project(PATH)` |
 | Detect whether a path is an xpkg project | `xpkg inspect PATH --json`, `xpkg.inspection.inspect_path(PATH)` | `ProjectService.inspect()` when you do not need a validated state summary |
 | Show current-state presence or size | `current_project_state_path(PATH).exists()` and `stat().st_size` | `load_project_payload(PATH)` |
-| Read durable typed metadata | `ProjectService.open(PATH).metadata` | loading labels, media, predictions, or Vicon recordings |
+| Read durable typed metadata | `ProjectService.open(PATH).metadata` | loading labels, media, or predictions |
 | Open a selected project for editing | `ProjectService.open(PATH).load_labels()` or the relevant domain loader | doing this for every project in the catalog |
 | Validate before publish or CI | `project.validate()` / `xpkg project validate PATH` | running validation on every startup refresh |
 
@@ -59,7 +59,7 @@ def project_row(project_root: Path) -> dict[str, object]:
 ```
 
 That pattern is intentionally shallow: it does not parse frames, predictions,
-media manifests, masks, or Vicon payloads.
+media manifests or masks.
 
 ## CLI Surfaces
 
