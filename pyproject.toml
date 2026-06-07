@@ -46,7 +46,6 @@ classifiers = [
   "Typing :: Typed",
 ]
 dependencies = [
-  "c3d>=0.6,<1",
   "cattrs>=24.1,<27",
   "h5py>=3.11,<4",
   "imageio>=2.36,<3",
@@ -127,9 +126,6 @@ media-dl = [
 ]
 tdt = [
   "tdt>=0.6",
-]
-ephys = [
-  "pyabf>=2.3,<3",
 ]
 
 [project.scripts]

@@ -8,7 +8,6 @@ from typing import TYPE_CHECKING, Any
 
 from xpkg.project.store.conversion import (
     _import_pose_project,
-    _import_vicon_project_recording,
     _merge_labels_for_import,
 )
 
@@ -16,69 +15,6 @@ from ..._core.path_registry import resolve_path
 
 if TYPE_CHECKING:
     from xpkg.model import PoseModelProvenance
-
-
-def import_vicon_csv_project(
-    csv_path: str | Path,
-    project: str | Path,
-    *,
-    force: bool = False,
-    progress_callback: Callable[[str], None] | None = None,
-) -> Path:
-    """Import a Vicon CSV recording into a project."""
-    from xpkg.io.readers import read_vicon_csv
-
-    return _import_vicon_project_recording(
-        csv_path,
-        project,
-        force=force,
-        reason="project.import.vicon_csv",
-        progress_callback=progress_callback,
-        reader=read_vicon_csv,
-        source_name="vicon_csv_import",
-    )
-
-
-def import_vicon_c3d_project(
-    c3d_path: str | Path,
-    project: str | Path,
-    *,
-    force: bool = False,
-    progress_callback: Callable[[str], None] | None = None,
-) -> Path:
-    """Import a Vicon C3D recording into a project."""
-    from xpkg.io.readers import read_vicon_c3d
-
-    return _import_vicon_project_recording(
-        c3d_path,
-        project,
-        force=force,
-        reason="project.import.vicon_c3d",
-        progress_callback=progress_callback,
-        reader=read_vicon_c3d,
-        source_name="vicon_c3d_import",
-    )
-
-
-def import_vicon_project(
-    recording_path: str | Path,
-    project: str | Path,
-    *,
-    force: bool = False,
-    progress_callback: Callable[[str], None] | None = None,
-) -> Path:
-    """Import a Vicon CSV or C3D recording into a project."""
-    from xpkg.io.readers import read_vicon_recording
-
-    return _import_vicon_project_recording(
-        recording_path,
-        project,
-        force=force,
-        reason="project.import.vicon",
-        progress_callback=progress_callback,
-        reader=read_vicon_recording,
-        source_name="vicon_import",
-    )
 
 
 def import_dlc_csv_project(

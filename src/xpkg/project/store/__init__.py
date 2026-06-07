@@ -20,7 +20,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 
 from xpkg._core.json_utils import parse_json
-from xpkg.adapters.vicon import vicon_recording_from_json_payload
 from xpkg.io.labels.json_format import XPKG_LABELS_JSON_FORMAT
 from xpkg.project.layout import (
     load_project_descriptor,
@@ -29,10 +28,6 @@ from xpkg.project.layout import (
     project_media_root,
     project_store_root,
     resolve_project_root,
-)
-from xpkg.project.state import (
-    project_state_kind,
-    read_project_state_document,
 )
 from xpkg.project.state_io import (
     predictions_payload_from_labels,
@@ -64,7 +59,6 @@ from xpkg.project.store._helpers import (
 from xpkg.project.store.cache import (
     _commit_labels_to_project,
     _commit_state_metadata_to_project,
-    _commit_vicon_to_project,
     _current_project_state_payload,
     _project_state_components,
 )
@@ -87,9 +81,6 @@ from xpkg.project.store.cache import (
     _write_project_state as _write_project_state,
 )
 from xpkg.project.store.cache import (
-    _write_vicon_project_state as _write_vicon_project_state,
-)
-from xpkg.project.store.cache import (
     ensure_current_project_state_cache as ensure_current_project_state_cache,
 )
 from xpkg.project.store.cache import (
@@ -102,9 +93,6 @@ from xpkg.project.store.conversion import (
     _import_project_from_conversion as _import_project_from_conversion,
 )
 from xpkg.project.store.conversion import (
-    _import_vicon_project_recording as _import_vicon_project_recording,
-)
-from xpkg.project.store.conversion import (
     _merge_labels_for_import as _merge_labels_for_import,
 )
 from xpkg.project.store.conversion import (
@@ -115,12 +103,6 @@ from xpkg.project.store.media import (
 )
 from xpkg.project.store.media import (
     _copy_sequence_into_media as _copy_sequence_into_media,
-)
-from xpkg.project.store.media import (
-    _copy_vicon_import_bundle as _copy_vicon_import_bundle,
-)
-from xpkg.project.store.media import (
-    _copy_vicon_sidecar_into_bundle as _copy_vicon_sidecar_into_bundle,
 )
 from xpkg.project.store.media import (
     _dedupe_dir_target as _dedupe_dir_target,
@@ -199,7 +181,7 @@ from xpkg.project.store.provenance import (
 from ..._core.path_registry import ensure_dir
 
 if TYPE_CHECKING:
-    from xpkg.model import Labels, ViconRecording
+    from xpkg.model import Labels
 
 
 _PREDICTIONS_STATE_MARKER = ',"predictions":'
@@ -260,11 +242,6 @@ def load_project_payload(path: str | Path, *, include_predictions: bool = True) 
         public_payload = _public_payload_from_state_labels(payload, metadata=metadata)
         rebase_project_payload_videos(public_payload, root)
         return public_payload
-    if source_kind == "state_vicon":
-        return {
-            "recording": deepcopy(payload),
-            "metadata": metadata,
-        }
     raise ValueError(f"Unsupported project state source: {source_kind!r}")
 
 
@@ -272,32 +249,6 @@ def current_project_state_path(path: str | Path) -> Path:
     """Return the project state cache path under `.xpkg/state/current.json`."""
 
     return project_current_state_path(path)
-
-
-def load_project_vicon_recording(project: str | Path) -> ViconRecording:
-    """Load the current Vicon recording from project-managed state."""
-
-    root = resolve_project_root(project)
-    if root is None:
-        raise FileNotFoundError(f"Not an xpkg project: {project}")
-
-    state_path = ensure_current_project_state_cache(root)
-    if state_path is None:
-        raise FileNotFoundError(f"Project has no committed state: {root}")
-    if state_path.suffix.lower() != ".json":
-        raise ValueError(
-            "Project current state is not a Vicon JSON state; "
-            "only project-native state documents can be loaded as Vicon recordings."
-        )
-    if project_state_kind(state_path) != "vicon":
-        raise ValueError(
-            "Project current state is not a Vicon recording. "
-            "Use Labels.load_file(...) or ProjectService.load_labels()."
-        )
-    return vicon_recording_from_json_payload(
-        read_project_state_document(state_path),
-        source_root=root,
-    )
 
 
 def load_project_metadata(project: str | Path) -> dict[str, Any]:
@@ -321,7 +272,7 @@ def load_project_metadata(project: str | Path) -> dict[str, Any]:
         return {}
 
     state_payload, source_kind = current_state
-    if source_kind not in {"state_labels", "state_vicon"}:
+    if source_kind != "state_labels":
         raise ValueError(f"Unsupported project state source: {source_kind!r}")
     metadata = _state_metadata_from_state_payload(state_payload)
     return _clone_metadata(metadata)
@@ -358,16 +309,6 @@ def save_project_metadata(
         state_path = _commit_state_metadata_to_project(
             root,
             state_payload=state_payload,
-            metadata=normalized_metadata,
-            reason=reason,
-        )
-        _touch_descriptor(root)
-        return state_path
-
-    if source_kind == "state_vicon":
-        state_path = _commit_vicon_to_project(
-            root,
-            recording=load_project_vicon_recording(root),
             metadata=normalized_metadata,
             reason=reason,
         )

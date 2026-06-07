@@ -7,7 +7,6 @@ from xpkg.services.calibrations import ProjectCalibrations
 from xpkg.services.figures import ProjectFigures
 from xpkg.services.project import (
     CalibrationFormat,
-    MotionFormat,
     PoseFormat,
     ProjectInspection,
     ProjectLayout,
@@ -27,5 +26,4 @@ __all__ = [
     "ProjectSegmentation",
     "PoseFormat",
     "CalibrationFormat",
-    "MotionFormat",
 ]

@@ -2,7 +2,7 @@
 
 The summary index is the cheap project-row contract behind ``PROJECT.json``.
 It records enough inventory to route and display projects without loading
-labels, predictions, dense masks, motion arrays, or media payloads.
+labels, predictions, dense masks, or media payloads.
 """
 
 from __future__ import annotations
@@ -12,7 +12,6 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, cast
 
-from xpkg.adapters.vicon import XPKG_VICON_JSON_FORMAT
 from xpkg.io.labels.json_format import XPKG_LABELS_JSON_FORMAT
 from xpkg.project.durable_store import ProjectDurableStore, ProjectDurableStoreError
 from xpkg.project.layout import (
@@ -29,7 +28,7 @@ from .._core.json_utils import load_json_dict, write_json
 from .._core.path_registry import ensure_dir
 
 if TYPE_CHECKING:
-    from xpkg.model import Labels, ViconRecording
+    from xpkg.model import Labels
 
 
 PROJECT_SUMMARY_SCHEMA_VERSION = 1
@@ -43,7 +42,7 @@ _METADATA_SLOT_FILES = {
     "pose-provenance": "pose_provenance.json",
 }
 
-ProjectSummaryStateKind = Literal["empty", "labels", "vicon", "present", "unreadable"]
+ProjectSummaryStateKind = Literal["empty", "labels", "present", "unreadable"]
 JsonScalar = str | int | float | bool | None
 MediaSummaryItem = dict[str, JsonScalar]
 
@@ -202,21 +201,6 @@ def labels_media_summary(
     return tuple(items)
 
 
-def vicon_state_summary(recording: ViconRecording) -> dict[str, JsonScalar]:
-    """Return shallow counts from an in-memory Vicon recording during import."""
-
-    return {
-        "source_type": recording.source_type,
-        "fps": int(recording.fps),
-        "frame_count": int(recording.positions.shape[0]),
-        "marker_count": len(recording.marker_names),
-        "event_count": len(recording.events),
-        "camera_count": len(recording.cameras),
-        "has_analog": recording.analog is not None,
-        "has_force_platform": recording.force_platform is not None,
-    }
-
-
 def load_project_summary(project: str | Path) -> ProjectSummaryIndex:
     """Load the generated project summary index."""
 
@@ -308,7 +292,7 @@ def _optional_str(value: object) -> str | None:
 
 
 def _state_kind(value: str) -> ProjectSummaryStateKind:
-    if value in {"empty", "labels", "vicon", "present", "unreadable"}:
+    if value in {"empty", "labels", "present", "unreadable"}:
         return cast("ProjectSummaryStateKind", value)
     raise ValueError(f"Unsupported project summary state kind: {value!r}")
 
@@ -442,8 +426,6 @@ def _state_kind_from_prefix(state_path: Path) -> ProjectSummaryStateKind:
         prefix = handle.read(_STATE_PREFIX_BYTES).decode("utf-8", errors="replace")
     if XPKG_LABELS_JSON_FORMAT in prefix:
         return "labels"
-    if XPKG_VICON_JSON_FORMAT in prefix:
-        return "vicon"
     return "present"
 
 
@@ -498,8 +480,6 @@ def _modalities(
         modalities.append("labels")
         if int(state_summary.get("prediction_frame_count") or 0) > 0:
             modalities.append("pose_predictions")
-    elif state_kind == "vicon":
-        modalities.append("motion")
     if metadata_slots:
         modalities.append("project_metadata")
     if artifact_count > 0:
@@ -599,5 +579,4 @@ __all__ = [
     "load_project_summary",
     "refresh_project_summary",
     "snapshot_project_summary",
-    "vicon_state_summary",
 ]

@@ -22,7 +22,7 @@ Definition of done:
 - `xpkg inspect PROJECT --json` reports project descriptor, shallow state
   summary, metadata slots, associated media, and QC warnings.
 - The project inspect path remains shallow: it must not hydrate full labels,
-  predictions, dense masks, Vicon recordings, or media payloads unless a future
+  predictions, dense masks, or media payloads unless a future
   explicit command contract says so.
 - Metadata slot presence is visible for acquisition, dataset-share, datasheet,
   model-card, and pose provenance.

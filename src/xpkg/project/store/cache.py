@@ -7,12 +7,6 @@ from collections.abc import Mapping
 from copy import deepcopy
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
-
-from xpkg.adapters.vicon import (
-    read_vicon_json_payload,
-    vicon_recording_from_json_payload,
-    vicon_recording_to_json_payload,
-)
 from xpkg.project.layout import (
     CURRENT_STATE_FILENAME,
     project_current_state_path,
@@ -49,11 +43,10 @@ from xpkg.project.store.payloads import (
 )
 
 from ..._core.hashing import sha256_file
-from ..._core.json_utils import write_json
 from ..._core.path_registry import ensure_dir
 
 if TYPE_CHECKING:
-    from xpkg.model import Labels, ViconRecording
+    from xpkg.model import Labels
 
 
 def _normalized_project_metadata(
@@ -194,7 +187,6 @@ def _current_project_state_payload(
             state_kind = project_state_kind(state_path)
             if state_kind == "labels":
                 return read_project_state(state_path), "state_labels"
-            return read_vicon_json_payload(state_path), "state_vicon"
 
     return None
 
@@ -204,15 +196,11 @@ def _project_state_components(
     *,
     source_kind: str,
 ) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
-    if source_kind in {"state_labels", "state_vicon"}:
+    if source_kind == "state_labels":
         metadata = _state_metadata_from_state_payload(state_payload)
     else:
         raise ValueError(f"Unsupported project state source: {source_kind!r}")
-    predictions = (
-        _predictions_payload_from_state_payload(state_payload)
-        if source_kind == "state_labels"
-        else None
-    )
+    predictions = _predictions_payload_from_state_payload(state_payload)
     return metadata, predictions
 
 
@@ -233,37 +221,6 @@ def _write_project_state(
         predictions=predictions,
         commit_id=commit_id,
     )
-
-
-def _write_vicon_project_state(
-    project_root: Path,
-    *,
-    recording: ViconRecording,
-    metadata: dict[str, Any] | None = None,
-    commit_id: str | None = None,
-) -> Path:
-    document = vicon_recording_to_json_payload(
-        recording,
-        metadata=_normalized_project_metadata(
-            metadata,
-            project_root=project_root,
-            commit_id=commit_id,
-        ),
-        source_root=project_root,
-    )
-    target = project_current_state_path(project_root)
-    ensure_dir(target.parent)
-    write_json(
-        target,
-        document,
-        indent=None,
-        sort_keys=False,
-        ensure_ascii=True,
-        compact=True,
-    )
-    if commit_id is not None:
-        write_project_state_cache_digest(target, commit_id=str(commit_id))
-    return target
 
 
 def _commit_labels_to_project(
@@ -357,53 +314,6 @@ def _commit_state_metadata_to_project(
     )
 
 
-def _commit_vicon_to_project(
-    project_root: Path,
-    *,
-    recording: ViconRecording,
-    metadata: dict[str, Any] | None = None,
-    reason: str,
-) -> Path:
-    normalized_metadata = rewrite_project_metadata_paths(
-        metadata,
-        project_root=project_root,
-    )
-
-    stage_parent = _stage_project_parent(project_root)
-    with tempfile.TemporaryDirectory(
-        prefix=".project_commit_",
-        dir=str(stage_parent),
-    ) as tmp_dir:
-        staged_state = Path(tmp_dir) / CURRENT_STATE_FILENAME
-        document = vicon_recording_to_json_payload(
-            recording,
-            metadata=_normalized_project_metadata(
-                normalized_metadata,
-                project_root=project_root,
-                commit_id=None,
-            ),
-            source_root=project_root,
-        )
-        write_json(
-            staged_state,
-            document,
-            indent=None,
-            sort_keys=False,
-            ensure_ascii=True,
-            compact=True,
-        )
-        store = _project_store(project_root)
-        store.commit_state(staged_state, reason=reason)
-        commit_id = store.current_commit_id()
-
-    return _write_vicon_project_state(
-        project_root,
-        recording=recording,
-        metadata=normalized_metadata,
-        commit_id=commit_id,
-    )
-
-
 def rebuild_project_state_cache(project_root: Path) -> Path:
     state = _current_project_state_payload(project_root)
     if state is None:
@@ -417,15 +327,6 @@ def rebuild_project_state_cache(project_root: Path) -> Path:
             state_payload,
             commit_id=commit_id,
         )
-    if source_kind == "state_vicon":
-        recording = vicon_recording_from_json_payload(state_payload, source_root=project_root)
-        return _write_vicon_project_state(
-            project_root,
-            recording=recording,
-            metadata=_state_metadata_from_state_payload(state_payload),
-            commit_id=commit_id,
-        )
 
     raise ValueError(f"Unsupported project state source: {source_kind!r}")
-
 

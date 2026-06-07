@@ -20,12 +20,6 @@ _EXPORTS: dict[str, tuple[str, str]] = {
     "Track": (".annotations", "Track"),
     "build_keypoint_skeleton": (".skeleton", "build_keypoint_skeleton"),
     "is_predicted_instance": (".annotations", "is_predicted_instance"),
-    "pose_trajectory_from_vicon_recording": (
-        ".trajectory",
-        "pose_trajectory_from_vicon_recording",
-    ),
-    "skeleton_to_vicon_marker_model": (".adapters", "skeleton_to_vicon_marker_model"),
-    "vicon_marker_model_to_skeleton": (".adapters", "vicon_marker_model_to_skeleton"),
 }
 
 __all__ = list(_EXPORTS)

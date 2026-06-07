@@ -138,9 +138,6 @@ def _import_case(case: Mapping[str, Any], project: ProjectService) -> None:
     skeleton_name = _optional_str(case, "skeleton_name", "imported")
     threshold = _optional_float(case, "threshold", 0.0)
 
-    if kind == "vicon":
-        project.import_motion("vicon", path=_require_existing_path(case, "recording"))
-        return
     if kind == "dlc":
         _import_dlc_case(case, project, skeleton_name=skeleton_name, threshold=threshold)
         return
@@ -176,7 +173,7 @@ def _import_case(case: Mapping[str, Any], project: ProjectService) -> None:
         return
     raise ValueError(
         f"Unsupported real-data case kind {kind!r}. Expected one of "
-        "'vicon', 'dlc', 'lightning_pose', 'sleap', 'mmpose', or 'mediapipe'."
+        "'dlc', 'lightning_pose', 'sleap', 'mmpose', or 'mediapipe'."
     )
 
 
@@ -315,29 +312,14 @@ def _assert_label_expectations(project: ProjectService, expected: Mapping[str, A
         _assert_equal_if_present(len(labels.skeletons[0].keypoint_names), expected, "keypoints")
 
 
-def _assert_vicon_expectations(project: ProjectService, expected: Mapping[str, Any]) -> None:
-    recording = project.load_vicon_recording()
-    _assert_equal_if_present(recording.n_frames, expected, "frames")
-    _assert_equal_if_present(recording.n_markers, expected, "markers")
-    _assert_equal_if_present(len(recording.events), expected, "events")
-    if expected.get("has_analog") is not None:
-        if not isinstance(expected["has_analog"], bool):
-            raise TypeError("Expected value 'has_analog' must be a boolean.")
-        assert (recording.analog is not None) is expected["has_analog"]
-
-
 def _assert_case_expectations(case: Mapping[str, Any], project: ProjectService) -> None:
     expected = _expect(case)
-    default_state = "vicon" if _case_kind(case).startswith("vicon") else "labels"
-    expected_state = expected.get("state", default_state)
-    if expected_state == "vicon":
-        _assert_vicon_expectations(project, expected)
-        return
+    expected_state = expected.get("state", "labels")
     if expected_state == "labels":
         _assert_label_expectations(project, expected)
         return
     raise ValueError(
-        f"Real-data case {_case_id(case)!r} expected state must be 'labels' or 'vicon'."
+        f"Real-data case {_case_id(case)!r} expected state must be 'labels'."
     )
 
 

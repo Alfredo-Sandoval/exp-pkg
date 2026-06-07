@@ -10,8 +10,8 @@ hide:
 
 <p class="tagline">
 The IO and project boundary for multimodal neuroscience experiments.
-Pose, motion capture, synchronized video, segmentation masks — one stable
-contract, portable artifacts, no analysis platform attached.
+Pose, synchronized video, segmentation masks, calibration metadata — one
+stable contract, portable artifacts, no analysis platform attached.
 </p>
 
 <div class="terminal">
@@ -40,7 +40,7 @@ projects. No surface to memorize beyond the dispatch methods.
 <div class="feature" markdown>
 <span class="label">Typed throughout</span>
 ### From bytes to dataclasses
-External pose, motion-capture, and signal formats normalize into typed
+External pose, calibration, and signal formats normalize into typed
 `xpkg.model` objects through project importers or direct readers. No untyped
 dicts crossing the IO boundary.
 </div>
@@ -62,7 +62,7 @@ from xpkg.services import ProjectService
 # Create a project — folder + private .xpkg/ store
 project = ProjectService.create("./My Experiment", title="My Experiment")
 
-# Import in one of three families: pose, calibration, motion
+# Import in one of two families: pose or calibration
 project.import_pose("dlc-csv", path="tracking.csv", video="clip.mp4", skeleton_name="subject")
 
 # Attach typed metadata (acquisition, dataset_share, datasheet, model_card)
@@ -86,17 +86,17 @@ DeepLabCut (CSV / H5 / project), Lightning Pose, SLEAP (analysis H5,
 </div>
 
 <div class="card" markdown>
-### Motion + force
-Vicon CSV and C3D recordings (auto-detect via `import_motion("vicon", ...)`),
-plus EMG and force-plate channels read off the same recording.
+### Calibration
+Anipose calibration TOML and OpenCV stereo calibration YAML for camera geometry
+metadata.
 </div>
 
 <div class="card" markdown>
 ### Direct signals + events (experimental)
 Photometry (Doric, Neurophotometrics, pyPhotometry, RWD OFRS, Teleopto, TDT,
-pMAT, generic CSV), patch-clamp ephys (ABF, ephys CSV), and event tables, all
-through `xpkg.readers`. These are experimental direct readers with no project
-integration yet. Photometry and ephys project imports are planned, not current.
+pMAT, generic CSV), behavior outputs, and event tables, all through
+`xpkg.readers`. These are experimental direct readers with no project
+integration yet.
 </div>
 
 </div>
@@ -106,7 +106,7 @@ integration yet. Photometry and ephys project imports are planned, not current.
 | You want to… | Reach for |
 | --- | --- |
 | Create / open / pack / unpack a project | `xpkg.services.ProjectService` |
-| Import an external pose, calibration, or motion file | `project.import_pose / import_calibration / import_motion` |
+| Import an external pose or calibration file | `project.import_pose / import_calibration` |
 | Attach durable typed metadata to a project | `project.metadata` / `project.metadata.update(...)` |
 | Populate a GUI/project-picker row | `xpkg project describe --json` / `ProjectService.describe()` |
 | Read a single file into typed objects | `xpkg.readers.read_*` |

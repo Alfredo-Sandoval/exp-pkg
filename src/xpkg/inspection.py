@@ -70,7 +70,6 @@ class InspectionKind(StrEnum):
     HDF5 = "hdf5"
     VIDEO = "video"
     IMAGE = "image"
-    VICON_C3D = "vicon_c3d"
     SLEAP_PACKAGE = "sleap_package"
 
 
@@ -1119,13 +1118,6 @@ def inspect_path(
             details = _inspect_json(resolved, confidence_threshold=threshold)
         elif suffix in {".h5", ".hdf5"}:
             details = _inspect_h5(resolved, confidence_threshold=threshold)
-        elif suffix == ".c3d":
-            details = {
-                "kind": "vicon_c3d",
-                "likely_importers": ["vicon_c3d"],
-                "summary": {},
-                "warnings": [],
-            }
         elif suffix == ".slp":
             details = {
                 "kind": "sleap_package",

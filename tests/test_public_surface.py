@@ -10,9 +10,6 @@ from xpkg.adapters import (
     labels_numpy,
     labels_to_dataframe,
     labels_to_json_payload,
-    read_vicon_json_payload,
-    vicon_recording_from_json_payload,
-    vicon_recording_to_json_payload,
 )
 from xpkg.model import (
     BEHAVIOR_LABELS_SCHEMA_VERSION,
@@ -49,9 +46,6 @@ from xpkg.model import (
     TimeRange,
     TimeSeries,
     Track,
-    ViconEvent,
-    ViconForcePlatformMetadata,
-    ViconRecording,
     Video,
     VideoStub,
     build_keypoint_skeleton,
@@ -97,7 +91,6 @@ from xpkg.project import (
     load_project_segmentation_frames,
     load_project_segmentation_masks,
     load_project_summary,
-    load_project_vicon_recording,
     pack_project,
     read_labels_json_payload,
     rebuild_project_artifact_index,
@@ -121,19 +114,16 @@ from xpkg.project import (
     validate_project_artifacts,
     validate_project_figure,
     validate_project_figures,
-    vicon_state_summary,
     write_labels_json,
     write_project_descriptor,
 )
 from xpkg.readers import (
     KNOWN_BEHAVIOR_SOURCE_TYPES,
-    read_abf,
     read_behavior_events_csv,
     read_behavior_events_json,
     read_boris_csv,
     read_bsoid_csv,
     read_doric_photometry,
-    read_ephys_csv,
     read_events_csv,
     read_keypoint_moseq_syllables_csv,
     read_neurophotometrics_csv,
@@ -199,7 +189,6 @@ def test_root_namespace_is_curated_to_project_first_modules() -> None:
     assert reloaded.segmentation is not None
     assert reloaded.services is not None
 
-    assert callable(reloaded.readers.read_abf)
     assert callable(reloaded.readers.read_boris_csv)
     assert callable(reloaded.readers.read_bsoid_csv)
     assert callable(reloaded.readers.read_behavior_events_csv)
@@ -207,7 +196,6 @@ def test_root_namespace_is_curated_to_project_first_modules() -> None:
     assert callable(reloaded.readers.read_keypoint_moseq_syllables_csv)
     assert callable(reloaded.readers.read_simba_csv)
     assert callable(reloaded.readers.read_doric_photometry)
-    assert callable(reloaded.readers.read_ephys_csv)
     assert callable(reloaded.readers.read_events_csv)
     assert callable(reloaded.readers.read_neurophotometrics_csv)
     assert callable(reloaded.readers.read_photometry_csv)
@@ -267,7 +255,6 @@ def test_public_exports_are_callable() -> None:
     assert callable(load_project_segmentation_frames)
     assert callable(load_project_segmentation_masks)
     assert callable(load_project_summary)
-    assert callable(load_project_vicon_recording)
     assert callable(pack_project)
     assert callable(read_labels_json_payload)
     assert callable(rebuild_project_artifact_index)
@@ -294,15 +281,10 @@ def test_public_exports_are_callable() -> None:
     assert callable(write_project_descriptor)
     assert callable(refresh_project_summary)
     assert callable(labels_state_summary)
-    assert callable(vicon_state_summary)
     assert callable(labels_from_json_payload)
     assert callable(labels_numpy)
     assert callable(labels_to_dataframe)
     assert callable(labels_to_json_payload)
-    assert callable(read_vicon_json_payload)
-    assert callable(vicon_recording_from_json_payload)
-    assert callable(vicon_recording_to_json_payload)
-    assert callable(read_abf)
     assert "keypoint_moseq" in KNOWN_BEHAVIOR_SOURCE_TYPES
     assert callable(read_boris_csv)
     assert callable(read_bsoid_csv)
@@ -311,7 +293,6 @@ def test_public_exports_are_callable() -> None:
     assert callable(read_keypoint_moseq_syllables_csv)
     assert callable(read_simba_csv)
     assert callable(read_doric_photometry)
-    assert callable(read_ephys_csv)
     assert callable(read_events_csv)
     assert callable(read_neurophotometrics_csv)
     assert callable(read_opencv_stereo_calibration)
@@ -346,11 +327,10 @@ def test_services_surface_lists_project_service_first() -> None:
         "ProjectSegmentation",
         "PoseFormat",
         "CalibrationFormat",
-        "MotionFormat",
     ]
 
 
-def test_project_service_dispatches_supported_pose_calibration_and_motion_formats() -> None:
+def test_project_service_dispatches_supported_pose_and_calibration_formats() -> None:
     pose_formats: set[str] = {
         "dlc-csv",
         "dlc-h5",
@@ -362,15 +342,13 @@ def test_project_service_dispatches_supported_pose_calibration_and_motion_format
         "sleap-package",
     }
     calibration_formats: set[str] = {"anipose", "opencv-stereo-yaml"}
-    motion_formats: set[str] = {"vicon", "vicon-csv", "vicon-c3d"}
 
     from typing import get_args
 
-    from xpkg.services import CalibrationFormat, MotionFormat, PoseFormat
+    from xpkg.services import CalibrationFormat, PoseFormat
 
     assert pose_formats == set(get_args(PoseFormat))
     assert calibration_formats == set(get_args(CalibrationFormat))
-    assert motion_formats == set(get_args(MotionFormat))
 
 
 def test_model_exports_are_available() -> None:
@@ -409,9 +387,6 @@ def test_model_exports_are_available() -> None:
     assert TimeRange is not None
     assert TimeSeries is not None
     assert Timebase is not None
-    assert ViconRecording is not None
-    assert ViconEvent is not None
-    assert ViconForcePlatformMetadata is not None
     assert KPFlag is not None
     assert callable(build_prediction_stub)
     assert callable(build_keypoint_skeleton)
@@ -485,7 +460,7 @@ def test_project_surface_is_project_first_only() -> None:
     assert "load_project_segmentation_masks" in xpkg.project.__all__
 
     # Package-level format importers are intentionally not exposed; use
-    # ProjectService.import_pose/import_calibration/import_motion instead.
+    # ProjectService.import_pose/import_calibration instead.
     not_exported = {
         "import_anipose_calibration_project",
         "import_dlc_csv_project",
@@ -496,9 +471,6 @@ def test_project_surface_is_project_first_only() -> None:
         "import_mmpose_topdown_json_project",
         "import_sleap_h5_project",
         "import_sleap_package_project",
-        "import_vicon_c3d_project",
-        "import_vicon_csv_project",
-        "import_vicon_project",
     }
     assert not_exported.isdisjoint(set(xpkg.project.__all__))
     for name in not_exported:
@@ -601,7 +573,4 @@ def test_adapters_surface_is_curated() -> None:
         "labels_numpy",
         "labels_to_dataframe",
         "labels_to_json_payload",
-        "read_vicon_json_payload",
-        "vicon_recording_from_json_payload",
-        "vicon_recording_to_json_payload",
     ]

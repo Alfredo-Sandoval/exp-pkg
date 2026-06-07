@@ -16,32 +16,14 @@ from xpkg.project.store._helpers import (
     _stage_project_parent,
     _touch_descriptor,
 )
-from xpkg.project.store.cache import (
-    _commit_labels_to_project,
-    _commit_vicon_to_project,
-)
-from xpkg.project.store.media import (
-    _copy_vicon_import_bundle,
-)
+from xpkg.project.store.cache import _commit_labels_to_project
 from xpkg.project.store.provenance import (
     _attach_prediction_provenance,
     _persist_pose_provenance,
 )
 
-from ..._core.path_registry import resolve_path
-
 if TYPE_CHECKING:
-    from xpkg.model import Labels, PoseModelProvenance, ViconRecording
-
-
-def _project_relative_path(path: str | Path | None, project_root: Path) -> str | None:
-    if path is None:
-        return None
-    resolved = resolve_path(path)
-    try:
-        return resolved.relative_to(resolve_path(project_root)).as_posix()
-    except ValueError:
-        return resolved.name
+    from xpkg.model import Labels, PoseModelProvenance
 
 
 def _import_project_from_conversion(
@@ -160,42 +142,3 @@ def _import_pose_project(
         )
     return state_path
 
-
-def _import_vicon_project_recording(
-    recording_path: str | Path,
-    project: str | Path,
-    *,
-    force: bool,
-    reason: str,
-    progress_callback: Callable[[str], None] | None,
-    reader: Callable[[str | Path], ViconRecording],
-    source_name: str,
-) -> Path:
-    root = _ensure_project_for_import(
-        project,
-        force=force,
-    )
-    if progress_callback is not None:
-        progress_callback(f"Reading {source_name} recording")
-    recording = reader(recording_path)
-    if progress_callback is not None:
-        progress_callback("Copying Vicon recording bundle into project store")
-    managed_recording = _copy_vicon_import_bundle(recording, root)
-    metadata = {
-        "source": source_name,
-        "source_recording": _project_relative_path(managed_recording.path, root),
-    }
-    if recording.xcp_path is not None:
-        metadata["source_xcp"] = _project_relative_path(managed_recording.xcp_path, root)
-    if recording.vsk_path is not None:
-        metadata["source_vsk"] = _project_relative_path(managed_recording.vsk_path, root)
-    state_path = _commit_vicon_to_project(
-        root,
-        recording=managed_recording,
-        metadata=metadata,
-        reason=reason,
-    )
-    from xpkg.project.summary import vicon_state_summary
-
-    _touch_descriptor(root, state_summary=vicon_state_summary(managed_recording))
-    return state_path

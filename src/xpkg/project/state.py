@@ -6,13 +6,12 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Literal, cast
 
-from xpkg.adapters.vicon import XPKG_VICON_JSON_FORMAT
 from xpkg.io.labels.json_format import XPKG_LABELS_JSON_FORMAT
 from xpkg.project.state_io import PROJECT_COMMIT_ID_KEY
 
 from .._core.json_utils import load_json_dict
 
-ProjectStateKind = Literal["labels", "vicon"]
+ProjectStateKind = Literal["labels"]
 
 
 def read_project_state_document(path: str | Path) -> dict[str, object]:
@@ -38,8 +37,6 @@ def project_state_kind_from_document(document: Mapping[str, object]) -> ProjectS
     raw_format = str(document.get("format", "")).strip()
     if raw_format == XPKG_LABELS_JSON_FORMAT:
         return "labels"
-    if raw_format == XPKG_VICON_JSON_FORMAT:
-        return "vicon"
     raise ValueError(f"Unsupported project state format: {raw_format!r}.")
 
 

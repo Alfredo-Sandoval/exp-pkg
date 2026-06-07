@@ -6,7 +6,7 @@ from collections.abc import Sequence
 
 
 def strip_subject_prefix(name: str) -> str:
-    """Return a Vicon-style label without its subject namespace."""
+    """Return a label without its source subject namespace."""
     label = str(name).strip()
     if ":" in label:
         label = label.split(":", 1)[1]

@@ -2,8 +2,8 @@
 
 This module exposes stable project lifecycle, validation, descriptor, storage,
 segmentation, artifact, calibration, and exchange helpers. Use
-``ProjectService`` for import orchestration across pose, calibration, and
-motion formats.
+``ProjectService`` for import orchestration across pose and calibration
+formats.
 """
 
 from __future__ import annotations
@@ -99,7 +99,6 @@ from xpkg.project.store import (
     current_project_state_path,
     init_project,
     load_project_payload,
-    load_project_vicon_recording,
     save_project_labels,
 )
 
@@ -117,14 +116,13 @@ from xpkg.project.summary import (
     labels_state_summary,
     load_project_summary,
     refresh_project_summary,
-    vicon_state_summary,
 )
 
 # Curated stable public surface.
 #
 # This list is the supported public API of ``xpkg.project``. Two families are
 # intentionally excluded from it: package-level format importers (use
-# ``ProjectService.import_pose`` / ``import_calibration`` / ``import_motion``),
+# ``ProjectService.import_pose`` / ``import_calibration``),
 # and the private-store layout details -- the ``.xpkg/`` directory and filename
 # constants and the ``project_*`` path helpers. Those layout names remain
 # importable from their submodules (``xpkg.project.layout`` and friends) for
@@ -178,11 +176,9 @@ __all__ = [
     "current_project_state_path",
     "save_project_labels",
     "load_project_payload",
-    "load_project_vicon_recording",
     "load_project_summary",
     "refresh_project_summary",
     "labels_state_summary",
-    "vicon_state_summary",
     # Metadata storage
     "load_project_acquisition_metadata",
     "load_project_dataset_share_metadata",

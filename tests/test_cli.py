@@ -40,9 +40,6 @@ def test_cli_rejects_removed_compat_commands() -> None:
     with pytest.raises(SystemExit):
         main(["import", "sleap", "--slp", "labels.pkg.slp", "--out", "My Project"])
 
-    with pytest.raises(SystemExit):
-        main(["import", "vicon", "--csv", "trial.csv", "--out", "My Project"])
-
 
 def test_cli_routes_init_project(monkeypatch, capsys) -> None:
     from xpkg.cli import main
@@ -440,147 +437,6 @@ def test_cli_import_json_mode_suppresses_progress(monkeypatch, capsys) -> None:
             "state_path": "My Project/.xpkg/state/current.json",
         },
     }
-
-
-def test_cli_routes_import_vicon_csv_project(monkeypatch, capsys) -> None:
-    from xpkg.cli import main
-
-    captured: dict[str, object] = {}
-
-    def fake_import_vicon_csv_project(
-        csv_path: str,
-        project: str,
-        *,
-        force: bool = False,
-        progress_callback,
-    ) -> Path:
-        captured["csv_path"] = csv_path
-        captured["project"] = project
-        captured["force"] = force
-        progress_callback("vicon-csv-progress")
-        return _project_state_path(project)
-
-    monkeypatch.setattr(
-        "xpkg.cli.commands.imports.import_vicon_csv_project",
-        fake_import_vicon_csv_project,
-    )
-
-    code = main(
-        [
-            "import",
-            "motion",
-            "vicon-csv",
-            "--path",
-            "trial.csv",
-            "--out",
-            "My Project",
-        ]
-    )
-
-    assert code == 0
-    assert captured == {
-        "csv_path": "trial.csv",
-        "project": "My Project",
-        "force": False,
-    }
-    stdout = capsys.readouterr().out
-    assert "vicon-csv-progress" in stdout
-    assert "Imported Vicon CSV into My Project" in stdout
-    assert ".xpkg/state/current.json" in stdout
-
-
-def test_cli_routes_import_vicon_c3d_project(monkeypatch, capsys) -> None:
-    from xpkg.cli import main
-
-    captured: dict[str, object] = {}
-
-    def fake_import_vicon_c3d_project(
-        c3d_path: str,
-        project: str,
-        *,
-        force: bool = False,
-        progress_callback,
-    ) -> Path:
-        captured["c3d_path"] = c3d_path
-        captured["project"] = project
-        captured["force"] = force
-        progress_callback("vicon-c3d-progress")
-        return _project_state_path(project)
-
-    monkeypatch.setattr(
-        "xpkg.cli.commands.imports.import_vicon_c3d_project",
-        fake_import_vicon_c3d_project,
-    )
-
-    code = main(
-        [
-            "import",
-            "motion",
-            "vicon-c3d",
-            "--path",
-            "trial.c3d",
-            "--out",
-            "My Project",
-        ]
-    )
-
-    assert code == 0
-    assert captured == {
-        "c3d_path": "trial.c3d",
-        "project": "My Project",
-        "force": False,
-    }
-    stdout = capsys.readouterr().out
-    assert "vicon-c3d-progress" in stdout
-    assert "Imported Vicon C3D into My Project" in stdout
-    assert ".xpkg/state/current.json" in stdout
-
-
-def test_cli_routes_import_vicon_recording_project(monkeypatch, capsys) -> None:
-    from xpkg.cli import main
-
-    captured: dict[str, object] = {}
-
-    def fake_import_vicon_project(
-        recording_path: str,
-        project: str,
-        *,
-        force: bool = False,
-        progress_callback,
-    ) -> Path:
-        captured["recording_path"] = recording_path
-        captured["project"] = project
-        captured["force"] = force
-        progress_callback("vicon-auto-progress")
-        return _project_state_path(project)
-
-    monkeypatch.setattr(
-        "xpkg.cli.commands.imports.import_vicon_project",
-        fake_import_vicon_project,
-    )
-
-    code = main(
-        [
-            "import",
-            "motion",
-            "vicon",
-            "--path",
-            "trial.csv",
-            "--out",
-            "My Project",
-        ]
-    )
-
-    assert code == 0
-    assert captured == {
-        "recording_path": "trial.csv",
-        "project": "My Project",
-        "force": False,
-    }
-    stdout = capsys.readouterr().out
-    assert "vicon-auto-progress" in stdout
-    assert "Imported Vicon recording into My Project" in stdout
-    assert ".xpkg/state/current.json" in stdout
 
 
 def test_cli_routes_import_dlc_project_directory(monkeypatch, capsys) -> None:
@@ -1137,9 +993,6 @@ def test_cli_describe_json_pins_machine_contract(capsys) -> None:
         "import": [
             "calibration anipose",
             "calibration opencv-stereo-yaml",
-            "motion vicon",
-            "motion vicon-c3d",
-            "motion vicon-csv",
             "pose dlc-csv",
             "pose dlc-h5",
             "pose dlc-project",
@@ -1172,9 +1025,6 @@ def test_cli_describe_json_pins_machine_contract(capsys) -> None:
         "inspect",
         "import calibration anipose",
         "import calibration opencv-stereo-yaml",
-        "import motion vicon",
-        "import motion vicon-c3d",
-        "import motion vicon-csv",
         "import pose dlc-csv",
         "import pose dlc-h5",
         "import pose dlc-project",

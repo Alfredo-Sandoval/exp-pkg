@@ -6,12 +6,6 @@ import pytest
 
 from tests.test_dlc_import import _write_dummy_video, _write_sample_dlc_csv
 from tests.test_project_contract import _make_labels
-from tests.vicon_helpers import (
-    write_sample_vicon_c3d,
-    write_sample_vicon_csv,
-    write_sample_vsk,
-    write_sample_xcp,
-)
 from xpkg.model import AcquisitionMetadata, Labels
 from xpkg.project import (
     current_project_state_path,
@@ -187,55 +181,6 @@ def test_project_summary_preserves_state_counts_after_metadata_only_commit(
     assert summary.state_summary["prediction_frame_count"] == 0
 
 
-def test_project_service_imports_and_loads_vicon_recording(tmp_path: Path) -> None:
-    c3d_path = tmp_path / "trial.c3d"
-    write_sample_vicon_c3d(c3d_path)
-    write_sample_vsk(c3d_path.with_suffix(".vsk"))
-    write_sample_xcp(c3d_path.with_suffix(".xcp"))
-
-    project = ProjectService.create(tmp_path / "Vicon Project", title="Vicon Project")
-    state_path = project.import_motion("vicon", path=c3d_path)
-
-    assert state_path == current_project_state_path(project.project_root)
-    loaded = project.load_vicon_recording()
-    assert loaded.source_type == "c3d"
-    assert loaded.marker_names == ("center", "R_foot")
-    assert loaded.has_analog
-
-
-def test_project_service_imports_vicon_csv_recording(tmp_path: Path) -> None:
-    csv_path = tmp_path / "trial.csv"
-    write_sample_vicon_csv(csv_path)
-    write_sample_vsk(csv_path.with_suffix(".vsk"))
-    write_sample_xcp(csv_path.with_suffix(".xcp"))
-
-    project = ProjectService.create(tmp_path / "Vicon CSV Project", title="Vicon CSV Project")
-    state_path = project.import_motion("vicon-csv", path=csv_path)
-
-    assert state_path == current_project_state_path(project.project_root)
-    loaded = project.load_vicon_recording()
-    assert loaded.source_type == "csv"
-    assert loaded.path.is_file()
-    assert project.project_root in loaded.path.parents
-
-
-def test_project_service_load_labels_guides_to_vicon_loader_when_state_cache_rebuilds(
-    tmp_path: Path,
-) -> None:
-    c3d_path = tmp_path / "trial.c3d"
-    write_sample_vicon_c3d(c3d_path)
-
-    project = ProjectService.create(
-        tmp_path / "Guided Vicon Project",
-        title="Guided Vicon Project",
-    )
-    state_path = project.import_motion("vicon", path=c3d_path)
-    state_path.unlink()
-
-    with pytest.raises(ValueError, match="load_vicon_recording"):
-        project.load_labels()
-
-
 def test_project_service_metadata_field_roundtrip_uses_current_head(tmp_path: Path) -> None:
     project = ProjectService.create(
         tmp_path / "Service Field Metadata Project",
@@ -301,16 +246,6 @@ def test_pose_importer_registry_covers_all_pose_formats() -> None:
         f"missing from registry {expected - actual!r}, "
         f"missing from literal {actual - expected!r}"
     )
-
-
-def test_motion_importer_registry_covers_all_motion_formats() -> None:
-    from typing import get_args
-
-    from xpkg.services.project import _MOTION_IMPORTERS, MotionFormat
-
-    expected = set(get_args(MotionFormat))
-    actual = set(_MOTION_IMPORTERS.keys())
-    assert expected == actual
 
 
 def test_calibration_importer_registry_covers_all_calibration_formats() -> None:

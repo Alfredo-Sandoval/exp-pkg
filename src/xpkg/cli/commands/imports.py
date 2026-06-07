@@ -1,9 +1,9 @@
 """CLI commands that import external data into project-first xpkg projects.
 
 The CLI mirrors the ``ProjectService`` Python dispatch surface. The user picks
-one of three families (``pose``, ``calibration``, ``motion``) and a kebab-case
-``format`` positional argument that matches ``ProjectService.import_pose``,
-``ProjectService.import_calibration``, or ``ProjectService.import_motion``.
+one of two families (``pose``, ``calibration``) and a kebab-case
+``format`` positional argument that matches ``ProjectService.import_pose`` or
+``ProjectService.import_calibration``.
 """
 
 from __future__ import annotations
@@ -37,17 +37,14 @@ from xpkg.project.store.imports import (
     import_mmpose_topdown_json_project,
     import_sleap_h5_project,
     import_sleap_package_project,
-    import_vicon_c3d_project,
-    import_vicon_csv_project,
-    import_vicon_project,
 )
-from xpkg.services.project import CalibrationFormat, MotionFormat, PoseFormat
+from xpkg.services.project import CalibrationFormat, PoseFormat
 
 from ..._core.json_utils import load_json_dict
 
 app = typer.Typer(
     add_completion=False,
-    help="Import external tracking, calibration, and motion data into a project.",
+    help="Import external tracking and calibration data into a project.",
     no_args_is_help=True,
     rich_markup_mode="rich",
 )
@@ -55,7 +52,6 @@ app = typer.Typer(
 
 _POSE_FORMATS: tuple[str, ...] = get_args(PoseFormat)
 _CALIBRATION_FORMATS: tuple[str, ...] = get_args(CalibrationFormat)
-_MOTION_FORMATS: tuple[str, ...] = get_args(MotionFormat)
 
 _PER_CLIP_POSE_FORMATS: frozenset[str] = frozenset(
     {
@@ -78,13 +74,6 @@ _POSE_FORMAT_LABELS: dict[str, str] = {
     "mmpose-topdown-json": "MMPose JSON",
     "sleap-h5": "SLEAP H5",
     "sleap-package": "SLEAP package",
-}
-
-
-_MOTION_FORMAT_LABELS: dict[str, str] = {
-    "vicon": "Vicon recording",
-    "vicon-csv": "Vicon CSV",
-    "vicon-c3d": "Vicon C3D",
 }
 
 
@@ -401,52 +390,4 @@ def import_calibration(
         json_output=json_output,
         action=action,
         human_output=lambda payload: _emit_calibration_import_result(payload, label),
-    )
-
-
-@app.command("motion")
-def import_motion(
-    format: Annotated[
-        str,
-        typer.Argument(help="Motion format to import (vicon, vicon-csv, vicon-c3d)."),
-    ],
-    out: Annotated[str, typer.Option("--out", help="Output project directory.")],
-    path: Annotated[
-        str | None,
-        typer.Option("--path", help="Path to the motion-capture recording."),
-    ] = None,
-    force: Annotated[
-        bool,
-        typer.Option("--force", help="Overwrite an existing project state."),
-    ] = False,
-    json_output: JsonOption = False,
-) -> None:
-    """Import a motion-capture recording using the kebab-case dispatch format string."""
-    format = _validate_format(format, _MOTION_FORMATS, "motion")
-    out = require_option_value(out, "--out")
-    path = require_option_value(path, "--path")
-
-    def action() -> dict[str, str]:
-        progress = progress_callback(json_output)
-        if format == "vicon":
-            state_path = import_vicon_project(
-                path, out, force=force, progress_callback=progress
-            )
-        elif format == "vicon-csv":
-            state_path = import_vicon_csv_project(
-                path, out, force=force, progress_callback=progress
-            )
-        elif format == "vicon-c3d":
-            state_path = import_vicon_c3d_project(
-                path, out, force=force, progress_callback=progress
-            )
-        else:  # pragma: no cover - defended above
-            raise ValueError(f"Unknown motion format: {format!r}")
-        return _import_payload(format, out, state_path)
-
-    label = _MOTION_FORMAT_LABELS[format]
-    run_command(
-        json_output=json_output,
-        action=action,
-        human_output=lambda payload: _emit_import_result(payload, label),
     )

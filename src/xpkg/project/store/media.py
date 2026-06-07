@@ -3,19 +3,15 @@
 from __future__ import annotations
 
 import shutil
-from dataclasses import replace
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from xpkg.project.layout import (
-    project_media_root,
-    project_store_root,
-)
+from xpkg.project.layout import project_media_root
 
-from ..._core.path_registry import ensure_dir, resolve_path, slugify_path_component
+from ..._core.path_registry import ensure_dir
 
 if TYPE_CHECKING:
-    from xpkg.model import Labels, ViconRecording
+    from xpkg.model import Labels
 
 
 def _is_within_resolved(path: Path, resolved_parent: Path) -> bool:
@@ -51,40 +47,6 @@ def _dedupe_dir_target(target: Path) -> Path:
         if not candidate.exists():
             return candidate
         counter += 1
-
-
-def _copy_vicon_sidecar_into_bundle(sidecar_path: Path | None, bundle_root: Path) -> Path | None:
-    if sidecar_path is None:
-        return None
-    resolved_sidecar = resolve_path(sidecar_path)
-    if not resolved_sidecar.is_file():
-        raise FileNotFoundError(f"Vicon sidecar not found: {resolved_sidecar}")
-    target = bundle_root / resolved_sidecar.name
-    shutil.copy2(resolved_sidecar, target)
-    return target.resolve()
-
-
-def _copy_vicon_import_bundle(recording: ViconRecording, project_root: Path) -> ViconRecording:
-    imports_root = ensure_dir(project_store_root(project_root) / "imports" / "vicon")
-    bundle_root = ensure_dir(
-        _dedupe_dir_target(imports_root / slugify_path_component(recording.path))
-    )
-
-    source_path = resolve_path(recording.path)
-    if not source_path.is_file():
-        raise FileNotFoundError(f"Vicon recording not found: {source_path}")
-
-    managed_recording_path = bundle_root / source_path.name
-    shutil.copy2(source_path, managed_recording_path)
-    managed_xcp_path = _copy_vicon_sidecar_into_bundle(recording.xcp_path, bundle_root)
-    managed_vsk_path = _copy_vicon_sidecar_into_bundle(recording.vsk_path, bundle_root)
-
-    return replace(
-        recording,
-        path=managed_recording_path.resolve(),
-        xcp_path=managed_xcp_path,
-        vsk_path=managed_vsk_path,
-    )
 
 
 def _copy_file_into_media(source: Path, media_root: Path, copied: dict[Path, Path]) -> Path:
@@ -222,5 +184,4 @@ def rebase_project_payload_videos(payload: dict[str, Any], project_root: Path) -
         metadata_videos = metadata.get("videos")
         if isinstance(metadata_videos, dict):
             _rebase_videos_info(metadata_videos)
-
 

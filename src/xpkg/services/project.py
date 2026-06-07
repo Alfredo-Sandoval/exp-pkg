@@ -3,7 +3,7 @@
 ``ProjectService`` is the stable consumer-facing boundary for downstream
 integrations that need to create, open, import into, validate, pack, or unpack
 an xpkg project. The ``import_pose`` / ``import_calibration`` /
-``import_motion`` dispatch methods select package-owned importer
+``import_calibration`` dispatch methods select package-owned importer
 implementations by kebab-case ``format`` string.
 """
 
@@ -30,7 +30,6 @@ from xpkg.project import (
     load_project_model_card,
     load_project_payload,
     load_project_pose_provenance,
-    load_project_vicon_recording,
     pack_project,
     refresh_project_summary,
     save_project_acquisition_metadata,
@@ -69,9 +68,6 @@ from xpkg.project.store.imports import (
     import_mmpose_topdown_json_project,
     import_sleap_h5_project,
     import_sleap_package_project,
-    import_vicon_c3d_project,
-    import_vicon_csv_project,
-    import_vicon_project,
 )
 from xpkg.services.artifacts import ProjectArtifacts
 from xpkg.services.calibrations import ProjectCalibrations
@@ -86,7 +82,6 @@ if TYPE_CHECKING:
         Labels,
         ModelCard,
         PoseModelProvenance,
-        ViconRecording,
     )
 
 
@@ -105,14 +100,6 @@ PoseFormat = Literal[
 
 CalibrationFormat = Literal["anipose", "opencv-stereo-yaml"]
 """Supported `format` values for ``ProjectService.import_calibration``."""
-
-
-MotionFormat = Literal["vicon", "vicon-csv", "vicon-c3d"]
-"""Supported `format` values for ``ProjectService.import_motion``.
-
-``"vicon"`` auto-detects CSV vs C3D from the input path; the dashed forms
-force the matching reader.
-"""
 
 
 @dataclass(frozen=True, slots=True)
@@ -173,13 +160,6 @@ _POSE_IMPORTERS: dict[str, _PoseImporter] = {
         accepts_fps=True,
         accepts_encode_videos=True,
     ),
-}
-
-
-_MOTION_IMPORTERS: dict[str, Callable[..., Path]] = {
-    "vicon": import_vicon_project,
-    "vicon-csv": import_vicon_csv_project,
-    "vicon-c3d": import_vicon_c3d_project,
 }
 
 
@@ -470,25 +450,6 @@ class ProjectService:
             kwargs["camera_names"] = camera_names
         return importer(path, **kwargs)
 
-    def import_motion(
-        self,
-        format: MotionFormat = "vicon",
-        *,
-        path: str | Path,
-        force: bool = False,
-        progress_callback: Callable[[str], None] | None = None,
-    ) -> Path:
-        """Import a motion-capture recording from one of the supported formats."""
-        importer = _MOTION_IMPORTERS.get(format)
-        if importer is None:
-            raise ValueError(f"Unknown motion format: {format!r}")
-        return importer(
-            path,
-            project=self.project_root,
-            force=force,
-            progress_callback=progress_callback,
-        )
-
     def describe(self) -> ProjectLayout:
         """Return the normalized managed paths for this project.
 
@@ -538,16 +499,8 @@ class ProjectService:
         if state_path is None:
             state_path = current_project_state_path(self.project_root)
         if state_path.exists() and state_path.suffix.lower() == ".json":
-            if project_state_kind(state_path) == "vicon":
-                raise ValueError(
-                    "Project current state is a Vicon recording. "
-                    "Use ProjectService.load_vicon_recording()."
-                )
+            project_state_kind(state_path)
         return Labels.load_file(self.project_root.as_posix())
-
-    def load_vicon_recording(self) -> ViconRecording:
-        """Load the current project Vicon recording."""
-        return load_project_vicon_recording(self.project_root)
 
     def load_state_metadata(self) -> dict[str, Any] | None:
         """Load the current project state's free-form metadata dict."""
@@ -633,5 +586,4 @@ __all__ = [
     "ProjectSegmentation",
     "PoseFormat",
     "CalibrationFormat",
-    "MotionFormat",
 ]

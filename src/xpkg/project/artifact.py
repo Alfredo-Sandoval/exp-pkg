@@ -254,35 +254,12 @@ def _is_within(path: Path, parent: Path) -> bool:
         return False
 
 
-def _validate_vicon_bundle_paths(project_root: Path, recording: Any) -> None:
-    store_root = project_store_root(project_root).resolve()
-    managed_paths = {
-        "recording": recording.path,
-        "xcp": recording.xcp_path,
-        "vsk": recording.vsk_path,
-    }
-    for label, raw_path in managed_paths.items():
-        if raw_path is None:
-            continue
-        resolved = resolve_path(raw_path)
-        if not resolved.is_file():
-            raise FileNotFoundError(f"Project Vicon {label} file missing: {resolved}")
-        if not _is_within(resolved, store_root):
-            raise ValueError(
-                "Project Vicon bundle files must live under the project store. "
-                f"Found unmanaged {label} path: {resolved}"
-            )
-
-
 def _project_media_violations(project_root: Path) -> list[str]:
     from xpkg.model import Labels
-    from xpkg.project.state import project_state_kind
     from xpkg.project.store import current_project_state_path
 
     state_path = current_project_state_path(project_root)
     if not state_path.exists():
-        return []
-    if state_path.suffix.lower() == ".json" and project_state_kind(state_path) == "vicon":
         return []
     labels = Labels.load_file(project_root.as_posix())
     media_root = project_media_root(project_root).resolve()
@@ -842,11 +819,9 @@ def validate_project(project: str | Path) -> None:
 
     from xpkg.model import Labels
     from xpkg.project.artifacts import validate_project_artifacts
-    from xpkg.project.state import project_state_kind
     from xpkg.project.store import (
         current_project_state_path,
         ensure_current_project_state_cache,
-        load_project_vicon_recording,
     )
 
     validate_project_artifacts(root)
@@ -855,11 +830,6 @@ def validate_project(project: str | Path) -> None:
     state_path = state_path if state_path is not None else current_project_state_path(root)
     if not state_path.exists():
         return
-    if state_path.suffix.lower() == ".json":
-        if project_state_kind(state_path) == "vicon":
-            recording = load_project_vicon_recording(root)
-            _validate_vicon_bundle_paths(root, recording)
-            return
     labels = Labels.load_file(root.as_posix())
     labels.validate()
 

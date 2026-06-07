@@ -8,16 +8,14 @@
 Import from `xpkg` in Python and use `xpkg` for the CLI.
 
 exp-pkg exists to give neuroscience repos one stable boundary for
-experiment-data IO. Its current focus is pose estimation, motion capture
-(Vicon/C3D), synchronized video, segmentation masks, and portable project
-packaging, plus the metadata needed to keep those modalities aligned.
+experiment-data IO. Its current focus is pose estimation, synchronized video,
+segmentation masks, calibration metadata, and portable project packaging.
 
 It imports external formats, normalizes them into canonical `xpkg` objects,
 stores them in a project-first project contract, and emits portable `.expkg`
-artifacts. The project import surface today covers pose, calibration, and
-motion-capture formats. Fiber photometry and patch-clamp electrophysiology are
-planned future direction, not the current focus; the package keeps to a shared
-session/timeline layer rather than turning into an analysis platform.
+artifacts. The project import surface today covers pose and calibration
+formats. Signal and behavior readers stay direct-reader only; the package keeps
+to a project IO layer rather than turning into an analysis platform.
 
 This repo is not an analysis platform. It is the IO layer that analysis tools,
 GUIs, and automation can build on when they need a coherent project/project
@@ -76,7 +74,7 @@ Choose the public surface by job:
 | Task | Preferred public entrypoint |
 | --- | --- |
 | Create, open, import into, validate, pack, or unpack a project | `xpkg.services.ProjectService` |
-| Import foreign pose data into a project you already manage through the service | `project.import_pose(format, ...)` / `import_calibration(format, ...)` / `import_motion(format, ...)` |
+| Import foreign pose or calibration data into a project you already manage through the service | `project.import_pose(format, ...)` / `import_calibration(format, ...)` |
 | Register figures, tables, analyses, reports, or other output artifacts | `project.artifacts.*` from `xpkg.services.ProjectService` |
 | Save figure outputs and their lineage manifests | `project.figures.*` from `xpkg.services.ProjectService` |
 | Save or load frame-level segmentation masks | `project.segmentation.*` from `xpkg.services.ProjectService` |
@@ -85,8 +83,8 @@ Choose the public surface by job:
 
 For downstream GUIs and catalog scans, keep list views shallow. Use descriptor,
 layout, metadata, and current-state file stats for rows; hydrate labels,
-predictions, recordings, and media only after a user selects a project. The
-full rule set lives in `docs/performance.md`.
+predictions, and media only after a user selects a project. The full rule set
+lives in `docs/performance.md`.
 
 Artifacts use a generic registry under `.xpkg/artifacts/<kind>/`, with common
 kind directories such as `figures`, `tables`, `analyses`, `reports`, and
@@ -98,19 +96,18 @@ downstream package names.
 
 The shipped service/CLI project import surface currently covers:
 
-- Vicon CSV and C3D recordings
 - DeepLabCut CSV, H5, and project imports
 - Lightning Pose prediction CSV (DLC-style MultiIndex)
 - SLEAP analysis H5 and `.pkg.slp`
 - MMPose top-down demo JSON (`--save-predictions`)
 - MediaPipe pose-landmarks JSON
 
-There are two tiers here. Project imports (pose, calibration, motion) go
+There are two tiers here. Project imports (pose and calibration) go
 through `ProjectService` and the CLI, write project state, and produce portable
 `.expkg` artifacts. Direct readers parse a file into typed in-memory objects
 and stop there. They have no project integration: there is no `ProjectService`
-method and no CLI command that imports a photometry, ephys, or event file into
-a project today.
+method and no CLI command that imports a photometry, behavior, or event file
+into a project today.
 
 The direct reader surface includes typed, project-free, experimental readers
 for:
@@ -125,16 +122,13 @@ for:
 - Doric `.doric` photometry containers
 - Teleopto H5 exports
 - TDT tank/block photometry streams through the optional `tdt` package
-- Patch-clamp electrophysiology ABF and ephys CSV files
-
 These signal and behavior readers are experimental and are not the current
-product focus. Fiber photometry and patch-clamp ephys in particular are planned
-direction. The reader functions exist in `xpkg.readers`, but none of them is
-reachable through `ProjectService` or the CLI yet.
+product focus. The reader functions exist in `xpkg.readers`, but none of them
+is reachable through `ProjectService` or the CLI yet.
 
 ## What It Does
 
-- Imports external pose, motion-capture, and media-associated annotation formats into canonical xpkg objects
+- Imports external pose, calibration, and media-associated annotation formats into canonical xpkg objects
 - Defines a stable project contract: project folder + private `.xpkg/` + `.expkg`
 - Manages project lifecycle: create, open, validate, pack, unpack
 - Validates `.expkg` manifests, archive member paths, sizes, and SHA-256 digests
@@ -151,8 +145,8 @@ Implemented today:
 
 - canonical annotation and media data objects
 - canonical behavior-label objects for intervals, framewise motifs, and embeddings
-- service/CLI project importers for pose, calibration, and motion formats
-- direct readers for signal, event, behavior, pose, calibration, and motion files
+- service/CLI project importers for pose and calibration formats
+- direct readers for signal, event, behavior, pose, and calibration files
 - project/store/artifact lifecycle operations
 - media-aware packaging and portable exports
 - Parquet-backed `xpkg.rle.v1` mask tables for dense instance-mask outputs
@@ -170,17 +164,13 @@ Mission direction:
 Planned, not current capability:
 
 - fiber-photometry project imports through `ProjectService` and the CLI
-- patch-clamp electrophysiology project imports through `ProjectService` and
-  the CLI
-- a shared session/timeline layer that carries photometry and ephys alongside
-  pose, video, and events
+- a shared session/timeline layer that carries photometry alongside pose,
+  video, and events
 
 ## Supported Project Imports
 
 | Source | Format | Status |
 |--------|--------|--------|
-| Vicon | CSV | Supported |
-| Vicon | C3D | Supported |
 | DeepLabCut | CSV | Supported |
 | DeepLabCut | H5 | Supported |
 | DeepLabCut | Project | Supported |
@@ -195,9 +185,8 @@ Planned, not current capability:
 These readers are experimental and are not the current product focus. They read
 a file into typed in-memory objects through `xpkg.readers` and stop there. They
 are not project-importable: there is no `ProjectService` method or CLI command
-that brings a photometry, ephys, event, or behavior file into a project, and no
-`.expkg` packaging for these formats yet. Fiber photometry and patch-clamp
-ephys are planned direction, not shipped project capability.
+that brings a photometry, event, or behavior file into a project, and no
+`.expkg` packaging for these formats yet.
 
 | Source | Format | Status |
 |--------|--------|--------|
@@ -214,9 +203,6 @@ ephys are planned direction, not shipped project capability.
 | Doric | `.doric` HDF5 photometry container | Direct reader (experimental) |
 | Teleopto | H5 export | Direct reader (experimental) |
 | TDT | Tank/block streams | Direct reader with optional `tdt` dependency (experimental) |
-| Patch-clamp ephys | ABF | Direct reader (experimental) |
-| Patch-clamp ephys | Ephys CSV | Direct reader (experimental) |
-
 The fiber-photometry readers intentionally do not claim Inscopix `.isx` /
 `.isxd`, Blackrock NEV/NSx, or Neuralynx Cheetah support. Those are imaging or
 extracellular electrophysiology surfaces, not fiber-photometry IO.
@@ -347,22 +333,13 @@ Create a manifest named `xpkg-real-data.json` at the corpus root, or point
         "skeletons": 1,
         "min_labeled_frames": 1
       }
-    },
-    {
-      "id": "vicon-trial-001",
-      "kind": "vicon",
-      "recording": "vicon/trial_001.c3d",
-      "expect": {
-        "state": "vicon"
-      }
     }
   ]
 }
 ```
 
-Supported real-data `kind` values are `vicon`, `dlc`, `lightning_pose`,
-`sleap`, `mmpose`, and `mediapipe`. Use `kind: "vicon"` for both CSV and C3D
-recordings; use `kind: "dlc"` with either `tracking` plus `video` for a single
+Supported real-data `kind` values are `dlc`, `lightning_pose`, `sleap`,
+`mmpose`, and `mediapipe`. Use `kind: "dlc"` with either `tracking` plus `video` for a single
 CSV/H5 tracking file, or `project` for a full DLC project folder; use
 `kind: "lightning_pose"` with `tracking` plus `video` for a Lightning Pose
 prediction CSV produced by `litpose predict`; use
@@ -444,8 +421,8 @@ xpkg artifacts validate "./My Project" --kind figure
 ```
 
 The same `xpkg import` command also ships source-specific project imports for
-Vicon recordings, Anipose calibration, Lightning Pose CSV, SLEAP, MMPose JSON,
-and MediaPipe JSON.
+Anipose calibration, Lightning Pose CSV, SLEAP, MMPose JSON, and MediaPipe
+JSON.
 Every canonical command supports `--json` for machine-readable output, and
 `xpkg describe --json` reports the current command contract for agents.
 Use `xpkg inspect PATH --json` before import to identify likely formats,
@@ -463,46 +440,6 @@ CI.
 media such as image sequences while manifesting video containers without
 storing them, or `--media manifest` to record managed media paths, sizes, and
 hashes without storing media bytes.
-
-## Vicon Recording API
-
-Vicon support is intentionally narrow and mocap-native: it preserves marker
-names, source labels, `(frames, markers, 3)` positions, validity/gaps, fps,
-frame offsets, optional raw C3D `EVENT` metadata, optional analog channels,
-analog units/descriptions, optional additional point channels, and sibling
-`.xcp` / `.vsk` sidecars when present.
-
-Use the low-level reader when another repo just needs to load a recording:
-
-```python
-from xpkg.readers import read_vicon_recording
-
-recording = read_vicon_recording("trial.c3d")
-print(recording.marker_names)
-print(recording.positions.shape)
-print([(event.side, event.event_type, event.source_frame) for event in recording.gait_events])
-print(recording.analog.channel_names if recording.analog is not None else ())
-print(recording.analog.candidate_emg_channel_names if recording.analog is not None else ())
-```
-
-Use the project service when another repo wants an imported, portable project:
-
-```python
-from xpkg.services import ProjectService
-
-project = ProjectService.create("./Vicon Project", title="Vicon Project")
-project.import_motion("vicon", path="trial.c3d")
-recording = project.load_vicon_recording()
-artifact = project.pack()
-```
-
-CLI examples:
-
-```bash
-xpkg import motion vicon --path trial.c3d --out "./Vicon Project"
-xpkg import motion vicon-csv --path trial.csv --out "./Vicon Project"
-xpkg import motion vicon-c3d --path trial.c3d --out "./Vicon Project"
-```
 
 ## Development
 

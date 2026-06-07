@@ -18,18 +18,14 @@ flowchart TD
 
     svc -->|.import_pose| ipose[["import_pose(format, ...)"]]
     svc -->|.import_calibration| ical[["import_calibration(format, ...)"]]
-    svc -->|.import_motion| imot[["import_motion(format, ...)"]]
-
     ipose -.dispatch.-> dlc["dlc-csv<br/>dlc-h5<br/>sleap-h5<br/>…"]
     ical -.dispatch.-> ani["anipose"]
-    imot -.dispatch.-> vic["vicon<br/>vicon-csv<br/>vicon-c3d"]
 
     classDef accent stroke-width:1.5px;
 ```
 
 The dispatch methods select package-owned importer implementations by a
-kebab-case ``format`` string typed as `PoseFormat`, `CalibrationFormat`, or
-`MotionFormat`.
+kebab-case ``format`` string typed as `PoseFormat` or `CalibrationFormat`.
 
 ## Metadata accessor
 
@@ -56,8 +52,7 @@ of slots actually written.
 - Use <code>ProjectService</code> as the stable consumer contract for project
   lifecycle operations.
 - Use <code>project.import_pose(format, ...)</code>,
-  <code>project.import_calibration(format, ...)</code>, and
-  <code>project.import_motion(format, ...)</code> when you want the supported
+  <code>project.import_calibration(format, ...)</code> when you want the supported
   external importers without dropping out of that service object.
 - Use <code>project.artifacts.*</code> when you want to register figures,
   tables, analyses, reports, stats, or other output files with portable
@@ -90,8 +85,7 @@ This is the canonical downstream path:
 
 - create or open a project
 - import through <code>project.import_pose(...)</code>,
-  <code>project.import_calibration(...)</code>, or
-  <code>project.import_motion(...)</code>
+  or <code>project.import_calibration(...)</code>
 - validate the managed project state
 - pack only when you want a portable <code>.expkg</code> artifact
 - reopen with <code>ProjectService.open(...)</code> or
@@ -136,7 +130,7 @@ object:
 the normalized managed paths, descriptor, and generated project summary index.
 The summary index is shallow: it reports state kind, state bytes, modalities,
 typed metadata slots, and artifact counts without loading labels, predictions,
-or motion payloads.
+or media payloads.
 
 For mapping-valued metadata blobs that callers update independently, prefer the
 service-bound field helpers instead of rewriting the whole metadata payload.
@@ -159,7 +153,7 @@ session_state = project.load_state_metadata_field("session_json")
 
 ## Service-Bound Import Surface
 
-Three dispatch methods on `ProjectService` cover all supported importers,
+Two dispatch methods on `ProjectService` cover all supported importers,
 selecting a package-owned implementation by kebab-case ``format`` string:
 
 | Service call | Format implementation |
@@ -174,10 +168,6 @@ selecting a package-owned implementation by kebab-case ``format`` string:
 | `project.import_pose("mediapipe-pose-landmarks-json", path=..., video=...)` | MediaPipe pose landmarks JSON |
 | `project.import_calibration("anipose", path=...)` | Anipose calibration TOML |
 | `project.import_calibration("opencv-stereo-yaml", path=...)` | OpenCV stereo calibration YAML |
-| `project.import_motion("vicon", path=...)` | Vicon auto-detect |
-| `project.import_motion("vicon-csv", path=...)` | Vicon CSV |
-| `project.import_motion("vicon-c3d", path=...)` | Vicon C3D |
-
 The service dispatch is the public path for new project-facing code.
 
 ## Multimodal Reader And Import Plan

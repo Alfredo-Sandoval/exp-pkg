@@ -58,12 +58,12 @@ Use `Makefile` targets as the canonical command surface:
 
 - Treat descriptor, layout, and metadata reads as the default for list,
   describe, inspect, startup, and project-picker paths.
-- Do not hydrate labels, predictions, Vicon recordings, dense masks, or media
+- Do not hydrate labels, predictions, dense masks, or media
   just to populate a project row.
 - Keep `xpkg inspect`, `xpkg project describe`, and `ProjectService.describe()`
   shallow unless a future command contract explicitly says otherwise.
 - Reserve `load_project_payload`, `ProjectService.load_labels()`,
-  `ProjectService.load_vicon_recording()`, `ProjectService.inspect()`,
+  `ProjectService.inspect()`,
   `project.validate()`, `xpkg project validate`, `pack`, and `unpack` for
   explicit user-selected open, analysis, validation, publish, or lifecycle
   actions.

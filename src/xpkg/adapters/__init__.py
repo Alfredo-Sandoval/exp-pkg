@@ -12,11 +12,6 @@ to project storage internals.
 
 from __future__ import annotations
 
-from xpkg.adapters.vicon import (
-    read_vicon_json_payload,
-    vicon_recording_from_json_payload,
-    vicon_recording_to_json_payload,
-)
 from xpkg.io.labels.export_ops import (
     labels_numpy,
     labels_to_dataframe,
@@ -31,7 +26,4 @@ __all__ = [
     "labels_numpy",
     "labels_to_dataframe",
     "labels_to_json_payload",
-    "read_vicon_json_payload",
-    "vicon_recording_from_json_payload",
-    "vicon_recording_to_json_payload",
 ]

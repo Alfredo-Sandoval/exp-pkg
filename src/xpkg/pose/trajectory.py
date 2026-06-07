@@ -1,13 +1,12 @@
 """Source-neutral pose trajectory view shared across readers and adapters.
 
 ``PoseTrajectory`` is a read-only downstream adapter for algorithms that only
-need point trajectories. Project storage remains source-native, currently
-``labels`` or ``vicon``.
+need point trajectories.
 """
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Literal
@@ -84,23 +83,4 @@ class PoseTrajectory:
         return int(self.positions.shape[1])
 
 
-def pose_trajectory_from_vicon_recording(recording: Any) -> PoseTrajectory:
-    """Adapt a native ``ViconRecording`` into a neutral 3D trajectory view."""
-    skeleton_edges: Sequence[tuple[str, str]] = ()
-    if recording.model is not None:
-        skeleton_edges = recording.model.edges
-    return PoseTrajectory(
-        fps=recording.fps,
-        keypoint_names=recording.marker_names,
-        positions=recording.positions,
-        valid=recording.marker_valid,
-        dims=3,
-        frame_offset=recording.frame_offset,
-        skeleton_edges=tuple(skeleton_edges),
-        source_kind="vicon",
-        source_path=recording.path,
-        metadata={"source_type": recording.source_type},
-    )
-
-
-__all__ = ["PoseTrajectory", "pose_trajectory_from_vicon_recording"]
+__all__ = ["PoseTrajectory"]
