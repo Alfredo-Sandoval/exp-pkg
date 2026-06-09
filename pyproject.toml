@@ -140,7 +140,6 @@ exclude = [
   "/AGENTS.md",
   "/CLAUDE.md",
   "/.gitignore",
-  "/deep-research-report (1).md",
   "/papers",
   "/plan.md",
   "/todo.md",
@@ -217,6 +216,7 @@ exclude_lines = [
   "if __name__ == .__main__.:",
   "@(abc\\.)?abstractmethod",
 ]
-# Enable the hard gate once a real coverage number is measured against the
-# installed dependencies (run `make coverage` in a configured environment).
-# fail_under = NN
+# Measured 69.1% on 2026-06-09 (`make coverage`, branch coverage, 496 tests).
+# Gate a few points below the measurement so optional-dependency skips
+# (e.g. `av`) do not flake the build; raise as coverage improves.
+fail_under = 65

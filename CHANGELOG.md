@@ -12,6 +12,19 @@ durability contract (zip container, `EXPKG.json` manifest, and the project /
 remain readable by later 0.x and 1.0 releases. The Python API and CLI command
 surface remain 0.x and may change before 1.0.
 
+## Unreleased
+
+- Adds the `segmentation-overlays` extra for supervision-based overlay export.
+- Removes the stale Vicon and ephys import scope and related tests.
+- Restores the `xpkg` CLI under Typer's vendored click (Typer >= 0.26).
+- Distinguishes `internal_error` from `runtime_error` in the CLI error
+  envelope so bugs in xpkg are reportable as such.
+- Narrows broad exception handling in the project durability layer and state
+  cache so programming errors propagate instead of being swallowed.
+- Renames the log-level environment variable to `XPKG_LOG_LEVEL`.
+- Removes the dead `xpkg.io.converters.converter_helpers` module.
+- Enforces a coverage floor (`fail_under = 65`) in the coverage gate.
+
 ## 0.1.0 - 2026-05-20
 
 Initial public package line.
