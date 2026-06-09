@@ -98,10 +98,9 @@ def has_metrics_group(path: str | Path) -> bool:
 
 
 def _require_metrics_group(handle: h5py.File, bundle_path: str | Path) -> h5py.Group:
-    if METRICS_GROUP not in handle or not isinstance(handle[METRICS_GROUP], h5py.Group):
+    metrics_group = handle.get(METRICS_GROUP)
+    if not isinstance(metrics_group, h5py.Group):
         raise MissingMetricsGroupError(bundle_path)
-    metrics_group = handle[METRICS_GROUP]
-    assert isinstance(metrics_group, h5py.Group)
     return metrics_group
 
 
@@ -153,13 +152,13 @@ def _read_table_group(table_group: h5py.Group) -> pd.DataFrame:
     for idx, name in enumerate(numeric_names):
         data[str(name)] = numeric_values[:, idx]
 
-    strings_group = table_group.get("strings")
-    if string_names and not isinstance(strings_group, h5py.Group):
-        raise MetricsReadError("Metrics table is missing its strings group")
-    for name in string_names:
-        assert isinstance(strings_group, h5py.Group)
-        raw_values = strings_group[str(name)].asstr()[()]
-        data[str(name)] = np.asarray(raw_values, dtype=object)
+    if string_names:
+        strings_group = table_group.get("strings")
+        if not isinstance(strings_group, h5py.Group):
+            raise MetricsReadError("Metrics table is missing its strings group")
+        for name in string_names:
+            raw_values = strings_group[str(name)].asstr()[()]
+            data[str(name)] = np.asarray(raw_values, dtype=object)
 
     ordered = {str(name): data[str(name)] for name in column_order if str(name) in data}
     return pd.DataFrame(ordered)
@@ -169,10 +168,9 @@ def read_table(path: str | Path, table: str) -> pd.DataFrame:
     bundle_path = Path(path)
     with h5py.File(bundle_path, "r") as handle:
         metrics_group = _require_metrics_group(handle, bundle_path)
-        if table not in metrics_group or not isinstance(metrics_group[table], h5py.Group):
+        table_group = metrics_group.get(table)
+        if not isinstance(table_group, h5py.Group):
             raise MissingMetricsTableError(bundle_path, table)
-        table_group = metrics_group[table]
-        assert isinstance(table_group, h5py.Group)
         return _read_table_group(table_group)
 
 
@@ -187,7 +185,6 @@ def write_table_to_handle(
         raise ValueError("mode must be 'replace' or 'append'")
 
     metrics_group = handle.require_group(METRICS_GROUP)
-    assert isinstance(metrics_group, h5py.Group)
     table_df = df.copy()
     if mode == "append" and table in metrics_group:
         existing_group = metrics_group[table]

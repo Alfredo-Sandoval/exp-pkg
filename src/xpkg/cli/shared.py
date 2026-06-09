@@ -56,11 +56,19 @@ def write_path(path: object) -> None:
     sys.stdout.write(f"{path}\n")
 
 
+# Exception types that signal a bug in xpkg rather than bad input or a
+# failed operation. They surface as ``internal_error`` so agents and users
+# can tell "fix your invocation" apart from "report this".
+_INTERNAL_ERROR_TYPES = (TypeError, KeyError, IndexError, AttributeError)
+
+
 def _hint_for_exception(exc: BaseException) -> str:
     if isinstance(exc, FileNotFoundError):
         return "Check that the path exists and rerun the command."
     if isinstance(exc, ValueError):
         return "Check the required flags and input format, then rerun the command."
+    if isinstance(exc, _INTERNAL_ERROR_TYPES):
+        return "This looks like a bug in xpkg, not bad input. Report it with the full command."
     return "Run `xpkg describe --json` to inspect the command contract."
 
 
@@ -69,6 +77,8 @@ def _error_code_for_exception(exc: BaseException) -> tuple[str, int]:
         return "not_found", 3
     if isinstance(exc, ValueError):
         return "invalid_input", 1
+    if isinstance(exc, _INTERNAL_ERROR_TYPES):
+        return "internal_error", 1
     return "runtime_error", 1
 
 
@@ -76,6 +86,8 @@ def raise_cli_error(exc: BaseException, *, json_output: bool) -> NoReturn:
     """Raise a Typer exit after emitting the contract error envelope."""
     code, exit_code = _error_code_for_exception(exc)
     message = str(exc).strip() or exc.__class__.__name__
+    if isinstance(exc, _INTERNAL_ERROR_TYPES):
+        message = f"{exc.__class__.__name__}: {message}"
     hint = _hint_for_exception(exc)
     if json_output:
         write_json(

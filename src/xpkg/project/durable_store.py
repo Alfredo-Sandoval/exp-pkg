@@ -55,6 +55,12 @@ class ChecksumError(ProjectDurableStoreError):
     """Raised when a checksum cannot be verified."""
 
 
+# Errors a corrupt or unreadable payload file can produce: store-level
+# validation failures, read failures, and malformed JSON/payload shapes.
+# Anything outside this set is a programming error and must propagate.
+_CORRUPT_PAYLOAD_ERRORS = (ProjectDurableStoreError, OSError, ValueError, TypeError, KeyError)
+
+
 def now_utc_iso() -> str:
     """Return an ISO-8601 UTC timestamp with trailing Z."""
     return datetime.now(tz=UTC).isoformat().replace("+00:00", "Z")
@@ -137,7 +143,7 @@ def atomic_write_bytes(
     finally:
         try:
             tmp_handle.close()
-        except Exception:
+        except OSError:
             pass
         tmp_path.unlink(missing_ok=True)
 
@@ -203,7 +209,7 @@ def atomic_copy_file(
     finally:
         try:
             tmp_handle.close()
-        except Exception:
+        except OSError:
             pass
         tmp_path.unlink(missing_ok=True)
 
@@ -518,7 +524,7 @@ class StoreLock:
             return {}
         try:
             return parse_json_dict(raw)
-        except Exception:
+        except (ValueError, TypeError):
             return {}
 
     def _is_stale(self, holder: Mapping[str, Any]) -> bool:
@@ -614,7 +620,7 @@ def _try_load_slot(
 ) -> tuple[MountedHead | None, Exception | None]:
     try:
         superblock = _load_superblock(path)
-    except Exception as exc:
+    except _CORRUPT_PAYLOAD_ERRORS as exc:
         return None, exc
     if superblock is None:
         return None, None
@@ -875,7 +881,7 @@ class ProjectDurableStore:
             if candidate.exists():
                 try:
                     payload = _load_verified_json(candidate)
-                except Exception:
+                except _CORRUPT_PAYLOAD_ERRORS:
                     return None
                 if payload.get("commit_id") == commit_id:
                     return candidate
@@ -883,7 +889,7 @@ class ProjectDurableStore:
         for commit_json in commits_dir.glob("*/commit.json"):
             try:
                 payload = _load_verified_json(commit_json)
-            except Exception:
+            except _CORRUPT_PAYLOAD_ERRORS:
                 continue
             if payload.get("commit_id") == commit_id:
                 return commit_json

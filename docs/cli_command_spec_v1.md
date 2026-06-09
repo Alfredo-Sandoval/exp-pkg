@@ -41,6 +41,10 @@ xpkg project
   `{"ok": false, "error": {"code": ..., "message": ..., "hint": ...}}`.
 - Exit codes are `0` for success, `1` for usage or runtime errors, `2` reserved
   for future auth/config failures, and `3` for not found.
+- Error codes distinguish caller mistakes from xpkg defects: `invalid_input`,
+  `not_found`, `usage_error`, and `unknown_option` mean the invocation should
+  change; `runtime_error` means the operation failed; `internal_error` means
+  the failure looks like a bug in xpkg and should be reported.
 - `--json` is reserved for machine output. Commands that import JSON files use
   `--input-json` for those input paths.
 - `xpkg describe --json` exposes the current command contract for agents.

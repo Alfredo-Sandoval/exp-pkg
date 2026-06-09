@@ -23,7 +23,7 @@ def ensure_basic_config() -> None:
     with _LOCK:
         if _CONFIGURED:
             return
-        level_name = str(os.environ.get("GRAPHITE_LOG_LEVEL", "WARNING")).strip().upper()
+        level_name = str(os.environ.get("XPKG_LOG_LEVEL", "WARNING")).strip().upper()
         level = _LEVELS.get(level_name, logging.WARNING)
         logging.basicConfig(level=level, format=_FORMAT)
         _CONFIGURED = True

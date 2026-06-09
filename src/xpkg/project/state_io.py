@@ -27,6 +27,7 @@ from xpkg.project.layout import (
 
 from .._core.hashing import sha256_file
 from .._core.json_utils import load_json_dict, parse_json_dict, write_json
+from .._core.logging_utils import get_logger
 from .._core.path_registry import ensure_dir, resolve_path
 
 if TYPE_CHECKING:
@@ -35,6 +36,8 @@ if TYPE_CHECKING:
 
 PROJECT_COMMIT_ID_KEY = "xpkg_commit_id"
 PROJECT_CACHE_DIGEST_KEY = "sha256"
+
+_logger = get_logger(__name__)
 
 
 def current_project_state_path(path: str | Path) -> Path:
@@ -76,7 +79,10 @@ def project_state_cache_digest_matches(path: str | Path, *, commit_id: str) -> b
         return False
     try:
         payload = load_json_dict(digest_path)
-    except Exception:
+    except FileNotFoundError:
+        return False
+    except (OSError, ValueError, TypeError) as exc:
+        _logger.warning("Unreadable state cache digest %s: %s", digest_path, exc)
         return False
     if str(payload.get(PROJECT_COMMIT_ID_KEY, "")).strip() != str(commit_id):
         return False

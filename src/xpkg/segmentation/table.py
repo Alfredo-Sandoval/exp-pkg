@@ -239,7 +239,8 @@ def _row_from_record(
     frame_width: int | None,
 ) -> dict[str, Any]:
     mask = _ensure_rle_mask(record.mask, frame_height=frame_height, frame_width=frame_width)
-    assert mask.rle_counts is not None
+    if mask.rle_counts is None:
+        raise ValueError("RLE mask is missing run-length counts.")
     counts = np.asarray(mask.rle_counts, dtype=np.uint32)
     is_empty = _is_empty_rle(counts, mask.rle_start) if record.is_empty is None else record.is_empty
     bbox = record.bbox_xyxy or _bbox_from_mask(mask, is_empty=bool(is_empty))
