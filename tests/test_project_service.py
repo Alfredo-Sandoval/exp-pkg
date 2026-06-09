@@ -4,8 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from tests.test_dlc_import import _write_dummy_video, _write_sample_dlc_csv
-from tests.test_project_contract import _make_labels
+from tests.factories import make_labels, write_dummy_video, write_sample_dlc_csv
 from xpkg.model import AcquisitionMetadata, Labels
 from xpkg.project import (
     current_project_state_path,
@@ -51,8 +50,8 @@ def test_readme_recommended_project_service_flow_roundtrips_imported_artifact(
 ) -> None:
     csv_path = tmp_path / "tracking.csv"
     video_path = tmp_path / "session.avi"
-    _write_sample_dlc_csv(csv_path)
-    _write_dummy_video(video_path)
+    write_sample_dlc_csv(csv_path)
+    write_dummy_video(video_path)
 
     project = ProjectService.create(tmp_path / "Imported Project", title="Imported Project")
     state_path = project.import_pose(
@@ -99,7 +98,7 @@ def test_project_service_describe_uses_shallow_summary_index(
 ) -> None:
     project = ProjectService.create(tmp_path / "Summary Project", title="Summary Project")
     project.save_labels(
-        _make_labels(tmp_path, x=3.0, y=4.0),
+        make_labels(tmp_path, x=3.0, y=4.0),
         metadata={"source": "test"},
     )
 
@@ -130,13 +129,13 @@ def test_project_service_describe_uses_shallow_summary_index(
 
 
 def test_project_summary_tracks_media_frame_inventory(tmp_path: Path) -> None:
-    from tests.test_project_contract import _make_media_labels, _write_test_video
+    from tests.factories import make_media_labels, write_test_video
 
     source_video = tmp_path / "source.avi"
-    _write_test_video(source_video)
+    write_test_video(source_video)
     project = ProjectService.create(tmp_path / "Media Summary", title="Media Summary")
 
-    project.save_labels(_make_media_labels(source_video, x=3.0, y=4.0))
+    project.save_labels(make_media_labels(source_video, x=3.0, y=4.0))
 
     summary = load_project_summary(project.project_root)
     assert len(summary.media) == 1
@@ -172,7 +171,7 @@ def test_project_summary_preserves_state_counts_after_metadata_only_commit(
     tmp_path: Path,
 ) -> None:
     project = ProjectService.create(tmp_path / "State Metadata Summary")
-    project.save_labels(_make_labels(tmp_path, x=3.0, y=4.0))
+    project.save_labels(make_labels(tmp_path, x=3.0, y=4.0))
 
     project.save_state_metadata({"session_json": {"active_frame_idx": 4}})
 
@@ -186,7 +185,7 @@ def test_project_service_metadata_field_roundtrip_uses_current_head(tmp_path: Pa
         tmp_path / "Service Field Metadata Project",
         title="Service Field Metadata Project",
     )
-    project.save_labels(_make_labels(tmp_path, x=1.0, y=2.0))
+    project.save_labels(make_labels(tmp_path, x=1.0, y=2.0))
 
     saved_path = project.save_state_metadata_field(
         "session_json",

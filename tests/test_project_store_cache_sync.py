@@ -3,11 +3,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import cv2
-import numpy as np
-
-from xpkg.model import Labels, Video, build_keypoint_skeleton
-from xpkg.pose.annotations import Instance, LabeledFrame, Point
+from tests.factories import make_labels
+from xpkg.model import Labels
 from xpkg.project import (
     current_project_state_path,
     init_project,
@@ -22,38 +19,11 @@ from xpkg.project.state_io import (
 from xpkg.project.store import current_project_commit_id
 
 
-def _write_test_image(path: Path, value: int = 128) -> None:
-    image = np.full((12, 16, 3), value, dtype=np.uint8)
-    ok = cv2.imwrite(path.as_posix(), image)
-    assert ok
-
-
-def _make_labels(tmp_path: Path, *, x: float, y: float) -> Labels:
-    frame_path = tmp_path / "frame.png"
-    _write_test_image(frame_path)
-    video = Video.from_image_filenames([frame_path.as_posix()])
-    video.filename = frame_path.as_posix()
-    skeleton = build_keypoint_skeleton(["nose"], name="subject")
-    frame = LabeledFrame(
-        video=video,
-        frame_idx=0,
-        instances=[
-            Instance(
-                skeleton=skeleton,
-                init_points={"nose": Point(x, y, visible=True, complete=True)},
-            )
-        ],
-    )
-    labels = Labels(labeled_frames=[frame], videos=[video], skeletons=[skeleton])
-    labels.validate()
-    return labels
-
-
 def test_save_project_labels_creates_durable_head_and_state_commit_id(tmp_path: Path) -> None:
     project = tmp_path / "Project"
     init_project(project, title="Project")
 
-    labels = _make_labels(tmp_path, x=3.0, y=4.0)
+    labels = make_labels(tmp_path, x=3.0, y=4.0)
     state_path = save_project_labels(project, labels)
 
     assert state_path == current_project_state_path(project)
@@ -75,7 +45,7 @@ def test_project_load_ignores_state_when_commit_id_mismatches_head(tmp_path: Pat
     project = tmp_path / "Project"
     init_project(project, title="Project")
 
-    labels = _make_labels(tmp_path, x=3.0, y=4.0)
+    labels = make_labels(tmp_path, x=3.0, y=4.0)
     state_path = save_project_labels(project, labels)
 
     document = json.loads(state_path.read_text(encoding="utf-8"))

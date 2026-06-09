@@ -3,55 +3,14 @@ from __future__ import annotations
 from collections import Counter
 from pathlib import Path
 
-import cv2
 import numpy as np
-import pandas as pd
 import pytest
 
-
-def _video_writer_fourcc(code: str) -> int:
-    fourcc_fn = getattr(cv2, "VideoWriter_fourcc", None)
-    if not callable(fourcc_fn):
-        raise RuntimeError("OpenCV build does not expose VideoWriter_fourcc")
-    return int(fourcc_fn(*code))
-
-
-def _sample_dlc_dataframe(*, x_offset: float = 0.0) -> pd.DataFrame:
-    columns = pd.MultiIndex.from_product(
-        [["demo"], ["nose", "tail"], ["x", "y", "likelihood"]],
-        names=["scorer", "bodyparts", "coords"],
-    )
-    return pd.DataFrame(
-        [
-            [10.0 + x_offset, 20.0, 0.95, 30.0 + x_offset, 40.0, 0.90],
-            [11.0 + x_offset, 21.0, 0.85, 31.0 + x_offset, 41.0, 0.80],
-        ],
-        columns=columns,
-    )
-
-
-def _write_sample_dlc_h5(path: Path, *, x_offset: float = 0.0) -> pd.DataFrame:
-    df = _sample_dlc_dataframe(x_offset=x_offset)
-    df.to_hdf(path, key="df")
-    return df
-
-
-def _write_sample_dlc_csv(path: Path, *, x_offset: float = 0.0) -> pd.DataFrame:
-    df = _sample_dlc_dataframe(x_offset=x_offset)
-    df.to_csv(path)
-    return df
-
-
-def _write_dummy_video(path: Path) -> None:
-    fourcc = _video_writer_fourcc("MJPG")
-    writer = cv2.VideoWriter(path.as_posix(), fourcc, 5.0, (16, 12))
-    assert writer.isOpened()
-    try:
-        for idx in range(2):
-            frame = np.full((12, 16, 3), (idx + 1) * 20, dtype=np.uint8)
-            writer.write(frame)
-    finally:
-        writer.release()
+from tests.factories import (
+    write_dummy_video,
+    write_sample_dlc_csv,
+    write_sample_dlc_h5,
+)
 
 
 def _make_dlc_project_fixture(tmp_path: Path) -> Path:
@@ -70,12 +29,12 @@ def _make_dlc_project_fixture(tmp_path: Path) -> Path:
     missing_video_dir.mkdir()
     no_data_dir.mkdir()
 
-    _write_sample_dlc_csv(csv_dir / "CollectedData_demo.csv", x_offset=0.0)
-    _write_sample_dlc_h5(h5_dir / "CollectedData_demo.h5", x_offset=100.0)
-    _write_sample_dlc_csv(missing_video_dir / "CollectedData_demo.csv", x_offset=200.0)
+    write_sample_dlc_csv(csv_dir / "CollectedData_demo.csv", x_offset=0.0)
+    write_sample_dlc_h5(h5_dir / "CollectedData_demo.h5", x_offset=100.0)
+    write_sample_dlc_csv(missing_video_dir / "CollectedData_demo.csv", x_offset=200.0)
 
-    _write_dummy_video(videos_dir / "session-csv.avi")
-    _write_dummy_video(videos_dir / "session-h5.avi")
+    write_dummy_video(videos_dir / "session-csv.avi")
+    write_dummy_video(videos_dir / "session-h5.avi")
 
     return project_root
 
@@ -88,11 +47,11 @@ def test_convert_dlc_h5_project_builds_multi_video_labels(tmp_path: Path) -> Non
     (recording_dir / "alpha_view").mkdir()
     (recording_dir / "beta_view").mkdir()
     tracking_path = recording_dir / "tracking" / "session-0-tracking.h5"
-    df = _write_sample_dlc_h5(tracking_path)
+    df = write_sample_dlc_h5(tracking_path)
     video_a = recording_dir / "alpha_view" / "session-0-leftCam.avi"
     video_b = recording_dir / "beta_view" / "session-0-underGlass.avi"
-    _write_dummy_video(video_a)
-    _write_dummy_video(video_b)
+    write_dummy_video(video_a)
+    write_dummy_video(video_b)
 
     result = convert_dlc_h5_project(
         tracking_path,
@@ -218,9 +177,9 @@ def test_import_lightning_pose_csv_project_uses_dlc_style_predictions(
 
     csv_path = tmp_path / "video_preds" / "session0.csv"
     csv_path.parent.mkdir()
-    _write_sample_dlc_csv(csv_path)
+    write_sample_dlc_csv(csv_path)
     video_path = tmp_path / "session0.avi"
-    _write_dummy_video(video_path)
+    write_dummy_video(video_path)
     config_path = tmp_path / "lightning_pose_config.yaml"
     config_path.write_text("model: lp-demo\n", encoding="utf-8")
     project = tmp_path / "Imported Lightning Pose"
@@ -286,9 +245,9 @@ def test_dlc_csv_import_preserves_per_keypoint_likelihood_through_project_state(
     from xpkg.project.store.imports import import_dlc_csv_project
 
     csv_path = tmp_path / "session.csv"
-    _write_sample_dlc_csv(csv_path)
+    write_sample_dlc_csv(csv_path)
     video_path = tmp_path / "session.avi"
-    _write_dummy_video(video_path)
+    write_dummy_video(video_path)
     project = tmp_path / "DLC Project"
 
     import_dlc_csv_project(csv_path, video_path, project)
@@ -326,9 +285,9 @@ def test_dlc_csv_import_preserves_scores_through_pack_unpack_roundtrip(
     from xpkg.project.store.imports import import_dlc_csv_project
 
     csv_path = tmp_path / "session.csv"
-    _write_sample_dlc_csv(csv_path)
+    write_sample_dlc_csv(csv_path)
     video_path = tmp_path / "session.avi"
-    _write_dummy_video(video_path)
+    write_dummy_video(video_path)
     project = tmp_path / "DLC Project"
 
     import_dlc_csv_project(csv_path, video_path, project)

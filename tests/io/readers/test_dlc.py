@@ -163,10 +163,10 @@ def test_read_track_requires_dlc_likelihood_columns(
 
 
 def test_generic_pose_reader_dispatches_to_dlc_lightning_pose_and_sleap(tmp_path: Path) -> None:
-    from tests.io.readers.test_sleap_analysis_h5 import _write_sleap_analysis_h5
+    from tests.factories import write_sleap_analysis_h5
 
     sleap_path = tmp_path / "analysis.h5"
-    _write_sleap_analysis_h5(sleap_path)
+    write_sleap_analysis_h5(sleap_path)
     dlc_path = tmp_path / "tracking.csv"
     _write_dlc_csv(dlc_path)
 

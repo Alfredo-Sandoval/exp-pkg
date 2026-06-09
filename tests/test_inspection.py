@@ -358,14 +358,14 @@ def test_inspect_path_reports_project_metadata_slots_without_payload_load(tmp_pa
 def test_inspect_path_reports_project_media_from_summary_without_payload_load(
     tmp_path: Path,
 ) -> None:
-    from tests.test_project_contract import _make_media_labels, _write_test_video
+    from tests.factories import make_media_labels, write_test_video
     from xpkg.project import current_project_state_path, load_project_summary
     from xpkg.services import ProjectService
 
     source_video = tmp_path / "source.avi"
-    _write_test_video(source_video)
+    write_test_video(source_video)
     project = ProjectService.create(tmp_path / "Media Project", title="Media Project")
-    project.save_labels(_make_media_labels(source_video, x=3.0, y=4.0))
+    project.save_labels(make_media_labels(source_video, x=3.0, y=4.0))
     summary = load_project_summary(project.project_root)
     managed_media = project.project_root / str(summary.media[0]["path"])
     managed_media.unlink()
@@ -421,14 +421,14 @@ def test_inspect_path_reports_project_media_from_summary_without_payload_load(
 def test_inspect_path_project_image_sequence_media_reports_current_count(
     tmp_path: Path,
 ) -> None:
-    from tests.test_project_contract import _make_labels
+    from tests.factories import make_labels
     from xpkg.services import ProjectService
 
     project = ProjectService.create(
         tmp_path / "Image Sequence Project",
         title="Image Sequence Project",
     )
-    project.save_labels(_make_labels(tmp_path, x=3.0, y=4.0))
+    project.save_labels(make_labels(tmp_path, x=3.0, y=4.0))
 
     report = inspect_path(project.project_root)
 
@@ -447,14 +447,14 @@ def test_inspect_path_warns_when_project_media_inventory_unavailable(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from tests.test_project_contract import _make_media_labels, _write_test_video
+    from tests.factories import make_media_labels, write_test_video
     from xpkg.project.layout import project_summary_path
     from xpkg.services import ProjectService
 
     source_video = tmp_path / "source.avi"
-    _write_test_video(source_video)
+    write_test_video(source_video)
     project = ProjectService.create(tmp_path / "Old Media Project", title="Old Media Project")
-    project.save_labels(_make_media_labels(source_video, x=3.0, y=4.0))
+    project.save_labels(make_media_labels(source_video, x=3.0, y=4.0))
 
     summary_path = project_summary_path(project.project_root)
     summary_payload = json.loads(summary_path.read_text(encoding="utf-8"))

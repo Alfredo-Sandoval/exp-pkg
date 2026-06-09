@@ -4,16 +4,15 @@ from pathlib import Path
 
 import numpy as np
 
-from tests.io.readers.test_mmpose import _write_mmpose_topdown_json
-from tests.test_sleap_h5_import import _write_dummy_video
+from tests.factories import write_dummy_video, write_mmpose_topdown_json
 
 
 def test_convert_mmpose_topdown_json_builds_labels_with_links(tmp_path: Path) -> None:
     from xpkg.io.converters.mmpose_import import convert_mmpose_topdown_json
 
-    json_path = _write_mmpose_topdown_json(tmp_path / "results_session.json")
+    json_path = write_mmpose_topdown_json(tmp_path / "results_session.json")
     video_path = tmp_path / "session.avi"
-    _write_dummy_video(video_path, frame_count=3)
+    write_dummy_video(video_path, frame_count=3)
 
     result = convert_mmpose_topdown_json(
         json_path,
@@ -40,9 +39,9 @@ def test_convert_mmpose_topdown_json_builds_labels_with_links(tmp_path: Path) ->
 def test_convert_mmpose_topdown_json_supports_instance_slots(tmp_path: Path) -> None:
     from xpkg.io.converters.mmpose_import import convert_mmpose_topdown_json
 
-    json_path = _write_mmpose_topdown_json(tmp_path / "results_session.json")
+    json_path = write_mmpose_topdown_json(tmp_path / "results_session.json")
     video_path = tmp_path / "session.avi"
-    _write_dummy_video(video_path, frame_count=3)
+    write_dummy_video(video_path, frame_count=3)
 
     result = convert_mmpose_topdown_json(
         json_path,
@@ -68,9 +67,9 @@ def test_import_mmpose_topdown_json_project_imports_sequence_into_project(
     from xpkg.project.state_io import read_project_state_payload
     from xpkg.project.store.imports import import_mmpose_topdown_json_project
 
-    json_path = _write_mmpose_topdown_json(tmp_path / "results_session.json")
+    json_path = write_mmpose_topdown_json(tmp_path / "results_session.json")
     video_path = tmp_path / "session.avi"
-    _write_dummy_video(video_path, frame_count=3)
+    write_dummy_video(video_path, frame_count=3)
     project = tmp_path / "Imported MMPose Project"
 
     state_path = import_mmpose_topdown_json_project(

@@ -5,29 +5,29 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from tests.io.readers.test_mediapipe_pose_landmarks import (
-    _pose_landmarks,
-    _write_mediapipe_pose_landmarks_json,
+from tests.factories import (
+    pose_landmarks,
+    write_dummy_video,
+    write_mediapipe_pose_landmarks_json,
 )
-from tests.test_sleap_h5_import import _write_dummy_video
 
 
 def test_convert_mediapipe_pose_landmarks_json_builds_labels(tmp_path: Path) -> None:
     from xpkg.io.converters.mediapipe_import import convert_mediapipe_pose_landmarks_json
 
     json_path = tmp_path / "pose_landmarks.json"
-    _write_mediapipe_pose_landmarks_json(
+    write_mediapipe_pose_landmarks_json(
         json_path,
         image_width=16,
         image_height=12,
         frames=[
-            {"frame_index": 0, "pose_landmarks": _pose_landmarks()},
+            {"frame_index": 0, "pose_landmarks": pose_landmarks()},
             {"frame_index": 1, "pose_landmarks": []},
-            {"frame_index": 2, "pose_landmarks": _pose_landmarks(x_shift=0.02, y_shift=0.01)},
+            {"frame_index": 2, "pose_landmarks": pose_landmarks(x_shift=0.02, y_shift=0.01)},
         ],
     )
     video_path = tmp_path / "session.avi"
-    _write_dummy_video(video_path, frame_count=3)
+    write_dummy_video(video_path, frame_count=3)
 
     result = convert_mediapipe_pose_landmarks_json(
         json_path.as_posix(),
@@ -55,16 +55,16 @@ def test_convert_mediapipe_pose_landmarks_json_applies_threshold(tmp_path: Path)
     from xpkg.io.converters.mediapipe_import import convert_mediapipe_pose_landmarks_json
 
     json_path = tmp_path / "pose_landmarks.json"
-    low_confidence_landmarks = _pose_landmarks()
+    low_confidence_landmarks = pose_landmarks()
     low_confidence_landmarks[0]["visibility"] = 0.2
-    _write_mediapipe_pose_landmarks_json(
+    write_mediapipe_pose_landmarks_json(
         json_path,
         image_width=16,
         image_height=12,
         frames=[{"frame_index": 0, "pose_landmarks": low_confidence_landmarks}],
     )
     video_path = tmp_path / "session.avi"
-    _write_dummy_video(video_path, frame_count=1)
+    write_dummy_video(video_path, frame_count=1)
 
     result = convert_mediapipe_pose_landmarks_json(
         json_path,
@@ -83,13 +83,13 @@ def test_convert_mediapipe_pose_landmarks_json_rejects_video_size_mismatch(
     from xpkg.io.converters.mediapipe_import import convert_mediapipe_pose_landmarks_json
 
     json_path = tmp_path / "pose_landmarks.json"
-    _write_mediapipe_pose_landmarks_json(
+    write_mediapipe_pose_landmarks_json(
         json_path,
         image_width=20,
         image_height=12,
     )
     video_path = tmp_path / "session.avi"
-    _write_dummy_video(video_path, frame_count=2)
+    write_dummy_video(video_path, frame_count=2)
 
     with pytest.raises(ValueError, match="does not match video size"):
         convert_mediapipe_pose_landmarks_json(
@@ -107,13 +107,13 @@ def test_import_mediapipe_pose_landmarks_json_project_imports_sequence_into_proj
     from xpkg.project.store.imports import import_mediapipe_pose_landmarks_json_project
 
     json_path = tmp_path / "pose_landmarks.json"
-    _write_mediapipe_pose_landmarks_json(
+    write_mediapipe_pose_landmarks_json(
         json_path,
         image_width=16,
         image_height=12,
     )
     video_path = tmp_path / "session.avi"
-    _write_dummy_video(video_path, frame_count=2)
+    write_dummy_video(video_path, frame_count=2)
     project = tmp_path / "Imported MediaPipe Project"
 
     state_path = import_mediapipe_pose_landmarks_json_project(
