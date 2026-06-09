@@ -15,6 +15,7 @@ import h5py
 import numpy as np
 import pandas as pd
 
+from xpkg._core.json_utils import load_json, parse_json
 from xpkg.io.readers.pose import read_pose_track
 from xpkg.model.metadata import AcquisitionMetadata, DatasetShareMetadata, PoseModelProvenance
 from xpkg.model.reporting import DatasetDatasheet, ModelCard
@@ -45,8 +46,6 @@ from xpkg.project.metadata import (
     project_pose_provenance_path,
 )
 from xpkg.project.summary import snapshot_project_summary
-
-from ._core.json_utils import load_json, parse_json
 
 
 class InspectionKind(StrEnum):

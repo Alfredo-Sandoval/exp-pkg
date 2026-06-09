@@ -14,7 +14,7 @@ import typer
 # vendored exception classes, so `run_typer_app` must catch the vendored ones.
 from typer._click.exceptions import ClickException, MissingParameter, NoSuchOption
 
-from .._core.json_utils import dump_json
+from xpkg._core.json_utils import dump_json
 
 JsonOption = Annotated[
     bool,

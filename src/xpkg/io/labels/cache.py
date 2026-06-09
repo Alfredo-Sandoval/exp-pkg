@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from xpkg._core.logging_utils import get_logger
 from xpkg.io.labels.query import (
     build_frame_index_map,
     fancy_frame_indices,
@@ -15,8 +16,6 @@ from xpkg.io.labels.query import (
 )
 from xpkg.io.labels.video_types import VideoProtocol
 from xpkg.pose.annotations import Instance, LabeledFrame, Track
-
-from ..._core.logging_utils import get_logger
 
 if TYPE_CHECKING:
     from xpkg.io.labels.model import Labels

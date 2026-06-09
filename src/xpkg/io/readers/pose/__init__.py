@@ -5,8 +5,8 @@ from __future__ import annotations
 from collections.abc import Sequence
 from pathlib import Path
 
-from . import dlc, mediapipe_pose_landmarks, mmpose, sleap_analysis_h5
-from ._common import PoseTrack
+from xpkg.io.readers.pose import dlc, mediapipe_pose_landmarks, mmpose, sleap_analysis_h5
+from xpkg.io.readers.pose._common import PoseTrack
 
 _SLEAP_FILE_TYPES = {"h5", "hdf5"}
 _DLC_FILE_TYPES = {"csv", "h5", "hdf5"}

@@ -10,9 +10,9 @@ import h5py
 import numpy as np
 import pandas as pd
 
-from ..._core.json_utils import parse_json, parse_json_dict
-from ..._core.logging_utils import get_logger
-from ..._core.path_registry import ensure_dir
+from xpkg._core.json_utils import parse_json, parse_json_dict
+from xpkg._core.logging_utils import get_logger
+from xpkg._core.path_registry import ensure_dir
 
 _LOGGER = get_logger(__name__)
 

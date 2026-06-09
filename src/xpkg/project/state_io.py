@@ -8,6 +8,10 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
+from xpkg._core.hashing import sha256_file
+from xpkg._core.json_utils import load_json_dict, parse_json_dict, write_json
+from xpkg._core.logging_utils import get_logger
+from xpkg._core.path_registry import ensure_dir, resolve_path
 from xpkg.io.labels.json_format import (
     XPKG_LABELS_JSON_FORMAT,
     XPKG_LABELS_JSON_VERSION,
@@ -24,11 +28,6 @@ from xpkg.project.layout import (
     project_media_root,
     project_state_root,
 )
-
-from .._core.hashing import sha256_file
-from .._core.json_utils import load_json_dict, parse_json_dict, write_json
-from .._core.logging_utils import get_logger
-from .._core.path_registry import ensure_dir, resolve_path
 
 if TYPE_CHECKING:
     from xpkg.model import Labels

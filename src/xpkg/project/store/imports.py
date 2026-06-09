@@ -6,12 +6,11 @@ from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from xpkg._core.path_registry import resolve_path
 from xpkg.project.store.conversion import (
     _import_pose_project,
     _merge_labels_for_import,
 )
-
-from ..._core.path_registry import resolve_path
 
 if TYPE_CHECKING:
     from xpkg.model import PoseModelProvenance

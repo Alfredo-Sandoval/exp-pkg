@@ -8,6 +8,7 @@ from copy import deepcopy
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from xpkg._core.hashing import sha256_file
 from xpkg.project.layout import (
     CURRENT_STATE_FILENAME,
     project_current_state_path,
@@ -42,8 +43,6 @@ from xpkg.project.store.payloads import (
     _predictions_payload_from_state_payload,
     _state_metadata_from_state_payload,
 )
-
-from ..._core.hashing import sha256_file
 
 if TYPE_CHECKING:
     from xpkg.model import Labels

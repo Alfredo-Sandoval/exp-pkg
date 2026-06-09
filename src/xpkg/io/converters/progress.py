@@ -5,7 +5,7 @@ from __future__ import annotations
 import sys
 from collections.abc import Callable, Sequence
 
-from ..._core.logging_utils import get_logger
+from xpkg._core.logging_utils import get_logger
 
 ProgressCallback = Callable[[str], None]
 PercentProgressCallback = Callable[[int, str], None]

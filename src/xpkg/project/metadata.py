@@ -6,6 +6,8 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
+from xpkg._core.json_utils import load_json_dict, write_json
+from xpkg._core.path_registry import ensure_dir
 from xpkg.model.metadata import (
     AcquisitionMetadata,
     DatasetShareMetadata,
@@ -14,9 +16,6 @@ from xpkg.model.metadata import (
 from xpkg.model.reporting import DatasetDatasheet, ModelCard
 from xpkg.project.layout import project_store_root, resolve_project_root
 from xpkg.project.store import load_project_metadata, save_project_metadata
-
-from .._core.json_utils import load_json_dict, write_json
-from .._core.path_registry import ensure_dir
 
 PROJECT_METADATA_DIRNAME = "metadata"
 ACQUISITION_METADATA_FILENAME = "acquisition.json"

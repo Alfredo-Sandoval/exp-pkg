@@ -10,6 +10,7 @@ from typing import Annotated, Any
 
 import typer
 
+from xpkg._core.json_utils import load_json_dict
 from xpkg.cli.shared import JsonOption, PackMedia, require_option_value, run_command, write_path
 from xpkg.model import AcquisitionMetadata, DatasetDatasheet, DatasetShareMetadata, ModelCard
 from xpkg.project.artifact import (
@@ -46,8 +47,6 @@ from xpkg.project.metadata import (
 )
 from xpkg.project.store import current_project_state_path, init_project
 from xpkg.project.summary import refresh_project_summary
-
-from ..._core.json_utils import load_json_dict
 
 app = typer.Typer(
     add_completion=False,

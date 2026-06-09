@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from xpkg._core.video_contract import VideoWithFrames, video_total_frames
 from xpkg.media.backend_utils import (
     FILE_VIDEO_BACKENDS,
     decord_frame_bgr,
@@ -55,8 +56,6 @@ from xpkg.media.video import (
     supported_nvenc_flags,
     write_video,
 )
-
-from .._core.video_contract import VideoWithFrames, video_total_frames
 
 __all__ = [
     "FILE_VIDEO_BACKENDS",

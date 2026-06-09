@@ -6,9 +6,8 @@ import shutil
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from xpkg._core.path_registry import ensure_dir
 from xpkg.project.layout import project_media_root
-
-from ..._core.path_registry import ensure_dir
 
 if TYPE_CHECKING:
     from xpkg.model import Labels

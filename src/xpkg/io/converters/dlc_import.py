@@ -10,13 +10,12 @@ from typing import TYPE_CHECKING, Any
 
 import pandas as pd
 
+from xpkg._core.path_registry import ensure_dir, resolve_path
 from xpkg.io.converters.progress import ProgressCallback, emit_progress
 from xpkg.io.converters.result import ConversionResult
 from xpkg.io.readers.pose.dlc import read_dlc_csv_table, read_dlc_h5_table
 from xpkg.media.video import Video, available_video_exts
 from xpkg.pose.skeleton import build_keypoint_skeleton
-
-from ..._core.path_registry import ensure_dir, resolve_path
 
 if TYPE_CHECKING:
     from xpkg.model import Labels as _Labels

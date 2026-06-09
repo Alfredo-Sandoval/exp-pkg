@@ -9,7 +9,7 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-from .._core.path_registry import ensure_dir
+from xpkg._core.path_registry import ensure_dir
 
 SUPPORTED_VIDEO_SUFFIXES = frozenset({".mp4", ".avi", ".mov", ".mkv", ".mpg", ".mpeg"})
 

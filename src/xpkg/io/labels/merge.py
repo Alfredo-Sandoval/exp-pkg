@@ -160,7 +160,7 @@ def merge_container_dicts(dict_a: dict, dict_b: dict) -> None:
     for key in dict_b.keys():
         if key in dict_a:
             dict_a[key].extend(dict_b[key])
-            from ..._core.path_registry import uniquify as _uniq
+            from xpkg._core.path_registry import uniquify as _uniq
 
             dict_a[key][:] = _uniq(dict_a[key])
         else:

@@ -8,14 +8,13 @@ from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
+from xpkg._core.path_registry import ensure_dir, resolve_path, slugify_path_component
 from xpkg.io.calibration import read_calibration_json, write_calibration_json
 from xpkg.model.calibration import Calibration, CalibrationSource, WorldFrame
 from xpkg.project.layout import (
     project_store_root,
     resolve_project_root,
 )
-
-from .._core.path_registry import ensure_dir, resolve_path, slugify_path_component
 
 CALIBRATIONS_DIRNAME = "calibrations"
 CALIBRATION_FILENAME = "calibration.json"

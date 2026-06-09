@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 
 from xpkg._core.json_utils import parse_json
+from xpkg._core.path_registry import ensure_dir
 from xpkg.io.labels.json_format import XPKG_LABELS_JSON_FORMAT
 from xpkg.project.layout import (
     load_project_descriptor,
@@ -68,8 +69,6 @@ from xpkg.project.store.payloads import (
     _public_payload_from_state_labels,
     _state_metadata_from_state_payload,
 )
-
-from ..._core.path_registry import ensure_dir
 
 if TYPE_CHECKING:
     from xpkg.model import Labels

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from ._core.json_utils import (
+from xpkg._core.json_utils import (
     dump_json,
     load_json,
     load_json_dict,

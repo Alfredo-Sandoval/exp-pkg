@@ -9,6 +9,8 @@ from typing import TYPE_CHECKING, Any
 
 import pandas as pd
 
+from xpkg._core.json_utils import parse_json_dict
+from xpkg._core.path_registry import ensure_dir, resolve_path
 from xpkg.io.converters.dlc_import import (
     _resolve_tracking_path,
     _resolve_video_path,
@@ -43,9 +45,6 @@ from xpkg.io.readers.pose.sleap_analysis_h5 import (
 )
 from xpkg.io.skeleton_loaders import build_sleap_skeleton
 from xpkg.media.video import Video
-
-from ..._core.json_utils import parse_json_dict
-from ..._core.path_registry import ensure_dir, resolve_path
 
 if TYPE_CHECKING:
     from xpkg.model import IdentityProvenanceRecord

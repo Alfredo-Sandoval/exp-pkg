@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from .._core.json_utils import load_json_dict, write_json
+from xpkg._core.json_utils import load_json_dict, write_json
 
 if TYPE_CHECKING:
     from xpkg.pose.skeleton import Skeleton

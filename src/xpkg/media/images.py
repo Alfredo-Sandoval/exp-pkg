@@ -16,7 +16,7 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-from .._core.colors import bgr_to_rgb
+from xpkg._core.colors import bgr_to_rgb
 
 SUPPORTED_IMAGE_SUFFIXES: tuple[str, ...] = (
     ".jpg",
