@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import json
+import logging
 from pathlib import Path
+
+import pytest
 
 from tests.factories import make_labels
 from xpkg.model import Labels
@@ -15,6 +18,7 @@ from xpkg.project.state_io import (
     project_state_cache_digest_matches,
     project_state_cache_digest_path,
     state_commit_id,
+    write_project_state_cache_digest,
 )
 from xpkg.project.store import current_project_commit_id
 
@@ -58,3 +62,82 @@ def test_project_load_ignores_state_when_commit_id_mismatches_head(tmp_path: Pat
 
     assert float(pts["x"][0]) == 3.0
     assert float(pts["y"][0]) == 4.0
+
+
+def _state_cache_with_digest(tmp_path: Path, *, commit_id: str) -> Path:
+    state = tmp_path / "state.json"
+    state.write_text('{"payload": {"data": 1}}', encoding="utf-8")
+    write_project_state_cache_digest(state, commit_id=commit_id)
+    return state
+
+
+def test_state_cache_digest_matches_fresh_sidecar(tmp_path: Path) -> None:
+    state = _state_cache_with_digest(tmp_path, commit_id="c_000000000001_aa")
+
+    assert project_state_cache_digest_matches(state, commit_id="c_000000000001_aa")
+
+
+def test_state_cache_digest_does_not_match_without_sidecar(tmp_path: Path) -> None:
+    state = tmp_path / "state.json"
+    state.write_text('{"payload": {}}', encoding="utf-8")
+
+    assert not project_state_cache_digest_matches(state, commit_id="c_000000000001_aa")
+
+
+def test_state_cache_digest_warns_and_rejects_corrupt_sidecar(
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Corrupt digest sidecars are warn-logged misses, not silent ones."""
+
+    state = _state_cache_with_digest(tmp_path, commit_id="c_000000000001_aa")
+    digest_path = project_state_cache_digest_path(state)
+    digest_path.write_text("{this is not json", encoding="utf-8")
+
+    with caplog.at_level(logging.WARNING, logger="xpkg.project.state_io"):
+        assert not project_state_cache_digest_matches(state, commit_id="c_000000000001_aa")
+
+    assert "Unreadable state cache digest" in caplog.text
+    assert digest_path.as_posix() in caplog.text
+
+
+def test_state_cache_digest_warns_and_rejects_non_object_sidecar(
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    state = _state_cache_with_digest(tmp_path, commit_id="c_000000000001_aa")
+    project_state_cache_digest_path(state).write_text("[1, 2]", encoding="utf-8")
+
+    with caplog.at_level(logging.WARNING, logger="xpkg.project.state_io"):
+        assert not project_state_cache_digest_matches(state, commit_id="c_000000000001_aa")
+
+    assert "Unreadable state cache digest" in caplog.text
+
+
+def test_state_cache_digest_commit_mismatch_is_silent_miss(
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    state = _state_cache_with_digest(tmp_path, commit_id="c_000000000001_aa")
+
+    with caplog.at_level(logging.WARNING, logger="xpkg.project.state_io"):
+        assert not project_state_cache_digest_matches(state, commit_id="c_000000000002_bb")
+
+    assert caplog.records == []
+
+
+def test_state_cache_digest_rejects_modified_state_payload(tmp_path: Path) -> None:
+    state = _state_cache_with_digest(tmp_path, commit_id="c_000000000001_aa")
+    state.write_text('{"payload": {"data": 2}}', encoding="utf-8")
+
+    assert not project_state_cache_digest_matches(state, commit_id="c_000000000001_aa")
+
+
+def test_state_cache_digest_rejects_sidecar_missing_digest_value(tmp_path: Path) -> None:
+    state = _state_cache_with_digest(tmp_path, commit_id="c_000000000001_aa")
+    project_state_cache_digest_path(state).write_text(
+        '{"xpkg_commit_id": "c_000000000001_aa", "sha256": ""}',
+        encoding="utf-8",
+    )
+
+    assert not project_state_cache_digest_matches(state, commit_id="c_000000000001_aa")
