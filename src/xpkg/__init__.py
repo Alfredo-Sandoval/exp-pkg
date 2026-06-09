@@ -20,6 +20,7 @@ The canonical import locations are:
 from __future__ import annotations
 
 import importlib
+from types import ModuleType
 
 from xpkg.version import __version__
 
@@ -40,7 +41,7 @@ __all__ = [
 _LAZY_SUBMODULES = frozenset(__all__) - {"__version__"}
 
 
-def __getattr__(name: str):
+def __getattr__(name: str) -> ModuleType:
     if name in _LAZY_SUBMODULES:
         module = importlib.import_module(f"xpkg.{name}")
         globals()[name] = module

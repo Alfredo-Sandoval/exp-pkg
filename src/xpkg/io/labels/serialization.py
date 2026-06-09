@@ -1069,11 +1069,11 @@ def labels_load_file(
     from xpkg.project.layout import project_current_state_path, resolve_project_root
     from xpkg.project.state_io import read_project_state, state_commit_id
     from xpkg.project.store import (
-        _project_state_cache_matches_committed_head,
         current_project_commit_id,
         rebase_project_payload_videos,
         rebuild_project_state_cache,
     )
+    from xpkg.project.store.cache import _project_state_cache_matches_committed_head
 
     project_root = resolve_project_root(path)
     if project_root is not None:

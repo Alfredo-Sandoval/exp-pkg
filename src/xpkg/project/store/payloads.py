@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import numpy as np
 
@@ -11,9 +11,6 @@ from xpkg.project.state_io import (
     PROJECT_COMMIT_ID_KEY,
     normalize_predictions_payload,
 )
-
-if TYPE_CHECKING:
-    pass
 
 
 def _public_payload_from_state_labels(
