@@ -217,6 +217,7 @@ __marimo__/
 
 # Repository setup hygiene
 .claude/
+.codex/
 logs/agent_swarm/
 tests/vendor_data/
 src/xpkg/media/todo.md
@@ -226,3 +227,20 @@ node_modules/
 .idea/
 .DS_Store
 .agents/
+
+# Local experiment/project outputs
+.xpkg/
+**/.xpkg/
+*.expkg
+
+# Local/private data and generated outputs
+data/
+datasets/
+real_data/
+vendor_data/
+external/
+results/
+outputs/
+scratch/
+tmp/
+xpkg-real-data.json

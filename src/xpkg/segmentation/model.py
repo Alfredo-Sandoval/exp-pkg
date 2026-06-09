@@ -506,9 +506,9 @@ def rasterize_polygon(
     if not rings:
         return mask
     exterior = np.round(rings[0]).astype(np.int32)
-    cv2.fillPoly(mask, [exterior], color=1)
+    cv2.fillPoly(mask, [exterior], color=(1,))
     for hole in rings[1:]:
-        cv2.fillPoly(mask, [np.round(hole).astype(np.int32)], color=0)
+        cv2.fillPoly(mask, [np.round(hole).astype(np.int32)], color=(0,))
     return mask
 
 

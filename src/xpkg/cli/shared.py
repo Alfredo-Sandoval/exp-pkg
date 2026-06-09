@@ -8,7 +8,11 @@ from enum import StrEnum
 from typing import Annotated, Any, NoReturn, overload
 
 import typer
-from click.exceptions import ClickException, MissingParameter, NoSuchOption
+
+# Typer >= 0.26 (pinned in pyproject) vendors its own click as `typer._click` and
+# no longer depends on the standalone `click` package. The app raises these
+# vendored exception classes, so `run_typer_app` must catch the vendored ones.
+from typer._click.exceptions import ClickException, MissingParameter, NoSuchOption
 
 from .._core.json_utils import dump_json
 
