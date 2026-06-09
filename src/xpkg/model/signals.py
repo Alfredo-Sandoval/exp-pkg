@@ -8,28 +8,11 @@ from typing import Any
 
 import numpy as np
 
+from xpkg.model._metadata_validation import (
+    metadata_dict,
+    required_text,
+)
 from xpkg.model.time import Timeline
-
-
-def _metadata(value: Mapping[str, Any] | None, *, name: str) -> dict[str, Any]:
-    if value is None:
-        return {}
-    if not isinstance(value, Mapping):
-        raise TypeError(f"{name} must be a mapping or None.")
-    normalized: dict[str, Any] = {}
-    for key, item in value.items():
-        key_text = str(key).strip()
-        if not key_text:
-            raise ValueError(f"{name} keys must be non-empty strings.")
-        normalized[key_text] = item
-    return normalized
-
-
-def _name(value: object, *, field_name: str) -> str:
-    text = str(value).strip()
-    if not text:
-        raise ValueError(f"{field_name} must be a non-empty string.")
-    return text
 
 
 @dataclass(frozen=True, slots=True)
@@ -42,10 +25,10 @@ class SignalChannel:
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
-        name = _name(self.name, field_name="signal channel name")
+        name = required_text(self.name, name="signal channel name")
         unit = str(self.unit).strip()
         description = str(self.description).strip()
-        metadata = _metadata(self.metadata, name="signal channel metadata")
+        metadata = metadata_dict(self.metadata, name="signal channel metadata")
         object.__setattr__(self, "name", name)
         object.__setattr__(self, "unit", unit)
         object.__setattr__(self, "description", description)
@@ -106,8 +89,8 @@ class TimeSeries:
                 "time series sample count must match timeline length: "
                 f"{values.shape[0]} vs {self.timeline.n_samples}."
             )
-        name = _name(self.name, field_name="time series name")
-        provenance = _metadata(self.provenance, name="time series provenance")
+        name = required_text(self.name, name="time series name")
+        provenance = metadata_dict(self.provenance, name="time series provenance")
 
         object.__setattr__(self, "values", values)
         object.__setattr__(self, "channels", channels)
@@ -191,7 +174,7 @@ class TimeSeries:
 
     def channel_index(self, name: str) -> int:
         """Return the index for a uniquely named channel."""
-        target = _name(name, field_name="channel name")
+        target = required_text(name, name="channel name")
         matches = [index for index, channel in enumerate(self.channels) if channel.name == target]
         if len(matches) == 1:
             return int(matches[0])
@@ -214,13 +197,13 @@ class PhotometryRecording:
             raise TypeError(f"photometry series must be a TimeSeries, got {self.series!r}.")
         signal_channel = None
         if self.signal_channel is not None:
-            signal_channel = _name(self.signal_channel, field_name="signal_channel")
+            signal_channel = required_text(self.signal_channel, name="signal_channel")
             self.series.channel_index(signal_channel)
         reference_channel = None
         if self.reference_channel is not None:
-            reference_channel = _name(self.reference_channel, field_name="reference_channel")
+            reference_channel = required_text(self.reference_channel, name="reference_channel")
             self.series.channel_index(reference_channel)
-        metadata = _metadata(self.metadata, name="photometry metadata")
+        metadata = metadata_dict(self.metadata, name="photometry metadata")
         object.__setattr__(self, "signal_channel", signal_channel)
         object.__setattr__(self, "reference_channel", reference_channel)
         object.__setattr__(self, "metadata", metadata)

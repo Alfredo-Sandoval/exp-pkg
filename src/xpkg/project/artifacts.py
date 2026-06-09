@@ -9,15 +9,14 @@ from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Any, cast
 
+from xpkg._core.json_utils import load_json_dict, write_json
+from xpkg._core.path_registry import ensure_dir, resolve_path, slugify_path_component
+from xpkg._core.time import now_utc_iso
 from xpkg.project.layout import (
-    _now_utc_iso,
     project_artifacts_root,
     project_store_root,
     resolve_project_root,
 )
-
-from .._core.json_utils import load_json_dict, write_json
-from .._core.path_registry import ensure_dir, resolve_path, slugify_path_component
 
 ARTIFACT_MANIFEST_FILENAME = "manifest.json"
 ARTIFACT_INDEX_FILENAME = "index.json"
@@ -667,7 +666,7 @@ def _write_index_entries(
         index_path,
         {
             "schema_version": ARTIFACT_SCHEMA_VERSION,
-            "updated_at": _now_utc_iso(),
+            "updated_at": now_utc_iso(drop_microseconds=True),
             "artifacts": [entry.to_dict() for entry in sorted_entries],
         },
         indent=2,
@@ -724,7 +723,7 @@ def save_project_artifact(
     ensure_dir(artifact_root)
     manifest_path = _manifest_path(artifact_root)
     existing_manifest = _load_existing_manifest(manifest_path)
-    now = _now_utc_iso()
+    now = now_utc_iso(drop_microseconds=True)
     created_at = (
         str(existing_manifest.get("created_at", ""))
         if existing_manifest is not None

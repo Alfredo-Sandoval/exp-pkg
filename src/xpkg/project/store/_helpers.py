@@ -10,11 +10,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from xpkg._core.path_registry import ensure_dir, resolve_path
+from xpkg._core.time import now_utc_iso
 from xpkg.project.artifact import validate_project
 from xpkg.project.layout import (
     ProjectDescriptor,
     _candidate_project_root,
-    _now_utc_iso,
     load_project_descriptor,
     project_exports_root,
     project_media_root,
@@ -22,8 +23,6 @@ from xpkg.project.layout import (
     resolve_project_root,
     write_project_descriptor,
 )
-
-from ..._core.path_registry import ensure_dir, resolve_path
 
 
 @dataclass(slots=True)
@@ -168,7 +167,7 @@ def _touch_descriptor(
     media_summary: list[dict[str, Any]] | tuple[dict[str, Any], ...] | None = None,
 ) -> None:
     descriptor = load_project_descriptor(root)
-    descriptor.updated_at = _now_utc_iso()
+    descriptor.updated_at = now_utc_iso(drop_microseconds=True)
     write_project_descriptor(root, descriptor)
     from xpkg.project.summary import refresh_project_summary
 

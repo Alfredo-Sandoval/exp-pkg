@@ -4,13 +4,13 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
-from .._core.json_utils import load_json_dict, write_json
-from .._core.path_registry import ensure_dir, resolve_path
+from xpkg._core.json_utils import load_json_dict, write_json
+from xpkg._core.path_registry import ensure_dir, resolve_path
+from xpkg._core.time import now_utc_iso
 
 PROJECT_DESCRIPTOR_FILENAME = "PROJECT.json"
 EXPKG_SUFFIX = ".expkg"
@@ -43,10 +43,6 @@ _ULID_PATTERN = r"[0-9A-HJKMNP-TV-Z]{26}"
 _PROJECT_ID_PATTERN = re.compile(rf"^(?:{_UUID_PATTERN}|{_ULID_PATTERN})$")
 
 
-def _now_utc_iso() -> str:
-    return datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
-
-
 @dataclass(slots=True)
 class ProjectDescriptor:
     """Public xpkg project descriptor."""
@@ -69,7 +65,7 @@ class ProjectDescriptor:
         title: str,
         project_id: str | None = None,
     ) -> ProjectDescriptor:
-        timestamp = _now_utc_iso()
+        timestamp = now_utc_iso(drop_microseconds=True)
         return cls(
             title=title,
             project_id=project_id or str(uuid4()),
@@ -259,7 +255,6 @@ __all__ = [
     "STORE_DIRNAME",
     "STORE_STATE_DIRNAME",
     "_candidate_project_root",
-    "_now_utc_iso",
     "default_expkg_path",
     "is_project_root",
     "load_project_descriptor",

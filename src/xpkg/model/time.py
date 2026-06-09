@@ -3,16 +3,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
 
 import numpy as np
 
-
-def _finite_float(value: Any, *, name: str) -> float:
-    coerced = float(value)
-    if not np.isfinite(coerced):
-        raise ValueError(f"{name} must be finite, got {coerced!r}.")
-    return coerced
+from xpkg.model._metadata_validation import (
+    finite_float,
+)
 
 
 def _nonempty_name(value: object, *, name: str) -> str:
@@ -30,8 +26,8 @@ class TimeRange:
     end_s: float
 
     def __post_init__(self) -> None:
-        start_s = _finite_float(self.start_s, name="time range start_s")
-        end_s = _finite_float(self.end_s, name="time range end_s")
+        start_s = finite_float(self.start_s, name="time range start_s")
+        end_s = finite_float(self.end_s, name="time range end_s")
         if end_s < start_s:
             raise ValueError(
                 f"time range end_s must be >= start_s, got {end_s} < {start_s}."
@@ -46,7 +42,7 @@ class TimeRange:
 
     def contains(self, time_s: float, *, include_end: bool = False) -> bool:
         """Return whether ``time_s`` falls inside this interval."""
-        time_value = _finite_float(time_s, name="time_s")
+        time_value = finite_float(time_s, name="time_s")
         if include_end:
             return self.start_s <= time_value <= self.end_s
         return self.start_s <= time_value < self.end_s
@@ -69,7 +65,7 @@ class Timebase:
     def __post_init__(self) -> None:
         name = _nonempty_name(self.name, name="timebase name")
         unit = _nonempty_name(self.unit, name="timebase unit")
-        offset_s = _finite_float(self.offset_s, name="timebase offset_s")
+        offset_s = finite_float(self.offset_s, name="timebase offset_s")
         if unit not in {"s", "sec", "second", "seconds"}:
             raise ValueError(
                 "timebase unit must be seconds-compatible "
@@ -81,11 +77,11 @@ class Timebase:
 
     def to_session_time(self, value_s: float) -> float:
         """Convert a local time value into session-relative seconds."""
-        return _finite_float(value_s, name="value_s") + self.offset_s
+        return finite_float(value_s, name="value_s") + self.offset_s
 
     def from_session_time(self, value_s: float) -> float:
         """Convert session-relative seconds into this timebase."""
-        return _finite_float(value_s, name="value_s") - self.offset_s
+        return finite_float(value_s, name="value_s") - self.offset_s
 
 
 @dataclass(frozen=True, slots=True)
@@ -140,8 +136,8 @@ class Timeline:
     ) -> Timeline:
         """Build a regular timeline from sample count and sample rate."""
         sample_count = int(n_samples)
-        rate = _finite_float(sample_rate_hz, name="sample_rate_hz")
-        start = _finite_float(start_s, name="start_s")
+        rate = finite_float(sample_rate_hz, name="sample_rate_hz")
+        start = finite_float(start_s, name="start_s")
         if sample_count <= 0:
             raise ValueError(f"n_samples must be positive, got {sample_count}.")
         if rate <= 0.0:
@@ -207,7 +203,7 @@ class Timeline:
 
     def nearest_index(self, time_s: float) -> int:
         """Return the nearest timestamp index for ``time_s``."""
-        value = _finite_float(time_s, name="time_s")
+        value = finite_float(time_s, name="time_s")
         insertion = int(np.searchsorted(self.timestamps_s, value))
         if insertion <= 0:
             return 0

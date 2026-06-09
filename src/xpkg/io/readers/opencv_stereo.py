@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, cast
 
 import cv2
 import numpy as np
 
+from xpkg._core.time import now_utc_iso
 from xpkg.model.calibration import (
     Calibration,
     CalibrationSource,
@@ -20,10 +20,6 @@ from xpkg.model.calibration import (
     CameraRotation,
     WorldFrame,
 )
-
-
-def _now_utc_iso() -> str:
-    return datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
 def _node(fs: cv2.FileStorage, key: str) -> cv2.FileNode:
@@ -213,7 +209,7 @@ def read_opencv_stereo_calibration(
             tool="opencv",
             tool_version=tool_version,
             imported_from=calibration_path.name,
-            imported_at=imported_at or _now_utc_iso(),
+            imported_at=imported_at or now_utc_iso(drop_microseconds=True),
             metadata={"format": "opencv-stereo-yaml"},
         ),
         metadata=metadata,

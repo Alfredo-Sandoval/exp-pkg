@@ -9,6 +9,11 @@ from typing import Literal
 import numpy as np
 import pandas as pd
 
+from xpkg.io.readers._columns import (
+    column_by_name,
+    first_matching_column,
+    resolve_column,
+)
 from xpkg.model import (
     Event,
     EventTable,
@@ -47,25 +52,6 @@ def _read_csv(path: str | Path, *, max_mb: float | None) -> tuple[pd.DataFrame, 
     return pd.read_csv(source_path), size_bytes
 
 
-def _column_by_name(frame: pd.DataFrame, name: str) -> str:
-    names = {str(column).lower(): str(column) for column in frame.columns}
-    key = str(name).lower()
-    if key not in names:
-        raise ValueError(
-            f"Column {name!r} was not found. Available columns: {list(frame.columns)}."
-        )
-    return names[key]
-
-
-def _first_matching_column(frame: pd.DataFrame, candidates: Sequence[str]) -> str | None:
-    names = {str(column).lower(): str(column) for column in frame.columns}
-    for candidate in candidates:
-        match = names.get(candidate.lower())
-        if match is not None:
-            return match
-    return None
-
-
 def _numeric_column(frame: pd.DataFrame, column: str, *, role: str) -> np.ndarray:
     values = pd.to_numeric(frame[column], errors="raise").to_numpy(dtype=np.float64)
     if values.ndim != 1:
@@ -91,8 +77,8 @@ def _resolve_time_column(
     sample_rate_hz: float | None,
 ) -> str | None:
     if time_column is not None:
-        return _column_by_name(frame, time_column)
-    matched = _first_matching_column(frame, _TIME_COLUMN_CANDIDATES)
+        return column_by_name(frame, time_column)
+    matched = first_matching_column(frame, _TIME_COLUMN_CANDIDATES)
     if matched is not None:
         return matched
     if sample_rate_hz is None and frame.shape[1] > 1:
@@ -107,7 +93,7 @@ def _resolve_signal_columns(
     time_column: str | None,
 ) -> tuple[str, ...]:
     if signal_columns is not None:
-        return tuple(_column_by_name(frame, column) for column in signal_columns)
+        return tuple(column_by_name(frame, column) for column in signal_columns)
     excluded = {time_column} if time_column is not None else set()
     columns = tuple(str(column) for column in frame.columns if str(column) not in excluded)
     if not columns:
@@ -209,16 +195,6 @@ def _optional_text(frame: pd.DataFrame, column: str | None, index: int) -> str |
     return text or None
 
 
-def _resolve_event_column(
-    frame: pd.DataFrame,
-    explicit: str | None,
-    candidates: Sequence[str],
-) -> str | None:
-    if explicit is not None:
-        return _column_by_name(frame, explicit)
-    return _first_matching_column(frame, candidates)
-
-
 def read_events_csv(
     path: str | Path,
     *,
@@ -235,15 +211,15 @@ def read_events_csv(
     frame, _size_bytes = _read_csv(path, max_mb=max_mb)
     if frame.empty:
         return EventTable()
-    resolved_time = _resolve_event_column(frame, time_column, _TIME_COLUMN_CANDIDATES)
+    resolved_time = resolve_column(frame, time_column, _TIME_COLUMN_CANDIDATES)
     if resolved_time is None:
         raise ValueError(
             "Event CSV must include a timestamp column named one of: "
             f"{', '.join(_TIME_COLUMN_CANDIDATES)}."
         )
-    resolved_kind = _resolve_event_column(frame, kind_column, _EVENT_KIND_CANDIDATES)
-    resolved_label = _resolve_event_column(frame, label_column, _EVENT_LABEL_CANDIDATES)
-    resolved_duration = _resolve_event_column(
+    resolved_kind = resolve_column(frame, kind_column, _EVENT_KIND_CANDIDATES)
+    resolved_label = resolve_column(frame, label_column, _EVENT_LABEL_CANDIDATES)
+    resolved_duration = resolve_column(
         frame,
         duration_column,
         _EVENT_DURATION_CANDIDATES,

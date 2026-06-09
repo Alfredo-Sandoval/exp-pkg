@@ -9,52 +9,22 @@ from typing import Any
 
 import numpy as np
 
+from xpkg.model._metadata_validation import (
+    finite_float,
+    metadata_dict,
+    optional_text,
+    payload_mapping,
+    required_text,
+)
 from xpkg.model.events import Event, EventTable
 from xpkg.model.time import Timebase
 
 BEHAVIOR_LABELS_SCHEMA_VERSION = "xpkg.behavior_labels.v1"
 
 
-def _metadata(value: Mapping[str, Any] | None, *, name: str) -> dict[str, Any]:
-    if value is None:
-        return {}
-    if not isinstance(value, Mapping):
-        raise TypeError(f"{name} must be a mapping or None.")
-    result: dict[str, Any] = {}
-    for key, item in value.items():
-        key_text = str(key).strip()
-        if not key_text:
-            raise ValueError(f"{name} keys must be non-empty strings.")
-        result[key_text] = item
-    return result
-
-
-def _optional_text(value: object | None, *, name: str) -> str | None:
-    if value is None:
-        return None
-    text = str(value).strip()
-    if not text:
-        raise ValueError(f"{name} must be non-empty when provided.")
-    return text
-
-
-def _label(value: object, *, name: str) -> str:
-    text = str(value).strip()
-    if not text:
-        raise ValueError(f"{name} must be a non-empty string.")
-    return text
-
-
 def _optional_finite(value: Any | None, *, name: str) -> float | None:
     if value is None:
         return None
-    coerced = float(value)
-    if not np.isfinite(coerced):
-        raise ValueError(f"{name} must be finite, got {coerced!r}.")
-    return coerced
-
-
-def _finite_float(value: Any, *, name: str) -> float:
     coerced = float(value)
     if not np.isfinite(coerced):
         raise ValueError(f"{name} must be finite, got {coerced!r}.")
@@ -80,7 +50,7 @@ def _required_index(value: Any, *, name: str) -> int:
 def _path_text(value: str | Path | None, *, name: str) -> str | None:
     if value is None:
         return None
-    return _label(Path(value).as_posix(), name=name)
+    return required_text(Path(value).as_posix(), name=name)
 
 
 def _sequence(value: object, *, name: str) -> Sequence[object]:
@@ -89,15 +59,9 @@ def _sequence(value: object, *, name: str) -> Sequence[object]:
     return value
 
 
-def _payload_mapping(value: object, *, name: str) -> dict[str, Any]:
-    if not isinstance(value, Mapping):
-        raise TypeError(f"{name} must be a mapping.")
-    return {str(key): item for key, item in value.items()}
-
-
 def _float_tuple(value: object, *, name: str) -> tuple[float, ...]:
     return tuple(
-        _finite_float(item, name=f"{name} item")
+        finite_float(item, name=f"{name} item")
         for item in _sequence(value, name=name)
     )
 
@@ -117,7 +81,7 @@ class BehaviorInterval:
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
-        label = _label(self.label, name="behavior interval label")
+        label = required_text(self.label, name="behavior interval label")
         start_s = _optional_finite(self.start_s, name="behavior interval start_s")
         end_s = _optional_finite(self.end_s, name="behavior interval end_s")
         start_frame = _optional_index(self.start_frame, name="behavior interval start_frame")
@@ -142,9 +106,9 @@ class BehaviorInterval:
             "score",
             _optional_finite(self.score, name="behavior interval score"),
         )
-        object.__setattr__(self, "confidence", _optional_text(self.confidence, name="confidence"))
-        object.__setattr__(self, "source_id", _optional_text(self.source_id, name="source_id"))
-        object.__setattr__(self, "metadata", _metadata(self.metadata, name="interval metadata"))
+        object.__setattr__(self, "confidence", optional_text(self.confidence, name="confidence"))
+        object.__setattr__(self, "source_id", optional_text(self.source_id, name="source_id"))
+        object.__setattr__(self, "metadata", metadata_dict(self.metadata, name="interval metadata"))
 
     @property
     def duration_s(self) -> float | None:
@@ -175,7 +139,7 @@ class BehaviorInterval:
     def from_dict(cls, payload: Mapping[str, Any]) -> BehaviorInterval:
         """Hydrate a behavior interval from a JSON-friendly payload."""
 
-        fields = _payload_mapping(payload, name="behavior interval payload")
+        fields = payload_mapping(payload, name="behavior interval payload")
         metadata = fields.get("metadata")
         if metadata is not None and not isinstance(metadata, Mapping):
             raise TypeError("behavior interval metadata must be a mapping.")
@@ -188,7 +152,7 @@ class BehaviorInterval:
             score=fields.get("score"),
             confidence=fields.get("confidence"),
             source_id=fields.get("source_id"),
-            metadata=_metadata(metadata, name="interval metadata"),
+            metadata=metadata_dict(metadata, name="interval metadata"),
         )
 
 
@@ -209,11 +173,11 @@ class BehaviorFrameLabel:
             "frame_index",
             _required_index(self.frame_index, name="frame_index"),
         )
-        object.__setattr__(self, "label", _label(self.label, name="frame label"))
+        object.__setattr__(self, "label", required_text(self.label, name="frame label"))
         object.__setattr__(self, "score", _optional_finite(self.score, name="frame label score"))
-        object.__setattr__(self, "confidence", _optional_text(self.confidence, name="confidence"))
-        object.__setattr__(self, "source_id", _optional_text(self.source_id, name="source_id"))
-        object.__setattr__(self, "metadata", _metadata(self.metadata, name="frame metadata"))
+        object.__setattr__(self, "confidence", optional_text(self.confidence, name="confidence"))
+        object.__setattr__(self, "source_id", optional_text(self.source_id, name="source_id"))
+        object.__setattr__(self, "metadata", metadata_dict(self.metadata, name="frame metadata"))
 
     def to_dict(self) -> dict[str, Any]:
         """Return a JSON-friendly frame-label payload."""
@@ -233,14 +197,14 @@ class BehaviorFrameLabel:
     def from_dict(cls, payload: Mapping[str, Any]) -> BehaviorFrameLabel:
         """Hydrate a frame label from a JSON-friendly payload."""
 
-        fields = _payload_mapping(payload, name="behavior frame-label payload")
+        fields = payload_mapping(payload, name="behavior frame-label payload")
         return cls(
             frame_index=fields.get("frame_index", -1),
             label=fields.get("label", ""),
             score=fields.get("score"),
             confidence=fields.get("confidence"),
             source_id=fields.get("source_id"),
-            metadata=_metadata(fields.get("metadata"), name="frame metadata"),
+            metadata=metadata_dict(fields.get("metadata"), name="frame metadata"),
         )
 
 
@@ -266,9 +230,11 @@ class BehaviorEmbedding:
             _required_index(self.frame_index, name="frame_index"),
         )
         object.__setattr__(self, "values", values)
-        object.__setattr__(self, "space", _label(self.space, name="embedding space"))
-        object.__setattr__(self, "source_id", _optional_text(self.source_id, name="source_id"))
-        object.__setattr__(self, "metadata", _metadata(self.metadata, name="embedding metadata"))
+        object.__setattr__(self, "space", required_text(self.space, name="embedding space"))
+        object.__setattr__(self, "source_id", optional_text(self.source_id, name="source_id"))
+        object.__setattr__(
+            self, "metadata", metadata_dict(self.metadata, name="embedding metadata")
+        )
 
     def to_dict(self) -> dict[str, Any]:
         """Return a JSON-friendly embedding payload."""
@@ -287,13 +253,13 @@ class BehaviorEmbedding:
     def from_dict(cls, payload: Mapping[str, Any]) -> BehaviorEmbedding:
         """Hydrate a behavior embedding from a JSON-friendly payload."""
 
-        fields = _payload_mapping(payload, name="behavior embedding payload")
+        fields = payload_mapping(payload, name="behavior embedding payload")
         return cls(
             frame_index=fields.get("frame_index", -1),
             values=_float_tuple(fields.get("values", ()), name="embedding values"),
             space=str(fields.get("space", "embedding")),
             source_id=fields.get("source_id"),
-            metadata=_metadata(fields.get("metadata"), name="embedding metadata"),
+            metadata=metadata_dict(fields.get("metadata"), name="embedding metadata"),
         )
 
 
@@ -319,7 +285,7 @@ class BehaviorLabels:
             raise ValueError("behavior labels require intervals, frame_labels, or embeddings.")
         if not isinstance(self.timebase, Timebase):
             raise TypeError(f"behavior labels timebase must be a Timebase, got {self.timebase!r}.")
-        object.__setattr__(self, "source_type", _label(self.source_type, name="source_type"))
+        object.__setattr__(self, "source_type", required_text(self.source_type, name="source_type"))
         object.__setattr__(self, "intervals", tuple(sorted(intervals, key=_interval_sort_key)))
         object.__setattr__(
             self,
@@ -332,9 +298,9 @@ class BehaviorLabels:
             tuple(sorted(embeddings, key=lambda item: item.frame_index)),
         )
         object.__setattr__(self, "media_path", _path_text(self.media_path, name="media_path"))
-        object.__setattr__(self, "subject_id", _optional_text(self.subject_id, name="subject_id"))
-        object.__setattr__(self, "annotator", _optional_text(self.annotator, name="annotator"))
-        object.__setattr__(self, "metadata", _metadata(self.metadata, name="behavior metadata"))
+        object.__setattr__(self, "subject_id", optional_text(self.subject_id, name="subject_id"))
+        object.__setattr__(self, "annotator", optional_text(self.annotator, name="annotator"))
+        object.__setattr__(self, "metadata", metadata_dict(self.metadata, name="behavior metadata"))
 
     @property
     def label_names(self) -> tuple[str, ...]:
@@ -384,7 +350,7 @@ class BehaviorLabels:
     def from_dict(cls, payload: Mapping[str, Any]) -> BehaviorLabels:
         """Hydrate behavior labels from a JSON-friendly payload."""
 
-        fields = _payload_mapping(payload, name="behavior labels payload")
+        fields = payload_mapping(payload, name="behavior labels payload")
         return cls(
             source_type=str(fields.get("source_type", "")),
             intervals=_intervals_from_payload(fields.get("intervals", ())),
@@ -394,7 +360,7 @@ class BehaviorLabels:
             media_path=fields.get("media_path"),
             subject_id=fields.get("subject_id"),
             annotator=fields.get("annotator"),
-            metadata=_metadata(fields.get("metadata"), name="behavior metadata"),
+            metadata=metadata_dict(fields.get("metadata"), name="behavior metadata"),
         )
 
     @classmethod
@@ -424,7 +390,7 @@ class BehaviorLabels:
             intervals=intervals,
             timebase=events.timebase,
             media_path=_path_text(media_path, name="media_path"),
-            metadata=_metadata(metadata, name="behavior metadata"),
+            metadata=metadata_dict(metadata, name="behavior metadata"),
         )
 
 
@@ -453,7 +419,7 @@ def _timebase_payload(timebase: Timebase) -> dict[str, Any]:
 def _timebase_from_payload(payload: object) -> Timebase:
     if not isinstance(payload, Mapping):
         return Timebase()
-    fields = _payload_mapping(payload, name="timebase payload")
+    fields = payload_mapping(payload, name="timebase payload")
     return Timebase(
         name=str(fields.get("name", "session")),
         unit=str(fields.get("unit", "s")),
@@ -478,21 +444,21 @@ def _interval_event_metadata(interval: BehaviorInterval, source_type: str) -> di
 
 def _intervals_from_payload(payload: object) -> tuple[BehaviorInterval, ...]:
     return tuple(
-        BehaviorInterval.from_dict(_payload_mapping(item, name="interval payload"))
+        BehaviorInterval.from_dict(payload_mapping(item, name="interval payload"))
         for item in _sequence(payload, name="intervals")
     )
 
 
 def _frame_labels_from_payload(payload: object) -> tuple[BehaviorFrameLabel, ...]:
     return tuple(
-        BehaviorFrameLabel.from_dict(_payload_mapping(item, name="frame-label payload"))
+        BehaviorFrameLabel.from_dict(payload_mapping(item, name="frame-label payload"))
         for item in _sequence(payload, name="frame_labels")
     )
 
 
 def _embeddings_from_payload(payload: object) -> tuple[BehaviorEmbedding, ...]:
     return tuple(
-        BehaviorEmbedding.from_dict(_payload_mapping(item, name="embedding payload"))
+        BehaviorEmbedding.from_dict(payload_mapping(item, name="embedding payload"))
         for item in _sequence(payload, name="embeddings")
     )
 

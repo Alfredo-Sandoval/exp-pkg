@@ -6,30 +6,11 @@ from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
-import numpy as np
-
+from xpkg.model._metadata_validation import (
+    finite_float,
+    metadata_dict,
+)
 from xpkg.model.time import Timebase, TimeRange
-
-
-def _normalize_metadata(value: Mapping[str, Any] | None, *, name: str) -> dict[str, Any]:
-    if value is None:
-        return {}
-    if not isinstance(value, Mapping):
-        raise TypeError(f"{name} must be a mapping or None.")
-    normalized: dict[str, Any] = {}
-    for key, item in value.items():
-        key_text = str(key).strip()
-        if not key_text:
-            raise ValueError(f"{name} keys must be non-empty strings.")
-        normalized[key_text] = item
-    return normalized
-
-
-def _finite_float(value: Any, *, name: str) -> float:
-    coerced = float(value)
-    if not np.isfinite(coerced):
-        raise ValueError(f"{name} must be finite, got {coerced!r}.")
-    return coerced
 
 
 @dataclass(frozen=True, slots=True)
@@ -46,14 +27,14 @@ class Event:
         kind = str(self.kind).strip()
         if not kind:
             raise ValueError("event kind must be a non-empty string.")
-        start_s = _finite_float(self.start_s, name="event start_s")
-        duration_s = _finite_float(self.duration_s, name="event duration_s")
+        start_s = finite_float(self.start_s, name="event start_s")
+        duration_s = finite_float(self.duration_s, name="event duration_s")
         if duration_s < 0.0:
             raise ValueError(f"event duration_s must be non-negative, got {duration_s}.")
         label = None if self.label is None else str(self.label).strip()
         if label == "":
             label = None
-        metadata = _normalize_metadata(self.metadata, name="event metadata")
+        metadata = metadata_dict(self.metadata, name="event metadata")
 
         object.__setattr__(self, "kind", kind)
         object.__setattr__(self, "start_s", start_s)
@@ -102,7 +83,7 @@ class Event:
             start_s=payload.get("start_s", 0.0),
             duration_s=payload.get("duration_s", 0.0),
             label=payload.get("label"),
-            metadata=_normalize_metadata(raw_metadata, name="event metadata"),
+            metadata=metadata_dict(raw_metadata, name="event metadata"),
         )
 
 
@@ -155,7 +136,7 @@ class EventTable:
         kind_filter = None if kind is None else str(kind).strip()
         label_filter = None if label is None else str(label).strip()
         if time_s is not None:
-            time_value = _finite_float(time_s, name="time_s")
+            time_value = finite_float(time_s, name="time_s")
         else:
             time_value = None
         if overlaps is not None and not isinstance(overlaps, TimeRange):

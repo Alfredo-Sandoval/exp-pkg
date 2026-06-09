@@ -8,35 +8,15 @@ from typing import Any
 
 import numpy as np
 
+from xpkg.model._metadata_validation import (
+    metadata_dict,
+    optional_text,
+    payload_mapping,
+    required_text,
+)
+
 IDENTITY_PROVENANCE_SCHEMA_VERSION = "xpkg.identity_provenance.v1"
 IDENTITY_SOURCES = frozenset({"mot", "reid", "manual", "mixed", "unknown"})
-
-
-def _metadata(value: Mapping[str, Any] | None, *, name: str) -> dict[str, Any]:
-    if value is None:
-        return {}
-    if not isinstance(value, Mapping):
-        raise TypeError(f"{name} must be a mapping or None.")
-    result: dict[str, Any] = {}
-    for key, item in value.items():
-        key_text = str(key).strip()
-        if not key_text:
-            raise ValueError(f"{name} keys must be non-empty strings.")
-        result[key_text] = item
-    return result
-
-
-def _label(value: object, *, name: str) -> str:
-    text = str(value).strip()
-    if not text:
-        raise ValueError(f"{name} must be a non-empty string.")
-    return text
-
-
-def _optional_text(value: object | None, *, name: str) -> str | None:
-    if value is None:
-        return None
-    return _label(value, name=name)
 
 
 def _identity_source(value: object | None, *, name: str) -> str:
@@ -63,12 +43,6 @@ def _optional_confidence(value: Any | None, *, name: str) -> float | None:
     return coerced
 
 
-def _payload_mapping(value: object, *, name: str) -> dict[str, Any]:
-    if not isinstance(value, Mapping):
-        raise TypeError(f"{name} must be a mapping.")
-    return {str(key): item for key, item in value.items()}
-
-
 @dataclass(frozen=True, slots=True)
 class IdentityConfidenceSpan:
     """Frame span where an identity source and optional confidence apply."""
@@ -87,7 +61,7 @@ class IdentityConfidenceSpan:
             raise ValueError("identity span end_frame must be >= start_frame.")
         object.__setattr__(self, "start_frame", start_frame)
         object.__setattr__(self, "end_frame", end_frame)
-        object.__setattr__(self, "video_id", _optional_text(self.video_id, name="video_id"))
+        object.__setattr__(self, "video_id", optional_text(self.video_id, name="video_id"))
         object.__setattr__(
             self,
             "identity_source",
@@ -98,7 +72,7 @@ class IdentityConfidenceSpan:
             "confidence",
             _optional_confidence(self.confidence, name="identity confidence"),
         )
-        object.__setattr__(self, "metadata", _metadata(self.metadata, name="span metadata"))
+        object.__setattr__(self, "metadata", metadata_dict(self.metadata, name="span metadata"))
 
     def to_dict(self) -> dict[str, Any]:
         payload: dict[str, Any] = {
@@ -116,14 +90,14 @@ class IdentityConfidenceSpan:
 
     @classmethod
     def from_dict(cls, payload: Mapping[str, Any]) -> IdentityConfidenceSpan:
-        fields = _payload_mapping(payload, name="identity span payload")
+        fields = payload_mapping(payload, name="identity span payload")
         return cls(
             start_frame=fields.get("start_frame", 0),
             end_frame=fields.get("end_frame", 0),
             video_id=fields.get("video_id"),
             identity_source=fields.get("identity_source", "unknown"),
             confidence=fields.get("confidence"),
-            metadata=_metadata(fields.get("metadata"), name="span metadata"),
+            metadata=metadata_dict(fields.get("metadata"), name="span metadata"),
         )
 
 
@@ -139,20 +113,20 @@ class IdentityEvent:
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
-        object.__setattr__(self, "kind", _label(self.kind, name="identity event kind"))
+        object.__setattr__(self, "kind", required_text(self.kind, name="identity event kind"))
         object.__setattr__(self, "frame", _frame_index(self.frame, name="identity event frame"))
-        object.__setattr__(self, "video_id", _optional_text(self.video_id, name="video_id"))
+        object.__setattr__(self, "video_id", optional_text(self.video_id, name="video_id"))
         object.__setattr__(
             self,
             "from_track_id",
-            _optional_text(self.from_track_id, name="from_track_id"),
+            optional_text(self.from_track_id, name="from_track_id"),
         )
         object.__setattr__(
             self,
             "to_track_id",
-            _optional_text(self.to_track_id, name="to_track_id"),
+            optional_text(self.to_track_id, name="to_track_id"),
         )
-        object.__setattr__(self, "metadata", _metadata(self.metadata, name="event metadata"))
+        object.__setattr__(self, "metadata", metadata_dict(self.metadata, name="event metadata"))
 
     def to_dict(self) -> dict[str, Any]:
         payload: dict[str, Any] = {"kind": self.kind, "frame": self.frame}
@@ -166,14 +140,14 @@ class IdentityEvent:
 
     @classmethod
     def from_dict(cls, payload: Mapping[str, Any]) -> IdentityEvent:
-        fields = _payload_mapping(payload, name="identity event payload")
+        fields = payload_mapping(payload, name="identity event payload")
         return cls(
             kind=fields.get("kind", ""),
             frame=fields.get("frame", 0),
             video_id=fields.get("video_id"),
             from_track_id=fields.get("from_track_id"),
             to_track_id=fields.get("to_track_id"),
-            metadata=_metadata(fields.get("metadata"), name="event metadata"),
+            metadata=metadata_dict(fields.get("metadata"), name="event metadata"),
         )
 
 
@@ -196,18 +170,18 @@ class IdentityProofreadingSpan:
             raise ValueError("proofreading end_frame must be >= start_frame.")
         object.__setattr__(self, "start_frame", start_frame)
         object.__setattr__(self, "end_frame", end_frame)
-        object.__setattr__(self, "video_id", _optional_text(self.video_id, name="video_id"))
+        object.__setattr__(self, "video_id", optional_text(self.video_id, name="video_id"))
         object.__setattr__(self, "reviewed", bool(self.reviewed))
         object.__setattr__(
             self,
             "corrected",
             None if self.corrected is None else bool(self.corrected),
         )
-        object.__setattr__(self, "reviewer", _optional_text(self.reviewer, name="reviewer"))
+        object.__setattr__(self, "reviewer", optional_text(self.reviewer, name="reviewer"))
         object.__setattr__(
             self,
             "metadata",
-            _metadata(self.metadata, name="proofreading metadata"),
+            metadata_dict(self.metadata, name="proofreading metadata"),
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -228,7 +202,7 @@ class IdentityProofreadingSpan:
 
     @classmethod
     def from_dict(cls, payload: Mapping[str, Any]) -> IdentityProofreadingSpan:
-        fields = _payload_mapping(payload, name="identity proofreading payload")
+        fields = payload_mapping(payload, name="identity proofreading payload")
         return cls(
             start_frame=fields.get("start_frame", 0),
             end_frame=fields.get("end_frame", 0),
@@ -236,7 +210,7 @@ class IdentityProofreadingSpan:
             reviewed=bool(fields.get("reviewed", True)),
             corrected=fields.get("corrected"),
             reviewer=fields.get("reviewer"),
-            metadata=_metadata(fields.get("metadata"), name="proofreading metadata"),
+            metadata=metadata_dict(fields.get("metadata"), name="proofreading metadata"),
         )
 
 
@@ -290,17 +264,17 @@ class IdentityProvenanceRecord:
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
-        object.__setattr__(self, "track_id", _label(self.track_id, name="track_id"))
-        object.__setattr__(self, "track_name", _optional_text(self.track_name, name="track_name"))
+        object.__setattr__(self, "track_id", required_text(self.track_id, name="track_id"))
+        object.__setattr__(self, "track_name", optional_text(self.track_name, name="track_name"))
         object.__setattr__(
             self,
             "source_tool",
-            _optional_text(self.source_tool, name="source_tool"),
+            optional_text(self.source_tool, name="source_tool"),
         )
         object.__setattr__(
             self,
             "source_file",
-            _optional_text(self.source_file, name="source_file"),
+            optional_text(self.source_file, name="source_file"),
         )
         object.__setattr__(
             self,
@@ -310,7 +284,7 @@ class IdentityProvenanceRecord:
         object.__setattr__(self, "spans", _spans(self.spans))
         object.__setattr__(self, "events", _events(self.events))
         object.__setattr__(self, "proofreading", _proofreading(self.proofreading))
-        object.__setattr__(self, "metadata", _metadata(self.metadata, name="identity metadata"))
+        object.__setattr__(self, "metadata", metadata_dict(self.metadata, name="identity metadata"))
 
     def to_dict(self) -> dict[str, Any]:
         payload: dict[str, Any] = {
@@ -333,7 +307,7 @@ class IdentityProvenanceRecord:
 
     @classmethod
     def from_dict(cls, payload: Mapping[str, Any]) -> IdentityProvenanceRecord:
-        fields = _payload_mapping(payload, name="identity provenance payload")
+        fields = payload_mapping(payload, name="identity provenance payload")
         return cls(
             track_id=fields.get("track_id", ""),
             track_name=fields.get("track_name"),
@@ -343,7 +317,7 @@ class IdentityProvenanceRecord:
             spans=_spans(fields.get("spans")),
             events=_events(fields.get("events")),
             proofreading=_proofreading(fields.get("proofreading")),
-            metadata=_metadata(fields.get("metadata"), name="identity metadata"),
+            metadata=metadata_dict(fields.get("metadata"), name="identity metadata"),
         )
 
 
@@ -359,7 +333,7 @@ def _coerce_records(raw_records: object) -> list[IdentityProvenanceRecord]:
             raise TypeError("identity provenance records must be mappings.")
         records.append(
             IdentityProvenanceRecord.from_dict(
-                _payload_mapping(item, name="identity provenance record")
+                payload_mapping(item, name="identity provenance record")
             )
         )
     return records
@@ -372,7 +346,7 @@ def identity_provenance_records(payload: object) -> list[IdentityProvenanceRecor
         return []
     if not isinstance(payload, Mapping):
         raise TypeError("identity provenance payload must be a mapping.")
-    fields = _payload_mapping(payload, name="identity provenance payload")
+    fields = payload_mapping(payload, name="identity provenance payload")
     schema = str(fields.get("schema", "")).strip()
     if schema != IDENTITY_PROVENANCE_SCHEMA_VERSION:
         raise ValueError(

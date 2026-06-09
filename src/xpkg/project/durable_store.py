@@ -15,12 +15,12 @@ import threading
 import time
 from collections.abc import Mapping
 from dataclasses import dataclass
-from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Literal
 
-from .._core.hashing import sha256_bytes, sha256_file
-from .._core.json_utils import dump_json, load_json_dict, parse_json_dict
+from xpkg._core.hashing import sha256_bytes, sha256_file
+from xpkg._core.json_utils import dump_json, load_json_dict, parse_json_dict
+from xpkg._core.time import now_utc_iso
 
 _SUPPORTED_STORE_VERSION = 1
 _STORE_FORMAT = "xpkg.project-durable-store"
@@ -59,11 +59,6 @@ class ChecksumError(ProjectDurableStoreError):
 # validation failures, read failures, and malformed JSON/payload shapes.
 # Anything outside this set is a programming error and must propagate.
 _CORRUPT_PAYLOAD_ERRORS = (ProjectDurableStoreError, OSError, ValueError, TypeError, KeyError)
-
-
-def now_utc_iso() -> str:
-    """Return an ISO-8601 UTC timestamp with trailing Z."""
-    return datetime.now(tz=UTC).isoformat().replace("+00:00", "Z")
 
 
 def _canonical_json_bytes(payload: Any) -> bytes:

@@ -10,6 +10,10 @@ import zipfile
 from pathlib import Path, PurePosixPath
 from typing import Any, Literal
 
+from xpkg._core.hashing import sha256_file
+from xpkg._core.json_utils import dump_json, parse_json_dict
+from xpkg._core.path_registry import resolve_path
+from xpkg._core.time import now_utc_iso
 from xpkg.project.layout import (
     EXPKG_SUFFIX,
     MEDIA_DIRNAME,
@@ -17,7 +21,6 @@ from xpkg.project.layout import (
     STORE_DIRNAME,
     ProjectDescriptor,
     _candidate_project_root,
-    _now_utc_iso,
     default_expkg_path,
     load_project_descriptor,
     project_artifacts_root,
@@ -27,10 +30,6 @@ from xpkg.project.layout import (
     resolve_project_root,
     write_project_descriptor,
 )
-
-from .._core.hashing import sha256_file
-from .._core.json_utils import dump_json, parse_json_dict
-from .._core.path_registry import resolve_path
 
 EXPKG_MANIFEST_FILENAME = "EXPKG.json"
 EXPKG_FORMAT = "xpkg-packed-project"
@@ -182,7 +181,7 @@ def _expkg_manifest_payload(
         "format": EXPKG_FORMAT,
         "artifact_schema_version": EXPKG_SCHEMA_VERSION,
         "container": "zip",
-        "created_at": _now_utc_iso(),
+        "created_at": now_utc_iso(drop_microseconds=True),
         "project": {
             "project_id": descriptor.project_id,
             "title": descriptor.title,
@@ -774,7 +773,7 @@ def unpack_project(
     (out_root / descriptor.exports_root).mkdir(parents=True, exist_ok=True)
     if rename_title is not None and rename_title.strip():
         descriptor.title = rename_title.strip()
-        descriptor.updated_at = _now_utc_iso()
+        descriptor.updated_at = now_utc_iso(drop_microseconds=True)
         write_project_descriptor(out_root, descriptor)
     if _manifest_has_external_media(manifest):
         _validate_project_layout(out_root)

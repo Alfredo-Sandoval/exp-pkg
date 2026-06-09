@@ -7,12 +7,9 @@ from copy import deepcopy
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from xpkg.project.layout import (
-    _now_utc_iso,
-)
-
-from ..._core.hashing import sha256_file
-from ..._core.path_registry import resolve_path
+from xpkg._core.hashing import sha256_file
+from xpkg._core.path_registry import resolve_path
+from xpkg._core.time import now_utc_iso
 
 if TYPE_CHECKING:
     from xpkg.model import Labels, PoseModelProvenance
@@ -177,7 +174,7 @@ def _persist_pose_provenance(
     if record.imported_from is None:
         fields["imported_from"] = resolve_path(source_path).name
     if record.imported_at is None:
-        fields["imported_at"] = _now_utc_iso()
+        fields["imported_at"] = now_utc_iso(drop_microseconds=True)
     if fields:
         record = PoseModelProvenance.from_dict({**record.to_dict(), **fields})
     save_project_pose_provenance(root, record)

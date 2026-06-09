@@ -2,8 +2,22 @@
 
 from __future__ import annotations
 
+import math
 from collections.abc import Iterable, Mapping
 from typing import Any
+
+
+def finite_float(value: Any, *, name: str) -> float:
+    coerced = float(value)
+    if not math.isfinite(coerced):
+        raise ValueError(f"{name} must be finite, got {coerced!r}.")
+    return coerced
+
+
+def payload_mapping(value: object, *, name: str) -> dict[str, Any]:
+    if not isinstance(value, Mapping):
+        raise TypeError(f"{name} must be a mapping.")
+    return {str(key): item for key, item in value.items()}
 
 
 def optional_text(value: object | None, *, name: str) -> str | None:
@@ -77,10 +91,12 @@ def text_mapping(value: Mapping[str, object] | None, *, name: str) -> dict[str, 
 
 
 __all__ = [
+    "finite_float",
     "metadata_dict",
     "optional_bool",
     "optional_non_negative_int",
     "optional_text",
+    "payload_mapping",
     "required_text",
     "text_mapping",
     "text_tuple",

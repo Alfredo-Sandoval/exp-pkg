@@ -7,6 +7,13 @@ from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any, Literal, cast
 
+from xpkg.model._metadata_validation import (
+    finite_float,
+    metadata_dict,
+    optional_text,
+    required_text,
+)
+
 CALIBRATION_SCHEMA_VERSION = 1
 
 IntrinsicsModel = Literal["pinhole", "fisheye", "omnidir"]
@@ -23,41 +30,10 @@ _DISTORTION_COEFF_COUNTS = {
 _ROTATION_REPRESENTATIONS = {"matrix", "rodrigues", "quaternion"}
 
 
-def _required_text(value: object, *, name: str) -> str:
-    text = str(value).strip()
-    if not text:
-        raise ValueError(f"{name} must be a non-empty string.")
-    return text
-
-
-def _optional_text(value: object | None, *, name: str) -> str | None:
-    if value is None:
-        return None
-    return _required_text(value, name=name)
-
-
-def _metadata(value: Mapping[str, Any] | None, *, name: str) -> dict[str, Any]:
-    if value is None:
-        return {}
-    if not isinstance(value, Mapping):
-        raise TypeError(f"{name} must be a mapping or None.")
-    normalized: dict[str, Any] = {}
-    for key, item in value.items():
-        normalized[_required_text(key, name=f"{name} key")] = item
-    return normalized
-
-
-def _finite_float(value: Any, *, name: str) -> float:
-    number = float(value)
-    if not math.isfinite(number):
-        raise ValueError(f"{name} must be finite, got {number}.")
-    return number
-
-
 def _optional_nonnegative_float(value: Any | None, *, name: str) -> float | None:
     if value is None:
         return None
-    number = _finite_float(value, name=name)
+    number = finite_float(value, name=name)
     if number < 0.0:
         raise ValueError(f"{name} must be non-negative, got {number}.")
     return number
@@ -75,7 +51,7 @@ def _optional_nonnegative_int(value: Any | None, *, name: str) -> int | None:
 def _float_tuple(value: Iterable[Any], *, length: int, name: str) -> tuple[float, ...]:
     if isinstance(value, str):
         raise TypeError(f"{name} must be an iterable of numbers, not a string.")
-    items = tuple(_finite_float(item, name=f"{name} item") for item in value)
+    items = tuple(finite_float(item, name=f"{name} item") for item in value)
     if len(items) != length:
         raise ValueError(f"{name} must contain {length} values, got {len(items)}.")
     return items
@@ -217,12 +193,12 @@ class CameraDistortion:
     coeffs: tuple[float, ...] = ()
 
     def __post_init__(self) -> None:
-        model = _required_text(self.model, name="distortion model")
+        model = required_text(self.model, name="distortion model")
         if model not in _DISTORTION_COEFF_COUNTS:
             allowed = ", ".join(sorted(_DISTORTION_COEFF_COUNTS))
             raise ValueError(f"distortion model must be one of: {allowed}.")
         coeffs = tuple(
-            _finite_float(value, name="distortion coeff")
+            finite_float(value, name="distortion coeff")
             for value in self.coeffs
         )
         expected = _DISTORTION_COEFF_COUNTS[model]
@@ -257,7 +233,7 @@ class CameraIntrinsics:
     distortion: CameraDistortion = field(default_factory=CameraDistortion)
 
     def __post_init__(self) -> None:
-        model = _required_text(self.model, name="intrinsics model")
+        model = required_text(self.model, name="intrinsics model")
         if model not in _INTRINSICS_MODELS:
             allowed = ", ".join(sorted(_INTRINSICS_MODELS))
             raise ValueError(f"intrinsics model must be one of: {allowed}.")
@@ -302,7 +278,7 @@ class CameraRotation:
     value: tuple[tuple[float, ...], ...] | tuple[float, ...]
 
     def __post_init__(self) -> None:
-        representation = _required_text(self.representation, name="rotation representation")
+        representation = required_text(self.representation, name="rotation representation")
         if representation not in _ROTATION_REPRESENTATIONS:
             allowed = ", ".join(sorted(_ROTATION_REPRESENTATIONS))
             raise ValueError(f"rotation representation must be one of: {allowed}.")
@@ -432,7 +408,7 @@ class CalibrationQuality:
         object.__setattr__(
             self,
             "metadata",
-            _metadata(self.metadata, name="calibration quality metadata"),
+            metadata_dict(self.metadata, name="calibration quality metadata"),
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -456,7 +432,7 @@ class CalibrationQuality:
         return cls(
             reprojection_error_px=payload.get("reprojection_error_px"),
             n_views=payload.get("n_views"),
-            metadata=_metadata(payload.get("metadata"), name="calibration quality metadata"),
+            metadata=metadata_dict(payload.get("metadata"), name="calibration quality metadata"),
         )
 
 
@@ -490,7 +466,7 @@ class Camera:
         if not isinstance(quality, CalibrationQuality):
             raise TypeError("camera quality must be a CalibrationQuality object.")
 
-        object.__setattr__(self, "name", _required_text(self.name, name="camera name"))
+        object.__setattr__(self, "name", required_text(self.name, name="camera name"))
         object.__setattr__(self, "image_size", _image_size(self.image_size, name="image_size"))
         object.__setattr__(self, "intrinsics", intrinsics)
         object.__setattr__(self, "extrinsics", extrinsics)
@@ -498,7 +474,7 @@ class Camera:
         object.__setattr__(
             self,
             "metadata",
-            _metadata(self.metadata, name="camera calibration metadata"),
+            metadata_dict(self.metadata, name="camera calibration metadata"),
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -527,7 +503,7 @@ class Camera:
             intrinsics=CameraIntrinsics.from_dict(payload.get("intrinsics") or {}),
             extrinsics=CameraExtrinsics.from_dict(payload.get("extrinsics") or {}),
             quality=CalibrationQuality.from_dict(payload.get("quality")),
-            metadata=_metadata(payload.get("metadata"), name="camera calibration metadata"),
+            metadata=metadata_dict(payload.get("metadata"), name="camera calibration metadata"),
         )
 
 
@@ -539,11 +515,11 @@ class WorldFrame:
     description: str | None = None
 
     def __post_init__(self) -> None:
-        object.__setattr__(self, "anchor", _optional_text(self.anchor, name="world anchor"))
+        object.__setattr__(self, "anchor", optional_text(self.anchor, name="world anchor"))
         object.__setattr__(
             self,
             "description",
-            _optional_text(self.description, name="world frame description"),
+            optional_text(self.description, name="world frame description"),
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -574,26 +550,26 @@ class CalibrationSource:
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
-        object.__setattr__(self, "tool", _optional_text(self.tool, name="source tool"))
+        object.__setattr__(self, "tool", optional_text(self.tool, name="source tool"))
         object.__setattr__(
             self,
             "tool_version",
-            _optional_text(self.tool_version, name="source tool_version"),
+            optional_text(self.tool_version, name="source tool_version"),
         )
         object.__setattr__(
             self,
             "imported_from",
-            _optional_text(self.imported_from, name="source imported_from"),
+            optional_text(self.imported_from, name="source imported_from"),
         )
         object.__setattr__(
             self,
             "imported_at",
-            _optional_text(self.imported_at, name="source imported_at"),
+            optional_text(self.imported_at, name="source imported_at"),
         )
         object.__setattr__(
             self,
             "metadata",
-            _metadata(self.metadata, name="calibration source metadata"),
+            metadata_dict(self.metadata, name="calibration source metadata"),
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -619,7 +595,7 @@ class CalibrationSource:
             tool_version=payload.get("tool_version"),
             imported_from=payload.get("imported_from"),
             imported_at=payload.get("imported_at"),
-            metadata=_metadata(payload.get("metadata"), name="calibration source metadata"),
+            metadata=metadata_dict(payload.get("metadata"), name="calibration source metadata"),
         )
 
 
@@ -669,20 +645,20 @@ class Calibration:
             raise TypeError("calibration source must be a CalibrationSource or None.")
 
         object.__setattr__(self, "schema_version", version)
-        object.__setattr__(self, "name", _required_text(self.name, name="calibration name"))
+        object.__setattr__(self, "name", required_text(self.name, name="calibration name"))
         object.__setattr__(
             self,
             "captured_at",
-            _optional_text(self.captured_at, name="captured_at"),
+            optional_text(self.captured_at, name="captured_at"),
         )
-        object.__setattr__(self, "units", _required_text(self.units, name="units"))
+        object.__setattr__(self, "units", required_text(self.units, name="units"))
         object.__setattr__(self, "world_frame", _world_frame(self.world_frame))
         object.__setattr__(self, "source", source)
         object.__setattr__(self, "cameras", _camera_tuple(self.cameras))
         object.__setattr__(
             self,
             "metadata",
-            _metadata(self.metadata, name="calibration metadata"),
+            metadata_dict(self.metadata, name="calibration metadata"),
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -720,12 +696,12 @@ class Calibration:
             world_frame=_world_frame(payload.get("world_frame")),
             cameras=tuple(payload.get("cameras") or ()),
             source=CalibrationSource.from_dict(payload.get("source")),
-            metadata=_metadata(payload.get("metadata"), name="calibration metadata"),
+            metadata=metadata_dict(payload.get("metadata"), name="calibration metadata"),
         )
 
     def camera_by_name(self, name: str) -> Camera:
         """Return a calibrated camera by exact name."""
-        target = _required_text(name, name="camera name")
+        target = required_text(name, name="camera name")
         for camera in self.cameras:
             if camera.name == target:
                 return camera

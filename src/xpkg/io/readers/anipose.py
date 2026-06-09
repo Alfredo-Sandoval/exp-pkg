@@ -6,11 +6,11 @@ import math
 import re
 import tomllib
 from collections.abc import Mapping
-from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, cast
 
 from xpkg._core.json_utils import dump_json
+from xpkg._core.time import now_utc_iso
 from xpkg.model.calibration import (
     Calibration,
     CalibrationQuality,
@@ -24,10 +24,6 @@ from xpkg.model.calibration import (
 )
 
 _BARE_TOML_KEY_RE = re.compile(r"^[A-Za-z0-9_-]+$")
-
-
-def _now_utc_iso() -> str:
-    return datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
 def _load_toml(path: Path) -> dict[str, Any]:
@@ -222,7 +218,7 @@ def read_anipose_calibration(
             tool="anipose",
             tool_version=tool_version,
             imported_from=calibration_path.name,
-            imported_at=imported_at or _now_utc_iso(),
+            imported_at=imported_at or now_utc_iso(drop_microseconds=True),
         ),
     )
 

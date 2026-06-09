@@ -12,10 +12,12 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, cast
 
+from xpkg._core.json_utils import load_json_dict, write_json
+from xpkg._core.path_registry import ensure_dir
+from xpkg._core.time import now_utc_iso
 from xpkg.io.labels.json_format import XPKG_LABELS_JSON_FORMAT
 from xpkg.project.durable_store import ProjectDurableStore, ProjectDurableStoreError
 from xpkg.project.layout import (
-    _now_utc_iso,
     load_project_descriptor,
     project_artifacts_root,
     project_current_state_path,
@@ -23,9 +25,6 @@ from xpkg.project.layout import (
     project_summary_path,
     resolve_project_root,
 )
-
-from .._core.json_utils import load_json_dict, write_json
-from .._core.path_registry import ensure_dir
 
 if TYPE_CHECKING:
     from xpkg.model import Labels
@@ -228,7 +227,7 @@ def snapshot_project_summary(
     warnings = (*state.warnings, *existing_warnings, *artifact_warnings)
     summary = ProjectSummaryIndex(
         schema_version=PROJECT_SUMMARY_SCHEMA_VERSION,
-        generated_at=_now_utc_iso(),
+        generated_at=now_utc_iso(drop_microseconds=True),
         project_id=descriptor.project_id,
         title=descriptor.title,
         descriptor_updated_at=descriptor.updated_at,

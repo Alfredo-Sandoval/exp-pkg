@@ -11,6 +11,11 @@ from typing import Any, Literal
 import numpy as np
 import pandas as pd
 
+from xpkg.io.readers._columns import (
+    column_by_name,
+    first_matching_column,
+    resolve_column,
+)
 from xpkg.model import BehaviorFrameLabel, BehaviorInterval, BehaviorLabels
 
 TimeUnit = Literal["s", "sec", "second", "seconds", "ms", "millisecond", "milliseconds"]
@@ -254,16 +259,16 @@ def read_boris_csv(
         raise ValueError(f"BORIS CSV '{source_path}' is empty.")
     columns = _BehaviorColumns.resolve(
         frame,
-        label_column=_first_matching_column(frame, _BORIS_LABEL_CANDIDATES),
-        start_column=_first_matching_column(frame, _BORIS_START_TIME_CANDIDATES),
-        end_column=_first_matching_column(frame, _BORIS_END_TIME_CANDIDATES),
-        duration_column=_first_matching_column(frame, _BORIS_DURATION_CANDIDATES),
+        label_column=first_matching_column(frame, _BORIS_LABEL_CANDIDATES),
+        start_column=first_matching_column(frame, _BORIS_START_TIME_CANDIDATES),
+        end_column=first_matching_column(frame, _BORIS_END_TIME_CANDIDATES),
+        duration_column=first_matching_column(frame, _BORIS_DURATION_CANDIDATES),
         frame_column=None,
         start_frame_column=None,
         end_frame_column=None,
         score_column=None,
         confidence_column=None,
-        source_id_column=_first_matching_column(frame, _BORIS_SOURCE_ID_CANDIDATES),
+        source_id_column=first_matching_column(frame, _BORIS_SOURCE_ID_CANDIDATES),
     )
     intervals = _csv_intervals(frame, columns, scale=1.0)
     if not intervals:
@@ -311,7 +316,7 @@ def read_bsoid_csv(
     frame, _size_bytes = _read_csv(source_path, max_mb=max_mb)
     if frame.empty:
         raise ValueError(f"B-SOiD CSV '{source_path}' is empty.")
-    resolved_label_column = label_column or _first_matching_column(frame, _BSOID_LABEL_CANDIDATES)
+    resolved_label_column = label_column or first_matching_column(frame, _BSOID_LABEL_CANDIDATES)
     labels = read_behavior_events_csv(
         source_path,
         source_type="bsoid",
@@ -518,7 +523,7 @@ def _media_path_from_metadata(
 def _boris_media_path(frame: pd.DataFrame, media_path: str | Path | None) -> str | None:
     if media_path is not None:
         return Path(media_path).as_posix()
-    media_column = _first_matching_column(frame, _BORIS_MEDIA_CANDIDATES)
+    media_column = first_matching_column(frame, _BORIS_MEDIA_CANDIDATES)
     if media_column is None or frame.empty:
         return None
     return _optional_text(frame[media_column].iloc[0])
@@ -608,35 +613,6 @@ def _read_csv(path: Path, *, max_mb: float | None) -> tuple[pd.DataFrame, int]:
     return pd.read_csv(path), size_bytes
 
 
-def _column_by_name(frame: pd.DataFrame, name: str) -> str:
-    names = {str(column).lower(): str(column) for column in frame.columns}
-    key = str(name).lower()
-    if key not in names:
-        raise ValueError(
-            f"Column {name!r} was not found. Available columns: {list(frame.columns)}."
-        )
-    return names[key]
-
-
-def _first_matching_column(frame: pd.DataFrame, candidates: Sequence[str]) -> str | None:
-    names = {str(column).lower(): str(column) for column in frame.columns}
-    for candidate in candidates:
-        match = names.get(candidate.lower())
-        if match is not None:
-            return match
-    return None
-
-
-def _resolve_column(
-    frame: pd.DataFrame,
-    explicit: str | None,
-    candidates: Sequence[str],
-) -> str | None:
-    if explicit is not None:
-        return _column_by_name(frame, explicit)
-    return _first_matching_column(frame, candidates)
-
-
 def _time_scale(unit: TimeUnit) -> float:
     normalized = unit.lower()
     if normalized in {"s", "sec", "second", "seconds"}:
@@ -716,8 +692,8 @@ class _SimbaColumns:
         time_column: str | None,
         behavior_columns: Sequence[str] | None,
     ) -> _SimbaColumns:
-        resolved_frame = _resolve_column(frame, frame_column, _SIMBA_FRAME_CANDIDATES)
-        resolved_time = _resolve_column(frame, time_column, _SIMBA_TIME_CANDIDATES)
+        resolved_frame = resolve_column(frame, frame_column, _SIMBA_FRAME_CANDIDATES)
+        resolved_time = resolve_column(frame, time_column, _SIMBA_TIME_CANDIDATES)
         behaviors = _resolve_simba_behavior_columns(frame, behavior_columns)
         if not behaviors:
             raise ValueError(
@@ -733,7 +709,7 @@ def _resolve_simba_behavior_columns(
 ) -> tuple[_SimbaBehaviorColumns, ...]:
     if behavior_columns is not None:
         return tuple(
-            _simba_behavior_from_column(frame, _column_by_name(frame, column))
+            _simba_behavior_from_column(frame, column_by_name(frame, column))
             for column in behavior_columns
         )
     probability_columns = _simba_probability_columns(frame)
@@ -952,22 +928,22 @@ class _KeypointMoseqColumns:
         confidence_column: str | None,
         uncertainty_columns: Sequence[str] | None,
     ) -> _KeypointMoseqColumns:
-        label = _resolve_column(frame, syllable_column, _KEYPOINT_MOSEQ_LABEL_CANDIDATES)
+        label = resolve_column(frame, syllable_column, _KEYPOINT_MOSEQ_LABEL_CANDIDATES)
         if label is None:
             raise ValueError(
                 "Keypoint-MoSeq syllables CSV must include a syllable or motif column."
             )
         return cls(
-            frame=_resolve_column(frame, frame_column, _KEYPOINT_MOSEQ_FRAME_CANDIDATES),
-            time=_resolve_column(frame, time_column, _KEYPOINT_MOSEQ_TIME_CANDIDATES),
+            frame=resolve_column(frame, frame_column, _KEYPOINT_MOSEQ_FRAME_CANDIDATES),
+            time=resolve_column(frame, time_column, _KEYPOINT_MOSEQ_TIME_CANDIDATES),
             label=label,
-            recording=_resolve_column(
+            recording=resolve_column(
                 frame,
                 recording_column,
                 _KEYPOINT_MOSEQ_RECORDING_CANDIDATES,
             ),
-            score=_resolve_column(frame, score_column, _KEYPOINT_MOSEQ_SCORE_CANDIDATES),
-            confidence=_resolve_column(
+            score=resolve_column(frame, score_column, _KEYPOINT_MOSEQ_SCORE_CANDIDATES),
+            confidence=resolve_column(
                 frame,
                 confidence_column,
                 _KEYPOINT_MOSEQ_CONFIDENCE_CANDIDATES,
@@ -998,11 +974,11 @@ def _resolve_keypoint_moseq_uncertainty_columns(
     uncertainty_columns: Sequence[str] | None,
 ) -> tuple[str, ...]:
     if uncertainty_columns is not None:
-        return tuple(_column_by_name(frame, column) for column in uncertainty_columns)
+        return tuple(column_by_name(frame, column) for column in uncertainty_columns)
     return tuple(
         column
         for column in (
-            _first_matching_column(frame, (candidate,))
+            first_matching_column(frame, (candidate,))
             for candidate in _KEYPOINT_MOSEQ_UNCERTAINTY_CANDIDATES
         )
         if column is not None
@@ -1150,28 +1126,28 @@ class _BehaviorColumns:
 
     @classmethod
     def resolve(cls, frame: pd.DataFrame, **columns: str | None) -> _BehaviorColumns:
-        label = _resolve_column(frame, columns["label_column"], _LABEL_CANDIDATES)
+        label = resolve_column(frame, columns["label_column"], _LABEL_CANDIDATES)
         if label is None:
             raise ValueError("Behavior CSV must include a behavior label column.")
         resolved = cls(
             label=label,
-            start=_resolve_column(frame, columns["start_column"], _START_TIME_CANDIDATES),
-            end=_resolve_column(frame, columns["end_column"], _END_TIME_CANDIDATES),
-            duration=_resolve_column(frame, columns["duration_column"], _DURATION_CANDIDATES),
-            frame=_resolve_column(frame, columns["frame_column"], _FRAME_CANDIDATES),
-            start_frame=_resolve_column(
+            start=resolve_column(frame, columns["start_column"], _START_TIME_CANDIDATES),
+            end=resolve_column(frame, columns["end_column"], _END_TIME_CANDIDATES),
+            duration=resolve_column(frame, columns["duration_column"], _DURATION_CANDIDATES),
+            frame=resolve_column(frame, columns["frame_column"], _FRAME_CANDIDATES),
+            start_frame=resolve_column(
                 frame,
                 columns["start_frame_column"],
                 _START_FRAME_CANDIDATES,
             ),
-            end_frame=_resolve_column(frame, columns["end_frame_column"], _END_FRAME_CANDIDATES),
-            score=_resolve_column(frame, columns["score_column"], _SCORE_CANDIDATES),
-            confidence=_resolve_column(
+            end_frame=resolve_column(frame, columns["end_frame_column"], _END_FRAME_CANDIDATES),
+            score=resolve_column(frame, columns["score_column"], _SCORE_CANDIDATES),
+            confidence=resolve_column(
                 frame,
                 columns["confidence_column"],
                 _CONFIDENCE_CANDIDATES,
             ),
-            source_id=_resolve_column(frame, columns["source_id_column"], _SOURCE_ID_CANDIDATES),
+            source_id=resolve_column(frame, columns["source_id_column"], _SOURCE_ID_CANDIDATES),
         )
         if resolved.start is None and resolved.start_frame is None and resolved.frame is None:
             raise ValueError("Behavior CSV must include time or frame index columns.")
