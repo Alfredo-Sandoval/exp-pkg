@@ -1,0 +1,76 @@
+name: Release
+
+# Publish to PyPI when a version tag is pushed (e.g. `v0.1.0`).
+# QA (lint, type check, tests) runs separately in ci.yml on the tagged commit;
+# this workflow builds, verifies the artifacts, and publishes them.
+on:
+  push:
+    tags:
+      - "v*"
+
+# Least privilege at the top level. The publish job opts into id-token below.
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build and verify distributions
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+          cache-dependency-glob: "pyproject.toml"
+
+      # Guard against tagging a commit whose package version does not match the
+      # tag. `v0.1.0` must map to __version__ == "0.1.0".
+      - name: Verify tag matches package version
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          pkg="$(python3 -c 'import re, pathlib; text = pathlib.Path("src/xpkg/version.py").read_text(encoding="utf-8"); print(re.search(r"__version__ = \"([^\"]+)\"", text).group(1))')"
+          echo "tag=$tag package=$pkg"
+          if [ "$tag" != "$pkg" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match package version $pkg" >&2
+            exit 1
+          fi
+
+      - name: Build sdist and wheel
+        run: uv build --out-dir dist
+
+      # twine check validates README rendering and long-description metadata so
+      # PyPI does not reject the upload.
+      - name: Check distributions
+        run: uv tool run --from twine twine check dist/*
+
+      - name: Upload distributions
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+          if-no-files-found: error
+
+  publish:
+    name: Publish to PyPI
+    needs: build
+    runs-on: ubuntu-latest
+    # Requires a PyPI trusted publisher configured for this workflow, and a
+    # GitHub environment named `pypi` (add required reviewers there to gate
+    # releases on manual approval).
+    environment:
+      name: pypi
+      url: https://pypi.org/project/exp-pkg/
+    permissions:
+      id-token: write
+    steps:
+      - name: Download distributions
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1

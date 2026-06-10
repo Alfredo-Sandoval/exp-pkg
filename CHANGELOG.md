@@ -1,42 +1,34 @@
 # Changelog
 
-All notable changes to `exp-pkg` will be documented here.
+Changes for `exp-pkg`.
 
-This project follows semantic versioning after the public API stabilizes. Before
-`1.0`, minor versions may still refine the session, project, and importer
-contracts.
+The Python API and CLI are still pre-1.0. Minor releases may change those
+surfaces. The `.expkg` file layout is treated as the v1 durability contract: a
+zip container with `EXPKG.json`, a project descriptor, private `.xpkg/` state,
+and managed media metadata. Files written by 0.x releases should remain readable
+by later 0.x and 1.0 releases.
 
-The `.expkg` on-disk artifact format is the exception. It is the frozen v1
-durability contract (zip container, `EXPKG.json` manifest, and the project /
-`.xpkg/` / `.expkg` three-class layout). Files written by 0.x releases should
-remain readable by later 0.x and 1.0 releases. The Python API and CLI command
-surface remain 0.x and may change before 1.0.
+## 0.1.0 - 2026-06-10
 
-## Unreleased
+Initial release.
 
-- Adds the `segmentation-overlays` extra for supervision-based overlay export.
-- Removes the stale Vicon and ephys import scope and related tests.
-- Restores the `xpkg` CLI under Typer's vendored click (Typer >= 0.26).
-- Distinguishes `internal_error` from `runtime_error` in the CLI error
-  envelope so bugs in xpkg are reportable as such.
-- Narrows broad exception handling in the project durability layer and state
-  cache so programming errors propagate instead of being swallowed.
-- Renames the log-level environment variable to `XPKG_LOG_LEVEL`.
-- Removes the dead `xpkg.io.converters.converter_helpers` module.
-- Enforces a coverage floor (`fail_under = 65`) in the coverage gate.
-
-## 0.1.0 - 2026-05-20
-
-Initial public package line.
-
-- Defines `exp-pkg` as the distribution name and `xpkg` as the Python import and
-  CLI command.
-- Provides project-first lifecycle APIs through `xpkg.services.ProjectService`.
-- Supports project imports for Anipose calibration, DeepLabCut, Lightning Pose,
-  SLEAP, MMPose, and MediaPipe pose-landmark data.
-- Provides portable `.expkg` artifacts and private `.xpkg/` project state.
-- Ships an agent-friendly Typer CLI with JSON output for canonical commands.
-- Focuses on pose estimation, synchronized video, segmentation masks,
-  calibration metadata, and portable project packaging.
-- Keeps signal and behavior readers as experimental direct readers that are not
-  importable through `ProjectService` or the CLI.
+- `ProjectService` for creating, opening, validating, packing, unpacking, and
+  importing projects, with generated summary indexes and fast `project
+  describe` reads.
+- Project imports for DeepLabCut, Lightning Pose, SLEAP, MMPose, MediaPipe,
+  Anipose calibration, and OpenCV stereo calibration.
+- Direct, experimental readers for photometry, event, and behavior files that
+  parse source files into typed in-memory objects.
+- Portable `.expkg` artifacts with private `.xpkg/` project state and explicit
+  media modes.
+- A Typer CLI with JSON output for command discovery, project operations,
+  imports, inspection, completion, and packaging.
+- Pose, label, skeleton, media, calibration, behavior-label, segmentation-mask,
+  and HDF5 table data models.
+- Segmentation overlay rendering via the optional `segmentation-overlays` extra.
+- Project inspection that reports descriptor, shallow state summary, metadata
+  slots, associated media, and QC warnings without hydrating full payloads.
+- Descriptor validation, SHA-256 checks, and atomic JSON writes for project
+  state.
+- Docs for the project service, CLI, media IO, storage layout, direct readers,
+  and the `.expkg` file contract.
