@@ -178,16 +178,25 @@ def test_root_namespace_is_curated_to_project_first_modules() -> None:
         "segmentation",
         "services",
     ]
-    assert reloaded.adapters is not None
-    assert reloaded.json_utils is not None
-    assert reloaded.media is not None
-    assert reloaded.payloads is not None
-    assert reloaded.project is not None
-    assert reloaded.model is not None
-    assert reloaded.pose is not None
-    assert reloaded.readers is not None
-    assert reloaded.segmentation is not None
-    assert reloaded.services is not None
+    # Each access goes through the lazy __getattr__ loader (the submodules were
+    # popped above) and must resolve to the matching xpkg subpackage.
+    import types
+
+    for sub in (
+        "adapters",
+        "json_utils",
+        "media",
+        "payloads",
+        "project",
+        "model",
+        "pose",
+        "readers",
+        "segmentation",
+        "services",
+    ):
+        module = getattr(reloaded, sub)
+        assert isinstance(module, types.ModuleType)
+        assert module.__name__ == f"xpkg.{sub}"
 
     assert callable(reloaded.readers.read_boris_csv)
     assert callable(reloaded.readers.read_bsoid_csv)
@@ -207,31 +216,24 @@ def test_root_namespace_is_curated_to_project_first_modules() -> None:
     assert callable(reloaded.readers.read_tdt_photometry_block)
     assert callable(reloaded.readers.read_teleopto_h5)
 
-    with pytest.raises(AttributeError):
-        reloaded.__getattribute__("compat")
+    for removed_name in ("compat", "api", "read_doric_photometry", "exchange", "formats"):
+        with pytest.raises(AttributeError, match=removed_name):
+            reloaded.__getattribute__(removed_name)
 
-    with pytest.raises(AttributeError):
-        reloaded.__getattribute__("api")
-
-    with pytest.raises(AttributeError):
-        reloaded.__getattribute__("read_doric_photometry")
-
-    with pytest.raises(AttributeError):
-        reloaded.__getattribute__("exchange")
-
-    with pytest.raises(AttributeError):
-        reloaded.__getattribute__("formats")
 
 def test_public_exports_are_callable() -> None:
-    assert ArtifactFile is not None
-    assert ArtifactIndexEntry is not None
-    assert ArtifactManifest is not None
-    assert ArtifactOutputSpec is not None
-    assert FigureArtifact is not None
-    assert ProjectDescriptor is not None
-    assert SegmentationFrame is not None
-    assert ProjectInspection is not None
-    assert ProjectSummaryIndex is not None
+    import types
+
+    assert callable(ArtifactFile)
+    assert callable(ArtifactIndexEntry)
+    assert callable(ArtifactManifest)
+    # ArtifactOutputSpec is a union type alias, not a constructor.
+    assert isinstance(ArtifactOutputSpec, types.UnionType)
+    assert callable(FigureArtifact)
+    assert callable(ProjectDescriptor)
+    assert callable(SegmentationFrame)
+    assert callable(ProjectInspection)
+    assert callable(ProjectSummaryIndex)
     assert callable(clear_project_segmentation_masks)
     assert callable(current_project_state_path)
     assert callable(default_expkg_path)
@@ -304,14 +306,14 @@ def test_public_exports_are_callable() -> None:
     assert callable(read_rwd_ofrs_session)
     assert callable(read_tdt_photometry_block)
     assert callable(read_teleopto_h5)
-    assert ProjectArtifacts is not None
-    assert ProjectCalibrations is not None
-    assert ProjectFigures is not None
-    assert ProjectMetadata is not None
-    assert ServiceProjectInspection is not None
-    assert ProjectLayout is not None
-    assert ProjectSegmentation is not None
-    assert ProjectService is not None
+    assert callable(ProjectArtifacts)
+    assert callable(ProjectCalibrations)
+    assert callable(ProjectFigures)
+    assert callable(ProjectMetadata)
+    assert callable(ServiceProjectInspection)
+    assert callable(ProjectLayout)
+    assert callable(ProjectSegmentation)
+    assert callable(ProjectService)
 
 
 def test_services_surface_lists_project_service_first() -> None:
@@ -352,42 +354,42 @@ def test_project_service_dispatches_supported_pose_and_calibration_formats() -> 
 
 
 def test_model_exports_are_available() -> None:
-    assert AcquisitionMetadata is not None
+    assert callable(AcquisitionMetadata)
     assert BEHAVIOR_LABELS_SCHEMA_VERSION == "xpkg.behavior_labels.v1"
-    assert BehaviorEmbedding is not None
-    assert BehaviorFrameLabel is not None
-    assert BehaviorInterval is not None
-    assert BehaviorLabels is not None
-    assert CameraMetadata is not None
-    assert DatasetShareMetadata is not None
-    assert Labels is not None
-    assert SuggestionFrame is not None
-    assert Skeleton is not None
-    assert Keypoint is not None
-    assert Track is not None
-    assert LabeledFrame is not None
-    assert Instance is not None
-    assert PredictedInstance is not None
-    assert Point is not None
-    assert PredictedPoint is not None
-    assert PointArray is not None
-    assert PredictedPointArray is not None
-    assert Video is not None
-    assert VideoStub is not None
-    assert EMGSignalData is not None
-    assert Event is not None
-    assert EventTable is not None
-    assert ForcePlateData is not None
-    assert PhotometryChannel is not None
-    assert PhotometryRecording is not None
-    assert RecordingSession is not None
-    assert SignalChannel is not None
-    assert SyncEvent is not None
-    assert Timeline is not None
-    assert TimeRange is not None
-    assert TimeSeries is not None
-    assert Timebase is not None
-    assert KPFlag is not None
+    assert callable(BehaviorEmbedding)
+    assert callable(BehaviorFrameLabel)
+    assert callable(BehaviorInterval)
+    assert callable(BehaviorLabels)
+    assert callable(CameraMetadata)
+    assert callable(DatasetShareMetadata)
+    assert callable(Labels)
+    assert callable(SuggestionFrame)
+    assert callable(Skeleton)
+    assert callable(Keypoint)
+    assert callable(Track)
+    assert callable(LabeledFrame)
+    assert callable(Instance)
+    assert callable(PredictedInstance)
+    assert callable(Point)
+    assert callable(PredictedPoint)
+    assert callable(PointArray)
+    assert callable(PredictedPointArray)
+    assert callable(Video)
+    assert callable(VideoStub)
+    assert callable(EMGSignalData)
+    assert callable(Event)
+    assert callable(EventTable)
+    assert callable(ForcePlateData)
+    assert callable(PhotometryChannel)
+    assert callable(PhotometryRecording)
+    assert callable(RecordingSession)
+    assert callable(SignalChannel)
+    assert callable(SyncEvent)
+    assert callable(Timeline)
+    assert callable(TimeRange)
+    assert callable(TimeSeries)
+    assert callable(Timebase)
+    assert callable(KPFlag)
     assert callable(build_prediction_stub)
     assert callable(build_keypoint_skeleton)
     assert callable(is_predicted_instance)

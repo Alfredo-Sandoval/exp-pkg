@@ -22,23 +22,33 @@ def test_cli_version_prints_package_version_contract(capsys) -> None:
     assert captured_streams.out == f"xpkg {__version__}\n"
 
 
-def test_cli_rejects_removed_compat_commands() -> None:
+@pytest.mark.parametrize(
+    "argv",
+    [
+        pytest.param(["init", "My Project"], id="root-init"),
+        pytest.param(["convert", "dlc", "csv"], id="root-convert"),
+        pytest.param(
+            ["import", "detectron2", "--predictions", "coco_instances_results.json"],
+            id="import-detectron2",
+        ),
+        pytest.param(
+            ["import", "openpose", "--json", "openpose_json", "--out", "My Project"],
+            id="import-openpose",
+        ),
+        pytest.param(
+            ["import", "sleap", "--slp", "labels.pkg.slp", "--out", "My Project"],
+            id="import-sleap",
+        ),
+    ],
+)
+def test_cli_rejects_removed_compat_commands(argv: list[str]) -> None:
     from xpkg.cli import main
 
-    with pytest.raises(SystemExit):
-        main(["init", "My Project"])
-
-    with pytest.raises(SystemExit):
-        main(["convert", "dlc", "csv"])
-
-    with pytest.raises(SystemExit):
-        main(["import", "detectron2", "--predictions", "coco_instances_results.json"])
-
-    with pytest.raises(SystemExit):
-        main(["import", "openpose", "--json", "openpose_json", "--out", "My Project"])
-
-    with pytest.raises(SystemExit):
-        main(["import", "sleap", "--slp", "labels.pkg.slp", "--out", "My Project"])
+    # Removed commands exit with the contract's not-found code, not a
+    # generic usage failure.
+    with pytest.raises(SystemExit) as exc_info:
+        main(argv)
+    assert exc_info.value.code == 3
 
 
 def test_cli_routes_init_project(monkeypatch, capsys) -> None:

@@ -80,8 +80,36 @@ def test_skeleton_from_dict_normalizes_and_validates_payloads() -> None:
 def test_skeleton_hash_and_lr_partner_contracts_are_stable() -> None:
     skeleton = _simple_skeleton()
 
-    assert isinstance(skeleton.content_hash(), str)
-    assert skeleton.content_hash() == skeleton.content_hash()
-    assert isinstance(skeleton.compute_hash(), str)
-    assert skeleton.compute_hash() == skeleton.compute_hash()
+    # compute_hash is documented as stable across releases (it guards model
+    # metadata against skeleton mismatch), so the exact value is the contract.
+    assert skeleton.content_hash() == "b2f6689ce7700ab7"
+    assert skeleton.compute_hash() == (
+        "6f2256c8a95d8ff416b186cf1dbbaaa0ca9b86bb0a773bbe553978ed2825e897"
+    )
+    # Structurally equal skeletons built independently hash identically.
+    assert _simple_skeleton().content_hash() == skeleton.content_hash()
     assert skeleton.lr_partner_map() == {0: None, 1: 2, 2: 1}
+
+
+def test_skeleton_content_hash_changes_with_structure() -> None:
+    renamed = Skeleton(
+        name="test",
+        keypoints=[
+            Keypoint(id=0, name="nose"),
+            Keypoint(id=1, name="left_ear", side="left"),
+            Keypoint(id=2, name="right_eye", side="right"),
+        ],
+        links_ids=[(0, 1), (0, 2)],
+    )
+    assert renamed.content_hash() == "bdcbedbf2d607c5f"
+
+    fewer_links = Skeleton(
+        name="test",
+        keypoints=[
+            Keypoint(id=0, name="nose"),
+            Keypoint(id=1, name="left_eye", side="left"),
+            Keypoint(id=2, name="right_eye", side="right"),
+        ],
+        links_ids=[(0, 1)],
+    )
+    assert fewer_links.content_hash() == "be7aad36dae298e6"

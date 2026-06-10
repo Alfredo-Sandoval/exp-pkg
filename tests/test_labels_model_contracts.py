@@ -118,7 +118,7 @@ def test_validate_rejects_shared_instance_lists_duplicate_tracks_and_point_drift
     frame.instances.pop()
     first_any = cast(Any, first)
     first_any._points = first_any._points[:1]
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="Instance points length does not match skeleton"):
         labels.validate()
 
 
