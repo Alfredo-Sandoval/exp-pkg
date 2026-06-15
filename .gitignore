@@ -218,6 +218,9 @@ __marimo__/
 # Repository setup hygiene
 .claude/
 .codex/
+/CLAUDE.md
+/AGENTS.md
+/todo.md
 logs/agent_swarm/
 tests/vendor_data/
 src/xpkg/media/todo.md
