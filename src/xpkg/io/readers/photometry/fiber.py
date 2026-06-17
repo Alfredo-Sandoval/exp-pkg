@@ -44,6 +44,9 @@ _NPM_METADATA_COLUMNS = {
     "timestamp",
 }
 _NPM_STATE_COLUMNS = ("Flags", "LedState")
+_NPM_DEFAULT_LED_CODE_TO_NM = {1: 415, 2: 470, 4: 560}
+_NPM_SIGNAL_NM = 470
+_NPM_REFERENCE_NM = 415
 _RWD_SIGNAL_SUFFIXES = ("-470", "_470", "-560", "_560")
 _RWD_REFERENCE_SUFFIXES = ("-410", "_410", "-405", "_405", "-415", "_415")
 _TELEOPTO_EVENT_KEYS = ("ct1", "ct2", "ct3", "ct4", "ar1", "ar2")
@@ -245,6 +248,132 @@ def read_pmat_events_csv(
     return EventTable.from_events(rows)
 
 
+def _npm_led_code_map(value: Mapping[int, int] | None) -> dict[int, int]:
+    source = _NPM_DEFAULT_LED_CODE_TO_NM if value is None else value
+    result: dict[int, int] = {}
+    for raw_code, raw_nm in source.items():
+        try:
+            code = int(raw_code)
+            nm = int(raw_nm)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("Neurophotometrics LED code map must contain integers.") from exc
+        result[code] = nm
+    return result
+
+
+def _npm_state_values(frame: pd.DataFrame, state_column: str) -> np.ndarray:
+    values = _numeric(frame, state_column)
+    rounded = np.rint(values)
+    if not np.allclose(values, rounded, rtol=0.0, atol=0.0):
+        raise ValueError(
+            f"Neurophotometrics state column {state_column!r} must contain integer LED codes."
+        )
+    return rounded.astype(np.int64)
+
+
+def _npm_channel_name(roi_column: str, *, code: int, nm: int | None) -> str:
+    if nm is None:
+        return f"{roi_column}_led_state_{code}"
+    return f"{roi_column}_{nm}nm"
+
+
+def _npm_demux_photometry(
+    *,
+    frame: pd.DataFrame,
+    timestamps: np.ndarray,
+    state: np.ndarray,
+    source_path: Path,
+    roi_columns: Sequence[str],
+    signal_column: str,
+    reference_column: str | None,
+    state_column: str,
+    code_map: Mapping[int, int],
+    signal_nm: int,
+    reference_nm: int,
+) -> PhotometryRecording:
+    codes = sorted({int(code) for code in np.unique(state) if int(code) != 0})
+    signal_code = next(
+        (code for code in codes if code_map.get(code) == signal_nm),
+        None,
+    )
+    if signal_code is None:
+        raise ValueError(
+            f"Neurophotometrics CSV '{source_path}' has no {signal_nm} nm signal "
+            f"LED (found LedState codes {codes}). Pass led_code_to_nm to map the "
+            "signal LED if this rig uses a non-default encoding."
+        )
+
+    reference_code = next(
+        (code for code in codes if code_map.get(code) == reference_nm),
+        None,
+    )
+    signal_values = _numeric(frame, signal_column)
+    reference_roi = reference_column or signal_column
+    reference_values = _numeric(frame, reference_roi)
+
+    streams: dict[int, tuple[int | None, str, np.ndarray, np.ndarray]] = {}
+    for code in codes:
+        nm = code_map.get(code)
+        roi_column = reference_roi if code == reference_code else signal_column
+        values = reference_values if code == reference_code else signal_values
+        mask = state == code
+        streams[code] = (nm, roi_column, timestamps[mask], values[mask])
+
+    channel_order = [signal_code]
+    if reference_code is not None and reference_code not in channel_order:
+        channel_order.append(reference_code)
+    channel_order.extend(code for code in codes if code not in channel_order)
+
+    aligned_count = min(streams[code][3].size for code in channel_order)
+    if aligned_count <= 0:
+        raise ValueError("Neurophotometrics LED demux produced an empty signal stream.")
+    signal_times = streams[signal_code][2][:aligned_count]
+
+    channel_names: list[str] = []
+    arrays: list[np.ndarray] = []
+    original_counts: dict[str, int] = {}
+    for code in channel_order:
+        nm, roi_column, _stream_time, stream_values = streams[code]
+        channel_name = _npm_channel_name(roi_column, code=code, nm=nm)
+        channel_names.append(channel_name)
+        arrays.append(stream_values[:aligned_count])
+        original_counts[channel_name] = int(stream_values.size)
+
+    signal_name = _npm_channel_name(signal_column, code=signal_code, nm=signal_nm)
+    reference_name = (
+        _npm_channel_name(reference_roi, code=reference_code, nm=reference_nm)
+        if reference_code is not None
+        else None
+    )
+    values = np.column_stack(arrays)
+    return _photometry_recording(
+        values=values,
+        channel_names=channel_names,
+        timeline=_timeline_from_time(signal_times),
+        source_type="neurophotometrics_csv",
+        source_path=source_path,
+        signal_channel=signal_name,
+        reference_channel=reference_name,
+        metadata={
+            "raw_roi_columns": list(roi_columns),
+            "led_demux": {
+                "applied": True,
+                "state_column": state_column,
+                "code_to_nm": {str(code): nm for code, nm in sorted(code_map.items())},
+                "codes_present": codes,
+                "signal_code": signal_code,
+                "reference_code": reference_code,
+                "signal_nm": signal_nm,
+                "reference_nm": reference_nm,
+                "signal_roi_column": signal_column,
+                "reference_roi_column": reference_roi if reference_code is not None else None,
+                "aligned_sample_count": int(aligned_count),
+                "raw_sample_counts": original_counts,
+            },
+        },
+    )
+
+
 def read_neurophotometrics_csv(
     path: str | Path,
     *,
@@ -252,6 +381,9 @@ def read_neurophotometrics_csv(
     signal_column: str | None = None,
     reference_column: str | None = None,
     time_unit: TimeUnit = "s",
+    led_code_to_nm: Mapping[int, int] | None = None,
+    signal_nm: int = _NPM_SIGNAL_NM,
+    reference_nm: int = _NPM_REFERENCE_NM,
 ) -> RecordingSession:
     """Read a Neurophotometrics/Bonsai photometry writer CSV export."""
 
@@ -279,22 +411,41 @@ def read_neurophotometrics_csv(
     resolved_signal = _column(frame, signal_column) if signal_column else roi_columns[0]
     resolved_reference = _column(frame, reference_column) if reference_column else None
     timestamps = _numeric(frame, resolved_time) * _time_scale(time_unit)
-    values = np.column_stack([_numeric(frame, column) for column in roi_columns])
-    photometry = _photometry_recording(
-        values=values,
-        channel_names=roi_columns,
-        timeline=_timeline_from_time(timestamps),
-        source_type="neurophotometrics_csv",
-        source_path=source_path,
-        signal_channel=resolved_signal,
-        reference_channel=resolved_reference,
-    )
+    led_map = _npm_led_code_map(led_code_to_nm)
+    if state_column is None:
+        values = np.column_stack([_numeric(frame, column) for column in roi_columns])
+        photometry = _photometry_recording(
+            values=values,
+            channel_names=roi_columns,
+            timeline=_timeline_from_time(timestamps),
+            source_type="neurophotometrics_csv",
+            source_path=source_path,
+            signal_channel=resolved_signal,
+            reference_channel=resolved_reference,
+            metadata={"led_demux": {"applied": False}},
+        )
+        state_values = None
+    else:
+        state_values = _npm_state_values(frame, state_column)
+        photometry = _npm_demux_photometry(
+            frame=frame,
+            timestamps=timestamps,
+            state=state_values,
+            source_path=source_path,
+            roi_columns=roi_columns,
+            signal_column=resolved_signal,
+            reference_column=resolved_reference,
+            state_column=state_column,
+            code_map=led_map,
+            signal_nm=int(signal_nm),
+            reference_nm=int(reference_nm),
+        )
     signals: dict[str, TimeSeries | PhotometryRecording] = {"photometry": photometry}
-    if state_column is not None:
+    if state_column is not None and state_values is not None:
         signals["flags"] = TimeSeries(
-            values=_numeric(frame, state_column),
+            values=state_values,
             channels=(SignalChannel(name=state_column, unit="state"),),
-            timeline=photometry.timeline,
+            timeline=_timeline_from_time(timestamps),
             name="neurophotometrics_state",
             provenance={"source": {"type": "neurophotometrics_csv", "path": str(source_path)}},
         )

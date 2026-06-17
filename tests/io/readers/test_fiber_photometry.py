@@ -44,7 +44,7 @@ def test_read_pmat_csv_and_events(tmp_path) -> None:
     assert events.events[0].duration_s == pytest.approx(0.15)
 
 
-def test_read_neurophotometrics_csv_preserves_roi_channels_and_flags(tmp_path) -> None:
+def test_read_neurophotometrics_csv_demuxes_led_state_channels(tmp_path) -> None:
     path = tmp_path / "npm.csv"
     path.write_text(
         "\n".join(
@@ -62,10 +62,68 @@ def test_read_neurophotometrics_csv_preserves_roi_channels_and_flags(tmp_path) -
 
     assert isinstance(session, RecordingSession)
     assert isinstance(photometry, PhotometryRecording)
-    assert photometry.channel_names == ("Region0G", "Region0R")
-    assert photometry.reference_channel == "Region0R"
+    assert photometry.channel_names == ("Region0G_470nm", "Region0R_415nm")
+    assert photometry.signal_channel == "Region0G_470nm"
+    assert photometry.reference_channel == "Region0R_415nm"
+    assert photometry.metadata["led_demux"]["applied"] is True
+    assert photometry.metadata["led_demux"]["codes_present"] == [1, 2]
+    assert photometry.metadata["led_demux"]["code_to_nm"] == {
+        "1": 415,
+        "2": 470,
+        "4": 560,
+    }
+    np.testing.assert_allclose(photometry.timeline.timestamps_s, [0.1])
+    np.testing.assert_allclose(photometry.series.values, [[0.3, 0.1]])
     assert "flags" in session.signals
     assert session.metadata["frame_counter"] == [0, 1]
+
+
+def test_read_neurophotometrics_csv_accepts_custom_led_map(tmp_path) -> None:
+    path = tmp_path / "custom_npm.csv"
+    path.write_text(
+        "\n".join(
+            [
+                "Timestamp,LedState,Region0G",
+                "0.0,7,100.0",
+                "0.1,1,50.0",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    photometry = read_neurophotometrics_csv(
+        path,
+        led_code_to_nm={7: 470, 1: 415},
+    ).signals["photometry"]
+
+    assert photometry.signal_channel == "Region0G_470nm"
+    assert photometry.reference_channel == "Region0G_415nm"
+    assert photometry.metadata["led_demux"]["signal_code"] == 7
+
+
+def test_read_neurophotometrics_csv_preserves_raw_channels_without_state(
+    tmp_path,
+) -> None:
+    path = tmp_path / "raw_npm.csv"
+    path.write_text(
+        "\n".join(
+            [
+                "Timestamp,Region0G,Region0R",
+                "0.0,0.2,0.1",
+                "0.1,0.3,0.2",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    photometry = read_neurophotometrics_csv(
+        path,
+        reference_column="Region0R",
+    ).signals["photometry"]
+
+    assert photometry.channel_names == ("Region0G", "Region0R")
+    assert photometry.reference_channel == "Region0R"
+    assert photometry.metadata["led_demux"] == {"applied": False}
 
 
 def test_read_rwd_ofrs_session_parses_multicolor_bundle_and_events(tmp_path) -> None:
