@@ -15,6 +15,7 @@ from __future__ import annotations
 from xpkg.io.readers import (
     KNOWN_BEHAVIOR_SOURCE_TYPES,
     PoseTrack,
+    is_teleopto_h5,
     parse_teleopto_h5_arrays,
     read_anipose_calibration,
     read_behavior_events_csv,
@@ -45,6 +46,7 @@ from xpkg.io.readers import (
 __all__ = [
     "PoseTrack",
     "KNOWN_BEHAVIOR_SOURCE_TYPES",
+    "is_teleopto_h5",
     "parse_teleopto_h5_arrays",
     "read_anipose_calibration",
     "read_boris_csv",

@@ -7,6 +7,7 @@ import numpy as np
 import pytest
 
 from xpkg.io.readers import (
+    is_teleopto_h5,
     parse_teleopto_h5_arrays,
     read_doric_photometry,
     read_neurophotometrics_csv,
@@ -579,6 +580,8 @@ def test_read_teleopto_h5_extracts_channels_and_ttl(tmp_path) -> None:
         handle.create_dataset("str", data=np.asarray([b"Signal", b"", b"TTL"]))
         handle.create_dataset("ct1", data=np.asarray([0.15]))
 
+    assert is_teleopto_h5(path) is True
+
     session = read_teleopto_h5(path)
     photometry = session.signals["photometry"]
 
@@ -597,6 +600,21 @@ def test_read_teleopto_h5_extracts_channels_and_ttl(tmp_path) -> None:
     assert {"ct1", "TTL_ttl", "press_on_times", "press_off_times"} <= set(by_label)
     assert by_label["ct1"] == pytest.approx(0.15)
     assert by_label["TTL_ttl"] == pytest.approx(0.2)
+
+
+def test_is_teleopto_h5_rejects_missing_contract_and_non_hdf5(tmp_path) -> None:
+    missing_key_path = tmp_path / "missing-key.h5"
+    with h5py.File(missing_key_path, "w") as handle:
+        handle.create_dataset("d1", data=np.asarray([1.0]))
+        handle.create_dataset("num", data=np.asarray([0.0, 10.0]))
+        handle.create_dataset("st1", data=np.asarray([0.1]))
+
+    text_path = tmp_path / "not-hdf5.h5"
+    text_path.write_text("not hdf5", encoding="utf-8")
+
+    assert is_teleopto_h5(missing_key_path) is False
+    assert is_teleopto_h5(text_path) is False
+    assert is_teleopto_h5(tmp_path / "missing.h5") is False
 
 
 def test_parse_teleopto_h5_arrays_matches_file_semantics() -> None:

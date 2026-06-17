@@ -50,6 +50,7 @@ _NPM_REFERENCE_NM = 415
 _RWD_SIGNAL_SUFFIXES = ("-470", "_470", "-560", "_560")
 _RWD_REFERENCE_SUFFIXES = ("-410", "_410", "-405", "_405", "-415", "_415")
 _TELEOPTO_EVENT_KEYS = ("ct1", "ct2", "ct3", "ct4", "ar1", "ar2")
+_TELEOPTO_REQUIRED_KEYS = frozenset({"d1", "num", "st1", "str"})
 
 
 def _time_scale(unit: TimeUnit) -> float:
@@ -995,6 +996,19 @@ def read_teleopto_h5(
         )
 
 
+def is_teleopto_h5(path: str | Path) -> bool:
+    """Return whether ``path`` has the Teleopto/PMAT HDF5 dataset contract."""
+
+    source_path = Path(path)
+    if not source_path.is_file() or not h5py.is_hdf5(source_path):
+        return False
+    try:
+        with h5py.File(source_path, "r") as handle:
+            return _TELEOPTO_REQUIRED_KEYS.issubset(handle.keys())
+    except OSError:
+        return False
+
+
 def parse_teleopto_h5_arrays(
     datasets: Mapping[str, object],
     *,
@@ -1004,8 +1018,7 @@ def parse_teleopto_h5_arrays(
 ) -> RecordingSession:
     """Parse Teleopto/PMAT-style HDF5 datasets already loaded in memory."""
 
-    required = {"d1", "num", "st1", "str"}
-    missing = sorted(required.difference(datasets.keys()))
+    missing = sorted(_TELEOPTO_REQUIRED_KEYS.difference(datasets.keys()))
     if missing:
         raise ValueError(f"Teleopto H5 missing required datasets: {missing}.")
     d1 = _finite_vector(datasets["d1"], "Teleopto H5 d1")
@@ -1287,6 +1300,7 @@ def read_tdt_photometry_block(
 
 
 __all__ = [
+    "is_teleopto_h5",
     "read_doric_photometry",
     "read_neurophotometrics_csv",
     "parse_teleopto_h5_arrays",
