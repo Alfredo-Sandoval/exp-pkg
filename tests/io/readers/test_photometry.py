@@ -95,6 +95,20 @@ def test_read_events_csv_uses_default_kind_without_label_columns(tmp_path) -> No
     np.testing.assert_allclose([event.start_s for event in events], [0.1, 0.2])
 
 
+@pytest.mark.parametrize("column", ["event", "events"])
+def test_read_events_csv_accepts_event_named_time_columns(
+    tmp_path,
+    column: str,
+) -> None:
+    path = tmp_path / f"{column}.csv"
+    path.write_text(f"{column},label\n0.2,cue\n0.1,reward\n", encoding="utf-8")
+
+    events = read_events_csv(path)
+
+    assert [event.label for event in events] == ["reward", "cue"]
+    np.testing.assert_allclose([event.start_s for event in events], [0.1, 0.2])
+
+
 def test_csv_readers_enforce_file_size_limit(tmp_path) -> None:
     path = tmp_path / "photometry.csv"
     path.write_text("time,gcamp\n0,1\n1,2\n", encoding="utf-8")

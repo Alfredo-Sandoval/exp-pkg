@@ -25,7 +25,14 @@ from xpkg.model import (
 
 TimeUnit = Literal["s", "sec", "second", "seconds", "ms", "millisecond", "milliseconds"]
 
-_TIME_COLUMN_CANDIDATES = ("time", "timestamp", "timestamps", "event_time")
+_TIME_COLUMN_CANDIDATES = (
+    "time",
+    "timestamp",
+    "timestamps",
+    "event_time",
+    "event",
+    "events",
+)
 _EVENT_LABEL_CANDIDATES = (
     "label",
     "event_label",
