@@ -633,6 +633,31 @@ def _rwd_event_table(events_path: Path, time_scale: float) -> tuple[EventTable, 
     return EventTable.from_events(rows), event_metadata
 
 
+def is_rwd_ofrs_session(path: str | Path) -> bool:
+    """Return whether ``path`` has the RWD/OFRS CSV session contract."""
+
+    session_path = Path(path)
+    fluorescence_path = session_path / "Fluorescence.csv"
+    if not fluorescence_path.is_file():
+        return False
+    try:
+        with fluorescence_path.open("r", encoding="utf-8", errors="ignore") as handle:
+            first_line = handle.readline()
+            second_line = handle.readline()
+    except OSError:
+        return False
+
+    header_line = second_line if first_line.lstrip().startswith("{") else first_line
+    if not header_line:
+        return False
+
+    columns = [token.strip() for token in header_line.strip().split(",") if token.strip()]
+    time_columns = {candidate.lower() for candidate in _TIME_COLUMNS}
+    has_time = any(column.lower() in time_columns for column in columns)
+    has_signal = any(column.endswith(_RWD_SIGNAL_SUFFIXES) for column in columns)
+    return has_time and has_signal
+
+
 def read_rwd_ofrs_session(path: str | Path) -> RecordingSession:
     """Read an RWD OFRS CSV session bundle."""
 
@@ -1317,6 +1342,7 @@ def read_tdt_photometry_block(
 __all__ = [
     "is_teleopto_h5",
     "is_neurophotometrics_csv",
+    "is_rwd_ofrs_session",
     "read_doric_photometry",
     "read_neurophotometrics_csv",
     "parse_teleopto_h5_arrays",

@@ -8,6 +8,7 @@ import pytest
 
 from xpkg.io.readers import (
     is_neurophotometrics_csv,
+    is_rwd_ofrs_session,
     is_teleopto_h5,
     parse_teleopto_h5_arrays,
     read_doric_photometry,
@@ -198,6 +199,38 @@ def test_read_neurophotometrics_csv_rejects_irregular_raw_timebase(tmp_path) -> 
 
     with pytest.raises(ValueError, match="uniformly sampled"):
         read_neurophotometrics_csv(path)
+
+
+def test_is_rwd_ofrs_session_detects_fluorescence_bundle(tmp_path) -> None:
+    session_dir = tmp_path / "rwd-session"
+    session_dir.mkdir()
+    (session_dir / "Fluorescence.csv").write_text(
+        "\n".join(
+            [
+                '{"Fps":30.0;"Channels":[{"Name":"CH1"}]}',
+                "TimeStamp,Events,CH1-410,CH1-470,",
+                "0.000,,1.0,2.0,",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    no_metadata_dir = tmp_path / "rwd-session-no-metadata"
+    no_metadata_dir.mkdir()
+    (no_metadata_dir / "Fluorescence.csv").write_text(
+        "Timestamp,Events,CH1-560,\n0.000,,3.0,\n",
+        encoding="utf-8",
+    )
+    plain_dir = tmp_path / "plain"
+    plain_dir.mkdir()
+    (plain_dir / "Fluorescence.csv").write_text(
+        "time,signal\n0.0,1.0\n",
+        encoding="utf-8",
+    )
+
+    assert is_rwd_ofrs_session(session_dir) is True
+    assert is_rwd_ofrs_session(no_metadata_dir) is True
+    assert is_rwd_ofrs_session(plain_dir) is False
+    assert is_rwd_ofrs_session(tmp_path / "missing") is False
 
 
 def test_read_rwd_ofrs_session_parses_multicolor_bundle_and_events(tmp_path) -> None:
