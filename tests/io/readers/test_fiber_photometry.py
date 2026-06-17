@@ -438,6 +438,8 @@ def test_read_tdt_photometry_block_uses_optional_module() -> None:
     assert isinstance(photometry, PhotometryRecording)
     assert photometry.signal_channel == "x465A"
     assert photometry.reference_channel == "x405A"
+    assert photometry.metadata["channel_inference"] == "explicit_store"
+    assert photometry.metadata["reference_channel_inference"] == "explicit_store"
     assert session.events.events[0].label == "Cue"
 
 
@@ -463,9 +465,31 @@ def test_read_tdt_photometry_block_prefers_official_wavelength_stores() -> None:
     assert photometry.signal_channel == "_465A"
     assert photometry.reference_channel == "_405A"
     assert photometry.metadata["stores"] == ["_465A", "_405A", "Fi1r"]
+    assert photometry.metadata["channel_inference"] == "wavelength_tokens"
+    assert photometry.metadata["reference_channel_inference"] == "wavelength_tokens"
     assert photometry.metadata["stream_start_s"] == pytest.approx(0.05)
     assert photometry.series.sample_rate_hz == pytest.approx(100.0)
     np.testing.assert_allclose(photometry.series.values[:, 0], [1.0, 1.1, 1.2])
     np.testing.assert_allclose(photometry.series.values[:, 1], [0.5, 0.4, 0.3])
     assert [event.label for event in session.events] == ["Cam1", "Cam1"]
     np.testing.assert_allclose([event.start_s for event in session.events], [0.05, 0.15])
+
+
+def test_read_tdt_photometry_block_flags_storage_order_signal() -> None:
+    streams = SimpleNamespace(
+        RandomStore=SimpleNamespace(data=np.asarray([1.0, 1.1, 1.2]), fs=100.0),
+        OtherStore=SimpleNamespace(data=np.asarray([0.5, 0.4, 0.3]), fs=100.0),
+    )
+    fake_tdt = SimpleNamespace(
+        read_block=lambda *_args, **_kwargs: SimpleNamespace(
+            streams=streams,
+            epocs=SimpleNamespace(),
+        )
+    )
+
+    session = read_tdt_photometry_block("tank/block", tdt_module=fake_tdt)
+    photometry = session.signals["photometry"]
+
+    assert isinstance(photometry, PhotometryRecording)
+    assert photometry.signal_channel == "RandomStore"
+    assert photometry.metadata["channel_inference"] == "storage_order"

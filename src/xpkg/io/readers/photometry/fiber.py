@@ -870,6 +870,15 @@ def _rank_tdt_streams(names: Sequence[str]) -> list[str]:
     return [name for _category, _order, name in scored]
 
 
+def _tdt_channel_inference(name: str, *, explicit: bool) -> str:
+    if explicit:
+        return "explicit_store"
+    lowered = name.lower().lstrip("_")
+    if any(token in lowered for token in _TDT_SIGNAL_TOKENS + _TDT_REFERENCE_TOKENS):
+        return "wavelength_tokens"
+    return "storage_order"
+
+
 def _one_dimensional(values: object) -> np.ndarray:
     array = np.asarray(values, dtype=np.float64)
     if array.ndim == 1:
@@ -939,6 +948,7 @@ def read_tdt_photometry_block(
     if not stream_map:
         raise ValueError("TDT block did not contain readable stream data.")
     ranked = _rank_tdt_streams(tuple(stream_map))
+    signal_explicit = signal_store is not None
     resolved_signal = signal_store or ranked[0]
     if resolved_signal not in stream_map:
         raise ValueError(f"TDT signal store {resolved_signal!r} was not found.")
@@ -949,6 +959,7 @@ def read_tdt_photometry_block(
     sample_rate = float(getattr(signal, "fs", 0.0) or 0.0)
     if not np.isfinite(sample_rate) or sample_rate <= 0:
         raise ValueError(f"TDT stream {resolved_signal!r} is missing a positive sampling rate.")
+    reference_explicit = reference_store is not None
     resolved_reference = reference_store
     if resolved_reference is None:
         resolved_reference = next((name for name in ranked if name != resolved_signal), None)
@@ -972,7 +983,22 @@ def read_tdt_photometry_block(
         source_path=block_path,
         signal_channel=resolved_signal,
         reference_channel=resolved_reference,
-        metadata={"stores": ranked, "stream_start_s": stream_start_s},
+        metadata={
+            "stores": ranked,
+            "stream_start_s": stream_start_s,
+            "channel_inference": _tdt_channel_inference(
+                resolved_signal,
+                explicit=signal_explicit,
+            ),
+            "reference_channel_inference": (
+                _tdt_channel_inference(
+                    resolved_reference,
+                    explicit=reference_explicit,
+                )
+                if resolved_reference is not None
+                else None
+            ),
+        },
     )
     event_map = _tdt_epoc_times(
         getattr(data, "epocs", object()),
