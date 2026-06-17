@@ -22,6 +22,7 @@ from xpkg.io.readers import (
     find_first_pyphotometry_ppd_file,
     find_first_teleopto_h5,
     find_photometry_session_entries,
+    find_tdt_block_directories,
     is_doric_photometry_file,
     is_neurophotometrics_csv,
     is_nwb_photometry_file,
@@ -54,6 +55,7 @@ from xpkg.io.readers import (
     read_tdt_photometry_block,
     read_teleopto_h5,
     resolve_pose_node_indices,
+    resolve_tdt_block_path,
     write_anipose_calibration,
 )
 
@@ -67,6 +69,7 @@ __all__ = [
     "find_first_pyphotometry_ppd_file",
     "find_first_teleopto_h5",
     "find_photometry_session_entries",
+    "find_tdt_block_directories",
     "is_doric_photometry_file",
     "is_neurophotometrics_csv",
     "is_nwb_photometry_file",
@@ -98,6 +101,7 @@ __all__ = [
     "read_rwd_ofrs_session",
     "read_tdt_photometry_block",
     "read_teleopto_h5",
+    "resolve_tdt_block_path",
     "resolve_pose_node_indices",
     "write_anipose_calibration",
 ]

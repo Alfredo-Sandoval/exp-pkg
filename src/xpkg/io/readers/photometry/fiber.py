@@ -1226,6 +1226,25 @@ def _tdt_file_dirs(root: Path, suffix: str) -> set[Path]:
     }
 
 
+def _is_tdt_block_directory(path: Path) -> bool:
+    if not path.is_dir():
+        return False
+    tsq_stems: set[str] = set()
+    tev_stems: set[str] = set()
+    has_sev = False
+    for child in path.iterdir():
+        if not child.is_file():
+            continue
+        suffix = child.suffix.lower()
+        if suffix == ".tsq":
+            tsq_stems.add(child.stem.lower())
+        elif suffix == ".tev":
+            tev_stems.add(child.stem.lower())
+        elif suffix == ".sev":
+            has_sev = True
+    return bool(tsq_stems & tev_stems) or has_sev
+
+
 def is_tdt_block(path: str | Path) -> bool:
     """Return whether ``path`` contains TDT block files."""
 
@@ -1237,6 +1256,50 @@ def is_tdt_block(path: str | Path) -> bool:
     if tsq_blocks & tev_blocks:
         return True
     return bool(_tdt_file_dirs(root, ".sev"))
+
+
+def find_tdt_block_directories(
+    path: str | Path,
+    *,
+    include_hidden_dirs: bool = False,
+) -> list[Path]:
+    """Return exact TDT block directories under ``path``."""
+
+    root = Path(path)
+    if not root.is_dir():
+        return []
+
+    entries: list[Path] = []
+
+    def visit(directory: Path) -> None:
+        if _is_tdt_block_directory(directory):
+            entries.append(directory.resolve())
+            return
+        for child in sorted(directory.iterdir()):
+            if not child.is_dir():
+                continue
+            if not include_hidden_dirs and child.name.startswith("."):
+                continue
+            visit(child)
+
+    visit(root)
+    return sorted(set(entries), key=lambda entry: str(entry))
+
+
+def resolve_tdt_block_path(path: str | Path) -> Path:
+    """Resolve ``path`` to one exact TDT block directory."""
+
+    entries = find_tdt_block_directories(path)
+    if not entries:
+        raise ValueError(f"No TDT block found in {str(path)!r}.")
+    if len(entries) == 1:
+        return entries[0]
+
+    entry_list = ", ".join(str(entry) for entry in entries)
+    raise ValueError(
+        f"Multiple TDT blocks found in {str(path)!r}; pass an exact block "
+        f"directory. Found: {entry_list}."
+    )
 
 
 def _iter_tdt_streams(streams_obj: Any) -> Iterable[tuple[str, Any]]:
@@ -1462,6 +1525,7 @@ __all__ = [
     "find_first_doric_photometry_file",
     "find_first_neurophotometrics_csv",
     "find_first_teleopto_h5",
+    "find_tdt_block_directories",
     "is_teleopto_h5",
     "is_doric_photometry_file",
     "is_neurophotometrics_csv",
@@ -1475,4 +1539,5 @@ __all__ = [
     "read_rwd_ofrs_session",
     "read_tdt_photometry_block",
     "read_teleopto_h5",
+    "resolve_tdt_block_path",
 ]

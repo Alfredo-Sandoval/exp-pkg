@@ -12,6 +12,7 @@ from xpkg.io.readers import (
     find_first_nwb_photometry_file,
     find_first_teleopto_h5,
     find_photometry_session_entries,
+    find_tdt_block_directories,
     is_doric_photometry_file,
     is_neurophotometrics_csv,
     is_nwb_photometry_file,
@@ -27,6 +28,7 @@ from xpkg.io.readers import (
     read_rwd_ofrs_session,
     read_tdt_photometry_block,
     read_teleopto_h5,
+    resolve_tdt_block_path,
 )
 from xpkg.model import EventTable, PhotometryRecording, RecordingSession
 
@@ -987,6 +989,56 @@ def test_is_tdt_block_detects_sev_stream_blocks(tmp_path) -> None:
     (sev_only_dir / "Tank_Subject_x405A_ch1.sev").write_bytes(b"")
 
     assert is_tdt_block(sev_only_dir) is True
+
+
+def test_find_tdt_block_directories_returns_exact_blocks(tmp_path) -> None:
+    first = tmp_path / "tank" / "subject_a"
+    first.mkdir(parents=True)
+    (first / "BLOCK.TSQ").write_bytes(b"")
+    (first / "BLOCK.TEV").write_bytes(b"")
+
+    second = tmp_path / "tank" / "subject_b"
+    second.mkdir()
+    (second / "Tank_Subject_x465A_ch1.sev").write_bytes(b"")
+
+    hidden = tmp_path / ".hidden" / "subject_c"
+    hidden.mkdir(parents=True)
+    (hidden / "BLOCK.TSQ").write_bytes(b"")
+    (hidden / "BLOCK.TEV").write_bytes(b"")
+
+    assert find_tdt_block_directories(tmp_path) == [
+        first.resolve(),
+        second.resolve(),
+    ]
+    assert find_tdt_block_directories(
+        tmp_path,
+        include_hidden_dirs=True,
+    ) == [
+        hidden.resolve(),
+        first.resolve(),
+        second.resolve(),
+    ]
+
+
+def test_resolve_tdt_block_path_requires_one_exact_block(tmp_path) -> None:
+    first = tmp_path / "tank" / "subject_a"
+    first.mkdir(parents=True)
+    (first / "BLOCK.TSQ").write_bytes(b"")
+    (first / "BLOCK.TEV").write_bytes(b"")
+
+    assert resolve_tdt_block_path(tmp_path / "tank") == first.resolve()
+    assert resolve_tdt_block_path(first) == first.resolve()
+
+    second = tmp_path / "tank" / "subject_b"
+    second.mkdir()
+    (second / "BLOCK.TSQ").write_bytes(b"")
+    (second / "BLOCK.TEV").write_bytes(b"")
+
+    with pytest.raises(ValueError, match="Multiple TDT blocks"):
+        resolve_tdt_block_path(tmp_path / "tank")
+
+    with pytest.raises(ValueError, match="No TDT block"):
+        resolve_tdt_block_path(tmp_path / "missing")
 
 
 def test_read_tdt_photometry_block_uses_optional_module() -> None:

@@ -6,6 +6,7 @@ from collections.abc import Callable
 from pathlib import Path
 
 from xpkg.io.readers.photometry.fiber import (
+    _is_tdt_block_directory,
     is_doric_photometry_file,
     is_neurophotometrics_csv,
     is_rwd_ofrs_session,
@@ -30,23 +31,6 @@ _FILE_DETECTORS: tuple[Callable[[Path], bool], ...] = (
 
 def _visible(path: Path, *, include_hidden_dirs: bool) -> bool:
     return include_hidden_dirs or not path.name.startswith(".")
-
-
-def _is_tdt_block_directory(path: Path) -> bool:
-    tsq_stems: set[str] = set()
-    tev_stems: set[str] = set()
-    has_sev = False
-    for child in path.iterdir():
-        if not child.is_file():
-            continue
-        suffix = child.suffix.lower()
-        if suffix == ".tsq":
-            tsq_stems.add(child.stem.lower())
-        elif suffix == ".tev":
-            tev_stems.add(child.stem.lower())
-        elif suffix == ".sev":
-            has_sev = True
-    return bool(tsq_stems & tev_stems) or has_sev
 
 
 def _is_session_directory(path: Path) -> bool:

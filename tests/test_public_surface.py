@@ -126,6 +126,7 @@ from xpkg.readers import (
     find_first_pyphotometry_ppd_file,
     find_first_teleopto_h5,
     find_photometry_session_entries,
+    find_tdt_block_directories,
     is_doric_photometry_file,
     is_neurophotometrics_csv,
     is_nwb_photometry_file,
@@ -154,6 +155,7 @@ from xpkg.readers import (
     read_simba_csv,
     read_tdt_photometry_block,
     read_teleopto_h5,
+    resolve_tdt_block_path,
 )
 from xpkg.services import (
     ProjectArtifacts,
@@ -228,6 +230,7 @@ def test_root_namespace_is_curated_to_project_first_modules() -> None:
     assert callable(reloaded.readers.find_first_pyphotometry_ppd_file)
     assert callable(reloaded.readers.find_first_teleopto_h5)
     assert callable(reloaded.readers.find_photometry_session_entries)
+    assert callable(reloaded.readers.find_tdt_block_directories)
     assert callable(reloaded.readers.is_doric_photometry_file)
     assert callable(reloaded.readers.is_neurophotometrics_csv)
     assert callable(reloaded.readers.is_nwb_photometry_file)
@@ -249,6 +252,7 @@ def test_root_namespace_is_curated_to_project_first_modules() -> None:
     assert callable(reloaded.readers.read_rwd_ofrs_session)
     assert callable(reloaded.readers.read_tdt_photometry_block)
     assert callable(reloaded.readers.read_teleopto_h5)
+    assert callable(reloaded.readers.resolve_tdt_block_path)
 
     for removed_name in ("compat", "api", "read_doric_photometry", "exchange", "formats"):
         with pytest.raises(AttributeError, match=removed_name):
@@ -336,6 +340,7 @@ def test_public_exports_are_callable() -> None:
     assert callable(find_first_pyphotometry_ppd_file)
     assert callable(find_first_teleopto_h5)
     assert callable(find_photometry_session_entries)
+    assert callable(find_tdt_block_directories)
     assert callable(is_doric_photometry_file)
     assert callable(is_neurophotometrics_csv)
     assert callable(is_nwb_photometry_file)
@@ -357,6 +362,7 @@ def test_public_exports_are_callable() -> None:
     assert callable(read_rwd_ofrs_session)
     assert callable(read_tdt_photometry_block)
     assert callable(read_teleopto_h5)
+    assert callable(resolve_tdt_block_path)
     assert callable(ProjectArtifacts)
     assert callable(ProjectCalibrations)
     assert callable(ProjectFigures)
