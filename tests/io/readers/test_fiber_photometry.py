@@ -7,6 +7,7 @@ import numpy as np
 import pytest
 
 from xpkg.io.readers import (
+    is_neurophotometrics_csv,
     is_teleopto_h5,
     parse_teleopto_h5_arrays,
     read_doric_photometry,
@@ -43,6 +44,26 @@ def test_read_pmat_csv_and_events(tmp_path) -> None:
     assert isinstance(events, EventTable)
     assert events.events[0].label == "cue"
     assert events.events[0].duration_s == pytest.approx(0.15)
+
+
+def test_is_neurophotometrics_csv_detects_led_state_contract(tmp_path) -> None:
+    flags_path = tmp_path / "flags.csv"
+    flags_path.write_text(
+        "FrameCounter,Timestamp,Flags,Region0G\n0,0.0,1,0.2\n",
+        encoding="utf-8",
+    )
+    led_state_path = tmp_path / "ledstate.csv"
+    led_state_path.write_text(
+        "Timestamp,LedState,Region0G\n0.0,2,0.2\n",
+        encoding="utf-8",
+    )
+    plain_path = tmp_path / "plain.csv"
+    plain_path.write_text("time,signal\n0.0,1.0\n", encoding="utf-8")
+
+    assert is_neurophotometrics_csv(flags_path) is True
+    assert is_neurophotometrics_csv(led_state_path) is True
+    assert is_neurophotometrics_csv(plain_path) is False
+    assert is_neurophotometrics_csv(tmp_path / "missing.csv") is False
 
 
 def test_read_neurophotometrics_csv_demuxes_led_state_channels(tmp_path) -> None:

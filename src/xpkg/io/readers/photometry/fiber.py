@@ -269,6 +269,21 @@ def _npm_led_code_map(value: Mapping[int, int] | None) -> dict[int, int]:
     return result
 
 
+def is_neurophotometrics_csv(path: str | Path) -> bool:
+    """Return whether ``path`` has the Neurophotometrics/Bonsai CSV state contract."""
+
+    source_path = Path(path)
+    if not source_path.is_file() or source_path.suffix.lower() != ".csv":
+        return False
+    try:
+        frame = pd.read_csv(source_path, nrows=0)
+    except (OSError, UnicodeDecodeError, pd.errors.ParserError, ValueError):
+        return False
+    state_columns = {column.lower() for column in _NPM_STATE_COLUMNS}
+    columns = {str(column).strip().strip('"').lower() for column in frame.columns}
+    return bool(columns & state_columns)
+
+
 def _npm_state_values(frame: pd.DataFrame, state_column: str) -> np.ndarray:
     values = _numeric(frame, state_column)
     rounded = np.rint(values)
@@ -1301,6 +1316,7 @@ def read_tdt_photometry_block(
 
 __all__ = [
     "is_teleopto_h5",
+    "is_neurophotometrics_csv",
     "read_doric_photometry",
     "read_neurophotometrics_csv",
     "parse_teleopto_h5_arrays",
