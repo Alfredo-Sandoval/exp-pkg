@@ -801,10 +801,7 @@ def _rwd_event_table(events_path: Path, time_scale: float) -> tuple[EventTable, 
     if "Name" in frame.columns:
         raw_labels = frame["Name"]
         labels = pd.Series(
-            [
-                _rwd_event_label(value, row=index)
-                for index, value in enumerate(raw_labels)
-            ],
+            [_rwd_event_label(value, row=index) for index, value in enumerate(raw_labels)],
             dtype=str,
         )
     else:
@@ -1563,6 +1560,27 @@ def _tdt_stream_start(stream: Any, *, allow_missing_zero: bool = False) -> tuple
     return value, "streams.<signal>.start_time"
 
 
+def _tdt_store_name(value: object, *, role: str) -> str:
+    if not isinstance(value, str):
+        raise TypeError(f"TDT {role} must be a string.")
+    if not value:
+        raise ValueError(f"TDT {role} must be a non-empty string.")
+    if value != value.strip():
+        raise ValueError(f"TDT {role} must not contain surrounding whitespace.")
+    return value
+
+
+def _tdt_event_store_names(event_stores: Sequence[str] | None) -> tuple[str, ...] | None:
+    if event_stores is None:
+        return None
+    if isinstance(event_stores, str):
+        raise TypeError("TDT event_stores must be a sequence of strings, not a string.")
+    return tuple(
+        _tdt_store_name(store, role=f"event_stores[{index}]")
+        for index, store in enumerate(event_stores)
+    )
+
+
 def _tdt_epoc_times(
     epocs_obj: Any,
     event_stores: Sequence[str] | None,
@@ -1612,6 +1630,15 @@ def read_tdt_photometry_block(
     """Read photometry streams from a TDT tank/block folder."""
 
     block_path = Path(path)
+    signal_store_name = (
+        _tdt_store_name(signal_store, role="signal_store") if signal_store is not None else None
+    )
+    reference_store_name = (
+        _tdt_store_name(reference_store, role="reference_store")
+        if reference_store is not None
+        else None
+    )
+    event_store_names = _tdt_event_store_names(event_stores)
     module = _tdt_module(tdt_module)
     data = module.read_block(str(block_path), evtype=["streams", "epocs"])
     has_streams_container = hasattr(data, "streams")
@@ -1620,8 +1647,8 @@ def read_tdt_photometry_block(
     if not stream_map:
         raise ValueError("TDT block did not contain readable stream data.")
     ranked = _rank_tdt_streams(tuple(stream_map))
-    signal_explicit = signal_store is not None
-    resolved_signal = signal_store or ranked[0]
+    signal_explicit = signal_store_name is not None
+    resolved_signal = signal_store_name or ranked[0]
     if resolved_signal not in stream_map:
         raise ValueError(f"TDT signal store {resolved_signal!r} was not found.")
     signal = stream_map[resolved_signal]
@@ -1640,8 +1667,8 @@ def read_tdt_photometry_block(
     if not np.isfinite(sample_rate) or sample_rate <= 0:
         raise ValueError(f"TDT stream {resolved_signal!r} is missing a positive sampling rate.")
     sample_rate_source = f"streams.{resolved_signal}.fs"
-    reference_explicit = reference_store is not None
-    resolved_reference = reference_store
+    reference_explicit = reference_store_name is not None
+    resolved_reference = reference_store_name
     if resolved_reference is None:
         resolved_reference = next((name for name in ranked if name != resolved_signal), None)
     if resolved_reference is not None:
@@ -1651,7 +1678,7 @@ def read_tdt_photometry_block(
         if reference.shape == values[0].shape:
             values.append(reference)
             names.append(resolved_reference)
-        elif reference_store is not None:
+        elif reference_store_name is not None:
             raise ValueError("TDT reference store length must match signal store length.")
         else:
             resolved_reference = None
@@ -1686,7 +1713,7 @@ def read_tdt_photometry_block(
     )
     event_map = _tdt_epoc_times(
         getattr(data, "epocs", object()),
-        event_stores,
+        event_store_names,
         stream_start_s=stream_start_s,
     )
     return RecordingSession(

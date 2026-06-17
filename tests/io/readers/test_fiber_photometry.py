@@ -1456,6 +1456,47 @@ def test_read_tdt_photometry_block_rejects_missing_explicit_event_store() -> Non
         )
 
 
+@pytest.mark.parametrize(
+    ("kwargs", "exc_type", "message"),
+    [
+        (
+            {"signal_store": " x465A"},
+            ValueError,
+            "TDT signal_store must not contain surrounding whitespace",
+        ),
+        (
+            {"reference_store": " x405A"},
+            ValueError,
+            "TDT reference_store must not contain surrounding whitespace",
+        ),
+        (
+            {"event_stores": [" Cue"]},
+            ValueError,
+            r"TDT event_stores\[0\] must not contain surrounding whitespace",
+        ),
+        ({"event_stores": [1]}, TypeError, r"TDT event_stores\[0\] must be a string"),
+        (
+            {"event_stores": "Cue"},
+            TypeError,
+            "TDT event_stores must be a sequence of strings, not a string",
+        ),
+    ],
+)
+def test_read_tdt_photometry_block_rejects_unclean_explicit_store_selectors(
+    kwargs: dict[str, object],
+    exc_type: type[Exception],
+    message: str,
+) -> None:
+    fake_tdt = SimpleNamespace(
+        read_block=lambda *_args, **_kwargs: pytest.fail(
+            "invalid explicit TDT selectors must fail before read_block"
+        )
+    )
+
+    with pytest.raises(exc_type, match=message):
+        read_tdt_photometry_block("tank/block", tdt_module=fake_tdt, **kwargs)
+
+
 def test_read_tdt_photometry_block_rejects_malformed_explicit_event_store() -> None:
     streams = SimpleNamespace(
         x465A=SimpleNamespace(data=np.asarray([1.0, 1.1, 1.2]), fs=100.0, start_time=0.0)
