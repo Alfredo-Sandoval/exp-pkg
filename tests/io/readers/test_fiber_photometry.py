@@ -97,6 +97,28 @@ def test_read_pmat_events_rejects_offset_before_onset(tmp_path) -> None:
         read_pmat_events_csv(event_path)
 
 
+def test_read_pmat_events_rejects_padded_label(tmp_path) -> None:
+    event_path = tmp_path / "events.csv"
+    event_path.write_text(
+        "Name,Onset,Offset\n cue,0.25,0.4\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match=r"label column 'Name' at row 0"):
+        read_pmat_events_csv(event_path)
+
+
+def test_read_pmat_events_rejects_numeric_label(tmp_path) -> None:
+    event_path = tmp_path / "events.csv"
+    event_path.write_text(
+        "Name,Onset,Offset\n1,0.25,0.4\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match=r"label column 'Name' at row 0"):
+        read_pmat_events_csv(event_path)
+
+
 def test_read_pmat_csv_rejects_file_exceeding_max_mb(tmp_path) -> None:
     photometry_path = tmp_path / "pmat.csv"
     photometry_path.write_text(

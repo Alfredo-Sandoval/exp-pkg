@@ -116,6 +116,18 @@ def _numeric(frame: pd.DataFrame, column: str) -> np.ndarray:
     return values
 
 
+def _pmat_event_label(value: object, *, column: str, row: int) -> str:
+    message = (
+        f"pMAT event label column {column!r} at row {row} must be a non-empty "
+        "string without surrounding whitespace."
+    )
+    if pd.isna(value) or not isinstance(value, str):
+        raise ValueError(message)
+    if not value or value != value.strip():
+        raise ValueError(message)
+    return value
+
+
 def _timeline_from_time(values: np.ndarray) -> Timeline:
     return Timeline(timestamps_s=np.asarray(values, dtype=np.float64))
 
@@ -299,12 +311,17 @@ def read_pmat_events_csv(
     rows = []
     for index, (start, offset) in enumerate(zip(starts, offsets, strict=True)):
         duration = float(offset - start)
+        label = _pmat_event_label(
+            frame[resolved_label].iloc[index],
+            column=resolved_label,
+            row=index,
+        )
         rows.append(
             Event(
                 kind="event",
                 start_s=float(start),
                 duration_s=duration,
-                label=str(frame[resolved_label].iloc[index]).strip(),
+                label=label,
                 metadata={
                     "source": {"type": "pmat_events_csv", "path": str(source_path)},
                     "offset_s": float(offset),
