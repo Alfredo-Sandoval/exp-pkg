@@ -204,6 +204,22 @@ def test_read_events_csv_maps_labels_kinds_and_millisecond_times(tmp_path) -> No
         "duration_column": "duration",
         "columns": ["timestamp", "type", "label", "duration"],
         "rows": 2,
+        "event_records": [
+            {
+                "source_row": 0,
+                "time_s": 1.0,
+                "duration_s": 0.1,
+                "kind": "cue",
+                "label": "tone",
+            },
+            {
+                "source_row": 1,
+                "time_s": 1.5,
+                "duration_s": 0.5,
+                "kind": "trial",
+                "label": "A",
+            },
+        ],
         "time_unit": "ms",
         "default_kind": "event",
     }
@@ -225,9 +241,38 @@ def test_read_events_csv_preserves_empty_table_metadata(tmp_path) -> None:
         "duration_column": "duration",
         "columns": ["timestamps", "label", "duration"],
         "rows": 0,
+        "event_records": [],
         "time_unit": "s",
         "default_kind": "ttl",
     }
+
+
+def test_read_events_csv_records_normalized_event_rows(tmp_path) -> None:
+    path = tmp_path / "state_events.csv"
+    path.write_text(
+        "timestamps,state,duration\n0.2,2,0.01\n0.1,1,0.02\n",
+        encoding="utf-8",
+    )
+
+    events = read_events_csv(path, default_kind="ttl")
+
+    assert [event.metadata["source_row"] for event in events] == [1, 0]
+    assert events.metadata["event_records"] == [
+        {
+            "source_row": 1,
+            "time_s": 0.1,
+            "duration_s": 0.02,
+            "kind": "ttl",
+            "label": "state=1",
+        },
+        {
+            "source_row": 0,
+            "time_s": 0.2,
+            "duration_s": 0.01,
+            "kind": "ttl",
+            "label": "state=2",
+        },
+    ]
 
 
 def test_read_events_csv_rejects_empty_file_without_time_column(tmp_path) -> None:

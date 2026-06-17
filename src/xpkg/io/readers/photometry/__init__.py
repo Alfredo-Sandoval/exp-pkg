@@ -407,6 +407,7 @@ def read_events_csv(
         "duration_column": resolved_duration,
         "columns": [str(column) for column in frame.columns],
         "rows": int(len(frame)),
+        "event_records": [],
         "time_unit": time_unit,
         "default_kind": default_kind_text,
     }
@@ -420,20 +421,41 @@ def read_events_csv(
         if resolved_duration is not None
         else np.zeros_like(starts)
     )
-    events = [
-        Event(
-            kind=(
-                _optional_text(frame, resolved_kind, index, role="kind")
-                if resolved_kind is not None
-                else default_kind_text
+    event_rows = [
+        (
+            index,
+            Event(
+                kind=(
+                    _optional_text(frame, resolved_kind, index, role="kind")
+                    if resolved_kind is not None
+                    else default_kind_text
+                ),
+                start_s=float(start),
+                duration_s=float(duration),
+                label=_optional_event_label(frame, resolved_label, index),
+                metadata={
+                    "source": {"type": "events_csv", "path": str(path)},
+                    "source_row": int(index),
+                },
             ),
-            start_s=float(start),
-            duration_s=float(duration),
-            label=_optional_event_label(frame, resolved_label, index),
-            metadata={"source": {"type": "events_csv", "path": str(path)}},
         )
         for index, (start, duration) in enumerate(zip(starts, durations, strict=True))
     ]
+    event_rows = sorted(
+        event_rows,
+        key=lambda row: (row[1].start_s, row[1].end_s, row[1].kind),
+    )
+    table_metadata["event_records"] = [
+        {
+            "source_row": int(source_row),
+            "time_s": float(event.start_s),
+            "duration_s": float(event.duration_s),
+            "kind": event.kind,
+            "label": event.label,
+        }
+        for source_row, event in event_rows
+    ]
+    events = tuple(event for _source_row, event in event_rows)
     return EventTable(events=tuple(events), metadata=table_metadata)
 
 
