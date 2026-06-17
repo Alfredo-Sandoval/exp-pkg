@@ -309,8 +309,26 @@ def test_read_teleopto_h5_extracts_channels_and_ttl(tmp_path) -> None:
 
     assert isinstance(photometry, PhotometryRecording)
     assert photometry.channel_names == ("Signal", "TTL")
-    assert [event.label for event in session.events] == ["ct1", "TTL_ttl"]
-    np.testing.assert_allclose([event.start_s for event in session.events], [0.15, 0.2])
+    assert photometry.signal_channel == "Signal"
+    assert photometry.reference_channel is None
+    assert photometry.metadata["secondary_channel"] == "TTL"
+    by_label = {event.label: event.start_s for event in session.events}
+    assert {"ct1", "TTL_ttl", "press_on_times", "press_off_times"} <= set(by_label)
+    assert by_label["ct1"] == pytest.approx(0.15)
+    assert by_label["TTL_ttl"] == pytest.approx(0.2)
+
+
+def test_read_teleopto_h5_rejects_nonfinite_events(tmp_path) -> None:
+    path = tmp_path / "bad-teleopto.h5"
+    with h5py.File(path, "w") as handle:
+        handle.create_dataset("d1", data=np.asarray([1.0, 1.1, 1.2]))
+        handle.create_dataset("num", data=np.asarray([0.0, 10.0]))
+        handle.create_dataset("st1", data=np.asarray([0.3]))
+        handle.create_dataset("str", data=np.asarray([b"Signal"]))
+        handle.create_dataset("ct1", data=np.asarray([0.1, np.nan]))
+
+    with pytest.raises(ValueError, match="Teleopto H5 event channel ct1"):
+        read_teleopto_h5(path)
 
 
 def test_read_tdt_photometry_block_uses_optional_module() -> None:

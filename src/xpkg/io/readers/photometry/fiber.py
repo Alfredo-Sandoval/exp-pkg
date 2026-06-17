@@ -618,6 +618,13 @@ def _decode_h5_strings(values: np.ndarray) -> list[str]:
     return result
 
 
+def _finite_vector(values: object, name: str) -> np.ndarray:
+    array = np.asarray(values, dtype=np.float64).ravel()
+    if not np.isfinite(array).all():
+        raise ValueError(f"{name} must contain only finite values.")
+    return array
+
+
 def _teleopto_sample_rate(num: np.ndarray, st1: np.ndarray, n_samples: int) -> float:
     if num.size > 1 and np.isfinite(num[1]) and num[1] > 0:
         return float(num[1])
@@ -626,18 +633,95 @@ def _teleopto_sample_rate(num: np.ndarray, st1: np.ndarray, n_samples: int) -> f
     raise ValueError("Teleopto H5 missing sampling rate and duration metadata.")
 
 
-def _ttl_edges(values: np.ndarray, sample_rate_hz: float) -> np.ndarray:
+def _teleopto_ttl_edges(
+    values: np.ndarray,
+    sample_rate_hz: float,
+    *,
+    debounce_s: float = 0.005,
+    min_width_s: float = 0.005,
+    min_amplitude: float = 0.5,
+) -> np.ndarray:
     signal = np.asarray(values, dtype=np.float64).ravel()
+    if not np.isfinite(signal).all():
+        raise ValueError("Teleopto H5 d2 TTL channel must contain only finite values.")
     if signal.size < 2:
         return np.asarray([], dtype=np.float64)
+    if not np.isfinite(sample_rate_hz) or sample_rate_hz <= 0.0:
+        raise ValueError("Teleopto H5 sampling rate must be positive and finite.")
     low = float(np.percentile(signal, 5))
     high = float(np.percentile(signal, 99.5))
-    if high <= low:
+    span = high - low
+    if span < min_amplitude:
         return np.asarray([], dtype=np.float64)
-    threshold = low + 0.5 * (high - low)
+    threshold = low + 0.5 * span
     digital = signal >= threshold
+    min_width_samples = max(1, round(float(min_width_s) * sample_rate_hz))
+    if min_width_samples > 1:
+        edges = np.flatnonzero(np.diff(np.concatenate(([0], digital.view(np.int8), [0]))))
+        for start, stop in edges.reshape((-1, 2)):
+            if stop - start < min_width_samples:
+                digital[start:stop] = False
     indices = np.where((~digital[:-1]) & digital[1:])[0] + 1
-    return indices.astype(np.float64) / sample_rate_hz
+    if indices.size == 0:
+        return np.asarray([], dtype=np.float64)
+    debounce_samples = max(1, round(float(debounce_s) * sample_rate_hz))
+    kept: list[int] = []
+    previous = -debounce_samples
+    for index in indices:
+        if int(index) - previous >= debounce_samples:
+            kept.append(int(index))
+            previous = int(index)
+    return np.asarray(kept, dtype=np.float64) / sample_rate_hz
+
+
+def _teleopto_press_events(
+    values: np.ndarray,
+    sample_rate_hz: float,
+    reinforcement_times: np.ndarray,
+) -> dict[str, np.ndarray]:
+    signal = np.asarray(values, dtype=np.float64).ravel()
+    if signal.size < 2:
+        return {}
+    high = signal > 0.5
+    rising = np.flatnonzero((~high[:-1]) & high[1:]) + 1
+    falling = np.flatnonzero(high[:-1] & (~high[1:])) + 1
+    on_times = rising.astype(np.float64) / sample_rate_hz
+    off_times = falling.astype(np.float64) / sample_rate_hz
+    aligned_on: list[float] = []
+    aligned_off: list[float] = []
+    off_index = 0
+    for on_time in on_times:
+        while off_index < off_times.size and off_times[off_index] <= on_time:
+            off_index += 1
+        if off_index >= off_times.size:
+            break
+        off_time = float(off_times[off_index])
+        aligned_on.append(float(on_time))
+        aligned_off.append(off_time)
+        off_index += 1
+    event_map: dict[str, np.ndarray] = {}
+    if aligned_on:
+        press_on = np.asarray(aligned_on, dtype=np.float64)
+        event_map["press_on_times"] = press_on
+        event_map["press_off_times"] = np.asarray(aligned_off, dtype=np.float64)
+        if reinforcement_times.size:
+            rewards = np.sort(np.asarray(reinforcement_times, dtype=np.float64))
+            reinforced: list[float] = []
+            non_reinforced: list[float] = []
+            reward_index = 0
+            for press in press_on:
+                while reward_index < rewards.size and rewards[reward_index] < press:
+                    reward_index += 1
+                if (
+                    reward_index < rewards.size
+                    and 0.0 <= float(rewards[reward_index] - press) <= 1.0
+                ):
+                    reinforced.append(float(press))
+                else:
+                    non_reinforced.append(float(press))
+            event_map["press_reinforced"] = np.asarray(reinforced, dtype=np.float64)
+            event_map["press_non_reinforced"] = np.asarray(non_reinforced, dtype=np.float64)
+    return event_map
 
 
 def read_teleopto_h5(
@@ -653,31 +737,40 @@ def read_teleopto_h5(
         missing = sorted(required.difference(handle.keys()))
         if missing:
             raise ValueError(f"Teleopto H5 missing required datasets: {missing}.")
-        d1 = np.asarray(handle["d1"], dtype=np.float64).ravel()
-        d2 = np.asarray(handle["d2"], dtype=np.float64).ravel() if "d2" in handle else None
-        num = np.asarray(handle["num"], dtype=np.float64).ravel()
-        st1 = np.asarray(handle["st1"], dtype=np.float64).ravel()
+        d1 = _finite_vector(handle["d1"], "Teleopto H5 d1")
+        d2 = _finite_vector(handle["d2"], "Teleopto H5 d2") if "d2" in handle else None
+        num = _finite_vector(handle["num"], "Teleopto H5 num")
+        st1 = _finite_vector(handle["st1"], "Teleopto H5 st1")
         labels = _decode_h5_strings(np.asarray(handle["str"]))
-        event_map = {
-            key: np.sort(np.asarray(handle[key], dtype=np.float64).ravel())
-            for key in _TELEOPTO_EVENT_KEYS
-            if key in handle and np.asarray(handle[key]).size
-        }
+        event_map: dict[str, np.ndarray] = {}
+        for key in _TELEOPTO_EVENT_KEYS:
+            if key not in handle:
+                continue
+            values = _finite_vector(handle[key], f"Teleopto H5 event channel {key}")
+            if values.size:
+                event_map[key] = np.sort(values)
     sample_rate = _teleopto_sample_rate(num, st1, d1.size)
     timeline = Timeline.from_sample_rate(n_samples=d1.size, sample_rate_hz=sample_rate)
     names = [labels[0] if labels else "d1"]
     values = [d1]
-    reference = None
+    secondary = None
     if d2 is not None and d2.size:
         if d2.shape != d1.shape:
             raise ValueError("Teleopto d2 length must match d1 length.")
-        reference = labels[2] if len(labels) > 2 else "d2"
-        names.append(reference)
+        secondary = labels[2] if len(labels) > 2 else "d2"
+        names.append(secondary)
         values.append(d2)
         if extract_ttl_from_secondary:
-            ttl_times = _ttl_edges(d2, sample_rate)
+            ttl_times = _teleopto_ttl_edges(d2, sample_rate)
             if ttl_times.size:
-                event_map[f"{reference}_ttl"] = ttl_times
+                event_map[f"{secondary}_ttl"] = ttl_times
+            reinforcement_arrays = [event_map[key] for key in ("ar1", "ar2") if key in event_map]
+            reinforcement = (
+                np.concatenate(reinforcement_arrays)
+                if reinforcement_arrays
+                else np.asarray([], dtype=np.float64)
+            )
+            event_map.update(_teleopto_press_events(d2, sample_rate, reinforcement))
     photometry = _photometry_recording(
         values=np.column_stack(values),
         channel_names=names,
@@ -685,8 +778,13 @@ def read_teleopto_h5(
         source_type="teleopto_h5",
         source_path=source_path,
         signal_channel=names[0],
-        reference_channel=reference,
-        metadata={"channel_labels": labels, "num": num.tolist(), "st1": st1.tolist()},
+        reference_channel=None,
+        metadata={
+            "channel_labels": labels,
+            "secondary_channel": secondary,
+            "num": num.tolist(),
+            "st1": st1.tolist(),
+        },
     )
     return RecordingSession(
         session_id=source_path.stem,
