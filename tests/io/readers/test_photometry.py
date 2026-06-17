@@ -178,6 +178,38 @@ def test_read_events_csv_accepts_state_as_numeric_label_column(tmp_path) -> None
     np.testing.assert_allclose([event.start_s for event in events], [0.1, 0.2, 0.3])
 
 
+def test_read_events_csv_rejects_padded_label(tmp_path) -> None:
+    path = tmp_path / "events.csv"
+    path.write_text("timestamps,label\n0.1, cue\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match=r"label column 'label' at row 0"):
+        read_events_csv(path)
+
+
+def test_read_events_csv_rejects_padded_kind(tmp_path) -> None:
+    path = tmp_path / "events.csv"
+    path.write_text("timestamps,type,label\n0.1, cue,tone\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match=r"kind column 'type' at row 0"):
+        read_events_csv(path)
+
+
+def test_read_events_csv_rejects_missing_label_cell(tmp_path) -> None:
+    path = tmp_path / "events.csv"
+    path.write_text("timestamps,label\n0.1,\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match=r"label column 'label' at row 0"):
+        read_events_csv(path)
+
+
+def test_read_events_csv_rejects_padded_default_kind(tmp_path) -> None:
+    path = tmp_path / "events.csv"
+    path.write_text("timestamps\n0.1\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="default_kind"):
+        read_events_csv(path, default_kind=" ttl")
+
+
 @pytest.mark.parametrize("column", ["event", "events"])
 def test_read_events_csv_accepts_event_named_time_columns(
     tmp_path,

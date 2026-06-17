@@ -267,14 +267,52 @@ def read_photometry_csv(
     )
 
 
-def _optional_text(frame: pd.DataFrame, column: str | None, index: int) -> str | None:
+def _event_text_error(*, role: str, column: str, row: int) -> str:
+    return (
+        f"Event CSV {role} column {column!r} at row {row} must be a non-empty "
+        "string without surrounding whitespace."
+    )
+
+
+def _required_event_text(
+    frame: pd.DataFrame,
+    column: str,
+    index: int,
+    *,
+    role: str,
+) -> str:
+    value = frame[column].iloc[index]
+    message = _event_text_error(role=role, column=column, row=index)
+    if pd.isna(value) or not isinstance(value, str):
+        raise ValueError(message)
+    if not value or value != value.strip():
+        raise ValueError(message)
+    return value
+
+
+def _optional_text(
+    frame: pd.DataFrame,
+    column: str | None,
+    index: int,
+    *,
+    role: str,
+) -> str | None:
     if column is None:
         return None
-    value = frame[column].iloc[index]
-    if pd.isna(value):
-        return None
-    text = str(value).strip()
-    return text or None
+    return _required_event_text(frame, column, index, role=role)
+
+
+def _clean_default_kind(default_kind: str) -> str:
+    if (
+        not isinstance(default_kind, str)
+        or not default_kind
+        or default_kind != default_kind.strip()
+    ):
+        raise ValueError(
+            "Event CSV default_kind must be a non-empty string without surrounding "
+            "whitespace."
+        )
+    return default_kind
 
 
 def _optional_event_label(
@@ -282,12 +320,14 @@ def _optional_event_label(
     column: str | None,
     index: int,
 ) -> str | None:
-    text = _optional_text(frame, column, index)
-    if text is None or column is None:
-        return text
+    if column is None:
+        return None
     if pd.api.types.is_numeric_dtype(frame[column]):
-        return f"{column}={text}"
-    return text
+        value = frame[column].iloc[index]
+        if pd.isna(value) or not np.isfinite(float(value)):
+            raise ValueError(_event_text_error(role="label", column=column, row=index))
+        return f"{column}={value}"
+    return _required_event_text(frame, column, index, role="label")
 
 
 def read_events_csv(
@@ -327,9 +367,14 @@ def read_events_csv(
         if resolved_duration is not None
         else np.zeros_like(starts)
     )
+    default_kind_text = _clean_default_kind(default_kind)
     events = [
         Event(
-            kind=_optional_text(frame, resolved_kind, index) or default_kind,
+            kind=(
+                _optional_text(frame, resolved_kind, index, role="kind")
+                if resolved_kind is not None
+                else default_kind_text
+            ),
             start_s=float(start),
             duration_s=float(duration),
             label=_optional_event_label(frame, resolved_label, index),
