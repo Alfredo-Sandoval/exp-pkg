@@ -876,6 +876,21 @@ def test_is_tdt_block_detects_matching_block_pairs(tmp_path) -> None:
     assert is_tdt_block(not_a_dir) is False
 
 
+def test_is_tdt_block_detects_sev_stream_blocks(tmp_path) -> None:
+    block_dir = tmp_path / "tank" / "subject"
+    block_dir.mkdir(parents=True)
+    (block_dir / "BLOCK.TSQ").write_bytes(b"")
+    (block_dir / "Tank_Subject_x465A_ch1.sev").write_bytes(b"")
+
+    assert is_tdt_block(tmp_path / "tank") is True
+
+    sev_only_dir = tmp_path / "sev_only"
+    sev_only_dir.mkdir()
+    (sev_only_dir / "Tank_Subject_x405A_ch1.sev").write_bytes(b"")
+
+    assert is_tdt_block(sev_only_dir) is True
+
+
 def test_read_tdt_photometry_block_uses_optional_module() -> None:
     streams = SimpleNamespace(
         x465A=SimpleNamespace(data=np.asarray([1.0, 1.1, 1.2]), fs=100.0),
@@ -905,6 +920,24 @@ def test_read_tdt_photometry_block_uses_optional_module() -> None:
     assert session.metadata["sampling_rate_hz"] == pytest.approx(100.0)
     assert session.metadata["sampling_rate_source"] == "streams.x465A.fs"
     assert session.events.events[0].label == "Cue"
+
+
+def test_read_tdt_photometry_block_accepts_sev_only_stream_shape() -> None:
+    data = SimpleNamespace(
+        x465A=SimpleNamespace(data=np.asarray([1.0, 1.1, 1.2]), fs=100.0),
+        x405A=SimpleNamespace(data=np.asarray([0.5, 0.4, 0.3]), fs=100.0),
+    )
+    fake_tdt = SimpleNamespace(read_block=lambda *_args, **_kwargs: data)
+
+    session = read_tdt_photometry_block("tank/sev", tdt_module=fake_tdt)
+    photometry = session.signals["photometry"]
+
+    assert isinstance(photometry, PhotometryRecording)
+    assert photometry.signal_channel == "x465A"
+    assert photometry.reference_channel == "x405A"
+    assert len(session.events.events) == 0
+    np.testing.assert_allclose(photometry.series.values[:, 0], [1.0, 1.1, 1.2])
+    np.testing.assert_allclose(photometry.series.values[:, 1], [0.5, 0.4, 0.3])
 
 
 def test_read_tdt_photometry_block_prefers_official_wavelength_stores() -> None:

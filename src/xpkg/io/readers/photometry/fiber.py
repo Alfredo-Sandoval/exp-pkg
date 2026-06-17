@@ -1186,15 +1186,25 @@ def _tdt_block_ids(root: Path, suffix: str) -> set[tuple[Path, str]]:
     }
 
 
+def _tdt_file_dirs(root: Path, suffix: str) -> set[Path]:
+    return {
+        path.parent
+        for path in root.rglob("*")
+        if path.is_file() and path.suffix.lower() == suffix
+    }
+
+
 def is_tdt_block(path: str | Path) -> bool:
-    """Return whether ``path`` contains a TDT block file pair."""
+    """Return whether ``path`` contains TDT block files."""
 
     root = Path(path)
     if not root.is_dir():
         return False
     tsq_blocks = _tdt_block_ids(root, ".tsq")
     tev_blocks = _tdt_block_ids(root, ".tev")
-    return bool(tsq_blocks & tev_blocks)
+    if tsq_blocks & tev_blocks:
+        return True
+    return bool(_tdt_file_dirs(root, ".sev"))
 
 
 def _iter_tdt_streams(streams_obj: Any) -> Iterable[tuple[str, Any]]:
@@ -1315,9 +1325,8 @@ def read_tdt_photometry_block(
     block_path = Path(path)
     module = _tdt_module(tdt_module)
     data = module.read_block(str(block_path), evtype=["streams", "epocs"])
-    if not hasattr(data, "streams"):
-        raise ValueError("TDT block did not contain stream stores.")
-    stream_map = dict(_iter_tdt_streams(data.streams))
+    streams_obj = getattr(data, "streams", data)
+    stream_map = dict(_iter_tdt_streams(streams_obj))
     if not stream_map:
         raise ValueError("TDT block did not contain readable stream data.")
     ranked = _rank_tdt_streams(tuple(stream_map))
