@@ -219,6 +219,15 @@ def read_pmat_photometry_csv(
         source_path=source_path,
         signal_channel=resolved_signal,
         reference_channel=resolved_reference,
+        metadata={
+            "time_column": resolved_time,
+            "signal_column": resolved_signal,
+            "reference_column": resolved_reference,
+            "signal_columns": signal_columns,
+            "columns": columns,
+            "rows": int(len(frame)),
+            "time_unit": time_unit,
+        },
     )
 
 

@@ -49,6 +49,13 @@ def test_read_pmat_csv_and_events(tmp_path) -> None:
     assert isinstance(photometry, PhotometryRecording)
     assert photometry.signal_channel == "Signal"
     assert photometry.reference_channel == "Control"
+    assert photometry.metadata["time_column"] == "Time"
+    assert photometry.metadata["signal_column"] == "Signal"
+    assert photometry.metadata["reference_column"] == "Control"
+    assert photometry.metadata["signal_columns"] == ["Signal", "Control"]
+    assert photometry.metadata["columns"] == ["Time", "Signal", "Control"]
+    assert photometry.metadata["rows"] == 2
+    assert photometry.metadata["time_unit"] == "s"
     np.testing.assert_allclose(photometry.timeline.timestamps_s, [0.0, 0.1])
     assert isinstance(events, EventTable)
     assert events.events[0].label == "cue"
