@@ -274,6 +274,60 @@ def test_read_neurophotometrics_csv_selects_requested_signal_wavelength(
     np.testing.assert_allclose(photometry.series.values[:, 1], [50.0, 51.0])
 
 
+def test_read_neurophotometrics_csv_selects_requested_led_code(
+    tmp_path,
+) -> None:
+    path = tmp_path / "npm_led_code.csv"
+    path.write_text(
+        "\n".join(
+            [
+                "Timestamp,LedState,Region0G",
+                "0.0,2,100.0",
+                "0.1,1,50.0",
+                "0.2,4,700.0",
+                "0.3,2,101.0",
+                "0.4,1,51.0",
+                "0.5,4,701.0",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    photometry = read_neurophotometrics_csv(
+        path,
+        signal_led_code=4,
+        reference_led_code=1,
+    ).signals["photometry"]
+
+    assert photometry.signal_channel == "Region0G_560nm"
+    assert photometry.reference_channel == "Region0G_415nm"
+    assert photometry.metadata["led_demux"]["signal_selection"] == "led_state_code"
+    assert photometry.metadata["led_demux"]["reference_selection"] == "led_state_code"
+    np.testing.assert_allclose(photometry.series.values[:, 0], [700.0, 701.0])
+    np.testing.assert_allclose(photometry.series.values[:, 1], [50.0, 51.0])
+
+
+def test_read_neurophotometrics_csv_rejects_missing_requested_led_code(
+    tmp_path,
+) -> None:
+    path = tmp_path / "npm.csv"
+    path.write_text(
+        "\n".join(
+            [
+                "Timestamp,LedState,Region0G",
+                "0.0,2,100.0",
+                "0.1,1,50.0",
+                "0.2,2,101.0",
+                "0.3,1,51.0",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="requested signal LedState code 4"):
+        read_neurophotometrics_csv(path, signal_led_code=4)
+
+
 def test_read_neurophotometrics_csv_rejects_same_signal_and_reference_wavelength(
     tmp_path,
 ) -> None:
@@ -292,7 +346,7 @@ def test_read_neurophotometrics_csv_rejects_same_signal_and_reference_wavelength
     )
 
     with pytest.raises(ValueError, match="same LedState code"):
-        read_neurophotometrics_csv(path, signal_nm=470, reference_nm=470)
+        read_neurophotometrics_csv(path, signal_led_code=2, reference_nm=470)
 
 
 def test_read_neurophotometrics_csv_preserves_raw_channels_without_state(

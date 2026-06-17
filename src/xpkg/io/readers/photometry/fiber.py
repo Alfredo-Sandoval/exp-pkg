@@ -385,6 +385,35 @@ def neurophotometrics_channel_selection_from_label(
     )
 
 
+def _npm_resolve_led_code(
+    *,
+    codes: Sequence[int],
+    code_map: Mapping[int, int],
+    requested_code: int | None,
+    requested_nm: int,
+    role: str,
+    source_path: Path,
+    required: bool,
+) -> int | None:
+    if requested_code is not None:
+        code = int(requested_code)
+        if code not in codes:
+            raise ValueError(
+                f"Neurophotometrics CSV '{source_path}' has no requested "
+                f"{role} LedState code {code} (found LedState codes {list(codes)})."
+            )
+        return code
+
+    code = next((item for item in codes if code_map.get(item) == requested_nm), None)
+    if code is None and required:
+        raise ValueError(
+            f"Neurophotometrics CSV '{source_path}' has no {requested_nm} nm "
+            f"{role} LED (found LedState codes {list(codes)}). Pass "
+            "led_code_to_nm if this rig uses a non-default encoding."
+        )
+    return code
+
+
 def _npm_demux_photometry(
     *,
     frame: pd.DataFrame,
@@ -399,11 +428,18 @@ def _npm_demux_photometry(
     code_map: Mapping[int, int],
     signal_nm: int,
     reference_nm: int,
+    signal_led_code: int | None = None,
+    reference_led_code: int | None = None,
 ) -> PhotometryRecording:
     codes = sorted({int(code) for code in np.unique(state) if int(code) != 0})
-    signal_code = next(
-        (code for code in codes if code_map.get(code) == signal_nm),
-        None,
+    signal_code = _npm_resolve_led_code(
+        codes=codes,
+        code_map=code_map,
+        requested_code=signal_led_code,
+        requested_nm=signal_nm,
+        role="signal",
+        source_path=source_path,
+        required=True,
     )
     if signal_code is None:
         raise ValueError(
@@ -411,17 +447,24 @@ def _npm_demux_photometry(
             f"LED (found LedState codes {codes}). Pass led_code_to_nm to map the "
             "signal LED if this rig uses a non-default encoding."
         )
-
-    reference_code = next(
-        (code for code in codes if code_map.get(code) == reference_nm),
-        None,
+    resolved_signal_nm = code_map.get(signal_code)
+    reference_code = _npm_resolve_led_code(
+        codes=codes,
+        code_map=code_map,
+        requested_code=reference_led_code,
+        requested_nm=reference_nm,
+        role="reference",
+        source_path=source_path,
+        required=reference_led_code is not None,
     )
     if reference_code == signal_code:
         raise ValueError(
-            "Neurophotometrics signal and reference wavelengths resolve to the "
+            "Neurophotometrics signal and reference selections resolve to the "
             f"same LedState code {signal_code}. Use distinct signal_nm and "
-            "reference_nm values."
+            "reference_nm values or distinct signal_led_code and "
+            "reference_led_code values."
         )
+    resolved_reference_nm = code_map.get(reference_code) if reference_code is not None else None
     signal_values = _numeric(frame, signal_column)
     reference_roi = reference_column or signal_column
     reference_values = _numeric(frame, reference_roi)
@@ -454,9 +497,13 @@ def _npm_demux_photometry(
         arrays.append(stream_values[:aligned_count])
         original_counts[channel_name] = int(stream_values.size)
 
-    signal_name = _npm_channel_name(signal_column, code=signal_code, nm=signal_nm)
+    signal_name = _npm_channel_name(
+        signal_column,
+        code=signal_code,
+        nm=resolved_signal_nm,
+    )
     reference_name = (
-        _npm_channel_name(reference_roi, code=reference_code, nm=reference_nm)
+        _npm_channel_name(reference_roi, code=reference_code, nm=resolved_reference_nm)
         if reference_code is not None
         else None
     )
@@ -485,10 +532,18 @@ def _npm_demux_photometry(
                 "codes_present": codes,
                 "signal_code": signal_code,
                 "reference_code": reference_code,
-                "signal_nm": signal_nm,
-                "reference_nm": reference_nm,
+                "signal_nm": resolved_signal_nm,
+                "reference_nm": resolved_reference_nm,
                 "signal_roi_column": signal_column,
                 "reference_roi_column": reference_roi if reference_code is not None else None,
+                "signal_selection": (
+                    "led_state_code" if signal_led_code is not None else "wavelength_nm"
+                ),
+                "reference_selection": (
+                    "led_state_code"
+                    if reference_led_code is not None
+                    else ("wavelength_nm" if reference_code is not None else None)
+                ),
                 "aligned_sample_count": int(aligned_count),
                 "raw_sample_counts": original_counts,
             },
@@ -506,6 +561,8 @@ def read_neurophotometrics_csv(
     led_code_to_nm: Mapping[int, int] | None = None,
     signal_nm: int = _NPM_SIGNAL_NM,
     reference_nm: int = _NPM_REFERENCE_NM,
+    signal_led_code: int | None = None,
+    reference_led_code: int | None = None,
 ) -> RecordingSession:
     """Read a Neurophotometrics/Bonsai photometry writer CSV export."""
 
@@ -571,6 +628,8 @@ def read_neurophotometrics_csv(
             code_map=led_map,
             signal_nm=int(signal_nm),
             reference_nm=int(reference_nm),
+            signal_led_code=signal_led_code,
+            reference_led_code=reference_led_code,
         )
     signals: dict[str, TimeSeries | PhotometryRecording] = {"photometry": photometry}
     if state_column is not None and state_values is not None:
