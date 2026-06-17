@@ -195,6 +195,47 @@ def test_read_events_csv_maps_labels_kinds_and_millisecond_times(tmp_path) -> No
     np.testing.assert_allclose([event.start_s for event in events], [1.0, 1.5])
     np.testing.assert_allclose([event.duration_s for event in events], [0.1, 0.5])
     assert events.query(kind="trial")[0].label == "A"
+    assert events.metadata == {
+        "source_type": "events_csv",
+        "source": {"type": "events_csv", "path": str(path)},
+        "time_column": "timestamp",
+        "kind_column": "type",
+        "label_column": "label",
+        "duration_column": "duration",
+        "columns": ["timestamp", "type", "label", "duration"],
+        "rows": 2,
+        "time_unit": "ms",
+        "default_kind": "event",
+    }
+
+
+def test_read_events_csv_preserves_empty_table_metadata(tmp_path) -> None:
+    path = tmp_path / "empty_events.csv"
+    path.write_text("timestamps,label,duration\n", encoding="utf-8")
+
+    events = read_events_csv(path, default_kind="ttl")
+
+    assert list(events) == []
+    assert events.metadata == {
+        "source_type": "events_csv",
+        "source": {"type": "events_csv", "path": str(path)},
+        "time_column": "timestamps",
+        "kind_column": None,
+        "label_column": "label",
+        "duration_column": "duration",
+        "columns": ["timestamps", "label", "duration"],
+        "rows": 0,
+        "time_unit": "s",
+        "default_kind": "ttl",
+    }
+
+
+def test_read_events_csv_rejects_empty_file_without_time_column(tmp_path) -> None:
+    path = tmp_path / "empty_without_time.csv"
+    path.write_text("label\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="timestamp column"):
+        read_events_csv(path)
 
 
 @pytest.mark.parametrize(

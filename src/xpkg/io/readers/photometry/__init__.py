@@ -384,8 +384,6 @@ def read_events_csv(
         role="duration_column",
     )
     frame, _size_bytes = _read_csv(path, max_mb=max_mb)
-    if frame.empty:
-        return EventTable()
     resolved_time = resolve_column(frame, clean_time_column, _EVENT_TIME_COLUMN_CANDIDATES)
     if resolved_time is None:
         raise ValueError(
@@ -399,6 +397,21 @@ def read_events_csv(
         clean_duration_column,
         _EVENT_DURATION_CANDIDATES,
     )
+    default_kind_text = _clean_default_kind(default_kind)
+    table_metadata = {
+        "source_type": "events_csv",
+        "source": {"type": "events_csv", "path": str(path)},
+        "time_column": resolved_time,
+        "kind_column": resolved_kind,
+        "label_column": resolved_label,
+        "duration_column": resolved_duration,
+        "columns": [str(column) for column in frame.columns],
+        "rows": int(len(frame)),
+        "time_unit": time_unit,
+        "default_kind": default_kind_text,
+    }
+    if frame.empty:
+        return EventTable(metadata=table_metadata)
 
     scale = _time_scale(time_unit)
     starts = _numeric_column(frame, resolved_time, role="event time") * scale
@@ -407,7 +420,6 @@ def read_events_csv(
         if resolved_duration is not None
         else np.zeros_like(starts)
     )
-    default_kind_text = _clean_default_kind(default_kind)
     events = [
         Event(
             kind=(
@@ -422,7 +434,7 @@ def read_events_csv(
         )
         for index, (start, duration) in enumerate(zip(starts, durations, strict=True))
     ]
-    return EventTable.from_events(events)
+    return EventTable(events=tuple(events), metadata=table_metadata)
 
 
 __all__ = ["read_events_csv", "read_photometry_csv"]
