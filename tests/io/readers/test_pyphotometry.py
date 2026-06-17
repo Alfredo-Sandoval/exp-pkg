@@ -141,3 +141,25 @@ def test_read_pyphotometry_csv_uses_json_settings_and_digital_events(tmp_path: P
     assert photometry.series.channels[0].unit == "V"
     np.testing.assert_allclose(photometry.series.values[:, 0], [0.1, 0.101])
     assert [event.label for event in session.events] == ["digital_1"]
+
+
+def test_read_pyphotometry_csv_tolerates_real_spaced_header(tmp_path: Path) -> None:
+    # pyPhotometry's GUI writes the header as ", ".join(channels), so real exports
+    # carry a space after each delimiter. The reader must still resolve channels.
+    path = tmp_path / "spaced.csv"
+    path.write_text(
+        "Analog1, Analog2, Digital1, Digital2\n100,200,0,0\n101,201,1,0\n",
+        encoding="utf-8",
+    )
+    path.with_suffix(".json").write_text(
+        json.dumps({"sampling_rate": 10.0}),
+        encoding="utf-8",
+    )
+
+    session = read_pyphotometry_csv(path)
+    photometry = session.signals["photometry"]
+
+    assert isinstance(photometry, PhotometryRecording)
+    assert photometry.channel_names == ("analog_1", "analog_2")
+    np.testing.assert_allclose(photometry.series.values[:, 0], [100, 101])
+    assert [event.label for event in session.events] == ["digital_1"]

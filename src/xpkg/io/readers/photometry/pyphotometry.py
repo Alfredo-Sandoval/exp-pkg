@@ -270,15 +270,19 @@ def read_pyphotometry_csv(
         header["volts_per_division"] = float(volts_per_division)
     rate = _sampling_rate(header)
 
-    frame = pd.read_csv(source_path)
+    # pyPhotometry's acquisition GUI writes the header as ", ".join(channels),
+    # so real exports carry a space after each delimiter ("Analog1, Analog2, ...").
+    # skipinitialspace lets the parsed column names match the stripped names used
+    # for channel matching below; it is a no-op for comma-only headers.
+    frame = pd.read_csv(source_path, skipinitialspace=True)
     if frame.empty:
         raise ValueError(f"pyPhotometry CSV '{source_path}' is empty.")
     analog_columns = _matching_columns(frame, "analog")
     digital_columns = _matching_columns(frame, "digital")
     if not analog_columns:
         raise ValueError(f"pyPhotometry CSV '{source_path}' has no Analog columns.")
-    analog = frame.loc[:, analog_columns].apply(pd.to_numeric, errors="raise").to_numpy(
-        dtype=np.float64
+    analog = (
+        frame.loc[:, analog_columns].apply(pd.to_numeric, errors="raise").to_numpy(dtype=np.float64)
     )
     channel_count = len(analog_columns)
     scale = _volts_per_division(header, channel_count)
@@ -304,8 +308,10 @@ def read_pyphotometry_csv(
     signals: dict[str, TimeSeries | PhotometryRecording] = {"photometry": photometry}
     events = EventTable()
     if digital_columns:
-        digital = frame.loc[:, digital_columns].apply(pd.to_numeric, errors="raise").to_numpy(
-            dtype=np.float64
+        digital = (
+            frame.loc[:, digital_columns]
+            .apply(pd.to_numeric, errors="raise")
+            .to_numpy(dtype=np.float64)
         )
         digital_names = tuple(f"digital_{index + 1}" for index in range(digital.shape[1]))
         signals["digital"] = TimeSeries(
