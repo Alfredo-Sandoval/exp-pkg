@@ -9,6 +9,7 @@ import pytest
 from xpkg.io.readers import (
     is_neurophotometrics_csv,
     is_rwd_ofrs_session,
+    is_tdt_block,
     is_teleopto_h5,
     parse_teleopto_h5_arrays,
     read_doric_photometry,
@@ -721,6 +722,28 @@ def test_read_teleopto_h5_rejects_nonfinite_events(tmp_path) -> None:
 
     with pytest.raises(ValueError, match="Teleopto H5 event channel ct1"):
         read_teleopto_h5(path)
+
+
+def test_is_tdt_block_detects_matching_block_pairs(tmp_path) -> None:
+    (tmp_path / "a").mkdir()
+    (tmp_path / "b").mkdir()
+    (tmp_path / "a" / "block.tsq").write_bytes(b"")
+    (tmp_path / "b" / "block.tev").write_bytes(b"")
+
+    assert is_tdt_block(tmp_path) is False
+
+    (tmp_path / "a" / "block.tev").write_bytes(b"")
+    assert is_tdt_block(tmp_path) is True
+
+    nested = tmp_path / "tank" / "subject"
+    nested.mkdir(parents=True)
+    (nested / "BLOCK.TSQ").write_bytes(b"")
+    (nested / "BLOCK.TEV").write_bytes(b"")
+    assert is_tdt_block(tmp_path / "tank") is True
+
+    not_a_dir = tmp_path / "not_a_dir.tsq"
+    not_a_dir.write_bytes(b"")
+    assert is_tdt_block(not_a_dir) is False
 
 
 def test_read_tdt_photometry_block_uses_optional_module() -> None:

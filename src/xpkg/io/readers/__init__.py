@@ -17,6 +17,7 @@ from xpkg.io.readers.photometry import read_events_csv, read_photometry_csv
 from xpkg.io.readers.photometry.fiber import (
     is_neurophotometrics_csv,
     is_rwd_ofrs_session,
+    is_tdt_block,
     is_teleopto_h5,
     parse_teleopto_h5_arrays,
     read_doric_photometry,
@@ -45,6 +46,7 @@ __all__ = [
     "KNOWN_BEHAVIOR_SOURCE_TYPES",
     "is_neurophotometrics_csv",
     "is_rwd_ofrs_session",
+    "is_tdt_block",
     "is_teleopto_h5",
     "parse_teleopto_h5_arrays",
     "read_anipose_calibration",

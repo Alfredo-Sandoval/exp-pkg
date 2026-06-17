@@ -1143,6 +1143,25 @@ def _tdt_module(module: Any | None) -> Any:
         ) from exc
 
 
+def _tdt_block_ids(root: Path, suffix: str) -> set[tuple[Path, str]]:
+    return {
+        (path.parent, path.stem.lower())
+        for path in root.rglob("*")
+        if path.is_file() and path.suffix.lower() == suffix
+    }
+
+
+def is_tdt_block(path: str | Path) -> bool:
+    """Return whether ``path`` contains a TDT block file pair."""
+
+    root = Path(path)
+    if not root.is_dir():
+        return False
+    tsq_blocks = _tdt_block_ids(root, ".tsq")
+    tev_blocks = _tdt_block_ids(root, ".tev")
+    return bool(tsq_blocks & tev_blocks)
+
+
 def _iter_tdt_streams(streams_obj: Any) -> Iterable[tuple[str, Any]]:
     for name, obj in getattr(streams_obj, "__dict__", {}).items():
         if hasattr(obj, "data") and hasattr(obj, "fs"):
@@ -1343,6 +1362,7 @@ __all__ = [
     "is_teleopto_h5",
     "is_neurophotometrics_csv",
     "is_rwd_ofrs_session",
+    "is_tdt_block",
     "read_doric_photometry",
     "read_neurophotometrics_csv",
     "parse_teleopto_h5_arrays",
