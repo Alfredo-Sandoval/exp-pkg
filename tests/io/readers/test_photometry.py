@@ -41,6 +41,46 @@ def test_read_photometry_csv_uses_explicit_time_and_channels(tmp_path) -> None:
     np.testing.assert_allclose(recording.series.values[:, 0], [1.0, 1.1, 1.2])
 
 
+@pytest.mark.parametrize(
+    ("kwargs", "exc_type", "message"),
+    [
+        (
+            {"time_column": " time"},
+            ValueError,
+            "time_column must not contain surrounding whitespace",
+        ),
+        (
+            {"time_column": 0},
+            TypeError,
+            "time_column must be a string",
+        ),
+        (
+            {"signal_columns": "gcamp"},
+            TypeError,
+            "signal_columns must be a sequence of strings, not a string",
+        ),
+        (
+            {"signal_columns": [" gcamp"]},
+            ValueError,
+            "signal_columns\\[0\\] must not contain surrounding whitespace",
+        ),
+        (
+            {"signal_columns": []},
+            ValueError,
+            "signal_columns must be a non-empty sequence of strings",
+        ),
+    ],
+)
+def test_read_photometry_csv_rejects_unclean_explicit_column_selectors(
+    tmp_path,
+    kwargs: dict[str, object],
+    exc_type: type[Exception],
+    message: str,
+) -> None:
+    with pytest.raises(exc_type, match=message):
+        read_photometry_csv(tmp_path / "missing.csv", **kwargs)  # type: ignore[arg-type]
+
+
 def test_read_photometry_csv_reports_resolved_layout_metadata(tmp_path) -> None:
     path = tmp_path / "photometry.csv"
     path.write_text(

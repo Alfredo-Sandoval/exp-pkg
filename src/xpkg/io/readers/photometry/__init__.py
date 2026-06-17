@@ -96,6 +96,38 @@ def _positive_sample_rate(value: float) -> float:
     return sample_rate
 
 
+def _clean_optional_column_name(value: object, *, role: str) -> str | None:
+    if value is None:
+        return None
+    return _clean_required_column_name(value, role=role)
+
+
+def _clean_required_column_name(value: object, *, role: str) -> str:
+    if not isinstance(value, str):
+        raise TypeError(f"{role} must be a string.")
+    if not value:
+        raise ValueError(f"{role} must be a non-empty string.")
+    if value != value.strip():
+        raise ValueError(f"{role} must not contain surrounding whitespace.")
+    return value
+
+
+def _clean_column_names(value: object, *, role: str) -> tuple[str, ...] | None:
+    if value is None:
+        return None
+    if isinstance(value, str):
+        raise TypeError(f"{role} must be a sequence of strings, not a string.")
+    if not isinstance(value, Sequence):
+        raise TypeError(f"{role} must be a sequence of strings or None.")
+    cleaned = tuple(
+        _clean_required_column_name(item, role=f"{role}[{index}]")
+        for index, item in enumerate(value)
+    )
+    if not cleaned:
+        raise ValueError(f"{role} must be a non-empty sequence of strings.")
+    return cleaned
+
+
 def _uniform_timeline_sample_rate(
     timeline: Timeline,
     *,
@@ -193,19 +225,21 @@ def read_photometry_csv(
 ) -> PhotometryRecording:
     """Read a photometry CSV into a source-neutral recording object."""
 
+    clean_time_column = _clean_optional_column_name(time_column, role="time_column")
+    clean_signal_columns = _clean_column_names(signal_columns, role="signal_columns")
     frame, size_bytes = _read_csv(path, max_mb=max_mb)
     if frame.empty:
         raise ValueError(f"Photometry CSV '{path}' is empty.")
     resolved_time = _resolve_time_column(
         frame,
-        time_column=time_column,
+        time_column=clean_time_column,
         sample_rate_hz=sample_rate_hz,
         time_column_candidates=time_column_candidates,
         allow_implicit_time_column=allow_implicit_time_column,
     )
     resolved_signals = _resolve_signal_columns(
         frame,
-        signal_columns=signal_columns,
+        signal_columns=clean_signal_columns,
         time_column=resolved_time,
     )
     values = np.column_stack(
@@ -309,8 +343,7 @@ def _clean_default_kind(default_kind: str) -> str:
         or default_kind != default_kind.strip()
     ):
         raise ValueError(
-            "Event CSV default_kind must be a non-empty string without surrounding "
-            "whitespace."
+            "Event CSV default_kind must be a non-empty string without surrounding whitespace."
         )
     return default_kind
 
