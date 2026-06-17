@@ -11,6 +11,7 @@ from xpkg.io.readers import (
     find_first_neurophotometrics_csv,
     find_first_nwb_photometry_file,
     find_first_teleopto_h5,
+    find_photometry_session_entries,
     is_doric_photometry_file,
     is_neurophotometrics_csv,
     is_nwb_photometry_file,
@@ -336,6 +337,71 @@ def _write_rwd_fluorescence(
         rows.append(f"{stamp:.6f},,{1.0 + 0.1 * index},{2.0 + 0.1 * index},")
     lines = ([metadata_line] if metadata_line is not None else []) + rows
     (session_dir / "Fluorescence.csv").write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def test_find_photometry_session_entries_uses_xpkg_format_detectors(tmp_path) -> None:
+    generic_h5 = tmp_path / "generic.h5"
+    with h5py.File(generic_h5, "w") as handle:
+        handle.create_dataset("signal", data=np.asarray([1.0, 2.0]))
+
+    hidden_dir = tmp_path / ".hidden"
+    hidden_dir.mkdir()
+    hidden_h5 = hidden_dir / "hidden.h5"
+    with h5py.File(hidden_h5, "w") as handle:
+        handle.create_dataset("signal", data=np.asarray([3.0, 4.0]))
+
+    ofrs_dir = tmp_path / "ofrs"
+    _write_rwd_fluorescence(
+        ofrs_dir,
+        metadata_line='{"Fps":30.0;"Channels":[{"Name":"CH1"}]}',
+        timestamps=[0.0, 33.333],
+    )
+
+    tdt_dir = tmp_path / "tdt"
+    tdt_dir.mkdir()
+    (tdt_dir / "block.tsq").write_bytes(b"")
+    (tdt_dir / "block.tev").write_bytes(b"")
+
+    ppd_path = tmp_path / "session.ppd"
+    ppd_header = b'{"sampling_rate": 130.0}'
+    ppd_path.write_bytes(len(ppd_header).to_bytes(2, "little") + ppd_header)
+
+    pyphotometry_csv = tmp_path / "pyphotometry.csv"
+    pyphotometry_csv.write_text("Analog1, Analog2\n1.0,0.5\n", encoding="utf-8")
+
+    entries = find_photometry_session_entries(tmp_path)
+
+    assert entries == sorted(
+        [
+            generic_h5.resolve(),
+            ofrs_dir.resolve(),
+            ppd_path.resolve(),
+            pyphotometry_csv.resolve(),
+            tdt_dir.resolve(),
+        ],
+        key=str,
+    )
+    assert hidden_h5.resolve() not in entries
+
+    with_hidden = find_photometry_session_entries(
+        tmp_path,
+        include_hidden_dirs=True,
+    )
+    assert hidden_h5.resolve() in with_hidden
+
+
+def test_find_photometry_session_entries_can_require_known_formats(tmp_path) -> None:
+    generic_h5 = tmp_path / "generic.h5"
+    with h5py.File(generic_h5, "w") as handle:
+        handle.create_dataset("signal", data=np.asarray([1.0, 2.0]))
+
+    assert (
+        find_photometry_session_entries(
+            tmp_path,
+            include_generic_hdf5=False,
+        )
+        == []
+    )
 
 
 def test_read_rwd_ofrs_slow_seconds_anchors_to_declared_fps(tmp_path) -> None:

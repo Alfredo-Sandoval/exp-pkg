@@ -14,6 +14,7 @@ from xpkg.io.readers.behavior import (
 )
 from xpkg.io.readers.opencv_stereo import read_opencv_stereo_calibration
 from xpkg.io.readers.photometry import read_events_csv, read_photometry_csv
+from xpkg.io.readers.photometry.discovery import find_photometry_session_entries
 from xpkg.io.readers.photometry.fiber import (
     find_first_doric_photometry_file,
     find_first_neurophotometrics_csv,
@@ -61,6 +62,7 @@ __all__ = [
     "find_first_pyphotometry_csv",
     "find_first_pyphotometry_ppd_file",
     "find_first_teleopto_h5",
+    "find_photometry_session_entries",
     "is_doric_photometry_file",
     "is_neurophotometrics_csv",
     "is_rwd_ofrs_session",
