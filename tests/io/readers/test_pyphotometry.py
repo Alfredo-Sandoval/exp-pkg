@@ -26,6 +26,7 @@ def _write_ppd(
     n_channels: int = 2,
     volts_per_division: float | None = None,
     odd_payload_byte: bool = False,
+    extra_payload_words: int = 0,
 ) -> None:
     header: dict[str, object] = {"n_analog_channels": n_channels}
     if fs is not None:
@@ -41,6 +42,8 @@ def _write_ppd(
             digital = channel == 0 and sample in {2, 5}
             rows[sample, channel] = (analog << 1) | int(digital)
     payload = rows.ravel().astype("<u2").tobytes()
+    if extra_payload_words:
+        payload += np.arange(extra_payload_words, dtype="<u2").tobytes()
     if odd_payload_byte:
         payload += b"\x00"
 
@@ -95,14 +98,22 @@ def test_read_pyphotometry_ppd_rejects_missing_sample_rate(tmp_path: Path) -> No
         read_pyphotometry_ppd(path)
 
 
-def test_read_pyphotometry_ppd_trims_odd_payload_byte(tmp_path: Path) -> None:
+def test_read_pyphotometry_ppd_rejects_odd_payload_byte(tmp_path: Path) -> None:
     path = tmp_path / "odd.ppd"
     _write_ppd(path, fs=10.0, n_samples=3, odd_payload_byte=True)
 
-    session = read_pyphotometry_ppd(path)
-    photometry = session.signals["photometry"]
-    assert isinstance(photometry, PhotometryRecording)
-    assert photometry.series.n_samples == 3
+    with pytest.raises(ValueError, match="payload byte length"):
+        read_pyphotometry_ppd(path)
+
+
+def test_read_pyphotometry_ppd_rejects_incomplete_old_layout_sample(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "incomplete-old.ppd"
+    _write_ppd(path, fs=10.0, n_samples=3, extra_payload_words=1)
+
+    with pytest.raises(ValueError, match="word count"):
+        read_pyphotometry_ppd(path)
 
 
 def test_read_pyphotometry_ppd_supports_v11_pulsed_baseline_layout(tmp_path: Path) -> None:
@@ -135,6 +146,24 @@ def test_read_pyphotometry_ppd_supports_v11_pulsed_baseline_layout(tmp_path: Pat
     assert [event.label for event in session.events] == ["digital_1"]
 
 
+def test_read_pyphotometry_ppd_rejects_incomplete_pulsed_layout_sample(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "incomplete-pulsed.ppd"
+    header = {
+        "sampling_rate": 20.0,
+        "n_analog_channels": 2,
+        "mode": "pulsed",
+        "version": "1.1",
+    }
+    header_bytes = json.dumps(header).encode("utf-8")
+    rows = np.asarray([[(100 << 1) | 0, 20 << 1, (200 << 1) | 0]], dtype=np.uint16)
+    path.write_bytes(struct.pack("<H", len(header_bytes)) + header_bytes + rows.tobytes())
+
+    with pytest.raises(ValueError, match="pulsed-mode payload word count"):
+        read_pyphotometry_ppd(path)
+
+
 def test_is_pyphotometry_ppd_file_detects_ppd_header_envelope(tmp_path: Path) -> None:
     valid = tmp_path / "recording.ppd"
     _write_ppd(valid)
@@ -151,9 +180,7 @@ def test_is_pyphotometry_ppd_file_detects_ppd_header_envelope(tmp_path: Path) ->
 
     malformed = tmp_path / "malformed.ppd"
     malformed_header = b'{"sampling_rate":'
-    malformed.write_bytes(
-        struct.pack("<H", len(malformed_header)) + malformed_header
-    )
+    malformed.write_bytes(struct.pack("<H", len(malformed_header)) + malformed_header)
 
     assert is_pyphotometry_ppd_file(valid) is True
     assert is_pyphotometry_ppd_file(legacy) is True
@@ -255,3 +282,20 @@ def test_read_pyphotometry_csv_tolerates_real_spaced_header(tmp_path: Path) -> N
     assert photometry.channel_names == ("analog_1", "analog_2")
     np.testing.assert_allclose(photometry.series.values[:, 0], [100, 101])
     assert [event.label for event in session.events] == ["digital_1"]
+
+
+def test_read_pyphotometry_csv_rejects_nonbinary_digital_values(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "recording.csv"
+    path.write_text(
+        "Analog1,Analog2,Digital1\n100,200,0\n101,201,2\n",
+        encoding="utf-8",
+    )
+    path.with_suffix(".json").write_text(
+        json.dumps({"sampling_rate": 10.0}),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="digital values must be 0 or 1"):
+        read_pyphotometry_csv(path)

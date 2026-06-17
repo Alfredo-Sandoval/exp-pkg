@@ -87,7 +87,7 @@ def _read_ppd_words(path: Path) -> tuple[dict[str, Any], np.ndarray]:
             raise ValueError(f"Invalid JSON header in .ppd file: {path}") from exc
         payload = handle.read()
     if len(payload) % 2:
-        payload = payload[:-1]
+        raise ValueError("Invalid .ppd: payload byte length must be divisible by 2.")
     return header, np.frombuffer(payload, dtype="<u2")
 
 
@@ -142,10 +142,14 @@ def _uses_pulsed_v11_layout(header: dict[str, Any]) -> bool:
 
 
 def _split_old_layout(words: np.ndarray, channel_count: int) -> tuple[np.ndarray, np.ndarray]:
-    complete_words = (words.size // channel_count) * channel_count
-    if complete_words == 0:
+    if words.size == 0:
         raise ValueError("PPD file contains no complete samples.")
-    rows = words[:complete_words].reshape((-1, channel_count))
+    if words.size % channel_count:
+        raise ValueError(
+            "PPD old-layout payload word count must be divisible by "
+            f"n_analog_channels ({channel_count}); got {words.size} words."
+        )
+    rows = words.reshape((-1, channel_count))
     analog = (rows >> 1).astype(np.float64)
     digital = (rows & 0x1).astype(np.float64)
     return analog, digital
@@ -156,10 +160,14 @@ def _split_pulsed_v11_layout(
     channel_count: int,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     row_width = 2 * channel_count
-    complete_words = (words.size // row_width) * row_width
-    if complete_words == 0:
+    if words.size == 0:
         raise ValueError("PPD file contains no complete pulsed-mode samples.")
-    rows = words[:complete_words].reshape((-1, row_width))
+    if words.size % row_width:
+        raise ValueError(
+            "PPD pulsed-mode payload word count must be divisible by "
+            f"2 * n_analog_channels ({row_width}); got {words.size} words."
+        )
+    rows = words.reshape((-1, row_width))
     raw_led_on = (rows[:, 0::2] >> 1).astype(np.float64)
     raw_baseline = (rows[:, 1::2] >> 1).astype(np.float64)
     analog = raw_led_on - raw_baseline
@@ -175,7 +183,19 @@ def _rising_edges(bits: np.ndarray, sample_rate_hz: float) -> np.ndarray:
     return indices.astype(np.float64) / sample_rate_hz
 
 
+def _require_binary_digital(digital: np.ndarray, *, source: str) -> np.ndarray:
+    values = np.asarray(digital, dtype=np.float64)
+    if values.ndim != 2:
+        raise ValueError(f"{source} digital data must have shape (samples, channels).")
+    invalid = values[(values != 0.0) & (values != 1.0)]
+    if invalid.size:
+        examples = sorted({float(value) for value in invalid[:5]})
+        raise ValueError(f"{source} digital values must be 0 or 1; got {examples}.")
+    return values
+
+
 def _digital_events(digital: np.ndarray, sample_rate_hz: float, path: Path) -> EventTable:
+    digital = _require_binary_digital(digital, source="pyPhotometry")
     events: list[Event] = []
     for index in range(digital.shape[1]):
         label = f"digital_{index + 1}"
@@ -385,6 +405,7 @@ def read_pyphotometry_csv(
             .apply(pd.to_numeric, errors="raise")
             .to_numpy(dtype=np.float64)
         )
+        digital = _require_binary_digital(digital, source="pyPhotometry CSV")
         digital_names = tuple(f"digital_{index + 1}" for index in range(digital.shape[1]))
         signals["digital"] = TimeSeries(
             values=digital,
