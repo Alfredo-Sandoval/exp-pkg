@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import h5py
 import numpy as np
@@ -39,6 +39,7 @@ _EVENT_CHANNEL_NAMES = frozenset(
         "tone",
     }
 )
+NonfinitePolicy = Literal["raise", "interpolate_sparse"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -137,7 +138,15 @@ def _select_control(candidates: dict[str, _Series], signal_key: str) -> str | No
     )
 
 
-def _series_values(series: _Series) -> np.ndarray:
+_MAX_NONFINITE_FRACTION = 0.01
+
+
+def _series_values(
+    series: _Series,
+    *,
+    nonfinite_policy: NonfinitePolicy,
+    max_nonfinite_fraction: float,
+) -> tuple[np.ndarray, dict[str, Any] | None]:
     data = np.asarray(series.group["data"], dtype=np.float64)
     if data.ndim == 1:
         data = data.reshape((-1, 1))
@@ -145,9 +154,57 @@ def _series_values(series: _Series) -> np.ndarray:
         raise ValueError(f"NWB TimeSeries '{series.path}' data must be 1D or 2D, got {data.shape}.")
     if data.shape[0] == 0:
         raise ValueError(f"NWB TimeSeries '{series.path}' contains no samples.")
-    if not np.isfinite(data).all():
-        raise ValueError(f"NWB TimeSeries '{series.path}' contains non-finite samples.")
-    return data
+    if np.isfinite(data).all():
+        return data, None
+    if nonfinite_policy == "raise":
+        raise ValueError(
+            f"NWB TimeSeries '{series.path}' contains non-finite samples. "
+            "Pass nonfinite_policy='interpolate_sparse' to repair sparse internal gaps."
+        )
+    if nonfinite_policy != "interpolate_sparse":
+        raise ValueError(
+            f"nonfinite_policy must be 'raise' or 'interpolate_sparse', got {nonfinite_policy!r}."
+        )
+    return _repair_sparse_nonfinite(data, series.path, max_nonfinite_fraction)
+
+
+def _repair_sparse_nonfinite(
+    data: np.ndarray,
+    path: str,
+    max_nonfinite_fraction: float,
+) -> tuple[np.ndarray, dict[str, Any]]:
+    if not np.isfinite(max_nonfinite_fraction) or not 0.0 <= max_nonfinite_fraction <= 1.0:
+        raise ValueError(
+            "max_nonfinite_fraction must be finite and between 0 and 1, "
+            f"got {max_nonfinite_fraction!r}."
+        )
+    nonfinite = ~np.isfinite(data)
+    fraction = float(nonfinite.mean())
+    if fraction > max_nonfinite_fraction:
+        raise ValueError(
+            f"NWB TimeSeries '{path}' is {fraction:.1%} non-finite "
+            f"(>{max_nonfinite_fraction:.0%}); refusing to interpolate corrupt data."
+        )
+    repaired = np.array(data, dtype=np.float64)
+    index = np.arange(repaired.shape[0])
+    for column in range(repaired.shape[1]):
+        finite = ~nonfinite[:, column]
+        if not finite.any():
+            raise ValueError(f"NWB TimeSeries '{path}' column {column} has no finite samples.")
+        if not finite[0] or not finite[-1]:
+            raise ValueError(
+                f"NWB TimeSeries '{path}' column {column} has non-finite edge samples; "
+                "cannot interpolate without extrapolation."
+            )
+        repaired[~finite, column] = np.interp(
+            index[~finite], index[finite], repaired[finite, column]
+        )
+    return repaired, {
+        "policy": "interpolate_sparse",
+        "nonfinite_samples": int(nonfinite.sum()),
+        "nonfinite_fraction": fraction,
+        "max_nonfinite_fraction": float(max_nonfinite_fraction),
+    }
 
 
 def _series_timeline(series: _Series, n_samples: int) -> Timeline:
@@ -180,9 +237,18 @@ def _series_timeline(series: _Series, n_samples: int) -> Timeline:
     )
 
 
-def _read_series(series: _Series) -> tuple[np.ndarray, Timeline]:
-    values = _series_values(series)
-    return values, _series_timeline(series, values.shape[0])
+def _read_series(
+    series: _Series,
+    *,
+    nonfinite_policy: NonfinitePolicy,
+    max_nonfinite_fraction: float,
+) -> tuple[np.ndarray, Timeline, dict[str, Any] | None]:
+    values, repair = _series_values(
+        series,
+        nonfinite_policy=nonfinite_policy,
+        max_nonfinite_fraction=max_nonfinite_fraction,
+    )
+    return values, _series_timeline(series, values.shape[0]), repair
 
 
 def _timelines_match(left: Timeline, right: Timeline) -> bool:
@@ -211,6 +277,8 @@ def _photometry_recording(
     source_path: Path,
     control_series: _Series | None = None,
     control_values: np.ndarray | None = None,
+    signal_nonfinite_repair: dict[str, Any] | None = None,
+    control_nonfinite_repair: dict[str, Any] | None = None,
 ) -> PhotometryRecording:
     signal_names = _channel_names(signal_series.name, signal_values.shape[1])
     values = signal_values
@@ -240,20 +308,28 @@ def _photometry_recording(
         name="photometry",
         provenance={"source": {"type": "nwb_photometry", "path": str(source_path)}},
     )
+    nonfinite_repairs: dict[str, Any] = {}
+    if signal_nonfinite_repair is not None:
+        nonfinite_repairs[signal_series.path] = signal_nonfinite_repair
+    if control_series is not None and control_nonfinite_repair is not None:
+        nonfinite_repairs[control_series.path] = control_nonfinite_repair
+    metadata: dict[str, Any] = {
+        "source_type": "nwb_photometry",
+        "signal_series": signal_series.path,
+        "control_series": None if control_series is None else control_series.path,
+        "signal_is_dff": any(
+            token in f"{signal_series.name} {signal_series.path}".lower()
+            for token in ("dfoverf", "dff")
+        ),
+        "n_fibers": int(signal_values.shape[1]),
+    }
+    if nonfinite_repairs:
+        metadata["nonfinite_repairs"] = nonfinite_repairs
     return PhotometryRecording(
         series=series,
         signal_channel=signal_names[0],
         reference_channel=reference_channel,
-        metadata={
-            "source_type": "nwb_photometry",
-            "signal_series": signal_series.path,
-            "control_series": None if control_series is None else control_series.path,
-            "signal_is_dff": any(
-                token in f"{signal_series.name} {signal_series.path}".lower()
-                for token in ("dfoverf", "dff")
-            ),
-            "n_fibers": int(signal_values.shape[1]),
-        },
+        metadata=metadata,
     )
 
 
@@ -292,6 +368,8 @@ def _event_channel_events(
     candidates: dict[str, _Series],
     *,
     source_path: Path,
+    nonfinite_policy: NonfinitePolicy,
+    max_nonfinite_fraction: float,
 ) -> list[Event]:
     rows: list[Event] = []
     for series in candidates.values():
@@ -299,7 +377,11 @@ def _event_channel_events(
             continue
         if series.name.lower() not in _EVENT_CHANNEL_NAMES:
             continue
-        values, timeline = _read_series(series)
+        values, timeline, _repair = _read_series(
+            series,
+            nonfinite_policy=nonfinite_policy,
+            max_nonfinite_fraction=max_nonfinite_fraction,
+        )
         onsets = _pulse_onsets(values[:, 0], timeline.timestamps_s)
         for onset in onsets:
             rows.append(
@@ -398,7 +480,12 @@ def _metadata(handle: h5py.File, path: Path, photometry: PhotometryRecording) ->
     return metadata
 
 
-def read_nwb_photometry(path: str | Path) -> RecordingSession:
+def read_nwb_photometry(
+    path: str | Path,
+    *,
+    nonfinite_policy: NonfinitePolicy = "raise",
+    max_nonfinite_fraction: float = _MAX_NONFINITE_FRACTION,
+) -> RecordingSession:
     """Read fiber-photometry data from a standard NWB HDF5 file."""
     source_path = Path(path)
     with h5py.File(source_path, "r") as handle:
@@ -407,12 +494,21 @@ def read_nwb_photometry(path: str | Path) -> RecordingSession:
         if signal_key is None:
             raise ValueError(f"NWB file '{source_path}' has no recognisable photometry signal.")
         signal = candidates[signal_key]
-        signal_values, timeline = _read_series(signal)
+        signal_values, timeline, signal_repair = _read_series(
+            signal,
+            nonfinite_policy=nonfinite_policy,
+            max_nonfinite_fraction=max_nonfinite_fraction,
+        )
         control_key = _select_control(candidates, signal_key)
         control = candidates[control_key] if control_key is not None else None
         control_values = None
+        control_repair = None
         if control is not None:
-            control_values, control_timeline = _read_series(control)
+            control_values, control_timeline, control_repair = _read_series(
+                control,
+                nonfinite_policy=nonfinite_policy,
+                max_nonfinite_fraction=max_nonfinite_fraction,
+            )
             if not _timelines_match(timeline, control_timeline):
                 raise ValueError("NWB control series timeline must match signal series timeline.")
         photometry = _photometry_recording(
@@ -422,9 +518,16 @@ def read_nwb_photometry(path: str | Path) -> RecordingSession:
             source_path=source_path,
             control_series=control,
             control_values=control_values,
+            signal_nonfinite_repair=signal_repair,
+            control_nonfinite_repair=control_repair,
         )
         rows = [
-            *_event_channel_events(candidates, source_path=source_path),
+            *_event_channel_events(
+                candidates,
+                source_path=source_path,
+                nonfinite_policy=nonfinite_policy,
+                max_nonfinite_fraction=max_nonfinite_fraction,
+            ),
             *_annotation_series_events(candidates, source_path=source_path),
             *_analysis_timestamp_events(handle, source_path=source_path),
         ]

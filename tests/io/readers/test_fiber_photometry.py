@@ -295,6 +295,68 @@ def test_read_nwb_photometry_rejects_misaligned_control(tmp_path) -> None:
         read_nwb_photometry(path)
 
 
+def test_read_nwb_photometry_rejects_nonfinite_samples_by_default(tmp_path) -> None:
+    path = tmp_path / "strict-gaps.nwb"
+    signal = np.linspace(0.0, 1.0, 2000)
+    signal[100] = np.nan
+    with h5py.File(path, "w") as handle:
+        ophys = handle.create_group("processing/ophys")
+        _write_nwb_series(ophys, "DfOverFResponseSeries", signal)
+
+    with pytest.raises(ValueError, match="non-finite samples"):
+        read_nwb_photometry(path)
+
+
+def test_read_nwb_photometry_repairs_sparse_nonfinite_gaps_when_opted_in(tmp_path) -> None:
+    # Archive dF/F traces can carry a handful of dropped-frame NaN/inf samples.
+    # The opt-in repair policy interpolates internal gaps this sparse.
+    path = tmp_path / "gaps.nwb"
+    clean = np.linspace(0.0, 1.0, 2000)
+    signal = clean.copy()
+    signal[100] = np.nan
+    signal[101] = np.inf
+    with h5py.File(path, "w") as handle:
+        ophys = handle.create_group("processing/ophys")
+        _write_nwb_series(ophys, "DfOverFResponseSeries", signal)
+
+    session = read_nwb_photometry(path, nonfinite_policy="interpolate_sparse")
+    photometry = session.signals["photometry"]
+    values = photometry.series.values[:, 0]
+
+    assert np.isfinite(values).all()
+    np.testing.assert_allclose(values, clean, atol=1e-12)
+    assert (
+        photometry.metadata["nonfinite_repairs"]["processing/ophys/DfOverFResponseSeries"][
+            "nonfinite_samples"
+        ]
+        == 2
+    )
+
+
+def test_read_nwb_photometry_rejects_heavily_nonfinite_series(tmp_path) -> None:
+    path = tmp_path / "corrupt.nwb"
+    signal = np.linspace(0.0, 1.0, 1000)
+    signal[:50] = np.nan  # 5% non-finite, beyond the repair threshold
+    with h5py.File(path, "w") as handle:
+        ophys = handle.create_group("processing/ophys")
+        _write_nwb_series(ophys, "DfOverFResponseSeries", signal)
+
+    with pytest.raises(ValueError, match="non-finite"):
+        read_nwb_photometry(path, nonfinite_policy="interpolate_sparse")
+
+
+def test_read_nwb_photometry_rejects_edge_nonfinite_repair(tmp_path) -> None:
+    path = tmp_path / "edge-gaps.nwb"
+    signal = np.linspace(0.0, 1.0, 1000)
+    signal[0] = np.nan
+    with h5py.File(path, "w") as handle:
+        ophys = handle.create_group("processing/ophys")
+        _write_nwb_series(ophys, "DfOverFResponseSeries", signal)
+
+    with pytest.raises(ValueError, match="edge samples"):
+        read_nwb_photometry(path, nonfinite_policy="interpolate_sparse")
+
+
 def test_read_teleopto_h5_extracts_channels_and_ttl(tmp_path) -> None:
     path = tmp_path / "teleopto.h5"
     with h5py.File(path, "w") as handle:
