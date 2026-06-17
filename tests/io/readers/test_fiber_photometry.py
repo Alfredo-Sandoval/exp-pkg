@@ -19,6 +19,7 @@ from xpkg.io.readers import (
     is_rwd_ofrs_session,
     is_tdt_block,
     is_teleopto_h5,
+    neurophotometrics_source_column_from_label,
     parse_teleopto_h5_arrays,
     read_doric_photometry,
     read_neurophotometrics_csv,
@@ -165,6 +166,19 @@ def test_read_neurophotometrics_csv_demuxes_led_state_channels(tmp_path) -> None
     np.testing.assert_allclose(photometry.series.values, [[0.3, 0.1], [0.35, 0.15]])
     assert "flags" in session.signals
     assert session.metadata["frame_counter"] == [0, 1, 2, 3]
+
+
+def test_neurophotometrics_source_column_from_label_strips_demux_suffix() -> None:
+    assert (
+        neurophotometrics_source_column_from_label("Region1G_470nm") == "Region1G"
+    )
+    assert (
+        neurophotometrics_source_column_from_label("Region1G_led_state_7")
+        == "Region1G"
+    )
+    assert neurophotometrics_source_column_from_label("Region1G") == "Region1G"
+    assert neurophotometrics_source_column_from_label(None) is None
+    assert neurophotometrics_source_column_from_label("") is None
 
 
 def test_read_neurophotometrics_csv_accepts_custom_led_map(tmp_path) -> None:

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib
+import re
 from collections.abc import Iterable, Mapping, Sequence
 from json import JSONDecodeError
 from pathlib import Path
@@ -48,6 +49,7 @@ _NPM_STATE_COLUMNS = ("Flags", "LedState")
 _NPM_DEFAULT_LED_CODE_TO_NM = {1: 415, 2: 470, 4: 560}
 _NPM_SIGNAL_NM = 470
 _NPM_REFERENCE_NM = 415
+_NPM_DEMUXED_LABEL_SUFFIX_RE = re.compile(r"_(?:\d+nm|led_state_-?\d+)$")
 _RWD_SIGNAL_SUFFIXES = ("-470", "_470", "-560", "_560")
 _RWD_REFERENCE_SUFFIXES = ("-410", "_410", "-405", "_405", "-415", "_415")
 _TELEOPTO_EVENT_KEYS = ("ct1", "ct2", "ct3", "ct4", "ar1", "ar2")
@@ -337,6 +339,14 @@ def _npm_channel_name(roi_column: str, *, code: int, nm: int | None) -> str:
     if nm is None:
         return f"{roi_column}_led_state_{code}"
     return f"{roi_column}_{nm}nm"
+
+
+def neurophotometrics_source_column_from_label(label: str | None) -> str | None:
+    """Return the raw ROI column for a Neurophotometrics channel label."""
+
+    if not label:
+        return None
+    return _NPM_DEMUXED_LABEL_SUFFIX_RE.sub("", label)
 
 
 def _npm_demux_photometry(
@@ -1531,6 +1541,7 @@ __all__ = [
     "is_neurophotometrics_csv",
     "is_rwd_ofrs_session",
     "is_tdt_block",
+    "neurophotometrics_source_column_from_label",
     "read_doric_photometry",
     "read_neurophotometrics_csv",
     "parse_teleopto_h5_arrays",
