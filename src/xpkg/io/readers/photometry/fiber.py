@@ -663,9 +663,7 @@ def _rwd_event_table(events_path: Path, time_scale: float) -> tuple[EventTable, 
     starts = raw_starts * time_scale
     labels = frame["Name"] if "Name" in frame.columns else pd.Series(["event"] * len(frame))
     cleaned_labels = labels.astype(str).str.strip()
-    event_metadata["unique_labels"] = sorted(
-        {label for label in cleaned_labels.tolist() if label}
-    )
+    event_metadata["unique_labels"] = sorted({label for label in cleaned_labels.tolist() if label})
     states = pd.to_numeric(frame["State"], errors="raise") if "State" in frame.columns else None
     rows: list[Event] = []
     for index, start in enumerate(starts):
@@ -812,8 +810,7 @@ def is_doric_photometry_file(path: str | Path) -> bool:
     try:
         with h5py.File(source_path, "r") as handle:
             return any(
-                _numeric_1d_dataset(dataset)
-                for dataset in _walk_hdf5_datasets(handle).values()
+                _numeric_1d_dataset(dataset) for dataset in _walk_hdf5_datasets(handle).values()
             )
     except OSError:
         return False
@@ -837,9 +834,7 @@ def _dataset_sample_rate_with_source(dataset: h5py.Dataset) -> tuple[float | Non
 def _doric_time_dataset_sample_rate(timeline: Timeline, time_dataset: str) -> tuple[float, str]:
     sample_rate = timeline.estimated_sample_rate_hz
     if sample_rate is None:
-        raise ValueError(
-            f"Doric time dataset {time_dataset!r} must be uniformly sampled."
-        )
+        raise ValueError(f"Doric time dataset {time_dataset!r} must be uniformly sampled.")
     return float(sample_rate), f"{time_dataset}.timestamps_uniform"
 
 
@@ -1230,9 +1225,7 @@ def _tdt_block_ids(root: Path, suffix: str) -> set[tuple[Path, str]]:
 
 def _tdt_file_dirs(root: Path, suffix: str) -> set[Path]:
     return {
-        path.parent
-        for path in root.rglob("*")
-        if path.is_file() and path.suffix.lower() == suffix
+        path.parent for path in root.rglob("*") if path.is_file() and path.suffix.lower() == suffix
     }
 
 
@@ -1407,20 +1400,29 @@ def _tdt_epoc_times(
     stream_start_s: float = 0.0,
 ) -> dict[str, np.ndarray]:
     events: dict[str, np.ndarray] = {}
-    names = event_stores or tuple(
-        name
-        for name, obj in getattr(epocs_obj, "__dict__", {}).items()
-        if hasattr(obj, "onset") or hasattr(obj, "data")
+    explicit_event_stores = event_stores is not None
+    names = (
+        tuple(event_stores)
+        if explicit_event_stores
+        else tuple(
+            name
+            for name, obj in getattr(epocs_obj, "__dict__", {}).items()
+            if hasattr(obj, "onset") or hasattr(obj, "data")
+        )
     )
     for name in names:
         obj = getattr(epocs_obj, name, None)
         if obj is None:
+            if explicit_event_stores:
+                raise ValueError(f"TDT event store {name!r} was not found.")
             continue
         if hasattr(obj, "onset"):
             values = np.asarray(obj.onset, dtype=np.float64).ravel()
         elif hasattr(obj, "data"):
             values = np.asarray(obj.data, dtype=np.float64).ravel()
         else:
+            if explicit_event_stores:
+                raise ValueError(f"TDT event store {name!r} has no onset or data timestamps.")
             continue
         values = values - float(stream_start_s)
         values = values[np.isfinite(values) & (values >= 0.0)]

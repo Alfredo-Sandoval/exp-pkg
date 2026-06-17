@@ -157,8 +157,7 @@ def test_read_neurophotometrics_csv_demuxes_led_state_channels(tmp_path) -> None
     }
     assert photometry.metadata["sampling_rate_hz"] == pytest.approx(5.0)
     assert (
-        photometry.metadata["sampling_rate_source"]
-        == "Timestamp.demux_signal.timestamps_uniform"
+        photometry.metadata["sampling_rate_source"] == "Timestamp.demux_signal.timestamps_uniform"
     )
     assert session.metadata["sampling_rate_hz"] == pytest.approx(5.0)
     assert session.metadata["sampling_rate_source"] == "Timestamp.demux_signal.timestamps_uniform"
@@ -169,13 +168,8 @@ def test_read_neurophotometrics_csv_demuxes_led_state_channels(tmp_path) -> None
 
 
 def test_neurophotometrics_source_column_from_label_strips_demux_suffix() -> None:
-    assert (
-        neurophotometrics_source_column_from_label("Region1G_470nm") == "Region1G"
-    )
-    assert (
-        neurophotometrics_source_column_from_label("Region1G_led_state_7")
-        == "Region1G"
-    )
+    assert neurophotometrics_source_column_from_label("Region1G_470nm") == "Region1G"
+    assert neurophotometrics_source_column_from_label("Region1G_led_state_7") == "Region1G"
     assert neurophotometrics_source_column_from_label("Region1G") == "Region1G"
     assert neurophotometrics_source_column_from_label(None) is None
     assert neurophotometrics_source_column_from_label("") is None
@@ -1087,6 +1081,46 @@ def test_read_tdt_photometry_block_uses_optional_module() -> None:
     assert session.metadata["sampling_rate_source"] == "streams.x465A.fs"
     assert session.metadata["stream_start_source"] == "streams.x465A.start_time"
     assert session.events.events[0].label == "Cue"
+
+
+def test_read_tdt_photometry_block_rejects_missing_explicit_event_store() -> None:
+    streams = SimpleNamespace(
+        x465A=SimpleNamespace(data=np.asarray([1.0, 1.1, 1.2]), fs=100.0, start_time=0.0)
+    )
+    fake_tdt = SimpleNamespace(
+        read_block=lambda *_args, **_kwargs: SimpleNamespace(
+            streams=streams,
+            epocs=SimpleNamespace(Cue=SimpleNamespace(onset=np.asarray([0.25]))),
+        )
+    )
+
+    with pytest.raises(ValueError, match="TDT event store 'Missing' was not found"):
+        read_tdt_photometry_block(
+            "tank/block",
+            signal_store="x465A",
+            event_stores=["Missing"],
+            tdt_module=fake_tdt,
+        )
+
+
+def test_read_tdt_photometry_block_rejects_malformed_explicit_event_store() -> None:
+    streams = SimpleNamespace(
+        x465A=SimpleNamespace(data=np.asarray([1.0, 1.1, 1.2]), fs=100.0, start_time=0.0)
+    )
+    fake_tdt = SimpleNamespace(
+        read_block=lambda *_args, **_kwargs: SimpleNamespace(
+            streams=streams,
+            epocs=SimpleNamespace(Cue=SimpleNamespace(label="Cue")),
+        )
+    )
+
+    with pytest.raises(ValueError, match="no onset or data timestamps"):
+        read_tdt_photometry_block(
+            "tank/block",
+            signal_store="x465A",
+            event_stores=["Cue"],
+            tdt_module=fake_tdt,
+        )
 
 
 def test_read_tdt_photometry_block_rejects_missing_start_time() -> None:
