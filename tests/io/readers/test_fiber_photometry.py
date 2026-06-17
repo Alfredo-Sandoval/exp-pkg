@@ -52,6 +52,8 @@ def test_read_neurophotometrics_csv_demuxes_led_state_channels(tmp_path) -> None
                 "FrameCounter,Timestamp,Flags,Region0G,Region0R",
                 "0,0.0,1,0.2,0.1",
                 "1,0.1,2,0.3,0.2",
+                "2,0.2,1,0.25,0.15",
+                "3,0.3,2,0.35,0.25",
             ]
         ),
         encoding="utf-8",
@@ -72,10 +74,17 @@ def test_read_neurophotometrics_csv_demuxes_led_state_channels(tmp_path) -> None
         "2": 470,
         "4": 560,
     }
-    np.testing.assert_allclose(photometry.timeline.timestamps_s, [0.1])
-    np.testing.assert_allclose(photometry.series.values, [[0.3, 0.1]])
+    assert photometry.metadata["sampling_rate_hz"] == pytest.approx(5.0)
+    assert (
+        photometry.metadata["sampling_rate_source"]
+        == "Timestamp.demux_signal.timestamps_uniform"
+    )
+    assert session.metadata["sampling_rate_hz"] == pytest.approx(5.0)
+    assert session.metadata["sampling_rate_source"] == "Timestamp.demux_signal.timestamps_uniform"
+    np.testing.assert_allclose(photometry.timeline.timestamps_s, [0.1, 0.3])
+    np.testing.assert_allclose(photometry.series.values, [[0.3, 0.1], [0.35, 0.15]])
     assert "flags" in session.signals
-    assert session.metadata["frame_counter"] == [0, 1]
+    assert session.metadata["frame_counter"] == [0, 1, 2, 3]
 
 
 def test_read_neurophotometrics_csv_accepts_custom_led_map(tmp_path) -> None:
@@ -86,6 +95,8 @@ def test_read_neurophotometrics_csv_accepts_custom_led_map(tmp_path) -> None:
                 "Timestamp,LedState,Region0G",
                 "0.0,7,100.0",
                 "0.1,1,50.0",
+                "0.2,7,101.0",
+                "0.3,1,51.0",
             ]
         ),
         encoding="utf-8",
@@ -123,7 +134,48 @@ def test_read_neurophotometrics_csv_preserves_raw_channels_without_state(
 
     assert photometry.channel_names == ("Region0G", "Region0R")
     assert photometry.reference_channel == "Region0R"
+    assert photometry.metadata["sampling_rate_hz"] == pytest.approx(10.0)
+    assert photometry.metadata["sampling_rate_source"] == "Timestamp.timestamps_uniform"
     assert photometry.metadata["led_demux"] == {"applied": False}
+
+
+def test_read_neurophotometrics_csv_rejects_irregular_demux_timebase(tmp_path) -> None:
+    path = tmp_path / "irregular_npm.csv"
+    path.write_text(
+        "\n".join(
+            [
+                "Timestamp,LedState,Region0G",
+                "0.0,1,50.0",
+                "0.1,2,100.0",
+                "0.25,1,51.0",
+                "0.4,2,101.0",
+                "0.55,1,52.0",
+                "0.8,2,102.0",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="uniformly sampled"):
+        read_neurophotometrics_csv(path, led_code_to_nm={2: 470, 1: 415})
+
+
+def test_read_neurophotometrics_csv_rejects_irregular_raw_timebase(tmp_path) -> None:
+    path = tmp_path / "irregular_raw_npm.csv"
+    path.write_text(
+        "\n".join(
+            [
+                "Timestamp,Region0G",
+                "0.0,0.2",
+                "0.1,0.3",
+                "0.25,0.4",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="uniformly sampled"):
+        read_neurophotometrics_csv(path)
 
 
 def test_read_rwd_ofrs_session_parses_multicolor_bundle_and_events(tmp_path) -> None:

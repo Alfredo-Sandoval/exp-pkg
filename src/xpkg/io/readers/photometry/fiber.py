@@ -93,6 +93,13 @@ def _timeline_from_time(values: np.ndarray) -> Timeline:
     return Timeline(timestamps_s=np.asarray(values, dtype=np.float64))
 
 
+def _uniform_timeline_sample_rate(timeline: Timeline, source: str) -> tuple[float, str]:
+    sample_rate = timeline.estimated_sample_rate_hz
+    if sample_rate is None:
+        raise ValueError(f"{source} must be uniformly sampled.")
+    return float(sample_rate), f"{source}.timestamps_uniform"
+
+
 def _excitation_from_name(name: str) -> str:
     lowered = name.lower()
     for token in ("405", "410", "415", "465", "470", "560"):
@@ -287,6 +294,7 @@ def _npm_demux_photometry(
     signal_column: str,
     reference_column: str | None,
     state_column: str,
+    time_column: str,
     code_map: Mapping[int, int],
     signal_nm: int,
     reference_nm: int,
@@ -346,16 +354,23 @@ def _npm_demux_photometry(
         else None
     )
     values = np.column_stack(arrays)
+    timeline = _timeline_from_time(signal_times)
+    sample_rate, sample_rate_source = _uniform_timeline_sample_rate(
+        timeline,
+        f"{time_column}.demux_signal",
+    )
     return _photometry_recording(
         values=values,
         channel_names=channel_names,
-        timeline=_timeline_from_time(signal_times),
+        timeline=timeline,
         source_type="neurophotometrics_csv",
         source_path=source_path,
         signal_channel=signal_name,
         reference_channel=reference_name,
         metadata={
             "raw_roi_columns": list(roi_columns),
+            "sampling_rate_hz": sample_rate,
+            "sampling_rate_source": sample_rate_source,
             "led_demux": {
                 "applied": True,
                 "state_column": state_column,
@@ -414,15 +429,24 @@ def read_neurophotometrics_csv(
     led_map = _npm_led_code_map(led_code_to_nm)
     if state_column is None:
         values = np.column_stack([_numeric(frame, column) for column in roi_columns])
+        timeline = _timeline_from_time(timestamps)
+        sample_rate, sample_rate_source = _uniform_timeline_sample_rate(
+            timeline,
+            resolved_time,
+        )
         photometry = _photometry_recording(
             values=values,
             channel_names=roi_columns,
-            timeline=_timeline_from_time(timestamps),
+            timeline=timeline,
             source_type="neurophotometrics_csv",
             source_path=source_path,
             signal_channel=resolved_signal,
             reference_channel=resolved_reference,
-            metadata={"led_demux": {"applied": False}},
+            metadata={
+                "sampling_rate_hz": sample_rate,
+                "sampling_rate_source": sample_rate_source,
+                "led_demux": {"applied": False},
+            },
         )
         state_values = None
     else:
@@ -436,6 +460,7 @@ def read_neurophotometrics_csv(
             signal_column=resolved_signal,
             reference_column=resolved_reference,
             state_column=state_column,
+            time_column=resolved_time,
             code_map=led_map,
             signal_nm=int(signal_nm),
             reference_nm=int(reference_nm),
@@ -454,6 +479,8 @@ def read_neurophotometrics_csv(
         "columns": [str(column) for column in frame.columns],
         "time_column": resolved_time,
         "state_column": state_column,
+        "sampling_rate_hz": photometry.metadata["sampling_rate_hz"],
+        "sampling_rate_source": photometry.metadata["sampling_rate_source"],
     }
     frame_counter = _first_column(frame, ("FrameCounter",))
     if frame_counter is not None:
