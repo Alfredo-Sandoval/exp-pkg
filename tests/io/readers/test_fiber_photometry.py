@@ -152,6 +152,32 @@ def test_read_doric_photometry_uses_hdf5_datasets(tmp_path) -> None:
     assert photometry.signal_channel == "Data/Signal"
     assert photometry.reference_channel == "Data/Control"
     np.testing.assert_allclose(photometry.timeline.timestamps_s, [0.0, 0.1, 0.2])
+    assert photometry.metadata["channel_inference"] == "wavelength_tokens"
+
+
+def test_read_doric_photometry_selects_560_signal_over_isosbestic(tmp_path) -> None:
+    path = tmp_path / "rg.doric"
+    with h5py.File(path, "w") as handle:
+        group = handle.create_group("Data")
+        group.create_dataset("Sig560", data=np.asarray([1.0, 1.1, 1.2]))
+        group.create_dataset("Ref405", data=np.asarray([0.5, 0.4, 0.3]))
+        handle.create_dataset("Time", data=np.asarray([0.0, 0.1, 0.2]))
+
+    photometry = read_doric_photometry(path).signals["photometry"]
+    assert photometry.signal_channel == "Data/Sig560"
+    assert photometry.reference_channel == "Data/Ref405"
+    assert photometry.metadata["channel_inference"] == "wavelength_tokens"
+
+
+def test_read_doric_photometry_flags_storage_order_inference(tmp_path) -> None:
+    path = tmp_path / "unnamed.doric"
+    with h5py.File(path, "w") as handle:
+        handle.create_dataset("ChannelA", data=np.asarray([1.0, 1.1, 1.2]))
+        handle.create_dataset("ChannelB", data=np.asarray([0.5, 0.4, 0.3]))
+        handle.create_dataset("Time", data=np.asarray([0.0, 0.1, 0.2]))
+
+    photometry = read_doric_photometry(path).signals["photometry"]
+    assert photometry.metadata["channel_inference"] == "storage_order"
 
 
 def test_read_teleopto_h5_extracts_channels_and_ttl(tmp_path) -> None:

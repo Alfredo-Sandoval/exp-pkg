@@ -498,23 +498,29 @@ def _dataset_sample_rate(dataset: h5py.Dataset) -> float | None:
     return None
 
 
-def _preferred_doric_signal(paths: Sequence[str]) -> str:
-    priority = ("signal", "470", "465", "gcamp", "green")
-    for token in priority:
+# Wavelength tokens are the most specific/authoritative for Doric exports, so
+# they outrank indicator/colour names and the generic "signal"/"control" words.
+_DORIC_SIGNAL_TOKENS = ("470", "465", "560", "gcamp", "green", "signal")
+_DORIC_REFERENCE_TOKENS = ("405", "415", "410", "isosbestic", "iso", "control", "reference")
+
+
+def _preferred_doric_signal(paths: Sequence[str]) -> tuple[str, bool]:
+    """Return the signal path and whether it matched a wavelength/name token."""
+    for token in _DORIC_SIGNAL_TOKENS:
         for path in paths:
             if token in path.lower():
-                return path
-    return str(paths[0])
+                return path, True
+    return str(paths[0]), False
 
 
-def _preferred_doric_reference(paths: Sequence[str], signal_path: str) -> str | None:
-    priority = ("control", "410", "405", "415", "iso", "reference")
+def _preferred_doric_reference(paths: Sequence[str], signal_path: str) -> tuple[str | None, bool]:
+    """Return the reference path and whether it matched a token (vs storage order)."""
     candidates = [path for path in paths if path != signal_path]
-    for token in priority:
+    for token in _DORIC_REFERENCE_TOKENS:
         for path in candidates:
             if token in path.lower():
-                return path
-    return candidates[0] if candidates else None
+                return path, True
+    return (candidates[0], False) if candidates else (None, False)
 
 
 def read_doric_photometry(
@@ -536,12 +542,25 @@ def read_doric_photometry(
         if resolved_time is None:
             resolved_time = next((name for name in numeric_paths if "time" in name.lower()), None)
         signal_candidates = [name for name in numeric_paths if name != resolved_time]
-        resolved_signal = signal_path or _preferred_doric_signal(signal_candidates)
+        signal_matched = True
+        if signal_path is not None:
+            resolved_signal = signal_path
+        else:
+            resolved_signal, signal_matched = _preferred_doric_signal(signal_candidates)
         if resolved_signal not in datasets:
             raise ValueError(f"Doric signal dataset {resolved_signal!r} was not found.")
         resolved_reference = reference_path
+        reference_matched = True
         if resolved_reference is None and len(signal_candidates) > 1:
-            resolved_reference = _preferred_doric_reference(signal_candidates, resolved_signal)
+            resolved_reference, reference_matched = _preferred_doric_reference(
+                signal_candidates, resolved_signal
+            )
+        # Signal/control identity is a swap risk worth surfacing when it falls back
+        # to storage order rather than a wavelength/name token.
+        inferred_by_order = (not signal_matched) or (
+            resolved_reference is not None and not reference_matched
+        )
+        root_attributes = {str(key): handle.attrs[key] for key in handle.attrs}
 
         signal = np.asarray(datasets[resolved_signal], dtype=np.float64)
         values = [signal]
@@ -575,7 +594,12 @@ def read_doric_photometry(
         source_path=source_path,
         signal_channel=resolved_signal,
         reference_channel=resolved_reference,
-        metadata={"datasets": numeric_paths, "time_dataset": resolved_time},
+        metadata={
+            "datasets": numeric_paths,
+            "time_dataset": resolved_time,
+            "channel_inference": ("storage_order" if inferred_by_order else "wavelength_tokens"),
+            "root_attributes": root_attributes,
+        },
     )
     return RecordingSession(
         session_id=source_path.stem,
