@@ -76,6 +76,7 @@ def test_read_pyphotometry_ppd_returns_session_signals_and_events(tmp_path: Path
     np.testing.assert_allclose(photometry.series.values[:, 0], [100, 101, 102, 103, 104, 105])
     assert [event.label for event in session.events] == ["digital_1", "digital_1"]
     np.testing.assert_allclose([event.start_s for event in session.events], [0.04, 0.1])
+    assert {event.metadata["source"]["type"] for event in session.events} == {"pyphotometry_ppd"}
 
 
 def test_read_pyphotometry_ppd_applies_volts_per_division(tmp_path: Path) -> None:
@@ -270,6 +271,7 @@ def test_read_pyphotometry_csv_uses_json_settings_and_digital_events(tmp_path: P
     assert session.metadata["event_label_scheme"] == "digital_channels"
     np.testing.assert_allclose(photometry.series.values[:, 0], [0.1, 0.101])
     assert [event.label for event in session.events] == ["digital_1"]
+    assert session.events.events[0].metadata["source"]["type"] == "pyphotometry_csv"
 
 
 def test_read_pyphotometry_csv_rejects_missing_explicit_settings_path(

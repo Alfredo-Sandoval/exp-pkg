@@ -199,7 +199,13 @@ def _require_binary_digital(digital: np.ndarray, *, source: str) -> np.ndarray:
     return values
 
 
-def _digital_events(digital: np.ndarray, sample_rate_hz: float, path: Path) -> EventTable:
+def _digital_events(
+    digital: np.ndarray,
+    sample_rate_hz: float,
+    path: Path,
+    *,
+    source_type: str,
+) -> EventTable:
     digital = _require_binary_digital(digital, source="pyPhotometry")
     events: list[Event] = []
     for index in range(digital.shape[1]):
@@ -210,7 +216,7 @@ def _digital_events(digital: np.ndarray, sample_rate_hz: float, path: Path) -> E
                     kind="ttl",
                     start_s=float(time_s),
                     label=label,
-                    metadata={"source": {"type": "pyphotometry_ppd", "path": str(path)}},
+                    metadata={"source": {"type": source_type, "path": str(path)}},
                 )
             )
     return EventTable.from_events(events)
@@ -291,7 +297,12 @@ def read_pyphotometry_ppd(path: str | Path) -> RecordingSession:
     return RecordingSession(
         session_id=source_path.stem,
         signals={"photometry": photometry, "digital": digital_series, **extra_signals},
-        events=_digital_events(digital, sample_rate_hz, source_path),
+        events=_digital_events(
+            digital,
+            sample_rate_hz,
+            source_path,
+            source_type="pyphotometry_ppd",
+        ),
         metadata={
             "source": {"type": "pyphotometry_ppd", "path": str(source_path)},
             "ppd_header": dict(header),
@@ -424,7 +435,12 @@ def read_pyphotometry_csv(
             name="digital",
             provenance={"source": {"type": "pyphotometry_csv", "path": str(source_path)}},
         )
-        events = _digital_events(digital, rate, source_path)
+        events = _digital_events(
+            digital,
+            rate,
+            source_path,
+            source_type="pyphotometry_csv",
+        )
 
     return RecordingSession(
         session_id=source_path.stem,
