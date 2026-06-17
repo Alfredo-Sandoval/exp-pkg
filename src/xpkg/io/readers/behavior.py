@@ -233,22 +233,37 @@ def read_behavior_events_csv(
     """Read behavior interval or per-frame labels from a flexible CSV export."""
 
     source_path = Path(path)
+    column_selectors = {
+        "label_column": _clean_optional_column_name(label_column, role="label_column"),
+        "start_column": _clean_optional_column_name(start_column, role="start_column"),
+        "end_column": _clean_optional_column_name(end_column, role="end_column"),
+        "duration_column": _clean_optional_column_name(
+            duration_column,
+            role="duration_column",
+        ),
+        "frame_column": _clean_optional_column_name(frame_column, role="frame_column"),
+        "start_frame_column": _clean_optional_column_name(
+            start_frame_column,
+            role="start_frame_column",
+        ),
+        "end_frame_column": _clean_optional_column_name(
+            end_frame_column,
+            role="end_frame_column",
+        ),
+        "score_column": _clean_optional_column_name(score_column, role="score_column"),
+        "confidence_column": _clean_optional_column_name(
+            confidence_column,
+            role="confidence_column",
+        ),
+        "source_id_column": _clean_optional_column_name(
+            source_id_column,
+            role="source_id_column",
+        ),
+    }
     frame, size_bytes = _read_csv(source_path, max_mb=max_mb)
     if frame.empty:
         raise ValueError(f"Behavior CSV '{source_path}' is empty.")
-    columns = _BehaviorColumns.resolve(
-        frame,
-        label_column=label_column,
-        start_column=start_column,
-        end_column=end_column,
-        duration_column=duration_column,
-        frame_column=frame_column,
-        start_frame_column=start_frame_column,
-        end_frame_column=end_frame_column,
-        score_column=score_column,
-        confidence_column=confidence_column,
-        source_id_column=source_id_column,
-    )
+    columns = _BehaviorColumns.resolve(frame, **column_selectors)
     scale = _time_scale(time_unit)
     intervals = _csv_intervals(frame, columns, scale=scale)
     frame_labels = _csv_frame_labels(frame, columns) if not intervals else ()
@@ -861,6 +876,18 @@ def _time_scale(unit: TimeUnit) -> float:
     if normalized in {"ms", "millisecond", "milliseconds"}:
         return 0.001
     raise ValueError(f"Unsupported time_unit {unit!r}; expected seconds or milliseconds.")
+
+
+def _clean_optional_column_name(value: str | None, *, role: str) -> str | None:
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise TypeError(f"{role} must be a string when provided.")
+    if not value:
+        raise ValueError(f"{role} must be a non-empty string.")
+    if value != value.strip():
+        raise ValueError(f"{role} must not contain surrounding whitespace.")
+    return value
 
 
 def _is_missing(value: Any) -> bool:

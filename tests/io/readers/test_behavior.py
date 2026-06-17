@@ -318,6 +318,71 @@ def test_read_behavior_events_csv_requires_labels_and_timing(tmp_path) -> None:
         read_behavior_events_csv(missing_time)
 
 
+@pytest.mark.parametrize(
+    ("kwargs", "exc_type", "message"),
+    [
+        (
+            {"label_column": ""},
+            ValueError,
+            "label_column must be a non-empty string",
+        ),
+        (
+            {"start_column": " start_s"},
+            ValueError,
+            "start_column must not contain surrounding whitespace",
+        ),
+        (
+            {"end_column": 0},
+            TypeError,
+            "end_column must be a string",
+        ),
+        (
+            {"duration_column": " duration"},
+            ValueError,
+            "duration_column must not contain surrounding whitespace",
+        ),
+        (
+            {"frame_column": " frame"},
+            ValueError,
+            "frame_column must not contain surrounding whitespace",
+        ),
+        (
+            {"start_frame_column": " start_frame"},
+            ValueError,
+            "start_frame_column must not contain surrounding whitespace",
+        ),
+        (
+            {"end_frame_column": " end_frame"},
+            ValueError,
+            "end_frame_column must not contain surrounding whitespace",
+        ),
+        (
+            {"score_column": " score"},
+            ValueError,
+            "score_column must not contain surrounding whitespace",
+        ),
+        (
+            {"confidence_column": " confidence"},
+            ValueError,
+            "confidence_column must not contain surrounding whitespace",
+        ),
+        (
+            {"source_id_column": " source_id"},
+            ValueError,
+            "source_id_column must not contain surrounding whitespace",
+        ),
+    ],
+)
+def test_read_behavior_events_csv_rejects_unclean_explicit_column_selectors(
+    tmp_path,
+    kwargs: dict[str, object],
+    exc_type: type[Exception],
+    message: str,
+) -> None:
+    with pytest.raises(exc_type, match=message):
+        read_behavior_events_csv(tmp_path / "missing.csv", **kwargs)  # type: ignore[arg-type]
+
+
 # --- Real-format contract tests (byte-faithful fixtures) ---------------------
 # The fixtures below reproduce the exact layouts the real tools write, derived
 # from each tool's writer source (not copied datasets), so the readers stay
