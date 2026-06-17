@@ -804,10 +804,19 @@ def _finite_vector(values: object, name: str) -> np.ndarray:
 
 
 def _teleopto_sample_rate(num: np.ndarray, st1: np.ndarray, n_samples: int) -> float:
+    sample_rate, _source = _teleopto_sample_rate_with_source(num, st1, n_samples)
+    return sample_rate
+
+
+def _teleopto_sample_rate_with_source(
+    num: np.ndarray,
+    st1: np.ndarray,
+    n_samples: int,
+) -> tuple[float, str]:
     if num.size > 1 and np.isfinite(num[1]) and num[1] > 0:
-        return float(num[1])
+        return float(num[1]), "num[1]"
     if st1.size and np.isfinite(st1[0]) and st1[0] > 0:
-        return float(n_samples / st1[0])
+        return float(n_samples / st1[0]), "st1_duration"
     raise ValueError("Teleopto H5 missing sampling rate and duration metadata.")
 
 
@@ -944,7 +953,11 @@ def parse_teleopto_h5_arrays(
         values = _finite_vector(datasets[key], f"Teleopto H5 event channel {key}")
         if values.size:
             event_map[key] = np.sort(values)
-    sample_rate = _teleopto_sample_rate(num, st1, d1.size)
+    sample_rate, sample_rate_source = _teleopto_sample_rate_with_source(
+        num,
+        st1,
+        d1.size,
+    )
     timeline = Timeline.from_sample_rate(n_samples=d1.size, sample_rate_hz=sample_rate)
     names = [labels[0] if labels else "d1"]
     values = [d1]
@@ -978,6 +991,9 @@ def parse_teleopto_h5_arrays(
         metadata={
             "channel_labels": labels,
             "secondary_channel": secondary,
+            "sampling_rate_hz": sample_rate,
+            "sampling_rate_source": sample_rate_source,
+            "event_label_scheme": "teleopto_native",
             "num": num.tolist(),
             "st1": st1.tolist(),
         },
@@ -986,7 +1002,12 @@ def parse_teleopto_h5_arrays(
         session_id=session_id,
         signals={"photometry": photometry},
         events=_events_from_map(event_map, source_type="teleopto_h5", source_path=resolved_source),
-        metadata={"source": {"type": "teleopto_h5", "path": str(resolved_source)}},
+        metadata={
+            "source": {"type": "teleopto_h5", "path": str(resolved_source)},
+            "sampling_rate_hz": sample_rate,
+            "sampling_rate_source": sample_rate_source,
+            "event_label_scheme": "teleopto_native",
+        },
     )
 
 

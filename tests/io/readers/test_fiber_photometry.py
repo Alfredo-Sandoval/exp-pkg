@@ -442,6 +442,12 @@ def test_read_teleopto_h5_extracts_channels_and_ttl(tmp_path) -> None:
     assert photometry.signal_channel == "Signal"
     assert photometry.reference_channel is None
     assert photometry.metadata["secondary_channel"] == "TTL"
+    assert photometry.metadata["sampling_rate_hz"] == pytest.approx(10.0)
+    assert photometry.metadata["sampling_rate_source"] == "num[1]"
+    assert photometry.metadata["event_label_scheme"] == "teleopto_native"
+    assert session.metadata["sampling_rate_hz"] == pytest.approx(10.0)
+    assert session.metadata["sampling_rate_source"] == "num[1]"
+    assert session.metadata["event_label_scheme"] == "teleopto_native"
     by_label = {event.label: event.start_s for event in session.events}
     assert {"ct1", "TTL_ttl", "press_on_times", "press_off_times"} <= set(by_label)
     assert by_label["ct1"] == pytest.approx(0.15)
@@ -465,9 +471,26 @@ def test_parse_teleopto_h5_arrays_matches_file_semantics() -> None:
     assert session.session_id == "arrays"
     assert photometry.channel_names == ("Signal", "TTL")
     assert photometry.reference_channel is None
+    assert photometry.metadata["sampling_rate_hz"] == pytest.approx(10.0)
+    assert photometry.metadata["sampling_rate_source"] == "num[1]"
+    assert photometry.metadata["event_label_scheme"] == "teleopto_native"
     by_label = {event.label: event.start_s for event in session.events}
     assert by_label["ct1"] == pytest.approx(0.15)
     assert by_label["TTL_ttl"] == pytest.approx(0.2)
+
+
+def test_parse_teleopto_h5_arrays_records_st1_sampling_rate_source() -> None:
+    datasets = {
+        "d1": np.asarray([1.0, 1.1, 1.2, 1.3]),
+        "num": np.asarray([0.0]),
+        "st1": np.asarray([0.4]),
+        "str": np.asarray([b"Signal"]),
+    }
+
+    photometry = parse_teleopto_h5_arrays(datasets).signals["photometry"]
+
+    assert photometry.metadata["sampling_rate_hz"] == pytest.approx(10.0)
+    assert photometry.metadata["sampling_rate_source"] == "st1_duration"
 
 
 def test_read_teleopto_h5_rejects_nonfinite_events(tmp_path) -> None:
