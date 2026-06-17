@@ -2,16 +2,38 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
 from xpkg.model._metadata_validation import (
     metadata_dict,
-    required_text,
 )
 from xpkg.model.events import EventTable
 from xpkg.model.signals import PhotometryRecording, TimeSeries
 from xpkg.model.time import Timebase, TimeRange
+
+
+def _required_text(value: object, *, name: str) -> str:
+    if not isinstance(value, str):
+        raise TypeError(f"{name} must be a string.")
+    if not value:
+        raise ValueError(f"{name} must be a non-empty string.")
+    if value != value.strip():
+        raise ValueError(f"{name} must not contain surrounding whitespace.")
+    return value
+
+
+def _optional_text(value: object | None, *, name: str) -> str | None:
+    if value is None:
+        return None
+    return _required_text(value, name=name)
+
+
+def _strict_mapping(value: object, *, name: str) -> dict[str, Any]:
+    if not isinstance(value, Mapping):
+        raise TypeError(f"{name} must be a mapping.")
+    return {_required_text(key, name=f"{name} key"): item for key, item in value.items()}
 
 
 @dataclass(frozen=True, slots=True)
@@ -28,21 +50,21 @@ class RecordingSession:
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
-        session_id = required_text(self.session_id, name="session_id")
-        title = None if self.title is None else str(self.title).strip()
-        if title == "":
-            title = None
+        session_id = _required_text(self.session_id, name="session_id")
+        title = _optional_text(self.title, name="session title")
         if not isinstance(self.timebase, Timebase):
             raise TypeError(f"session timebase must be a Timebase, got {self.timebase!r}.")
-        pose = metadata_dict(self.pose, name="session pose")
-        videos = metadata_dict(self.videos, name="session videos")
-        signals = metadata_dict(self.signals, name="session signals")
-        for key, value in signals.items():
+        pose = _strict_mapping(self.pose, name="session pose")
+        videos = _strict_mapping(self.videos, name="session videos")
+        raw_signals = _strict_mapping(self.signals, name="session signals")
+        signals: dict[str, TimeSeries | PhotometryRecording] = {}
+        for key, value in raw_signals.items():
             if not isinstance(value, TimeSeries | PhotometryRecording):
                 raise TypeError(
                     "session signals values must be TimeSeries or PhotometryRecording "
                     f"objects; got {key}={value!r}."
                 )
+            signals[key] = value
         if not isinstance(self.events, EventTable):
             raise TypeError(f"session events must be an EventTable, got {self.events!r}.")
         metadata = metadata_dict(self.metadata, name="session metadata")
@@ -91,11 +113,9 @@ class RecordingSession:
         signal: TimeSeries | PhotometryRecording,
     ) -> RecordingSession:
         """Return a copy with one signal recording added or replaced."""
-        key = required_text(name, name="signal name")
+        key = _required_text(name, name="signal name")
         if not isinstance(signal, TimeSeries | PhotometryRecording):
-            raise TypeError(
-                f"signal must be a TimeSeries or PhotometryRecording, got {signal!r}."
-            )
+            raise TypeError(f"signal must be a TimeSeries or PhotometryRecording, got {signal!r}.")
         signals = dict(self.signals)
         signals[key] = signal
         return RecordingSession(

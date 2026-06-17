@@ -336,3 +336,61 @@ def test_recording_session_collects_signal_and_event_time_range() -> None:
     assert session.modality_names == ("signals", "events")
     assert session.signals["fiber"] is recording
     assert session.time_range == TimeRange(0.0, 1.0)
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "exc_type", "message"),
+    [
+        ({"session_id": 1}, TypeError, "session_id must be a string"),
+        ({"session_id": ""}, ValueError, "session_id must be a non-empty string"),
+        (
+            {"session_id": " session-001"},
+            ValueError,
+            "session_id must not contain surrounding whitespace",
+        ),
+        (
+            {"session_id": "session-001", "title": ""},
+            ValueError,
+            "session title must be a non-empty string",
+        ),
+        (
+            {"session_id": "session-001", "title": " Session"},
+            ValueError,
+            "session title must not contain surrounding whitespace",
+        ),
+    ],
+)
+def test_recording_session_rejects_unclean_text(
+    kwargs: dict[str, object],
+    exc_type: type[Exception],
+    message: str,
+) -> None:
+    with pytest.raises(exc_type, match=message):
+        RecordingSession(**kwargs)
+
+
+def test_recording_session_rejects_unclean_signal_keys() -> None:
+    series = TimeSeries.from_samples(
+        [1.0, 1.1, 1.2],
+        sample_rate_hz=10.0,
+        channel_names=["gcamp"],
+    )
+    recording = PhotometryRecording(series=series, signal_channel="gcamp")
+
+    with pytest.raises(
+        ValueError,
+        match="session signals key must not contain surrounding whitespace",
+    ):
+        RecordingSession(session_id="session-001", signals={" fiber": recording})
+
+
+def test_recording_session_with_signal_rejects_unclean_name() -> None:
+    series = TimeSeries.from_samples(
+        [1.0, 1.1, 1.2],
+        sample_rate_hz=10.0,
+        channel_names=["gcamp"],
+    )
+    recording = PhotometryRecording(series=series, signal_channel="gcamp")
+
+    with pytest.raises(ValueError, match="signal name must not contain surrounding whitespace"):
+        RecordingSession(session_id="session-001").with_signal(" fiber", recording)
