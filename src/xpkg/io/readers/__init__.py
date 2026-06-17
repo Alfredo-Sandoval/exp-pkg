@@ -32,6 +32,7 @@ from xpkg.io.readers.photometry.fiber import (
 from xpkg.io.readers.photometry.nwb import read_nwb_photometry
 from xpkg.io.readers.photometry.pyphotometry import (
     is_pyphotometry_csv,
+    is_pyphotometry_ppd_file,
     read_pyphotometry_csv,
     read_pyphotometry_ppd,
 )
@@ -69,6 +70,7 @@ __all__ = [
     "read_pose_node_names",
     "read_pose_track",
     "is_pyphotometry_csv",
+    "is_pyphotometry_ppd_file",
     "read_pyphotometry_csv",
     "read_pyphotometry_ppd",
     "read_rwd_ofrs_session",

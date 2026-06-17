@@ -9,6 +9,7 @@ import pytest
 
 from xpkg.io.readers import (
     is_pyphotometry_csv,
+    is_pyphotometry_ppd_file,
     read_pyphotometry_csv,
     read_pyphotometry_ppd,
 )
@@ -130,6 +131,34 @@ def test_read_pyphotometry_ppd_supports_v11_pulsed_baseline_layout(tmp_path: Pat
     assert "raw_led_on" in session.signals
     assert "raw_baseline" in session.signals
     assert [event.label for event in session.events] == ["digital_1"]
+
+
+def test_is_pyphotometry_ppd_file_detects_ppd_header_envelope(tmp_path: Path) -> None:
+    valid = tmp_path / "recording.ppd"
+    _write_ppd(valid)
+
+    legacy = tmp_path / "legacy.ppd"
+    legacy_header = b"\xff" * 34
+    legacy.write_bytes(struct.pack("<H", len(legacy_header)) + legacy_header + b"\x00\x00")
+
+    wrong_suffix = tmp_path / "recording.bin"
+    _write_ppd(wrong_suffix)
+
+    incomplete = tmp_path / "incomplete.ppd"
+    incomplete.write_bytes(struct.pack("<H", 12) + b'{"fs"')
+
+    malformed = tmp_path / "malformed.ppd"
+    malformed_header = b'{"sampling_rate":'
+    malformed.write_bytes(
+        struct.pack("<H", len(malformed_header)) + malformed_header
+    )
+
+    assert is_pyphotometry_ppd_file(valid) is True
+    assert is_pyphotometry_ppd_file(legacy) is True
+    assert is_pyphotometry_ppd_file(wrong_suffix) is False
+    assert is_pyphotometry_ppd_file(incomplete) is False
+    assert is_pyphotometry_ppd_file(malformed) is False
+    assert is_pyphotometry_ppd_file(tmp_path / "missing.ppd") is False
 
 
 def test_is_pyphotometry_csv_detects_analog_columns(tmp_path: Path) -> None:

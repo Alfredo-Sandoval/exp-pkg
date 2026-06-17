@@ -90,6 +90,32 @@ def _read_ppd_words(path: Path) -> tuple[dict[str, Any], np.ndarray]:
     return header, np.frombuffer(payload, dtype="<u2")
 
 
+def is_pyphotometry_ppd_file(path: str | Path) -> bool:
+    """Return whether ``path`` has a pyPhotometry PPD header envelope."""
+
+    source_path = Path(path)
+    if not source_path.is_file() or source_path.suffix.lower() != ".ppd":
+        return False
+    try:
+        with source_path.open("rb") as handle:
+            header_len_bytes = handle.read(2)
+            if len(header_len_bytes) != 2:
+                return False
+            (header_len,) = struct.unpack("<H", header_len_bytes)
+            header_json = handle.read(header_len)
+    except OSError:
+        return False
+    if len(header_json) != header_len:
+        return False
+    try:
+        parse_json_dict(header_json)
+    except UnicodeDecodeError:
+        return len(header_json) >= 34
+    except JSONDecodeError:
+        return False
+    return True
+
+
 def _version_tuple(value: object) -> tuple[int, ...]:
     parts: list[int] = []
     for part in str(value).split("."):
@@ -371,4 +397,9 @@ def read_pyphotometry_csv(
     )
 
 
-__all__ = ["is_pyphotometry_csv", "read_pyphotometry_csv", "read_pyphotometry_ppd"]
+__all__ = [
+    "is_pyphotometry_csv",
+    "is_pyphotometry_ppd_file",
+    "read_pyphotometry_csv",
+    "read_pyphotometry_ppd",
+]

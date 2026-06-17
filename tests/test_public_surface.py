@@ -122,6 +122,7 @@ from xpkg.readers import (
     is_doric_photometry_file,
     is_neurophotometrics_csv,
     is_pyphotometry_csv,
+    is_pyphotometry_ppd_file,
     is_rwd_ofrs_session,
     is_tdt_block,
     is_teleopto_h5,
@@ -215,6 +216,7 @@ def test_root_namespace_is_curated_to_project_first_modules() -> None:
     assert callable(reloaded.readers.is_doric_photometry_file)
     assert callable(reloaded.readers.is_neurophotometrics_csv)
     assert callable(reloaded.readers.is_pyphotometry_csv)
+    assert callable(reloaded.readers.is_pyphotometry_ppd_file)
     assert callable(reloaded.readers.is_rwd_ofrs_session)
     assert callable(reloaded.readers.is_tdt_block)
     assert callable(reloaded.readers.is_teleopto_h5)
@@ -314,6 +316,7 @@ def test_public_exports_are_callable() -> None:
     assert callable(is_doric_photometry_file)
     assert callable(is_neurophotometrics_csv)
     assert callable(is_pyphotometry_csv)
+    assert callable(is_pyphotometry_ppd_file)
     assert callable(is_rwd_ofrs_session)
     assert callable(is_tdt_block)
     assert callable(is_teleopto_h5)
