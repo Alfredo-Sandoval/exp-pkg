@@ -6,6 +6,7 @@ import pytest
 from xpkg.model import (
     Event,
     EventTable,
+    PhotometryChannel,
     PhotometryRecording,
     RecordingSession,
     SignalChannel,
@@ -172,6 +173,108 @@ def test_time_series_and_photometry_recording_validate_channels() -> None:
             sample_rate_hz=10.0,
             channel_names=["gcamp"],
         )
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "exc_type", "message"),
+    [
+        ({"name": 1}, TypeError, "signal channel name must be a string"),
+        ({"name": ""}, ValueError, "signal channel name must be a non-empty string"),
+        (
+            {"name": " gcamp"},
+            ValueError,
+            "signal channel name must not contain surrounding whitespace",
+        ),
+        (
+            {"name": "gcamp", "unit": 1},
+            TypeError,
+            "signal channel unit must be a string",
+        ),
+        (
+            {"name": "gcamp", "unit": " dff"},
+            ValueError,
+            "signal channel unit must not contain surrounding whitespace",
+        ),
+        (
+            {"name": "gcamp", "description": " primary"},
+            ValueError,
+            "signal channel description must not contain surrounding whitespace",
+        ),
+    ],
+)
+def test_signal_channel_rejects_unclean_text(
+    kwargs: dict[str, object],
+    exc_type: type[Exception],
+    message: str,
+) -> None:
+    with pytest.raises(exc_type, match=message):
+        SignalChannel(**kwargs)
+
+
+def test_photometry_channel_rejects_unclean_excitation() -> None:
+    with pytest.raises(
+        ValueError,
+        match="photometry channel excitation must not contain surrounding whitespace",
+    ):
+        PhotometryChannel(name="gcamp", excitation=" 470")
+
+
+@pytest.mark.parametrize(
+    ("operation", "exc_type", "message"),
+    [
+        (
+            lambda series: series.channel_index(" gcamp"),
+            ValueError,
+            "channel name must not contain surrounding whitespace",
+        ),
+        (
+            lambda series: TimeSeries(
+                values=np.ones((3, 1)),
+                timeline=series.timeline,
+                channels=(SignalChannel("gcamp"),),
+                name=" signals",
+            ),
+            ValueError,
+            "time series name must not contain surrounding whitespace",
+        ),
+        (
+            lambda series: TimeSeries.from_samples(
+                np.ones((3, 1)),
+                sample_rate_hz=10.0,
+                channel_names=[" gcamp"],
+            ),
+            ValueError,
+            "signal channel name must not contain surrounding whitespace",
+        ),
+        (
+            lambda series: PhotometryRecording(series=series, signal_channel=" gcamp"),
+            ValueError,
+            "signal_channel must not contain surrounding whitespace",
+        ),
+        (
+            lambda series: PhotometryRecording(
+                series=series,
+                signal_channel="gcamp",
+                reference_channel=" isosbestic",
+            ),
+            ValueError,
+            "reference_channel must not contain surrounding whitespace",
+        ),
+    ],
+)
+def test_signal_models_reject_unclean_text(
+    operation,
+    exc_type: type[Exception],
+    message: str,
+) -> None:
+    series = TimeSeries.from_samples(
+        np.ones((3, 2)),
+        sample_rate_hz=10.0,
+        channel_names=["gcamp", "isosbestic"],
+    )
+
+    with pytest.raises(exc_type, match=message):
+        operation(series)
 
 
 def test_recording_session_collects_signal_and_event_time_range() -> None:
