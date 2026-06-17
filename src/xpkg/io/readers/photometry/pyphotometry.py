@@ -263,6 +263,19 @@ def _matching_columns(frame: pd.DataFrame, prefix: str) -> tuple[str, ...]:
     return tuple(columns)
 
 
+def is_pyphotometry_csv(path: str | Path) -> bool:
+    """Return whether ``path`` has pyPhotometry-style Analog CSV columns."""
+
+    source_path = Path(path)
+    if not source_path.is_file() or source_path.suffix.lower() != ".csv":
+        return False
+    try:
+        frame = pd.read_csv(source_path, nrows=0, skipinitialspace=True)
+    except (OSError, UnicodeDecodeError, pd.errors.ParserError, ValueError):
+        return False
+    return bool(_matching_columns(frame, "analog"))
+
+
 def read_pyphotometry_csv(
     path: str | Path,
     *,
@@ -358,4 +371,4 @@ def read_pyphotometry_csv(
     )
 
 
-__all__ = ["read_pyphotometry_csv", "read_pyphotometry_ppd"]
+__all__ = ["is_pyphotometry_csv", "read_pyphotometry_csv", "read_pyphotometry_ppd"]

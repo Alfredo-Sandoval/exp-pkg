@@ -7,7 +7,11 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from xpkg.io.readers import read_pyphotometry_csv, read_pyphotometry_ppd
+from xpkg.io.readers import (
+    is_pyphotometry_csv,
+    read_pyphotometry_csv,
+    read_pyphotometry_ppd,
+)
 from xpkg.model import PhotometryRecording, RecordingSession, TimeSeries
 
 
@@ -126,6 +130,26 @@ def test_read_pyphotometry_ppd_supports_v11_pulsed_baseline_layout(tmp_path: Pat
     assert "raw_led_on" in session.signals
     assert "raw_baseline" in session.signals
     assert [event.label for event in session.events] == ["digital_1"]
+
+
+def test_is_pyphotometry_csv_detects_analog_columns(tmp_path: Path) -> None:
+    spaced_path = tmp_path / "spaced.csv"
+    spaced_path.write_text(
+        "Analog1, Analog2, Digital1\n100,200,0\n",
+        encoding="utf-8",
+    )
+    underscore_path = tmp_path / "underscore.csv"
+    underscore_path.write_text(
+        "analog_1,digital_1\n100,0\n",
+        encoding="utf-8",
+    )
+    plain_path = tmp_path / "plain.csv"
+    plain_path.write_text("time,signal\n0.0,1.0\n", encoding="utf-8")
+
+    assert is_pyphotometry_csv(spaced_path) is True
+    assert is_pyphotometry_csv(underscore_path) is True
+    assert is_pyphotometry_csv(plain_path) is False
+    assert is_pyphotometry_csv(tmp_path / "missing.csv") is False
 
 
 def test_read_pyphotometry_csv_uses_json_settings_and_digital_events(tmp_path: Path) -> None:
