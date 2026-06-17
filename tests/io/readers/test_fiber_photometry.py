@@ -9,6 +9,7 @@ import pytest
 from xpkg.io.readers import (
     is_doric_photometry_file,
     is_neurophotometrics_csv,
+    is_nwb_photometry_file,
     is_rwd_ofrs_session,
     is_tdt_block,
     is_teleopto_h5,
@@ -538,6 +539,40 @@ def test_read_nwb_photometry_prefers_dff_and_extracts_events(tmp_path) -> None:
     assert session.metadata["subject"]["genotype"] == "Anxa1-iCre"
     assert session.metadata["sampling_rate_hz"] == pytest.approx(100.0)
     assert session.metadata["sampling_rate_source"] == "starting_time.rate"
+
+
+def test_is_nwb_photometry_file_detects_photometry_series(tmp_path) -> None:
+    path = tmp_path / "photometry.nwb"
+    with h5py.File(path, "w") as handle:
+        acquisition = handle.create_group("acquisition")
+        _write_nwb_series(
+            acquisition,
+            "FiberPhotometryResponseSeries",
+            np.asarray([1.0, 1.1, 1.2]),
+        )
+
+    no_signal = tmp_path / "behavior-only.nwb"
+    with h5py.File(no_signal, "w") as handle:
+        acquisition = handle.create_group("acquisition")
+        _write_nwb_series(acquisition, "RunningSpeed", np.asarray([1.0, 1.1, 1.2]))
+
+    wrong_suffix = tmp_path / "photometry.h5"
+    with h5py.File(wrong_suffix, "w") as handle:
+        acquisition = handle.create_group("acquisition")
+        _write_nwb_series(
+            acquisition,
+            "FiberPhotometryResponseSeries",
+            np.asarray([1.0, 1.1, 1.2]),
+        )
+
+    not_hdf5 = tmp_path / "not-hdf5.nwb"
+    not_hdf5.write_text("not hdf5", encoding="utf-8")
+
+    assert is_nwb_photometry_file(path) is True
+    assert is_nwb_photometry_file(no_signal) is False
+    assert is_nwb_photometry_file(wrong_suffix) is False
+    assert is_nwb_photometry_file(not_hdf5) is False
+    assert is_nwb_photometry_file(tmp_path / "missing.nwb") is False
 
 
 def test_read_nwb_photometry_records_timestamp_sampling_rate_source(tmp_path) -> None:

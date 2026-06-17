@@ -138,6 +138,23 @@ def _select_control(candidates: dict[str, _Series], signal_key: str) -> str | No
     )
 
 
+def is_nwb_photometry_file(path: str | Path) -> bool:
+    """Return whether ``path`` is an NWB HDF5 file with photometry series."""
+
+    source_path = Path(path)
+    if not source_path.is_file() or source_path.suffix.lower() != ".nwb":
+        return False
+    try:
+        with h5py.File(source_path, "r") as handle:
+            candidates = _series_candidates(handle)
+            return (
+                _select_series(candidates, _SIGNAL_HINTS, exclude=_SIGNAL_EXCLUDE)
+                is not None
+            )
+    except OSError:
+        return False
+
+
 _MAX_NONFINITE_FRACTION = 0.01
 
 
@@ -557,4 +574,4 @@ def read_nwb_photometry(
     )
 
 
-__all__ = ["read_nwb_photometry"]
+__all__ = ["is_nwb_photometry_file", "read_nwb_photometry"]
