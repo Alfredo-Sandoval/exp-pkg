@@ -1826,6 +1826,7 @@ def read_tdt_photometry_block(
         signal_channel=resolved_signal,
         reference_channel=resolved_reference,
         metadata={
+            "source": {"type": "tdt_block", "path": str(block_path)},
             "stores": ranked,
             "stream_start_s": stream_start_s,
             "stream_start_source": resolved_stream_start_source,

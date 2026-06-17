@@ -1576,6 +1576,7 @@ def test_read_tdt_photometry_block_uses_optional_module() -> None:
     assert photometry.reference_channel == "x405A"
     assert photometry.metadata["sampling_rate_hz"] == pytest.approx(100.0)
     assert photometry.metadata["sampling_rate_source"] == "streams.x465A.fs"
+    assert photometry.metadata["source"] == {"type": "tdt_block", "path": "tank/block"}
     assert photometry.metadata["stream_start_s"] == pytest.approx(0.0)
     assert photometry.metadata["stream_start_source"] == "streams.x465A.start_time"
     assert photometry.metadata["channel_inference"] == "explicit_store"
