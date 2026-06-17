@@ -875,6 +875,18 @@ def _rwd_event_table(events_path: Path, time_scale: float) -> tuple[EventTable, 
     return EventTable.from_events(rows), event_metadata
 
 
+def _rwd_source_files(session_path: Path) -> dict[str, str | None]:
+    files = {
+        "fluorescence_csv": session_path / "Fluorescence.csv",
+        "events_csv": session_path / "Events.csv",
+        "fluorescence_unaligned_csv": session_path / "Fluorescence-unaligned.csv",
+        "track_csv": session_path / "Track.csv",
+        "outputs_csv": session_path / "Outputs.csv",
+        "video_file": session_path / "Video.mp4",
+    }
+    return {key: str(path) if path.is_file() else None for key, path in files.items()}
+
+
 def is_rwd_ofrs_session(path: str | Path) -> bool:
     """Return whether ``path`` has the RWD/OFRS CSV session contract."""
 
@@ -953,6 +965,7 @@ def read_rwd_ofrs_session(path: str | Path) -> RecordingSession:
         signal_channel=signal_column,
         reference_channel=reference_column,
         metadata={
+            "source": {"type": "rwd_ofrs", "path": str(session_path)},
             "sampling_rate_hz": sample_rate,
             "time_scale": time_scale,
             "time_scale_inference": time_scale_inference,
@@ -974,6 +987,7 @@ def read_rwd_ofrs_session(path: str | Path) -> RecordingSession:
         events=event_table,
         metadata={
             "source": {"type": "rwd_ofrs", "path": str(session_path)},
+            "source_files": _rwd_source_files(session_path),
             "time_column": time_column,
             "signal_columns": signal_columns,
             "events_csv": event_metadata,

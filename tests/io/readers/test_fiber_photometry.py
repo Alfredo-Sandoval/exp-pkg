@@ -583,6 +583,22 @@ def test_read_rwd_ofrs_session_parses_multicolor_bundle_and_events(tmp_path) -> 
     assert photometry.metadata["time_scale_inference"] == "declared_fps_milliseconds"
     assert photometry.metadata["declared_fps_hz"] == pytest.approx(30.0)
     assert photometry.metadata["median_raw_time_delta"] == pytest.approx(33.333)
+    assert photometry.metadata["source"] == {
+        "type": "rwd_ofrs",
+        "path": str(session_dir),
+    }
+    assert session.metadata["source"] == {
+        "type": "rwd_ofrs",
+        "path": str(session_dir),
+    }
+    assert session.metadata["source_files"] == {
+        "fluorescence_csv": str(session_dir / "Fluorescence.csv"),
+        "events_csv": str(session_dir / "Events.csv"),
+        "fluorescence_unaligned_csv": None,
+        "track_csv": None,
+        "outputs_csv": None,
+        "video_file": None,
+    }
     assert session.metadata["events_csv"] == {
         "present": True,
         "path": str(session_dir / "Events.csv"),
