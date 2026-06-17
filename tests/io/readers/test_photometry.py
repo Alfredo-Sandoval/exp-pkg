@@ -39,6 +39,21 @@ def test_read_photometry_csv_uses_explicit_time_and_channels(tmp_path) -> None:
     np.testing.assert_allclose(recording.series.values[:, 0], [1.0, 1.1, 1.2])
 
 
+def test_read_photometry_csv_reports_resolved_layout_metadata(tmp_path) -> None:
+    path = tmp_path / "photometry.csv"
+    path.write_text(
+        "timestamp,gcamp,isosbestic\n0,1.0,0.5\n1,1.1,0.4\n",
+        encoding="utf-8",
+    )
+
+    recording = read_photometry_csv(path)
+
+    assert recording.metadata["time_column"] == "timestamp"
+    assert recording.metadata["signal_columns"] == ["gcamp", "isosbestic"]
+    assert recording.metadata["size_bytes"] == path.stat().st_size
+    assert recording.channel_names == ("gcamp", "isosbestic")
+
+
 def test_read_photometry_csv_can_build_regular_timeline_from_sample_rate(tmp_path) -> None:
     path = tmp_path / "samples.csv"
     path.write_text("gcamp,isosbestic\n1.0,0.5\n1.1,0.4\n", encoding="utf-8")
@@ -60,6 +75,14 @@ def test_read_photometry_csv_rejects_missing_timebase(tmp_path) -> None:
 
     with pytest.raises(ValueError, match="time column or sample_rate_hz"):
         read_photometry_csv(path)
+
+
+def test_read_photometry_csv_can_require_named_time_column(tmp_path) -> None:
+    path = tmp_path / "implicit_time.csv"
+    path.write_text("sample,gcamp\n0,1.0\n1,1.1\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="must include a time column"):
+        read_photometry_csv(path, allow_implicit_time_column=False)
 
 
 def test_read_events_csv_maps_labels_kinds_and_millisecond_times(tmp_path) -> None:

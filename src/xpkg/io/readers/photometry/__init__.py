@@ -25,7 +25,12 @@ from xpkg.model import (
 
 TimeUnit = Literal["s", "sec", "second", "seconds", "ms", "millisecond", "milliseconds"]
 
-_TIME_COLUMN_CANDIDATES = (
+_PHOTOMETRY_TIME_COLUMN_CANDIDATES = (
+    "time",
+    "timestamp",
+    "timestamps",
+)
+_EVENT_TIME_COLUMN_CANDIDATES = (
     "time",
     "timestamp",
     "timestamps",
@@ -84,13 +89,15 @@ def _resolve_time_column(
     *,
     time_column: str | None,
     sample_rate_hz: float | None,
+    time_column_candidates: Sequence[str],
+    allow_implicit_time_column: bool,
 ) -> str | None:
     if time_column is not None:
         return column_by_name(frame, time_column)
-    matched = first_matching_column(frame, _TIME_COLUMN_CANDIDATES)
+    matched = first_matching_column(frame, time_column_candidates)
     if matched is not None:
         return matched
-    if sample_rate_hz is None and frame.shape[1] > 1:
+    if allow_implicit_time_column and sample_rate_hz is None and frame.shape[1] > 1:
         return str(frame.columns[0])
     return None
 
@@ -135,6 +142,8 @@ def read_photometry_csv(
     sample_rate_hz: float | None = None,
     start_s: float = 0.0,
     time_unit: TimeUnit = "s",
+    time_column_candidates: Sequence[str] = _PHOTOMETRY_TIME_COLUMN_CANDIDATES,
+    allow_implicit_time_column: bool = True,
     units: Mapping[str, str] | Sequence[str] | None = None,
     name: str = "photometry",
     max_mb: float | None = None,
@@ -148,6 +157,8 @@ def read_photometry_csv(
         frame,
         time_column=time_column,
         sample_rate_hz=sample_rate_hz,
+        time_column_candidates=time_column_candidates,
+        allow_implicit_time_column=allow_implicit_time_column,
     )
     resolved_signals = _resolve_signal_columns(
         frame,
@@ -168,7 +179,12 @@ def read_photometry_csv(
             start_s=start_s,
         )
     else:
-        raise ValueError("Provide a time column or sample_rate_hz for photometry CSV data.")
+        if allow_implicit_time_column:
+            raise ValueError("Provide a time column or sample_rate_hz for photometry CSV data.")
+        raise ValueError(
+            "Photometry CSV must include a time column named one of: "
+            f"{', '.join(time_column_candidates)}."
+        )
 
     column_units = _units_for_columns(resolved_signals, units)
     channels = tuple(
@@ -190,7 +206,12 @@ def read_photometry_csv(
         series=series,
         signal_channel=signal_channel or resolved_signals[0],
         reference_channel=reference_channel,
-        metadata={"source_type": "photometry_csv"},
+        metadata={
+            "source_type": "photometry_csv",
+            "time_column": resolved_time,
+            "signal_columns": list(resolved_signals),
+            "size_bytes": size_bytes,
+        },
     )
 
 
@@ -233,11 +254,11 @@ def read_events_csv(
     frame, _size_bytes = _read_csv(path, max_mb=max_mb)
     if frame.empty:
         return EventTable()
-    resolved_time = resolve_column(frame, time_column, _TIME_COLUMN_CANDIDATES)
+    resolved_time = resolve_column(frame, time_column, _EVENT_TIME_COLUMN_CANDIDATES)
     if resolved_time is None:
         raise ValueError(
             "Event CSV must include a timestamp column named one of: "
-            f"{', '.join(_TIME_COLUMN_CANDIDATES)}."
+            f"{', '.join(_EVENT_TIME_COLUMN_CANDIDATES)}."
         )
     resolved_kind = resolve_column(frame, kind_column, _EVENT_KIND_CANDIDATES)
     resolved_label = resolve_column(frame, label_column, _EVENT_LABEL_CANDIDATES)
