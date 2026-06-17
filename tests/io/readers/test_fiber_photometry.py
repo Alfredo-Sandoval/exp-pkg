@@ -208,8 +208,46 @@ def test_read_rwd_ofrs_session_parses_multicolor_bundle_and_events(tmp_path) -> 
     assert photometry.metadata["time_scale_inference"] == "declared_fps_milliseconds"
     assert photometry.metadata["declared_fps_hz"] == pytest.approx(30.0)
     assert photometry.metadata["median_raw_time_delta"] == pytest.approx(33.333)
+    assert session.metadata["events_csv"] == {
+        "present": True,
+        "path": str(session_dir / "Events.csv"),
+        "row_count": 2,
+        "time_column": "TimeStamp",
+        "unique_labels": ["brush"],
+        "time_monotonic": True,
+    }
     assert [event.label for event in session.events] == ["brush", "brush_offset"]
     np.testing.assert_allclose([event.start_s for event in session.events], [0.033333, 0.066666])
+
+
+def test_read_rwd_ofrs_session_records_source_event_order_metadata(tmp_path) -> None:
+    session_dir = tmp_path / "rwd-session"
+    session_dir.mkdir()
+    (session_dir / "Fluorescence.csv").write_text(
+        "\n".join(
+            [
+                '{"Fps":30.0;"Channels":[{"Name":"CH1"}]}',
+                "TimeStamp,Events,CH1-410,CH1-470,",
+                "0.000,,1.0,2.0,",
+                "33.333,,1.1,2.1,",
+                "66.666,,1.2,2.2,",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    (session_dir / "Events.csv").write_text(
+        "TimeStamp,Name,State\n66.666,brush,1\n33.333,brush,0\n",
+        encoding="utf-8",
+    )
+
+    session = read_rwd_ofrs_session(session_dir)
+
+    assert session.metadata["events_csv"]["time_monotonic"] is False
+    assert [event.label for event in session.events] == ["brush", "brush_offset"]
+    np.testing.assert_allclose(
+        [event.start_s for event in session.events],
+        [0.033333, 0.066666],
+    )
 
 
 def _write_rwd_fluorescence(

@@ -573,17 +573,34 @@ def _rwd_metadata_line(path: Path) -> tuple[str | None, dict[str, Any] | None]:
         return first_line, None
 
 
-def _rwd_event_table(events_path: Path, time_scale: float) -> EventTable:
+def _rwd_event_table(events_path: Path, time_scale: float) -> tuple[EventTable, dict[str, Any]]:
+    event_metadata: dict[str, Any] = {
+        "present": events_path.is_file(),
+        "path": str(events_path),
+        "row_count": 0,
+        "time_column": None,
+        "unique_labels": [],
+        "time_monotonic": None,
+    }
     if not events_path.is_file():
-        return EventTable()
+        return EventTable(), event_metadata
     frame = pd.read_csv(events_path)
     if frame.empty:
-        return EventTable()
+        return EventTable(), event_metadata
+    event_metadata["row_count"] = int(frame.shape[0])
     time_column = _first_column(frame, _TIME_COLUMNS)
     if time_column is None:
         raise ValueError(f"RWD Events.csv missing time column. Available: {list(frame.columns)}.")
-    starts = _numeric(frame, time_column) * time_scale
+    event_metadata["time_column"] = time_column
+    raw_starts = _numeric(frame, time_column)
+    if raw_starts.size >= 2:
+        event_metadata["time_monotonic"] = bool(np.all(np.diff(raw_starts) >= 0))
+    starts = raw_starts * time_scale
     labels = frame["Name"] if "Name" in frame.columns else pd.Series(["event"] * len(frame))
+    cleaned_labels = labels.astype(str).str.strip()
+    event_metadata["unique_labels"] = sorted(
+        {label for label in cleaned_labels.tolist() if label}
+    )
     states = pd.to_numeric(frame["State"], errors="raise") if "State" in frame.columns else None
     rows: list[Event] = []
     for index, start in enumerate(starts):
@@ -597,7 +614,7 @@ def _rwd_event_table(events_path: Path, time_scale: float) -> EventTable:
                 metadata={"source": {"type": "rwd_ofrs_events", "path": str(events_path)}},
             )
         )
-    return EventTable.from_events(rows)
+    return EventTable.from_events(rows), event_metadata
 
 
 def read_rwd_ofrs_session(path: str | Path) -> RecordingSession:
@@ -666,15 +683,17 @@ def read_rwd_ofrs_session(path: str | Path) -> RecordingSession:
     video_path = session_path / "Video.mp4"
     if video_path.is_file():
         videos["behavior"] = {"path": str(video_path)}
+    event_table, event_metadata = _rwd_event_table(session_path / "Events.csv", time_scale)
     return RecordingSession(
         session_id=session_path.name,
         signals={"photometry": photometry},
         videos=videos,
-        events=_rwd_event_table(session_path / "Events.csv", time_scale),
+        events=event_table,
         metadata={
             "source": {"type": "rwd_ofrs", "path": str(session_path)},
             "time_column": time_column,
             "signal_columns": signal_columns,
+            "events_csv": event_metadata,
         },
     )
 
