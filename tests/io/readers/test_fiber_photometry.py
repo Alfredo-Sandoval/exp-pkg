@@ -1014,6 +1014,43 @@ def test_read_nwb_photometry_rejects_misaligned_control(tmp_path) -> None:
         read_nwb_photometry(path)
 
 
+def test_read_nwb_photometry_rejects_multicolumn_event_channel(tmp_path) -> None:
+    path = tmp_path / "multicolumn-event.nwb"
+    with h5py.File(path, "w") as handle:
+        acquisition = handle.create_group("acquisition")
+        _write_nwb_series(
+            acquisition,
+            "FiberPhotometryResponseSeries",
+            np.asarray([1.0, 1.1, 1.2]),
+        )
+        _write_nwb_series(
+            acquisition,
+            "Reward",
+            np.asarray([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]]),
+        )
+
+    with pytest.raises(ValueError, match=r"event channel .* one-dimensional"):
+        read_nwb_photometry(path)
+
+
+def test_read_nwb_photometry_rejects_empty_annotation_label(tmp_path) -> None:
+    path = tmp_path / "empty-annotation.nwb"
+    with h5py.File(path, "w") as handle:
+        acquisition = handle.create_group("acquisition")
+        _write_nwb_series(
+            acquisition,
+            "FiberPhotometryResponseSeries",
+            np.asarray([1.0, 1.1, 1.2]),
+        )
+        annotations = acquisition.create_group("events")
+        annotations.attrs["neurodata_type"] = "AnnotationSeries"
+        annotations.create_dataset("data", data=np.asarray([b"cue", b""]))
+        annotations.create_dataset("timestamps", data=np.asarray([0.1, 0.2]))
+
+    with pytest.raises(ValueError, match="empty labels"):
+        read_nwb_photometry(path)
+
+
 def test_read_nwb_photometry_rejects_nonfinite_samples_by_default(tmp_path) -> None:
     path = tmp_path / "strict-gaps.nwb"
     signal = np.linspace(0.0, 1.0, 2000)

@@ -148,10 +148,7 @@ def is_nwb_photometry_file(path: str | Path) -> bool:
     try:
         with h5py.File(source_path, "r") as handle:
             candidates = _series_candidates(handle)
-            return (
-                _select_series(candidates, _SIGNAL_HINTS, exclude=_SIGNAL_EXCLUDE)
-                is not None
-            )
+            return _select_series(candidates, _SIGNAL_HINTS, exclude=_SIGNAL_EXCLUDE) is not None
     except OSError:
         return False
 
@@ -419,6 +416,11 @@ def _event_channel_events(
             nonfinite_policy=nonfinite_policy,
             max_nonfinite_fraction=max_nonfinite_fraction,
         )
+        if values.shape[1] != 1:
+            raise ValueError(
+                f"NWB event channel '{series.path}' must be one-dimensional, "
+                f"got {values.shape[1]} columns."
+            )
         onsets = _pulse_onsets(values[:, 0], timeline.timestamps_s)
         for onset in onsets:
             rows.append(
@@ -456,11 +458,14 @@ def _annotation_series_events(
         if not np.isfinite(stamps).all():
             raise ValueError(f"NWB AnnotationSeries '{series.path}' contains non-finite times.")
         for label, stamp in zip(labels, stamps, strict=True):
+            decoded_label = str(_decode(label)).strip()
+            if not decoded_label:
+                raise ValueError(f"NWB AnnotationSeries '{series.path}' contains empty labels.")
             rows.append(
                 Event(
                     kind="event",
                     start_s=float(stamp),
-                    label=str(_decode(label)),
+                    label=decoded_label,
                     metadata={"source": {"type": "nwb_photometry", "path": str(source_path)}},
                 )
             )
