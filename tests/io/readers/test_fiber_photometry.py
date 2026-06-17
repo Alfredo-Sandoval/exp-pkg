@@ -868,6 +868,10 @@ def test_read_doric_photometry_uses_hdf5_datasets(tmp_path) -> None:
     np.testing.assert_allclose(photometry.timeline.timestamps_s, [0.0, 0.1, 0.2])
     assert photometry.metadata["sampling_rate_hz"] == pytest.approx(10.0)
     assert photometry.metadata["sampling_rate_source"] == "Time.timestamps_uniform"
+    assert photometry.metadata["source"] == {
+        "type": "doric_photometry",
+        "path": str(path),
+    }
     assert session.metadata["sampling_rate_hz"] == pytest.approx(10.0)
     assert session.metadata["sampling_rate_source"] == "Time.timestamps_uniform"
     assert photometry.metadata["channel_inference"] == "wavelength_tokens"

@@ -1169,6 +1169,7 @@ def read_doric_photometry(
         signal_channel=resolved_signal,
         reference_channel=resolved_reference,
         metadata={
+            "source": {"type": "doric_photometry", "path": str(source_path)},
             "datasets": numeric_paths,
             "time_dataset": resolved_time,
             "sampling_rate_hz": sample_rate,
