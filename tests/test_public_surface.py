@@ -119,6 +119,7 @@ from xpkg.project import (
 )
 from xpkg.readers import (
     KNOWN_BEHAVIOR_SOURCE_TYPES,
+    parse_teleopto_h5_arrays,
     read_behavior_events_csv,
     read_behavior_events_json,
     read_boris_csv,
@@ -205,6 +206,7 @@ def test_root_namespace_is_curated_to_project_first_modules() -> None:
     assert callable(reloaded.readers.read_behavior_events_json)
     assert callable(reloaded.readers.read_keypoint_moseq_syllables_csv)
     assert callable(reloaded.readers.read_simba_csv)
+    assert callable(reloaded.readers.parse_teleopto_h5_arrays)
     assert callable(reloaded.readers.read_doric_photometry)
     assert callable(reloaded.readers.read_events_csv)
     assert callable(reloaded.readers.read_neurophotometrics_csv)
@@ -290,6 +292,7 @@ def test_public_exports_are_callable() -> None:
     assert callable(labels_to_dataframe)
     assert callable(labels_to_json_payload)
     assert "keypoint_moseq" in KNOWN_BEHAVIOR_SOURCE_TYPES
+    assert callable(parse_teleopto_h5_arrays)
     assert callable(read_boris_csv)
     assert callable(read_bsoid_csv)
     assert callable(read_behavior_events_csv)

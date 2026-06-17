@@ -7,6 +7,7 @@ import numpy as np
 import pytest
 
 from xpkg.io.readers import (
+    parse_teleopto_h5_arrays,
     read_doric_photometry,
     read_neurophotometrics_csv,
     read_nwb_photometry,
@@ -314,6 +315,28 @@ def test_read_teleopto_h5_extracts_channels_and_ttl(tmp_path) -> None:
     assert photometry.metadata["secondary_channel"] == "TTL"
     by_label = {event.label: event.start_s for event in session.events}
     assert {"ct1", "TTL_ttl", "press_on_times", "press_off_times"} <= set(by_label)
+    assert by_label["ct1"] == pytest.approx(0.15)
+    assert by_label["TTL_ttl"] == pytest.approx(0.2)
+
+
+def test_parse_teleopto_h5_arrays_matches_file_semantics() -> None:
+    datasets = {
+        "d1": np.asarray([1.0, 1.1, 1.2, 1.3]),
+        "d2": np.asarray([0.0, 0.0, 5.0, 0.0]),
+        "num": np.asarray([0.0, 10.0]),
+        "st1": np.asarray([0.4]),
+        "str": np.asarray([b"Signal", b"", b"TTL"]),
+        "ct1": np.asarray([0.15]),
+    }
+
+    session = parse_teleopto_h5_arrays(datasets, session_id="arrays")
+    photometry = session.signals["photometry"]
+
+    assert isinstance(photometry, PhotometryRecording)
+    assert session.session_id == "arrays"
+    assert photometry.channel_names == ("Signal", "TTL")
+    assert photometry.reference_channel is None
+    by_label = {event.label: event.start_s for event in session.events}
     assert by_label["ct1"] == pytest.approx(0.15)
     assert by_label["TTL_ttl"] == pytest.approx(0.2)
 

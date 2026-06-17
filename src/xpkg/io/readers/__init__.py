@@ -15,6 +15,7 @@ from xpkg.io.readers.behavior import (
 from xpkg.io.readers.opencv_stereo import read_opencv_stereo_calibration
 from xpkg.io.readers.photometry import read_events_csv, read_photometry_csv
 from xpkg.io.readers.photometry.fiber import (
+    parse_teleopto_h5_arrays,
     read_doric_photometry,
     read_neurophotometrics_csv,
     read_pmat_events_csv,
@@ -38,6 +39,7 @@ from xpkg.io.readers.pose import (
 __all__ = [
     "PoseTrack",
     "KNOWN_BEHAVIOR_SOURCE_TYPES",
+    "parse_teleopto_h5_arrays",
     "read_anipose_calibration",
     "read_boris_csv",
     "read_bsoid_csv",

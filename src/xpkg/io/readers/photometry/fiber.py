@@ -733,22 +733,39 @@ def read_teleopto_h5(
 
     source_path = Path(path)
     with h5py.File(source_path, "r") as handle:
-        required = {"d1", "num", "st1", "str"}
-        missing = sorted(required.difference(handle.keys()))
-        if missing:
-            raise ValueError(f"Teleopto H5 missing required datasets: {missing}.")
-        d1 = _finite_vector(handle["d1"], "Teleopto H5 d1")
-        d2 = _finite_vector(handle["d2"], "Teleopto H5 d2") if "d2" in handle else None
-        num = _finite_vector(handle["num"], "Teleopto H5 num")
-        st1 = _finite_vector(handle["st1"], "Teleopto H5 st1")
-        labels = _decode_h5_strings(np.asarray(handle["str"]))
-        event_map: dict[str, np.ndarray] = {}
-        for key in _TELEOPTO_EVENT_KEYS:
-            if key not in handle:
-                continue
-            values = _finite_vector(handle[key], f"Teleopto H5 event channel {key}")
-            if values.size:
-                event_map[key] = np.sort(values)
+        return parse_teleopto_h5_arrays(
+            handle,
+            session_id=source_path.stem,
+            source_path=source_path,
+            extract_ttl_from_secondary=extract_ttl_from_secondary,
+        )
+
+
+def parse_teleopto_h5_arrays(
+    datasets: Mapping[str, object],
+    *,
+    session_id: str = "teleopto_h5",
+    source_path: str | Path | None = None,
+    extract_ttl_from_secondary: bool = True,
+) -> RecordingSession:
+    """Parse Teleopto/PMAT-style HDF5 datasets already loaded in memory."""
+
+    required = {"d1", "num", "st1", "str"}
+    missing = sorted(required.difference(datasets.keys()))
+    if missing:
+        raise ValueError(f"Teleopto H5 missing required datasets: {missing}.")
+    d1 = _finite_vector(datasets["d1"], "Teleopto H5 d1")
+    d2 = _finite_vector(datasets["d2"], "Teleopto H5 d2") if "d2" in datasets else None
+    num = _finite_vector(datasets["num"], "Teleopto H5 num")
+    st1 = _finite_vector(datasets["st1"], "Teleopto H5 st1")
+    labels = _decode_h5_strings(np.asarray(datasets["str"]))
+    event_map: dict[str, np.ndarray] = {}
+    for key in _TELEOPTO_EVENT_KEYS:
+        if key not in datasets:
+            continue
+        values = _finite_vector(datasets[key], f"Teleopto H5 event channel {key}")
+        if values.size:
+            event_map[key] = np.sort(values)
     sample_rate = _teleopto_sample_rate(num, st1, d1.size)
     timeline = Timeline.from_sample_rate(n_samples=d1.size, sample_rate_hz=sample_rate)
     names = [labels[0] if labels else "d1"]
@@ -771,12 +788,13 @@ def read_teleopto_h5(
                 else np.asarray([], dtype=np.float64)
             )
             event_map.update(_teleopto_press_events(d2, sample_rate, reinforcement))
+    resolved_source = Path(source_path) if source_path is not None else Path(session_id)
     photometry = _photometry_recording(
         values=np.column_stack(values),
         channel_names=names,
         timeline=timeline,
         source_type="teleopto_h5",
-        source_path=source_path,
+        source_path=resolved_source,
         signal_channel=names[0],
         reference_channel=None,
         metadata={
@@ -787,10 +805,10 @@ def read_teleopto_h5(
         },
     )
     return RecordingSession(
-        session_id=source_path.stem,
+        session_id=session_id,
         signals={"photometry": photometry},
-        events=_events_from_map(event_map, source_type="teleopto_h5", source_path=source_path),
-        metadata={"source": {"type": "teleopto_h5", "path": str(source_path)}},
+        events=_events_from_map(event_map, source_type="teleopto_h5", source_path=resolved_source),
+        metadata={"source": {"type": "teleopto_h5", "path": str(resolved_source)}},
     )
 
 
@@ -972,6 +990,7 @@ def read_tdt_photometry_block(
 __all__ = [
     "read_doric_photometry",
     "read_neurophotometrics_csv",
+    "parse_teleopto_h5_arrays",
     "read_pmat_events_csv",
     "read_pmat_photometry_csv",
     "read_rwd_ofrs_session",
