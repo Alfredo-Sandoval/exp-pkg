@@ -110,8 +110,7 @@ def _parse_skeleton_links(
     for link in raw_links:
         if not isinstance(link, list | tuple) or len(link) != 2:
             raise ValueError(
-                "Each MMPose skeleton link must be a two-element array in "
-                f"{path}; got {link!r}."
+                f"Each MMPose skeleton link must be a two-element array in {path}; got {link!r}."
             )
         start = int(link[0])
         end = int(link[1])
@@ -148,7 +147,10 @@ def _parse_frame_instances(
                 f"instance_info entry in {path} to contain frame_id and instances."
             )
 
-        frame_id = int(item["frame_id"])
+        raw_frame_id = item["frame_id"]
+        if isinstance(raw_frame_id, float) and not raw_frame_id.is_integer():
+            raise ValueError(f"MMPose frame_id must be an integer in {path}, got {raw_frame_id!r}.")
+        frame_id = int(raw_frame_id)
         if frame_id <= 0:
             raise ValueError(f"MMPose frame_id must be >= 1 in {path}, got {frame_id}.")
         frame_index = frame_id - 1

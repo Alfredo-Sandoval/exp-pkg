@@ -365,7 +365,9 @@ def _boris_tabular_intervals(frame: pd.DataFrame) -> tuple[BehaviorInterval, ...
     for index in range(len(frame)):
         status = _optional_text_from_frame(frame, status_column, index)
         behavior = _optional_text_from_frame(frame, behavior_column, index)
-        time_s = _optional_float_from_frame(frame, time_column, index)
+        # A single NaN/inf Time cell should skip that event row, not abort the
+        # whole parse (real exports occasionally carry corrupt rows).
+        time_s = _finite_float_or_none(frame[time_column].iloc[index])
         if status is None or behavior is None or time_s is None:
             continue
         subject = _optional_text_from_frame(frame, subject_column, index)
@@ -884,6 +886,21 @@ def _optional_float(value: Any) -> float | None:
     if not np.isfinite(coerced):
         raise ValueError(f"Expected finite numeric value, got {coerced!r}.")
     return coerced
+
+
+def _finite_float_or_none(value: Any) -> float | None:
+    """Like ``_optional_float`` but treats non-finite/unparseable as missing.
+
+    Used where a single corrupt cell (NaN/inf/garbage) in one row should skip
+    that row rather than abort parsing the whole file.
+    """
+    if _is_missing(value):
+        return None
+    try:
+        coerced = float(value)
+    except (TypeError, ValueError):
+        return None
+    return coerced if np.isfinite(coerced) else None
 
 
 def _optional_int(value: Any) -> int | None:

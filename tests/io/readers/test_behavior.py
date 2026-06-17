@@ -394,3 +394,29 @@ def test_read_simba_csv_reads_real_machine_results() -> None:
     assert (1, "Sniffing") in positives
     # Frame 2 is below every classifier's 0/1 flag, so it yields no label.
     assert all(item.frame_index != 2 for item in labels.frame_labels)
+
+
+def test_read_boris_tabular_skips_nonfinite_time_rows(tmp_path) -> None:
+    # A single corrupt (inf/NaN) Time cell must skip that row, not abort the
+    # whole parse. The inf STOP below is dropped, so the START at 1.0 pairs with
+    # the valid STOP at 2.0.
+    path = tmp_path / "boris_tab_corrupt.csv"
+    path.write_text(
+        "\r\n".join(
+            [
+                "Time,Media file path,Subject,Behavior,Behavioral category,Comment,Status",
+                "1.000,v.mp4,s1,rear,posture,,START",
+                "inf,v.mp4,s1,rear,posture,,STOP",
+                "2.000,v.mp4,s1,rear,posture,,STOP",
+            ]
+        )
+        + "\r\n",
+        encoding="utf-8",
+    )
+
+    labels = read_boris_csv(path)
+
+    assert labels.metadata["source"]["format"] == "tabular_events_csv"
+    assert len(labels.intervals) == 1
+    assert labels.intervals[0].start_s == pytest.approx(1.0)
+    assert labels.intervals[0].end_s == pytest.approx(2.0)

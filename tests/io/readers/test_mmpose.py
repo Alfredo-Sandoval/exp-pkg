@@ -81,6 +81,31 @@ def test_mmpose_reader_rejects_image_style_json(tmp_path: Path) -> None:
         read_track(json_path, track_index=0)
 
 
+def test_read_track_rejects_non_integer_frame_id(tmp_path: Path) -> None:
+    # A non-integer frame_id must fail loud, not truncate (int(1.5) -> 1) and
+    # silently remap to the wrong frame.
+    json_path = tmp_path / "results_bad_frame.json"
+    write_json(
+        json_path,
+        {
+            "meta_info": {
+                "dataset_name": "toy_subject",
+                "keypoint_id2name": {"0": "nose"},
+                "skeleton_links": [],
+            },
+            "instance_info": [
+                {
+                    "frame_id": 1.5,
+                    "instances": [{"keypoints": [[1.0, 2.0]], "keypoint_scores": [0.9]}],
+                }
+            ],
+        },
+    )
+
+    with pytest.raises(ValueError, match="frame_id must be an integer"):
+        read_track(json_path, track_index=0)
+
+
 def test_read_track_reads_real_demo_json_shape(tmp_path: Path) -> None:
     # Byte-faithful to topdown_demo_with_mmdet.py --save-predictions: string
     # keypoint_id2name keys (JSON coerces ints to strings), 1-based frame_id,
