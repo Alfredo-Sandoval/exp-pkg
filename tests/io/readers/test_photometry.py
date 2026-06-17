@@ -92,7 +92,10 @@ def test_read_photometry_csv_reports_resolved_layout_metadata(tmp_path) -> None:
 
     assert recording.metadata["time_column"] == "timestamp"
     assert recording.metadata["signal_columns"] == ["gcamp", "isosbestic"]
+    assert recording.metadata["columns"] == ["timestamp", "gcamp", "isosbestic"]
+    assert recording.metadata["rows"] == 2
     assert recording.metadata["size_bytes"] == path.stat().st_size
+    assert recording.metadata["time_unit"] == "s"
     assert recording.metadata["sampling_rate_hz"] == pytest.approx(1.0)
     assert recording.metadata["sampling_rate_source"] == "timestamp.timestamps_uniform"
     assert recording.channel_names == ("gcamp", "isosbestic")
