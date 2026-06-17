@@ -42,6 +42,8 @@ _EVENT_LABEL_CANDIDATES = (
     "condition",
     "behavior",
     "behaviour",
+    "eventname",
+    "state",
 )
 _EVENT_KIND_CANDIDATES = ("kind", "type", "event_type", "category")
 _EVENT_DURATION_CANDIDATES = ("duration", "duration_s", "endurance")
@@ -202,6 +204,19 @@ def _optional_text(frame: pd.DataFrame, column: str | None, index: int) -> str |
     return text or None
 
 
+def _optional_event_label(
+    frame: pd.DataFrame,
+    column: str | None,
+    index: int,
+) -> str | None:
+    text = _optional_text(frame, column, index)
+    if text is None or column is None:
+        return text
+    if pd.api.types.is_numeric_dtype(frame[column]):
+        return f"{column}={text}"
+    return text
+
+
 def read_events_csv(
     path: str | Path,
     *,
@@ -244,7 +259,7 @@ def read_events_csv(
             kind=_optional_text(frame, resolved_kind, index) or default_kind,
             start_s=float(start),
             duration_s=float(duration),
-            label=_optional_text(frame, resolved_label, index),
+            label=_optional_event_label(frame, resolved_label, index),
             metadata={"source": {"type": "events_csv", "path": str(path)}},
         )
         for index, (start, duration) in enumerate(zip(starts, durations, strict=True))

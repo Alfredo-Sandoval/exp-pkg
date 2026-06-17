@@ -95,6 +95,17 @@ def test_read_events_csv_uses_default_kind_without_label_columns(tmp_path) -> No
     np.testing.assert_allclose([event.start_s for event in events], [0.1, 0.2])
 
 
+def test_read_events_csv_accepts_state_as_numeric_label_column(tmp_path) -> None:
+    path = tmp_path / "state_events.csv"
+    path.write_text("timestamps,state\n0.2,2\n0.1,1\n0.3,1\n", encoding="utf-8")
+
+    events = read_events_csv(path)
+
+    assert [event.kind for event in events] == ["event", "event", "event"]
+    assert [event.label for event in events] == ["state=1", "state=2", "state=1"]
+    np.testing.assert_allclose([event.start_s for event in events], [0.1, 0.2, 0.3])
+
+
 @pytest.mark.parametrize("column", ["event", "events"])
 def test_read_events_csv_accepts_event_named_time_columns(
     tmp_path,
