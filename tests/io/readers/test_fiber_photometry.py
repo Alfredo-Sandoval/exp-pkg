@@ -201,7 +201,11 @@ def test_read_tdt_photometry_block_uses_optional_module() -> None:
 def test_read_tdt_photometry_block_prefers_official_wavelength_stores() -> None:
     streams = SimpleNamespace(
         _405A=SimpleNamespace(data=np.asarray([0.5, 0.4, 0.3]), fs=100.0),
-        _465A=SimpleNamespace(data=np.asarray([1.0, 1.1, 1.2]), fs=100.0),
+        _465A=SimpleNamespace(
+            data=np.asarray([1.0, 1.1, 1.2]),
+            fs=100.0,
+            start_time=0.05,
+        ),
         Fi1r=SimpleNamespace(data=np.arange(18, dtype=float), fs=600.0),
     )
     epocs = SimpleNamespace(Cam1=SimpleNamespace(onset=np.asarray([0.1, 0.2])))
@@ -216,7 +220,9 @@ def test_read_tdt_photometry_block_prefers_official_wavelength_stores() -> None:
     assert photometry.signal_channel == "_465A"
     assert photometry.reference_channel == "_405A"
     assert photometry.metadata["stores"] == ["_465A", "_405A", "Fi1r"]
+    assert photometry.metadata["stream_start_s"] == pytest.approx(0.05)
     assert photometry.series.sample_rate_hz == pytest.approx(100.0)
     np.testing.assert_allclose(photometry.series.values[:, 0], [1.0, 1.1, 1.2])
     np.testing.assert_allclose(photometry.series.values[:, 1], [0.5, 0.4, 0.3])
     assert [event.label for event in session.events] == ["Cam1", "Cam1"]
+    np.testing.assert_allclose([event.start_s for event in session.events], [0.05, 0.15])

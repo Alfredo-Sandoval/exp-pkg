@@ -739,7 +739,24 @@ def _one_dimensional(values: object) -> np.ndarray:
     return array[:, 0]
 
 
-def _tdt_epoc_times(epocs_obj: Any, event_stores: Sequence[str] | None) -> dict[str, np.ndarray]:
+def _tdt_stream_start(stream: Any) -> float:
+    start = getattr(stream, "start_time", 0.0)
+    if isinstance(start, (list, tuple, np.ndarray)):
+        flat = np.asarray(start, dtype=np.float64).ravel()
+        start = float(flat[0]) if flat.size else 0.0
+    try:
+        value = float(start)
+    except (TypeError, ValueError):
+        return 0.0
+    return value if np.isfinite(value) else 0.0
+
+
+def _tdt_epoc_times(
+    epocs_obj: Any,
+    event_stores: Sequence[str] | None,
+    *,
+    stream_start_s: float = 0.0,
+) -> dict[str, np.ndarray]:
     events: dict[str, np.ndarray] = {}
     names = event_stores or tuple(
         name
@@ -756,8 +773,10 @@ def _tdt_epoc_times(epocs_obj: Any, event_stores: Sequence[str] | None) -> dict[
             values = np.asarray(obj.data, dtype=np.float64).ravel()
         else:
             continue
+        values = values - float(stream_start_s)
+        values = values[np.isfinite(values) & (values >= 0.0)]
         if values.size:
-            events[str(name)] = np.sort(values[np.isfinite(values)])
+            events[str(name)] = np.sort(values)
     return events
 
 
@@ -786,6 +805,7 @@ def read_tdt_photometry_block(
     signal = stream_map[resolved_signal]
     values = [_one_dimensional(signal.data)]
     names = [resolved_signal]
+    stream_start_s = _tdt_stream_start(signal)
     sample_rate = float(getattr(signal, "fs", 0.0) or 0.0)
     if not np.isfinite(sample_rate) or sample_rate <= 0:
         raise ValueError(f"TDT stream {resolved_signal!r} is missing a positive sampling rate.")
@@ -812,9 +832,13 @@ def read_tdt_photometry_block(
         source_path=block_path,
         signal_channel=resolved_signal,
         reference_channel=resolved_reference,
-        metadata={"stores": ranked},
+        metadata={"stores": ranked, "stream_start_s": stream_start_s},
     )
-    event_map = _tdt_epoc_times(getattr(data, "epocs", object()), event_stores)
+    event_map = _tdt_epoc_times(
+        getattr(data, "epocs", object()),
+        event_stores,
+        stream_start_s=stream_start_s,
+    )
     return RecordingSession(
         session_id=block_path.name,
         signals={"photometry": photometry},
