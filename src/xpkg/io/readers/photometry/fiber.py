@@ -224,10 +224,15 @@ def read_pmat_photometry_csv(
         signal_columns.append(resolved_reference)
     timestamps = _numeric(frame, resolved_time) * _time_scale(time_unit)
     values = np.column_stack([_numeric(frame, column) for column in signal_columns])
+    timeline = _timeline_from_time(timestamps)
+    sample_rate, sample_rate_source = _uniform_timeline_sample_rate(
+        timeline,
+        resolved_time,
+    )
     return _photometry_recording(
         values=values,
         channel_names=signal_columns,
-        timeline=_timeline_from_time(timestamps),
+        timeline=timeline,
         source_type="pmat_photometry_csv",
         source_path=source_path,
         signal_channel=resolved_signal,
@@ -240,6 +245,8 @@ def read_pmat_photometry_csv(
             "columns": columns,
             "rows": int(len(frame)),
             "time_unit": time_unit,
+            "sampling_rate_hz": sample_rate,
+            "sampling_rate_source": sample_rate_source,
         },
     )
 

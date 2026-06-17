@@ -60,6 +60,8 @@ def test_read_pmat_csv_and_events(tmp_path) -> None:
     assert photometry.metadata["columns"] == ["Time", "Signal", "Control"]
     assert photometry.metadata["rows"] == 2
     assert photometry.metadata["time_unit"] == "s"
+    assert photometry.metadata["sampling_rate_hz"] == pytest.approx(10.0)
+    assert photometry.metadata["sampling_rate_source"] == "Time.timestamps_uniform"
     np.testing.assert_allclose(photometry.timeline.timestamps_s, [0.0, 0.1])
     assert isinstance(events, EventTable)
     assert events.events[0].label == "cue"
