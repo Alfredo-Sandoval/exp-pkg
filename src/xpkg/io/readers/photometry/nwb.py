@@ -258,13 +258,16 @@ def _series_timeline(series: _Series, n_samples: int) -> Timeline:
     )
 
 
-def _sampling_rate_with_source(timeline: Timeline) -> tuple[float | None, str | None]:
+def _sampling_rate_with_source(
+    timeline: Timeline,
+    series_path: str,
+) -> tuple[float | None, str | None]:
     if timeline.sample_rate_hz is not None:
-        return float(timeline.sample_rate_hz), "starting_time.rate"
+        return float(timeline.sample_rate_hz), f"{series_path}.starting_time.rate"
     sample_rate = timeline.estimated_sample_rate_hz
     if sample_rate is None:
         return None, None
-    return float(sample_rate), "timestamps_uniform"
+    return float(sample_rate), f"{series_path}.timestamps_uniform"
 
 
 def _read_series(
@@ -343,7 +346,10 @@ def _photometry_recording(
         nonfinite_repairs[signal_series.path] = signal_nonfinite_repair
     if control_series is not None and control_nonfinite_repair is not None:
         nonfinite_repairs[control_series.path] = control_nonfinite_repair
-    sampling_rate_hz, sampling_rate_source = _sampling_rate_with_source(timeline)
+    sampling_rate_hz, sampling_rate_source = _sampling_rate_with_source(
+        timeline,
+        signal_series.path,
+    )
     metadata: dict[str, Any] = {
         "source_type": "nwb_photometry",
         "signal_series": signal_series.path,

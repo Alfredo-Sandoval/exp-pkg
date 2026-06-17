@@ -1019,7 +1019,10 @@ def test_read_nwb_photometry_prefers_dff_and_extracts_events(tmp_path) -> None:
     assert photometry.reference_channel == "FiberPhotometryResponseSeriesIsosbestic"
     assert photometry.metadata["signal_is_dff"] is True
     assert photometry.metadata["sampling_rate_hz"] == pytest.approx(100.0)
-    assert photometry.metadata["sampling_rate_source"] == "starting_time.rate"
+    assert (
+        photometry.metadata["sampling_rate_source"]
+        == "processing/ophys/DfOverFResponseSeries.starting_time.rate"
+    )
     assert photometry.channel_names == (
         "DfOverFResponseSeries",
         "DfOverFResponseSeries_fiber1",
@@ -1047,7 +1050,10 @@ def test_read_nwb_photometry_prefers_dff_and_extracts_events(tmp_path) -> None:
     assert "TtlsTable" not in {event.label for event in session.events}
     assert session.metadata["subject"]["genotype"] == "Anxa1-iCre"
     assert session.metadata["sampling_rate_hz"] == pytest.approx(100.0)
-    assert session.metadata["sampling_rate_source"] == "starting_time.rate"
+    assert (
+        session.metadata["sampling_rate_source"]
+        == "processing/ophys/DfOverFResponseSeries.starting_time.rate"
+    )
 
 
 def test_is_nwb_photometry_file_detects_photometry_series(tmp_path) -> None:
@@ -1120,9 +1126,15 @@ def test_read_nwb_photometry_records_timestamp_sampling_rate_source(tmp_path) ->
     photometry = session.signals["photometry"]
 
     assert photometry.metadata["sampling_rate_hz"] == pytest.approx(4.0)
-    assert photometry.metadata["sampling_rate_source"] == "timestamps_uniform"
+    assert (
+        photometry.metadata["sampling_rate_source"]
+        == "acquisition/FiberPhotometryResponseSeries.timestamps_uniform"
+    )
     assert session.metadata["sampling_rate_hz"] == pytest.approx(4.0)
-    assert session.metadata["sampling_rate_source"] == "timestamps_uniform"
+    assert (
+        session.metadata["sampling_rate_source"]
+        == "acquisition/FiberPhotometryResponseSeries.timestamps_uniform"
+    )
 
 
 def test_read_nwb_photometry_rejects_missing_timebase(tmp_path) -> None:
