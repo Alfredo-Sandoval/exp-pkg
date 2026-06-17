@@ -51,10 +51,92 @@ def test_event_table_queries_and_round_trips() -> None:
     assert hydrated.to_dict() == events.to_dict()
 
 
+@pytest.mark.parametrize(
+    ("kwargs", "exc_type", "message"),
+    [
+        ({"kind": 1, "start_s": 0.0}, TypeError, "event kind must be a string"),
+        ({"kind": "", "start_s": 0.0}, ValueError, "event kind must be a non-empty string"),
+        (
+            {"kind": " cue", "start_s": 0.0},
+            ValueError,
+            "event kind must not contain surrounding whitespace",
+        ),
+        ({"kind": "cue", "start_s": 0.0, "label": 1}, TypeError, "event label must be a string"),
+        (
+            {"kind": "cue", "start_s": 0.0, "label": ""},
+            ValueError,
+            "event label must be a non-empty string",
+        ),
+        (
+            {"kind": "cue", "start_s": 0.0, "label": " tone"},
+            ValueError,
+            "event label must not contain surrounding whitespace",
+        ),
+    ],
+)
+def test_event_rejects_unclean_text(
+    kwargs: dict[str, object],
+    exc_type: type[Exception],
+    message: str,
+) -> None:
+    with pytest.raises(exc_type, match=message):
+        Event(**kwargs)
+
+
+def test_event_from_dict_rejects_coerced_text() -> None:
+    with pytest.raises(TypeError, match="event kind must be a string"):
+        Event.from_dict({"kind": 1, "start_s": 0.0})
+
+
+@pytest.mark.parametrize(
+    ("query_kwargs", "exc_type", "message"),
+    [
+        ({"kind": 1}, TypeError, "event query kind must be a string"),
+        (
+            {"kind": " cue"},
+            ValueError,
+            "event query kind must not contain surrounding whitespace",
+        ),
+        ({"label": ""}, ValueError, "event query label must be a non-empty string"),
+        (
+            {"label": " tone"},
+            ValueError,
+            "event query label must not contain surrounding whitespace",
+        ),
+    ],
+)
+def test_event_table_query_rejects_unclean_filters(
+    query_kwargs: dict[str, object],
+    exc_type: type[Exception],
+    message: str,
+) -> None:
+    events = EventTable.from_events([Event(kind="cue", start_s=0.0, label="tone")])
+
+    with pytest.raises(exc_type, match=message):
+        events.query(**query_kwargs)
+
+
 def test_sync_event_payload_preserves_source() -> None:
     event = SyncEvent(kind="sync", start_s=1.0, source="ttl")
 
     assert event.to_dict()["source"] == "ttl"
+
+
+@pytest.mark.parametrize(
+    ("source", "exc_type", "message"),
+    [
+        (1, TypeError, "sync event source must be a string"),
+        ("", ValueError, "sync event source must be a non-empty string"),
+        (" ttl", ValueError, "sync event source must not contain surrounding whitespace"),
+    ],
+)
+def test_sync_event_rejects_unclean_source(
+    source: object,
+    exc_type: type[Exception],
+    message: str,
+) -> None:
+    with pytest.raises(exc_type, match=message):
+        SyncEvent(kind="sync", start_s=1.0, source=source)
 
 
 def test_time_series_and_photometry_recording_validate_channels() -> None:

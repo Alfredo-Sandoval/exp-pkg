@@ -13,6 +13,16 @@ from xpkg.model._metadata_validation import (
 from xpkg.model.time import Timebase, TimeRange
 
 
+def _required_text(value: object, *, name: str) -> str:
+    if not isinstance(value, str):
+        raise TypeError(f"{name} must be a string.")
+    if not value:
+        raise ValueError(f"{name} must be a non-empty string.")
+    if value != value.strip():
+        raise ValueError(f"{name} must not contain surrounding whitespace.")
+    return value
+
+
 @dataclass(frozen=True, slots=True)
 class Event:
     """One labeled event on a session timeline."""
@@ -24,16 +34,12 @@ class Event:
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
-        kind = str(self.kind).strip()
-        if not kind:
-            raise ValueError("event kind must be a non-empty string.")
+        kind = _required_text(self.kind, name="event kind")
         start_s = finite_float(self.start_s, name="event start_s")
         duration_s = finite_float(self.duration_s, name="event duration_s")
         if duration_s < 0.0:
             raise ValueError(f"event duration_s must be non-negative, got {duration_s}.")
-        label = None if self.label is None else str(self.label).strip()
-        if label == "":
-            label = None
+        label = None if self.label is None else _required_text(self.label, name="event label")
         metadata = metadata_dict(self.metadata, name="event metadata")
 
         object.__setattr__(self, "kind", kind)
@@ -79,7 +85,7 @@ class Event:
         if raw_metadata is not None and not isinstance(raw_metadata, Mapping):
             raise TypeError("event metadata must be a mapping when present.")
         return cls(
-            kind=str(payload.get("kind", "")),
+            kind=payload.get("kind", ""),
             start_s=payload.get("start_s", 0.0),
             duration_s=payload.get("duration_s", 0.0),
             label=payload.get("label"),
@@ -140,8 +146,8 @@ class EventTable:
         overlaps: TimeRange | None = None,
     ) -> tuple[Event, ...]:
         """Return events matching optional kind, label, time, and overlap filters."""
-        kind_filter = None if kind is None else str(kind).strip()
-        label_filter = None if label is None else str(label).strip()
+        kind_filter = None if kind is None else _required_text(kind, name="event query kind")
+        label_filter = None if label is None else _required_text(label, name="event query label")
         if time_s is not None:
             time_value = finite_float(time_s, name="time_s")
         else:
@@ -211,9 +217,7 @@ class SyncEvent(Event):
 
     def __post_init__(self) -> None:
         Event.__post_init__(self)
-        source = str(self.source).strip()
-        if not source:
-            raise ValueError("sync event source must be a non-empty string.")
+        source = _required_text(self.source, name="sync event source")
         object.__setattr__(self, "source", source)
 
     def to_dict(self) -> dict[str, Any]:
