@@ -263,6 +263,7 @@ def read_pmat_photometry_csv(
         signal_channel=resolved_signal,
         reference_channel=resolved_reference,
         metadata={
+            "source": {"type": "pmat_photometry_csv", "path": str(source_path)},
             "time_column": resolved_time,
             "signal_column": resolved_signal,
             "reference_column": resolved_reference,
@@ -299,6 +300,7 @@ def read_pmat_events_csv(
     )
     table_metadata = {
         "source_type": "pmat_events_csv",
+        "source": {"type": "pmat_events_csv", "path": str(source_path)},
         "label_column": resolved_label,
         "onset_column": resolved_onset,
         "offset_column": resolved_offset,

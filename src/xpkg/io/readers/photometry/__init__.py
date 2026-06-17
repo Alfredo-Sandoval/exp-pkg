@@ -292,6 +292,7 @@ def read_photometry_csv(
         reference_channel=reference_channel,
         metadata={
             "source_type": "photometry_csv",
+            "source": {"type": "photometry_csv", "path": str(path)},
             "time_column": resolved_time,
             "signal_columns": list(resolved_signals),
             "columns": [str(column) for column in frame.columns],

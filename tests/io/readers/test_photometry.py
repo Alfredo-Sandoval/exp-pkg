@@ -91,6 +91,10 @@ def test_read_photometry_csv_reports_resolved_layout_metadata(tmp_path) -> None:
     recording = read_photometry_csv(path)
 
     assert recording.metadata["time_column"] == "timestamp"
+    assert recording.metadata["source"] == {
+        "type": "photometry_csv",
+        "path": str(path),
+    }
     assert recording.metadata["signal_columns"] == ["gcamp", "isosbestic"]
     assert recording.metadata["columns"] == ["timestamp", "gcamp", "isosbestic"]
     assert recording.metadata["rows"] == 2
