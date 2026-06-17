@@ -215,6 +215,10 @@ def test_read_nwb_photometry_prefers_dff_and_extracts_events(tmp_path) -> None:
         _write_nwb_series(acquisition, "Fluorescence", signal * 100.0)
         _write_nwb_series(acquisition, "FiberPhotometryResponseSeriesIsosbestic", control)
         _write_nwb_series(acquisition, "Reward", reward, rate=1000.0)
+        annotations = acquisition.create_group("events")
+        annotations.attrs["neurodata_type"] = "AnnotationSeries"
+        annotations.create_dataset("data", data=np.asarray([b"lick", b"cue"]))
+        annotations.create_dataset("timestamps", data=np.asarray([0.75, 6.5]))
         ttl = acquisition.create_group("TtlsTable")
         ttl.create_dataset("timestamp", data=np.linspace(0.0, 20.0, 4000))
         ttl.create_dataset("ttl_type", data=np.zeros(4000, dtype=np.int64))
@@ -251,6 +255,14 @@ def test_read_nwb_photometry_prefers_dff_and_extracts_events(tmp_path) -> None:
     np.testing.assert_allclose(
         [event.start_s for event in session.events if event.label == "PeakFluorescenceEvents"],
         [1.5, 7.2, 13.0],
+    )
+    np.testing.assert_allclose(
+        [event.start_s for event in session.events if event.label == "lick"],
+        [0.75],
+    )
+    np.testing.assert_allclose(
+        [event.start_s for event in session.events if event.label == "cue"],
+        [6.5],
     )
     assert "TtlsTable" not in {event.label for event in session.events}
     assert session.metadata["subject"]["genotype"] == "Anxa1-iCre"

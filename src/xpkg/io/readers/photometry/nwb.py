@@ -51,6 +51,8 @@ class _Series:
 def _decode(value: object) -> object:
     if isinstance(value, bytes | bytearray):
         return value.decode("utf-8", errors="replace")
+    if isinstance(value, str | int | float | bool):
+        return value
     if isinstance(value, np.generic):
         return value.item()
     array = np.asarray(value)
@@ -311,6 +313,41 @@ def _event_channel_events(
     return rows
 
 
+def _annotation_series_events(
+    candidates: dict[str, _Series],
+    *,
+    source_path: Path,
+) -> list[Event]:
+    rows: list[Event] = []
+    for series in candidates.values():
+        if series.path.split("/", maxsplit=1)[0] != "acquisition":
+            continue
+        neurodata_type = str(_decode(series.group.attrs.get("neurodata_type", "")))
+        if (
+            series.name.lower() not in {"events", "annotations"}
+            and neurodata_type != "AnnotationSeries"
+        ):
+            continue
+        if "timestamps" not in series.group:
+            raise ValueError(f"NWB AnnotationSeries '{series.path}' is missing timestamps.")
+        labels = np.asarray(series.group["data"]).reshape(-1)
+        stamps = np.asarray(series.group["timestamps"], dtype=np.float64).reshape(-1)
+        if labels.size != stamps.size:
+            raise ValueError(f"NWB AnnotationSeries '{series.path}' label/time lengths differ.")
+        if not np.isfinite(stamps).all():
+            raise ValueError(f"NWB AnnotationSeries '{series.path}' contains non-finite times.")
+        for label, stamp in zip(labels, stamps, strict=True):
+            rows.append(
+                Event(
+                    kind="event",
+                    start_s=float(stamp),
+                    label=str(_decode(label)),
+                    metadata={"source": {"type": "nwb_photometry", "path": str(source_path)}},
+                )
+            )
+    return rows
+
+
 def _analysis_timestamp_events(handle: h5py.File, *, source_path: Path) -> list[Event]:
     root = handle.get("analysis")
     if not isinstance(root, h5py.Group):
@@ -388,6 +425,7 @@ def read_nwb_photometry(path: str | Path) -> RecordingSession:
         )
         rows = [
             *_event_channel_events(candidates, source_path=source_path),
+            *_annotation_series_events(candidates, source_path=source_path),
             *_analysis_timestamp_events(handle, source_path=source_path),
         ]
         session_metadata = _metadata(handle, source_path, photometry)
