@@ -97,6 +97,7 @@ from xpkg.project.segmentation import (
 )
 from xpkg.project.store import (
     current_project_state_path,
+    ensure_project,
     init_project,
     load_project_payload,
     save_project_labels,
@@ -141,6 +142,7 @@ __all__ = [
     "ProjectSummaryIndex",
     "SegmentationFrame",
     # Project lifecycle
+    "ensure_project",
     "init_project",
     "pack_project",
     "unpack_project",

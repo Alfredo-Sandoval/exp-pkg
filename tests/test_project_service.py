@@ -45,6 +45,22 @@ def test_getting_started_project_service_lifecycle_example_roundtrips(
     assert unpacked_layout.descriptor.title == "My Project"
 
 
+def test_project_service_ensure_adopts_existing_data_folder(tmp_path: Path) -> None:
+    project_root = tmp_path / "Raw Session Project"
+    project_root.mkdir()
+    source = project_root / "recording.csv"
+    source.write_text("time,signal\n0.0,1.0\n", encoding="utf-8")
+
+    project = ProjectService.ensure(project_root, title="Raw Session Project")
+    layout = project.validate()
+
+    assert project.project_root == project_root.resolve()
+    assert layout.descriptor.title == "Raw Session Project"
+    assert (project_root / "PROJECT.json").is_file()
+    assert (project_root / ".xpkg").is_dir()
+    assert source.read_text(encoding="utf-8") == "time,signal\n0.0,1.0\n"
+
+
 def test_readme_recommended_project_service_flow_roundtrips_imported_artifact(
     tmp_path: Path,
 ) -> None:
@@ -229,7 +245,6 @@ def test_project_service_scoped_metadata_roundtrip_without_current_head(tmp_path
     assert acquisition.acquisition_id == "acq-service"
     assert dataset_share is not None
     assert dataset_share.doi == "10.0000/service"
-
 
 
 def test_pose_importer_registry_covers_all_pose_formats() -> None:

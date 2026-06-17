@@ -134,6 +134,46 @@ def init_project(
     return descriptor
 
 
+def ensure_project(
+    project: str | Path,
+    *,
+    title: str | None = None,
+    project_id: str | None = None,
+) -> ProjectDescriptor:
+    root = resolve_project_root(project)
+    if root is not None:
+        descriptor = load_project_descriptor(root)
+        ensure_dir(project_store_root(root))
+        ensure_dir(project_media_root(root))
+        ensure_dir(project_exports_root(root))
+        from xpkg.project.summary import refresh_project_summary
+
+        refresh_project_summary(root)
+        return descriptor
+
+    root = _candidate_project_root(project)
+    if root.exists() and not root.is_dir():
+        raise NotADirectoryError(f"Project root is not a directory: {root}")
+
+    descriptor = ProjectDescriptor.new(
+        title=(title or root.name or "exp-pkg Project").strip(),
+        project_id=project_id,
+    )
+    descriptor.validate()
+
+    if not root.exists():
+        ensure_dir(root)
+    ensure_dir(project_store_root(root))
+    ensure_dir(project_media_root(root))
+    ensure_dir(project_exports_root(root))
+
+    write_project_descriptor(root, descriptor)
+    from xpkg.project.summary import refresh_project_summary
+
+    refresh_project_summary(root)
+    return descriptor
+
+
 def _clone_metadata(metadata: dict[str, Any] | None) -> dict[str, Any]:
     return dict(metadata or {})
 

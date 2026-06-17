@@ -182,6 +182,39 @@ def test_init_project_writes_project_contract(tmp_path: Path) -> None:
     assert loaded.labeled_frames == []
 
 
+def test_ensure_project_adopts_nonempty_directory(tmp_path: Path) -> None:
+    from xpkg.project import ensure_project, is_project_root, load_project_descriptor
+
+    project = tmp_path / "Existing Experiment"
+    project.mkdir()
+    source = project / "recording.csv"
+    source.write_text("time,signal\n0.0,1.0\n", encoding="utf-8")
+
+    descriptor = ensure_project(project, title="Existing Experiment")
+
+    assert is_project_root(project)
+    assert source.read_text(encoding="utf-8") == "time,signal\n0.0,1.0\n"
+    assert (project / "PROJECT.json").is_file()
+    assert (project / ".xpkg").is_dir()
+    assert (project / "Media").is_dir()
+    assert (project / "Exports").is_dir()
+    assert descriptor.title == "Existing Experiment"
+    assert load_project_descriptor(project).project_id == descriptor.project_id
+
+
+def test_ensure_project_preserves_existing_descriptor(tmp_path: Path) -> None:
+    from xpkg.project import ensure_project, init_project, load_project_descriptor
+
+    project = tmp_path / "Existing Project"
+    init_project(project, title="Original Title")
+    original = load_project_descriptor(project)
+
+    descriptor = ensure_project(project, title="Replacement Title")
+
+    assert descriptor.to_dict() == original.to_dict()
+    assert load_project_descriptor(project).to_dict() == original.to_dict()
+
+
 def test_project_descriptor_rejects_unsupported_fields(tmp_path: Path) -> None:
     from xpkg.project import init_project, load_project_descriptor
 

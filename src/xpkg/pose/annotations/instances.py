@@ -38,6 +38,11 @@ def _is_point_value_sequence(value: object) -> TypeGuard[_PointValueSequence]:
     return isinstance(value, list | tuple | np.ndarray)
 
 
+def _ndarray_to_list(value: np.ndarray) -> list[Any]:
+    raw = cast(Any, value).tolist()
+    return raw if isinstance(raw, list) else [raw]
+
+
 @dataclass(eq=False)
 class Track:
     """Descriptor representing track metadata (spawn time + name)."""
@@ -283,7 +288,7 @@ class Instance:
     ) -> Point | list[Point] | np.ndarray:
         self._assert_points_synced()
         if isinstance(keypoint, np.ndarray):
-            kp_raw = keypoint.tolist()
+            kp_raw = _ndarray_to_list(keypoint)
             kp_list = Instance._normalize_key_seq(cast(Iterable[Any], kp_raw))
             pts = [self._get_point_at(kp) for kp in kp_list]
             return np.array([[pt.x, pt.y] for pt in pts])
@@ -346,7 +351,9 @@ class Instance:
     ) -> None:
         self._assert_points_synced()
         if isinstance(keypoint, np.ndarray):
-            keypoint_list = Instance._normalize_key_seq(cast(Iterable[Any], keypoint.tolist()))
+            keypoint_list = Instance._normalize_key_seq(
+                cast(Iterable[Any], _ndarray_to_list(keypoint))
+            )
         elif _is_keypoint_index_sequence(keypoint):
             keypoint_list = Instance._normalize_key_seq(cast(Iterable[Any], keypoint))
         else:

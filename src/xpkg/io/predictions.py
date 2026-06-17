@@ -119,7 +119,7 @@ class SerializerPredictedInstance:
                 raise ValueError("keypoint_scores must have one value per keypoint")
 
         self.keypoint_scores = scores.copy()
-        self._points = np.zeros((point_array.shape[0],), dtype=_POINT_DTYPE)
+        self._points = cast(Any, np.zeros((point_array.shape[0],), dtype=_POINT_DTYPE))
         self._points["x"] = self.keypoints[:, 0]
         self._points["y"] = self.keypoints[:, 1]
         self._points["visible"] = np.isfinite(self.keypoints).all(axis=1)
@@ -224,8 +224,7 @@ def _base_instance_prediction(
     keypoints: list[KeypointXY],
     score: float,
     track_id: int | None,
-) -> CoordinateOnlyInstancePrediction:
-    ...
+) -> CoordinateOnlyInstancePrediction: ...
 
 
 @overload
@@ -234,8 +233,7 @@ def _base_instance_prediction(
     keypoints: list[KeypointXYC],
     score: float,
     track_id: int | None,
-) -> CoordinateConfidenceInstancePrediction:
-    ...
+) -> CoordinateConfidenceInstancePrediction: ...
 
 
 def _base_instance_prediction(
@@ -244,12 +242,15 @@ def _base_instance_prediction(
     score: float,
     track_id: int | None,
 ) -> InstancePrediction:
-    return cast(InstancePrediction, {
-        "keypoints": keypoints,
-        "score": float(score),
-        "track_id": track_id,
-        "bbox": None,
-    })
+    return cast(
+        InstancePrediction,
+        {
+            "keypoints": keypoints,
+            "score": float(score),
+            "track_id": track_id,
+            "bbox": None,
+        },
+    )
 
 
 def prediction_frame_payloads_from_payload(

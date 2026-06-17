@@ -70,6 +70,7 @@ from xpkg.project import (
     clear_project_segmentation_masks,
     current_project_state_path,
     default_expkg_path,
+    ensure_project,
     init_project,
     inspect_project,
     is_project_root,
@@ -277,6 +278,7 @@ def test_public_exports_are_callable() -> None:
     assert callable(clear_project_segmentation_masks)
     assert callable(current_project_state_path)
     assert callable(default_expkg_path)
+    assert callable(ensure_project)
     assert callable(init_project)
     assert callable(inspect_project)
     assert callable(is_project_root)

@@ -46,6 +46,9 @@ from xpkg.project.store._helpers import (
     current_project_commit_id as current_project_commit_id,
 )
 from xpkg.project.store._helpers import (
+    ensure_project as ensure_project,
+)
+from xpkg.project.store._helpers import (
     init_project as init_project,
 )
 from xpkg.project.store.cache import (
@@ -101,9 +104,7 @@ def _read_labels_state_payload_without_predictions(state_path: Path) -> dict[str
             text += chunk
             marker_index = text.find(_PREDICTIONS_STATE_MARKER)
             if marker_index >= 0:
-                return _labels_state_payload_from_document(
-                    parse_json(text[:marker_index] + "}}")
-                )
+                return _labels_state_payload_from_document(parse_json(text[:marker_index] + "}}"))
 
 
 def _current_labels_state_payload_without_predictions(root: Path) -> dict[str, Any] | None:

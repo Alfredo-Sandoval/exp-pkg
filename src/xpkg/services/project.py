@@ -19,6 +19,7 @@ from xpkg.project import (
     ProjectDescriptor,
     ProjectInspection,
     ProjectSummaryIndex,
+    ensure_project,
     init_project,
     inspect_project,
     load_project_acquisition_metadata,
@@ -302,6 +303,22 @@ class ProjectService:
         return cls.open(project)
 
     @classmethod
+    def ensure(
+        cls,
+        project: str | Path,
+        *,
+        title: str | None = None,
+        project_id: str | None = None,
+    ) -> ProjectService:
+        """Open an xpkg project, or adopt an existing folder as one."""
+        ensure_project(
+            project,
+            title=title,
+            project_id=project_id,
+        )
+        return cls.open(project)
+
+    @classmethod
     def open(cls, project: str | Path) -> ProjectService:
         """Open an existing project root or a path inside one."""
         root = resolve_project_root(project)
@@ -391,9 +408,7 @@ class ProjectService:
             ("encode_videos", encode_videos, importer.accepts_encode_videos),
         ):
             if value is not None and not accepted:
-                raise ValueError(
-                    f"import_pose(format={format!r}) does not accept `{opt_name}=`."
-                )
+                raise ValueError(f"import_pose(format={format!r}) does not accept `{opt_name}=`.")
 
         kwargs: dict[str, Any] = {
             "project": self.project_root,
