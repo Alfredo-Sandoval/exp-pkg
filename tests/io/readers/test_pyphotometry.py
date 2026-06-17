@@ -56,6 +56,12 @@ def test_read_pyphotometry_ppd_returns_session_signals_and_events(tmp_path: Path
     assert photometry.channel_names == ("analog_1", "analog_2")
     assert digital.channel_names == ("digital_1", "digital_2")
     assert photometry.series.sample_rate_hz == pytest.approx(50.0)
+    assert photometry.metadata["sampling_rate_hz"] == pytest.approx(50.0)
+    assert photometry.metadata["sampling_rate_source"] == "header.sampling_rate"
+    assert photometry.metadata["event_label_scheme"] == "digital_channels"
+    assert session.metadata["sampling_rate_hz"] == pytest.approx(50.0)
+    assert session.metadata["sampling_rate_source"] == "header.sampling_rate"
+    assert session.metadata["event_label_scheme"] == "digital_channels"
     np.testing.assert_allclose(photometry.timeline.timestamps_s[:3], [0.0, 0.02, 0.04])
     np.testing.assert_allclose(photometry.series.values[:, 0], [100, 101, 102, 103, 104, 105])
     assert [event.label for event in session.events] == ["digital_1", "digital_1"]
@@ -139,6 +145,10 @@ def test_read_pyphotometry_csv_uses_json_settings_and_digital_events(tmp_path: P
     assert isinstance(session, RecordingSession)
     assert isinstance(photometry, PhotometryRecording)
     assert photometry.series.channels[0].unit == "V"
+    assert photometry.metadata["sampling_rate_hz"] == pytest.approx(10.0)
+    assert photometry.metadata["sampling_rate_source"] == "header.sampling_rate"
+    assert photometry.metadata["event_label_scheme"] == "digital_channels"
+    assert session.metadata["event_label_scheme"] == "digital_channels"
     np.testing.assert_allclose(photometry.series.values[:, 0], [0.1, 0.101])
     assert [event.label for event in session.events] == ["digital_1"]
 

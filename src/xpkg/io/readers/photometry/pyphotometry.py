@@ -24,11 +24,16 @@ from xpkg.model import (
 
 
 def _sampling_rate(header: dict[str, Any]) -> float:
+    rate, _source = _sampling_rate_with_source(header)
+    return rate
+
+
+def _sampling_rate_with_source(header: dict[str, Any]) -> tuple[float, str]:
     for key in ("sampling_rate", "sample_rate", "SamplingRate", "fs", "Fs"):
         if key in header:
             value = float(header[key])
             if np.isfinite(value) and value > 0.0:
-                return value
+                return value, f"header.{key}"
             break
     raise ValueError("Sampling rate missing or invalid in PPD header.")
 
@@ -158,7 +163,7 @@ def read_pyphotometry_ppd(path: str | Path) -> RecordingSession:
 
     source_path = Path(path)
     header, words = _read_ppd_words(source_path)
-    sample_rate_hz = _sampling_rate(header)
+    sample_rate_hz, sample_rate_source = _sampling_rate_with_source(header)
     channel_count = _channel_count(header)
     extra_signals: dict[str, TimeSeries] = {}
     if _uses_pulsed_v11_layout(header):
@@ -209,7 +214,13 @@ def read_pyphotometry_ppd(path: str | Path) -> RecordingSession:
         ),
         signal_channel=analog_names[0],
         reference_channel=analog_names[1] if len(analog_names) > 1 else None,
-        metadata={"header": dict(header), "source_type": "pyphotometry_ppd"},
+        metadata={
+            "header": dict(header),
+            "source_type": "pyphotometry_ppd",
+            "sampling_rate_hz": sample_rate_hz,
+            "sampling_rate_source": sample_rate_source,
+            "event_label_scheme": "digital_channels",
+        },
     )
     digital_names = tuple(f"digital_{index + 1}" for index in range(channel_count))
     digital_series = TimeSeries(
@@ -226,6 +237,9 @@ def read_pyphotometry_ppd(path: str | Path) -> RecordingSession:
         metadata={
             "source": {"type": "pyphotometry_ppd", "path": str(source_path)},
             "ppd_header": dict(header),
+            "sampling_rate_hz": sample_rate_hz,
+            "sampling_rate_source": sample_rate_source,
+            "event_label_scheme": "digital_channels",
         },
     )
 
@@ -268,7 +282,7 @@ def read_pyphotometry_csv(
         header["sampling_rate"] = float(sample_rate_hz)
     if volts_per_division is not None:
         header["volts_per_division"] = float(volts_per_division)
-    rate = _sampling_rate(header)
+    rate, sample_rate_source = _sampling_rate_with_source(header)
 
     # pyPhotometry's acquisition GUI writes the header as ", ".join(channels),
     # so real exports carry a space after each delimiter ("Analog1, Analog2, ...").
@@ -302,7 +316,13 @@ def read_pyphotometry_csv(
         ),
         signal_channel=analog_names[0],
         reference_channel=analog_names[1] if len(analog_names) > 1 else None,
-        metadata={"header": header, "source_type": "pyphotometry_csv"},
+        metadata={
+            "header": header,
+            "source_type": "pyphotometry_csv",
+            "sampling_rate_hz": rate,
+            "sampling_rate_source": sample_rate_source,
+            "event_label_scheme": "digital_channels",
+        },
     )
 
     signals: dict[str, TimeSeries | PhotometryRecording] = {"photometry": photometry}
@@ -331,6 +351,9 @@ def read_pyphotometry_csv(
             "source": {"type": "pyphotometry_csv", "path": str(source_path)},
             "settings_path": str(sidecar_path) if sidecar_path.is_file() else None,
             "ppd_header": header,
+            "sampling_rate_hz": rate,
+            "sampling_rate_source": sample_rate_source,
+            "event_label_scheme": "digital_channels",
         },
     )
 
