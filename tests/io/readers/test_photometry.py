@@ -35,6 +35,8 @@ def test_read_photometry_csv_uses_explicit_time_and_channels(tmp_path) -> None:
     assert recording.reference_channel == "isosbestic"
     assert recording.channel_names == ("gcamp", "isosbestic")
     assert recording.series.sample_rate_hz == pytest.approx(10.0)
+    assert recording.metadata["sampling_rate_hz"] == pytest.approx(10.0)
+    assert recording.metadata["sampling_rate_source"] == "time.timestamps_uniform"
     np.testing.assert_allclose(recording.timeline.timestamps_s, [0.0, 0.1, 0.2])
     np.testing.assert_allclose(recording.series.values[:, 0], [1.0, 1.1, 1.2])
 
@@ -51,6 +53,8 @@ def test_read_photometry_csv_reports_resolved_layout_metadata(tmp_path) -> None:
     assert recording.metadata["time_column"] == "timestamp"
     assert recording.metadata["signal_columns"] == ["gcamp", "isosbestic"]
     assert recording.metadata["size_bytes"] == path.stat().st_size
+    assert recording.metadata["sampling_rate_hz"] == pytest.approx(1.0)
+    assert recording.metadata["sampling_rate_source"] == "timestamp.timestamps_uniform"
     assert recording.channel_names == ("gcamp", "isosbestic")
 
 
@@ -67,6 +71,51 @@ def test_read_photometry_csv_can_build_regular_timeline_from_sample_rate(tmp_pat
 
     np.testing.assert_allclose(recording.timeline.timestamps_s, [2.0, 2.05])
     assert recording.series.sample_rate_hz == pytest.approx(20.0)
+    assert recording.metadata["sampling_rate_hz"] == pytest.approx(20.0)
+    assert recording.metadata["sampling_rate_source"] == "sample_rate_hz.argument"
+
+
+def test_read_photometry_csv_can_use_sample_rate_for_single_timestamp(tmp_path) -> None:
+    path = tmp_path / "single_sample.csv"
+    path.write_text("time,gcamp\n2.0,1.0\n", encoding="utf-8")
+
+    recording = read_photometry_csv(path, sample_rate_hz=20.0)
+
+    np.testing.assert_allclose(recording.timeline.timestamps_s, [2.0])
+    assert recording.metadata["sampling_rate_hz"] == pytest.approx(20.0)
+    assert recording.metadata["sampling_rate_source"] == "sample_rate_hz.argument"
+
+
+def test_read_photometry_csv_rejects_single_timestamp_without_sample_rate(
+    tmp_path,
+) -> None:
+    path = tmp_path / "single_sample.csv"
+    path.write_text("time,gcamp\n2.0,1.0\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="sampling_rate_hz"):
+        read_photometry_csv(path)
+
+
+def test_read_photometry_csv_rejects_irregular_timebase(tmp_path) -> None:
+    path = tmp_path / "irregular.csv"
+    path.write_text(
+        "time,gcamp\n0.0,1.0\n0.1,1.1\n0.25,1.2\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="uniformly sampled"):
+        read_photometry_csv(path)
+
+
+def test_read_photometry_csv_rejects_mismatched_sample_rate_hint(tmp_path) -> None:
+    path = tmp_path / "photometry.csv"
+    path.write_text(
+        "time,gcamp\n0.0,1.0\n0.1,1.1\n0.2,1.2\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="sample_rate_hz"):
+        read_photometry_csv(path, sample_rate_hz=5.0)
 
 
 def test_read_photometry_csv_rejects_missing_timebase(tmp_path) -> None:

@@ -84,6 +84,49 @@ def _time_scale(unit: TimeUnit) -> float:
     raise ValueError(f"Unsupported time_unit {unit!r}; expected seconds or milliseconds.")
 
 
+def _positive_sample_rate(value: float) -> float:
+    try:
+        sample_rate = float(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(
+            f"sample_rate_hz must be a positive finite number, got {value!r}."
+        ) from exc
+    if not np.isfinite(sample_rate) or sample_rate <= 0.0:
+        raise ValueError(f"sample_rate_hz must be a positive finite number, got {value!r}.")
+    return sample_rate
+
+
+def _uniform_timeline_sample_rate(
+    timeline: Timeline,
+    *,
+    source: str,
+    expected_sample_rate_hz: float | None = None,
+) -> tuple[float, str]:
+    expected = (
+        _positive_sample_rate(expected_sample_rate_hz)
+        if expected_sample_rate_hz is not None
+        else None
+    )
+    sample_rate = timeline.estimated_sample_rate_hz
+    if sample_rate is None:
+        if timeline.n_samples < 2:
+            if expected is not None:
+                return expected, "sample_rate_hz.argument"
+            raise ValueError(
+                f"{source} timestamps require at least two samples to derive "
+                "sampling_rate_hz; provide sample_rate_hz for single-sample "
+                "photometry CSV data."
+            )
+        raise ValueError(f"{source} timestamps must be uniformly sampled.")
+    if expected is not None:
+        if not np.isclose(sample_rate, expected, rtol=1e-4, atol=1e-9):
+            raise ValueError(
+                f"{source} timestamps-derived sampling rate {sample_rate:g} Hz "
+                f"does not match sample_rate_hz {expected:g} Hz."
+            )
+    return float(sample_rate), f"{source}.timestamps_uniform"
+
+
 def _resolve_time_column(
     frame: pd.DataFrame,
     *,
@@ -172,12 +215,19 @@ def read_photometry_csv(
     if resolved_time is not None:
         timestamps = _numeric_column(frame, resolved_time, role="time") * _time_scale(time_unit)
         timeline = Timeline(timestamps_s=timestamps)
+        sampling_rate_hz, sampling_rate_source = _uniform_timeline_sample_rate(
+            timeline,
+            source=resolved_time,
+            expected_sample_rate_hz=sample_rate_hz,
+        )
     elif sample_rate_hz is not None:
+        sampling_rate_hz = _positive_sample_rate(sample_rate_hz)
         timeline = Timeline.from_sample_rate(
             n_samples=values.shape[0],
-            sample_rate_hz=sample_rate_hz,
+            sample_rate_hz=sampling_rate_hz,
             start_s=start_s,
         )
+        sampling_rate_source = "sample_rate_hz.argument"
     else:
         if allow_implicit_time_column:
             raise ValueError("Provide a time column or sample_rate_hz for photometry CSV data.")
@@ -211,6 +261,8 @@ def read_photometry_csv(
             "time_column": resolved_time,
             "signal_columns": list(resolved_signals),
             "size_bytes": size_bytes,
+            "sampling_rate_hz": sampling_rate_hz,
+            "sampling_rate_source": sampling_rate_source,
         },
     )
 
