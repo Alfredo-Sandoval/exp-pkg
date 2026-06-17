@@ -1230,6 +1230,36 @@ def test_read_teleopto_h5_rejects_nonfinite_events(tmp_path) -> None:
         read_teleopto_h5(path)
 
 
+def test_read_teleopto_h5_rejects_multidimensional_primary_signal(tmp_path) -> None:
+    path = tmp_path / "bad-primary-teleopto.h5"
+    with h5py.File(path, "w") as handle:
+        handle.create_dataset("d1", data=np.asarray([[1.0, 1.1], [1.2, 1.3]]))
+        handle.create_dataset("d2", data=np.asarray([0.0, 0.0]))
+        handle.create_dataset("num", data=np.asarray([2.0, 10.0]))
+        handle.create_dataset("st1", data=np.asarray([0.2]))
+        handle.create_dataset("str", data=np.asarray([b"Signal", b"", b"TTL"]))
+
+    with pytest.raises(ValueError, match="Teleopto H5 d1 must be one-dimensional"):
+        read_teleopto_h5(path)
+
+
+def test_read_teleopto_h5_rejects_multidimensional_event_channel(tmp_path) -> None:
+    path = tmp_path / "bad-event-teleopto.h5"
+    with h5py.File(path, "w") as handle:
+        handle.create_dataset("d1", data=np.asarray([1.0, 1.1, 1.2]))
+        handle.create_dataset("d2", data=np.asarray([0.0, 0.0, 0.0]))
+        handle.create_dataset("num", data=np.asarray([3.0, 10.0]))
+        handle.create_dataset("st1", data=np.asarray([0.3]))
+        handle.create_dataset("str", data=np.asarray([b"Signal", b"", b"TTL"]))
+        handle.create_dataset("ct1", data=np.asarray([[0.1, 0.2]]))
+
+    with pytest.raises(
+        ValueError,
+        match="Teleopto H5 event channel ct1 must be one-dimensional",
+    ):
+        read_teleopto_h5(path)
+
+
 def test_is_tdt_block_detects_matching_block_pairs(tmp_path) -> None:
     (tmp_path / "a").mkdir()
     (tmp_path / "b").mkdir()

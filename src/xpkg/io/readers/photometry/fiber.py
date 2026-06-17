@@ -1101,7 +1101,9 @@ def _decode_h5_strings(values: np.ndarray) -> list[str]:
 
 
 def _finite_vector(values: object, name: str) -> np.ndarray:
-    array = np.asarray(values, dtype=np.float64).ravel()
+    array = np.asarray(values, dtype=np.float64)
+    if array.ndim != 1:
+        raise ValueError(f"{name} must be one-dimensional, got shape {array.shape}.")
     if not np.isfinite(array).all():
         raise ValueError(f"{name} must contain only finite values.")
     return array
