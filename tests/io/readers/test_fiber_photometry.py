@@ -9,6 +9,7 @@ import pytest
 from xpkg.io.readers import (
     read_doric_photometry,
     read_neurophotometrics_csv,
+    read_nwb_photometry,
     read_pmat_events_csv,
     read_pmat_photometry_csv,
     read_rwd_ofrs_session,
@@ -178,6 +179,107 @@ def test_read_doric_photometry_flags_storage_order_inference(tmp_path) -> None:
 
     photometry = read_doric_photometry(path).signals["photometry"]
     assert photometry.metadata["channel_inference"] == "storage_order"
+
+
+def _write_nwb_series(
+    parent: h5py.Group,
+    name: str,
+    data: np.ndarray,
+    *,
+    rate: float | None = 100.0,
+    start: float = 0.0,
+    timestamps: np.ndarray | None = None,
+) -> h5py.Group:
+    group = parent.create_group(name)
+    group.create_dataset("data", data=data)
+    if timestamps is not None:
+        group.create_dataset("timestamps", data=timestamps)
+    elif rate is not None:
+        starting_time = group.create_dataset("starting_time", data=start)
+        starting_time.attrs["rate"] = rate
+    return group
+
+
+def test_read_nwb_photometry_prefers_dff_and_extracts_events(tmp_path) -> None:
+    path = tmp_path / "community.nwb"
+    signal = np.tile(np.linspace(0.0, 1.0, 2000)[:, None], (1, 2))
+    control = np.tile(np.full(2000, 0.5)[:, None], (1, 2))
+    reward = np.zeros(20_000, dtype=np.float64)
+    for onset_s in (2.0, 5.0, 9.0, 14.0):
+        index = int(onset_s * 1000.0)
+        reward[index : index + 50] = 1.0
+
+    with h5py.File(path, "w") as handle:
+        handle.create_dataset("identifier", data=np.bytes_("session-1"))
+        acquisition = handle.create_group("acquisition")
+        _write_nwb_series(acquisition, "Fluorescence", signal * 100.0)
+        _write_nwb_series(acquisition, "FiberPhotometryResponseSeriesIsosbestic", control)
+        _write_nwb_series(acquisition, "Reward", reward, rate=1000.0)
+        ttl = acquisition.create_group("TtlsTable")
+        ttl.create_dataset("timestamp", data=np.linspace(0.0, 20.0, 4000))
+        ttl.create_dataset("ttl_type", data=np.zeros(4000, dtype=np.int64))
+
+        ophys = handle.create_group("processing/ophys")
+        _write_nwb_series(ophys, "DfOverFResponseSeries", signal)
+
+        peaks = handle.create_group("analysis/PeakFluorescenceEvents")
+        peaks.create_dataset("timestamp", data=np.array([1.5, 7.2, 13.0]))
+        subject = handle.create_group("general/subject")
+        subject.create_dataset("genotype", data=np.bytes_("Anxa1-iCre"))
+
+    session = read_nwb_photometry(path)
+    photometry = session.signals["photometry"]
+
+    assert isinstance(session, RecordingSession)
+    assert isinstance(photometry, PhotometryRecording)
+    assert session.session_id == "session-1"
+    assert photometry.signal_channel == "DfOverFResponseSeries"
+    assert photometry.reference_channel == "FiberPhotometryResponseSeriesIsosbestic"
+    assert photometry.metadata["signal_is_dff"] is True
+    assert photometry.channel_names == (
+        "DfOverFResponseSeries",
+        "DfOverFResponseSeries_fiber1",
+        "FiberPhotometryResponseSeriesIsosbestic",
+        "FiberPhotometryResponseSeriesIsosbestic_fiber1",
+    )
+    np.testing.assert_allclose(photometry.timeline.timestamps_s[:3], [0.0, 0.01, 0.02])
+    assert [event.label for event in session.events].count("Reward") == 4
+    np.testing.assert_allclose(
+        [event.start_s for event in session.events if event.label == "Reward"],
+        [2.0, 5.0, 9.0, 14.0],
+    )
+    np.testing.assert_allclose(
+        [event.start_s for event in session.events if event.label == "PeakFluorescenceEvents"],
+        [1.5, 7.2, 13.0],
+    )
+    assert "TtlsTable" not in {event.label for event in session.events}
+    assert session.metadata["subject"]["genotype"] == "Anxa1-iCre"
+
+
+def test_read_nwb_photometry_rejects_missing_timebase(tmp_path) -> None:
+    path = tmp_path / "missing-timebase.nwb"
+    with h5py.File(path, "w") as handle:
+        acquisition = handle.create_group("acquisition")
+        _write_nwb_series(
+            acquisition,
+            "FiberPhotometryResponseSeries",
+            np.asarray([1.0, 1.1, 1.2]),
+            rate=None,
+        )
+
+    with pytest.raises(ValueError, match="missing timestamps or starting_time"):
+        read_nwb_photometry(path)
+
+
+def test_read_nwb_photometry_rejects_misaligned_control(tmp_path) -> None:
+    path = tmp_path / "misaligned-control.nwb"
+    with h5py.File(path, "w") as handle:
+        acquisition = handle.create_group("acquisition")
+        _write_nwb_series(acquisition, "FiberPhotometryResponseSeries", np.ones(10))
+        _write_nwb_series(acquisition, "FiberPhotometryResponseSeriesIsosbestic", np.ones(9))
+
+    with pytest.raises(ValueError, match="control series timeline must match"):
+        read_nwb_photometry(path)
 
 
 def test_read_teleopto_h5_extracts_channels_and_ttl(tmp_path) -> None:

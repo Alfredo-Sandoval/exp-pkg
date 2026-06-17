@@ -23,6 +23,7 @@ from xpkg.io.readers.photometry.fiber import (
     read_tdt_photometry_block,
     read_teleopto_h5,
 )
+from xpkg.io.readers.photometry.nwb import read_nwb_photometry
 from xpkg.io.readers.photometry.pyphotometry import (
     read_pyphotometry_csv,
     read_pyphotometry_ppd,
@@ -47,6 +48,7 @@ __all__ = [
     "read_doric_photometry",
     "read_events_csv",
     "read_neurophotometrics_csv",
+    "read_nwb_photometry",
     "read_opencv_stereo_calibration",
     "read_photometry_csv",
     "read_pmat_events_csv",
