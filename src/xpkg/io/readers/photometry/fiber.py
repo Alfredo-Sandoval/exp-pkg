@@ -7,6 +7,7 @@ import re
 from collections.abc import Iterable, Mapping, Sequence
 from json import JSONDecodeError
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any, Literal, NamedTuple
 
 import h5py
@@ -1630,17 +1631,63 @@ def _tdt_event_store_names(event_stores: Sequence[str] | None) -> tuple[str, ...
 
 def _tdt_read_block_kwargs(
     *,
+    evtype: Sequence[str],
+    stores: Sequence[str] | None = None,
+) -> dict[str, Any]:
+    kwargs: dict[str, Any] = {"evtype": list(evtype)}
+    if stores is not None:
+        kwargs["store"] = list(dict.fromkeys(stores))
+    return kwargs
+
+
+def _tdt_read_streams_and_epocs(
+    module: Any,
+    block_path: Path,
+    *,
     signal_store: str | None,
     reference_store: str | None,
     event_stores: Sequence[str] | None,
-) -> dict[str, Any]:
-    kwargs: dict[str, Any] = {"evtype": ["streams", "epocs"]}
-    if signal_store is None or reference_store is None or event_stores is None:
-        return kwargs
+) -> Any:
+    stream_stores = (
+        [signal_store, reference_store]
+        if signal_store is not None and reference_store is not None
+        else None
+    )
+    epoc_stores = list(event_stores) if event_stores is not None else None
+    path = str(block_path)
 
-    selected = [signal_store, reference_store, *event_stores]
-    kwargs["store"] = list(dict.fromkeys(selected))
-    return kwargs
+    if stream_stores is None and epoc_stores is None:
+        return module.read_block(
+            path,
+            **_tdt_read_block_kwargs(evtype=["streams", "epocs"]),
+        )
+
+    if stream_stores is not None and epoc_stores is not None:
+        return module.read_block(
+            path,
+            **_tdt_read_block_kwargs(
+                evtype=["streams", "epocs"],
+                stores=[*stream_stores, *epoc_stores],
+            ),
+        )
+
+    stream_data = module.read_block(
+        path,
+        **_tdt_read_block_kwargs(evtype=["streams"], stores=stream_stores),
+    )
+    if epoc_stores is not None and not epoc_stores:
+        epocs = SimpleNamespace()
+    else:
+        epoc_data = module.read_block(
+            path,
+            **_tdt_read_block_kwargs(evtype=["epocs"], stores=epoc_stores),
+        )
+        epocs = getattr(epoc_data, "epocs", SimpleNamespace())
+    return SimpleNamespace(
+        streams=getattr(stream_data, "streams", stream_data),
+        epocs=epocs,
+        _xpkg_allow_missing_stream_start=not hasattr(stream_data, "streams"),
+    )
 
 
 def _tdt_epoc_times(
@@ -1702,13 +1749,12 @@ def read_tdt_photometry_block(
     )
     event_store_names = _tdt_event_store_names(event_stores)
     module = _tdt_module(tdt_module)
-    data = module.read_block(
-        str(block_path),
-        **_tdt_read_block_kwargs(
-            signal_store=signal_store_name,
-            reference_store=reference_store_name,
-            event_stores=event_store_names,
-        ),
+    data = _tdt_read_streams_and_epocs(
+        module,
+        block_path,
+        signal_store=signal_store_name,
+        reference_store=reference_store_name,
+        event_stores=event_store_names,
     )
     has_streams_container = hasattr(data, "streams")
     streams_obj = data.streams if has_streams_container else data
@@ -1723,9 +1769,12 @@ def read_tdt_photometry_block(
     signal = stream_map[resolved_signal]
     values = [_one_dimensional(signal.data)]
     names = [resolved_signal]
+    allow_missing_stream_start = bool(
+        getattr(data, "_xpkg_allow_missing_stream_start", not has_streams_container)
+    )
     stream_start_s, stream_start_source = _tdt_stream_start(
         signal,
-        allow_missing_zero=not has_streams_container,
+        allow_missing_zero=allow_missing_stream_start,
     )
     resolved_stream_start_source = (
         stream_start_source.replace("<signal>", resolved_signal)

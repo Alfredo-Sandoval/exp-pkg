@@ -1568,6 +1568,107 @@ def test_read_tdt_photometry_block_avoids_store_filter_for_auto_reference() -> N
     assert calls == [{"evtype": ["streams", "epocs"]}]
 
 
+def test_read_tdt_photometry_block_filters_explicit_streams_and_all_epocs() -> None:
+    streams = SimpleNamespace(
+        x465A=SimpleNamespace(data=np.asarray([1.0, 1.1, 1.2]), fs=100.0, start_time=0.0),
+        x405A=SimpleNamespace(data=np.asarray([0.5, 0.4, 0.3]), fs=100.0),
+    )
+    epocs = SimpleNamespace(
+        Cue=SimpleNamespace(onset=np.asarray([0.25])),
+        Press=SimpleNamespace(onset=np.asarray([0.5])),
+    )
+    calls: list[dict[str, object]] = []
+
+    def fake_read_block(*_args: object, **kwargs: object) -> SimpleNamespace:
+        calls.append(kwargs)
+        if kwargs["evtype"] == ["streams"]:
+            return SimpleNamespace(streams=streams)
+        if kwargs["evtype"] == ["epocs"]:
+            return SimpleNamespace(epocs=epocs)
+        pytest.fail(f"unexpected TDT read_block kwargs: {kwargs!r}")
+
+    session = read_tdt_photometry_block(
+        "tank/block",
+        signal_store="x465A",
+        reference_store="x405A",
+        tdt_module=SimpleNamespace(read_block=fake_read_block),
+    )
+    photometry = session.signals["photometry"]
+
+    assert photometry.signal_channel == "x465A"
+    assert photometry.reference_channel == "x405A"
+    assert [event.label for event in session.events] == ["Cue", "Press"]
+    assert calls == [
+        {"evtype": ["streams"], "store": ["x465A", "x405A"]},
+        {"evtype": ["epocs"]},
+    ]
+
+
+def test_read_tdt_photometry_block_preserves_sev_start_default_for_split_read() -> None:
+    streams = SimpleNamespace(
+        x465A=SimpleNamespace(data=np.asarray([1.0, 1.1, 1.2]), fs=100.0),
+        x405A=SimpleNamespace(data=np.asarray([0.5, 0.4, 0.3]), fs=100.0),
+    )
+    calls: list[dict[str, object]] = []
+
+    def fake_read_block(*_args: object, **kwargs: object) -> SimpleNamespace:
+        calls.append(kwargs)
+        if kwargs["evtype"] == ["streams"]:
+            return streams
+        if kwargs["evtype"] == ["epocs"]:
+            return SimpleNamespace(epocs=SimpleNamespace())
+        pytest.fail(f"unexpected TDT read_block kwargs: {kwargs!r}")
+
+    session = read_tdt_photometry_block(
+        "tank/sev",
+        signal_store="x465A",
+        reference_store="x405A",
+        tdt_module=SimpleNamespace(read_block=fake_read_block),
+    )
+    photometry = session.signals["photometry"]
+
+    assert photometry.metadata["stream_start_s"] == pytest.approx(0.0)
+    assert photometry.metadata["stream_start_source"] == "tdt.read_sev.t1_default"
+    assert session.metadata["stream_start_source"] == "tdt.read_sev.t1_default"
+    assert calls == [
+        {"evtype": ["streams"], "store": ["x465A", "x405A"]},
+        {"evtype": ["epocs"]},
+    ]
+
+
+def test_read_tdt_photometry_block_filters_explicit_epocs_with_auto_reference() -> None:
+    streams = SimpleNamespace(
+        x465A=SimpleNamespace(data=np.asarray([1.0, 1.1, 1.2]), fs=100.0, start_time=0.0),
+        x405A=SimpleNamespace(data=np.asarray([0.5, 0.4, 0.3]), fs=100.0),
+    )
+    epocs = SimpleNamespace(Cue=SimpleNamespace(onset=np.asarray([0.25])))
+    calls: list[dict[str, object]] = []
+
+    def fake_read_block(*_args: object, **kwargs: object) -> SimpleNamespace:
+        calls.append(kwargs)
+        if kwargs["evtype"] == ["streams"]:
+            return SimpleNamespace(streams=streams)
+        if kwargs["evtype"] == ["epocs"]:
+            return SimpleNamespace(epocs=epocs)
+        pytest.fail(f"unexpected TDT read_block kwargs: {kwargs!r}")
+
+    session = read_tdt_photometry_block(
+        "tank/block",
+        signal_store="x465A",
+        event_stores=["Cue"],
+        tdt_module=SimpleNamespace(read_block=fake_read_block),
+    )
+    photometry = session.signals["photometry"]
+
+    assert photometry.signal_channel == "x465A"
+    assert photometry.reference_channel == "x405A"
+    assert [event.label for event in session.events] == ["Cue"]
+    assert calls == [
+        {"evtype": ["streams"]},
+        {"evtype": ["epocs"], "store": ["Cue"]},
+    ]
+
+
 def test_read_tdt_photometry_block_rejects_missing_explicit_event_store() -> None:
     streams = SimpleNamespace(
         x465A=SimpleNamespace(data=np.asarray([1.0, 1.1, 1.2]), fs=100.0, start_time=0.0)
