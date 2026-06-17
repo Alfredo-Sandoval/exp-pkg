@@ -705,6 +705,38 @@ def test_read_doric_photometry_records_sampling_rate_attribute_source(tmp_path) 
     assert session.metadata["sampling_rate_source"] == "Signal470.attrs.SamplingRate"
 
 
+def test_read_doric_photometry_rejects_duplicate_signal_reference_path(
+    tmp_path,
+) -> None:
+    path = tmp_path / "duplicate.doric"
+    with h5py.File(path, "w") as handle:
+        handle.create_dataset("Signal470", data=np.asarray([1.0, 1.1, 1.2]))
+        handle.create_dataset("Time", data=np.asarray([0.0, 0.1, 0.2]))
+
+    with pytest.raises(ValueError, match="reference dataset must differ"):
+        read_doric_photometry(
+            path,
+            signal_path="Signal470",
+            reference_path="Signal470",
+        )
+
+
+def test_read_doric_photometry_rejects_time_dataset_as_signal(
+    tmp_path,
+) -> None:
+    path = tmp_path / "time_signal.doric"
+    with h5py.File(path, "w") as handle:
+        handle.create_dataset("Signal470", data=np.asarray([1.0, 1.1, 1.2]))
+        handle.create_dataset("Time", data=np.asarray([0.0, 0.1, 0.2]))
+
+    with pytest.raises(ValueError, match="signal dataset must not be the time"):
+        read_doric_photometry(
+            path,
+            signal_path="Time",
+            time_path="Time",
+        )
+
+
 def test_read_doric_photometry_rejects_irregular_time_dataset(tmp_path) -> None:
     path = tmp_path / "irregular.doric"
     with h5py.File(path, "w") as handle:

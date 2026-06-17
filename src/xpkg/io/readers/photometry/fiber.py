@@ -996,6 +996,13 @@ def read_doric_photometry(
             resolved_reference, reference_matched = _preferred_doric_reference(
                 signal_candidates, resolved_signal
             )
+        if resolved_time is not None and resolved_signal == resolved_time:
+            raise ValueError("Doric signal dataset must not be the time dataset.")
+        if resolved_reference is not None:
+            if resolved_reference == resolved_signal:
+                raise ValueError("Doric reference dataset must differ from signal dataset.")
+            if resolved_time is not None and resolved_reference == resolved_time:
+                raise ValueError("Doric reference dataset must not be the time dataset.")
         # Signal/control identity is a swap risk worth surfacing when it falls back
         # to storage order rather than a wavelength/name token.
         inferred_by_order = (not signal_matched) or (
