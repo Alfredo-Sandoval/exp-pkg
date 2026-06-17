@@ -54,6 +54,18 @@ _TELEOPTO_EVENT_KEYS = ("ct1", "ct2", "ct3", "ct4", "ar1", "ar2")
 _TELEOPTO_REQUIRED_KEYS = frozenset({"d1", "num", "st1", "str"})
 
 
+def _read_csv(path: str | Path, *, max_mb: float | None = None) -> pd.DataFrame:
+    source_path = Path(path)
+    size_bytes = source_path.stat().st_size
+    if max_mb is not None:
+        max_bytes = int(float(max_mb) * 1024 * 1024)
+        if max_bytes <= 0:
+            raise ValueError(f"max_mb must be positive when provided, got {max_mb!r}.")
+        if size_bytes > max_bytes:
+            raise ValueError(f"CSV file '{source_path}' exceeds max load size ({max_mb} MB).")
+    return pd.read_csv(source_path)
+
+
 def _time_scale(unit: TimeUnit) -> float:
     normalized = unit.lower()
     if normalized in {"s", "sec", "second", "seconds"}:
@@ -178,11 +190,12 @@ def read_pmat_photometry_csv(
     signal_column: str | None = None,
     reference_column: str | None = None,
     time_unit: TimeUnit = "s",
+    max_mb: float | None = None,
 ) -> PhotometryRecording:
     """Read a pMAT-compatible photometry CSV export."""
 
     source_path = Path(path)
-    frame = pd.read_csv(source_path)
+    frame = _read_csv(source_path, max_mb=max_mb)
     if frame.empty:
         raise ValueError(f"pMAT photometry CSV '{source_path}' is empty.")
     columns = [str(column) for column in frame.columns]
@@ -216,11 +229,12 @@ def read_pmat_events_csv(
     onset_column: str | None = None,
     offset_column: str | None = None,
     time_unit: TimeUnit = "s",
+    max_mb: float | None = None,
 ) -> EventTable:
     """Read a pMAT-compatible event CSV export."""
 
     source_path = Path(path)
-    frame = pd.read_csv(source_path)
+    frame = _read_csv(source_path, max_mb=max_mb)
     if frame.empty:
         return EventTable()
     columns = [str(column) for column in frame.columns]

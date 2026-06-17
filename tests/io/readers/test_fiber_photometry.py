@@ -55,6 +55,24 @@ def test_read_pmat_csv_and_events(tmp_path) -> None:
     assert events.events[0].duration_s == pytest.approx(0.15)
 
 
+def test_read_pmat_csv_rejects_file_exceeding_max_mb(tmp_path) -> None:
+    photometry_path = tmp_path / "pmat.csv"
+    photometry_path.write_text(
+        "Time,Signal,Control\n" + "\n".join(f"{i},{i}.0,{i}.5" for i in range(3000)),
+        encoding="utf-8",
+    )
+    event_path = tmp_path / "events.csv"
+    event_path.write_text(
+        "Name,Onset,Offset\n" + "\n".join(f"cue,{i}.0,{i}.1" for i in range(3000)),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="exceeds max load size"):
+        read_pmat_photometry_csv(photometry_path, max_mb=0.0001)
+    with pytest.raises(ValueError, match="exceeds max load size"):
+        read_pmat_events_csv(event_path, max_mb=0.0001)
+
+
 def test_is_neurophotometrics_csv_detects_led_state_contract(tmp_path) -> None:
     flags_path = tmp_path / "flags.csv"
     flags_path.write_text(
