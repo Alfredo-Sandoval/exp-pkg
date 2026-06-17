@@ -11,6 +11,7 @@ import numpy as np
 import pandas as pd
 
 from xpkg._core.json_utils import load_json_dict, parse_json_dict
+from xpkg.io.readers._discovery import find_first_file
 from xpkg.model import (
     Event,
     EventTable,
@@ -114,6 +115,12 @@ def is_pyphotometry_ppd_file(path: str | Path) -> bool:
     except JSONDecodeError:
         return False
     return True
+
+
+def find_first_pyphotometry_ppd_file(path: str | Path) -> Path | None:
+    """Return the first pyPhotometry PPD file under ``path``."""
+
+    return find_first_file(path, is_pyphotometry_ppd_file)
 
 
 def _version_tuple(value: object) -> tuple[int, ...]:
@@ -302,6 +309,12 @@ def is_pyphotometry_csv(path: str | Path) -> bool:
     return bool(_matching_columns(frame, "analog"))
 
 
+def find_first_pyphotometry_csv(path: str | Path) -> Path | None:
+    """Return the first pyPhotometry CSV export under ``path``."""
+
+    return find_first_file(path, is_pyphotometry_csv)
+
+
 def read_pyphotometry_csv(
     path: str | Path,
     *,
@@ -398,6 +411,8 @@ def read_pyphotometry_csv(
 
 
 __all__ = [
+    "find_first_pyphotometry_csv",
+    "find_first_pyphotometry_ppd_file",
     "is_pyphotometry_csv",
     "is_pyphotometry_ppd_file",
     "read_pyphotometry_csv",

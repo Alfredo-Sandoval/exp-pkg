@@ -9,6 +9,7 @@ from typing import Any, Literal
 import h5py
 import numpy as np
 
+from xpkg.io.readers._discovery import find_first_file
 from xpkg.model import (
     Event,
     EventTable,
@@ -153,6 +154,12 @@ def is_nwb_photometry_file(path: str | Path) -> bool:
             )
     except OSError:
         return False
+
+
+def find_first_nwb_photometry_file(path: str | Path) -> Path | None:
+    """Return the first NWB photometry file under ``path``."""
+
+    return find_first_file(path, is_nwb_photometry_file)
 
 
 _MAX_NONFINITE_FRACTION = 0.01
@@ -574,4 +581,8 @@ def read_nwb_photometry(
     )
 
 
-__all__ = ["is_nwb_photometry_file", "read_nwb_photometry"]
+__all__ = [
+    "find_first_nwb_photometry_file",
+    "is_nwb_photometry_file",
+    "read_nwb_photometry",
+]

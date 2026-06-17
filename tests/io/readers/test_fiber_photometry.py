@@ -7,6 +7,9 @@ import numpy as np
 import pytest
 
 from xpkg.io.readers import (
+    find_first_doric_photometry_file,
+    find_first_neurophotometrics_csv,
+    find_first_nwb_photometry_file,
     is_doric_photometry_file,
     is_neurophotometrics_csv,
     is_nwb_photometry_file,
@@ -68,6 +71,21 @@ def test_is_neurophotometrics_csv_detects_led_state_contract(tmp_path) -> None:
     assert is_neurophotometrics_csv(led_state_path) is True
     assert is_neurophotometrics_csv(plain_path) is False
     assert is_neurophotometrics_csv(tmp_path / "missing.csv") is False
+
+
+def test_find_first_neurophotometrics_csv_uses_detector_contract(tmp_path) -> None:
+    nested = tmp_path / "nested"
+    nested.mkdir()
+    plain_path = tmp_path / "plain.csv"
+    plain_path.write_text("time,signal\n0.0,1.0\n", encoding="utf-8")
+    match_path = nested / "npm.csv"
+    match_path.write_text(
+        "Timestamp,LedState,Region0G\n0.0,2,0.2\n",
+        encoding="utf-8",
+    )
+
+    assert find_first_neurophotometrics_csv(tmp_path) == match_path
+    assert find_first_neurophotometrics_csv(plain_path) is None
 
 
 def test_read_neurophotometrics_csv_demuxes_led_state_channels(tmp_path) -> None:
@@ -378,6 +396,20 @@ def test_is_doric_photometry_file_detects_doric_hdf5_contract(tmp_path) -> None:
     assert is_doric_photometry_file(tmp_path / "missing.doric") is False
 
 
+def test_find_first_doric_photometry_file_uses_detector_contract(tmp_path) -> None:
+    nested = tmp_path / "nested"
+    nested.mkdir()
+    not_doric = tmp_path / "plain.h5"
+    with h5py.File(not_doric, "w") as handle:
+        handle.create_dataset("signal", data=np.arange(3, dtype=float))
+    match_path = nested / "recording.doric"
+    with h5py.File(match_path, "w") as handle:
+        handle.create_dataset("signal", data=np.arange(3, dtype=float))
+
+    assert find_first_doric_photometry_file(tmp_path) == match_path
+    assert find_first_doric_photometry_file(not_doric) is None
+
+
 def test_read_doric_photometry_uses_hdf5_datasets(tmp_path) -> None:
     path = tmp_path / "recording.doric"
     with h5py.File(path, "w") as handle:
@@ -573,6 +605,25 @@ def test_is_nwb_photometry_file_detects_photometry_series(tmp_path) -> None:
     assert is_nwb_photometry_file(wrong_suffix) is False
     assert is_nwb_photometry_file(not_hdf5) is False
     assert is_nwb_photometry_file(tmp_path / "missing.nwb") is False
+
+
+def test_find_first_nwb_photometry_file_uses_detector_contract(tmp_path) -> None:
+    nested = tmp_path / "nested"
+    nested.mkdir()
+    not_nwb = tmp_path / "plain.h5"
+    with h5py.File(not_nwb, "w") as handle:
+        handle.create_dataset("signal", data=np.arange(3, dtype=float))
+    match_path = nested / "recording.nwb"
+    with h5py.File(match_path, "w") as handle:
+        acquisition = handle.create_group("acquisition")
+        _write_nwb_series(
+            acquisition,
+            "FiberPhotometryResponseSeries",
+            np.arange(3, dtype=float),
+        )
+
+    assert find_first_nwb_photometry_file(tmp_path) == match_path
+    assert find_first_nwb_photometry_file(not_nwb) is None
 
 
 def test_read_nwb_photometry_records_timestamp_sampling_rate_source(tmp_path) -> None:

@@ -8,6 +8,8 @@ import numpy as np
 import pytest
 
 from xpkg.io.readers import (
+    find_first_pyphotometry_csv,
+    find_first_pyphotometry_ppd_file,
     is_pyphotometry_csv,
     is_pyphotometry_ppd_file,
     read_pyphotometry_csv,
@@ -161,6 +163,18 @@ def test_is_pyphotometry_ppd_file_detects_ppd_header_envelope(tmp_path: Path) ->
     assert is_pyphotometry_ppd_file(tmp_path / "missing.ppd") is False
 
 
+def test_find_first_pyphotometry_ppd_file_uses_detector_contract(tmp_path: Path) -> None:
+    nested = tmp_path / "nested"
+    nested.mkdir()
+    wrong_suffix = tmp_path / "recording.bin"
+    _write_ppd(wrong_suffix)
+    match_path = nested / "recording.ppd"
+    _write_ppd(match_path)
+
+    assert find_first_pyphotometry_ppd_file(tmp_path) == match_path
+    assert find_first_pyphotometry_ppd_file(wrong_suffix) is None
+
+
 def test_is_pyphotometry_csv_detects_analog_columns(tmp_path: Path) -> None:
     spaced_path = tmp_path / "spaced.csv"
     spaced_path.write_text(
@@ -179,6 +193,21 @@ def test_is_pyphotometry_csv_detects_analog_columns(tmp_path: Path) -> None:
     assert is_pyphotometry_csv(underscore_path) is True
     assert is_pyphotometry_csv(plain_path) is False
     assert is_pyphotometry_csv(tmp_path / "missing.csv") is False
+
+
+def test_find_first_pyphotometry_csv_uses_detector_contract(tmp_path: Path) -> None:
+    nested = tmp_path / "nested"
+    nested.mkdir()
+    plain_path = tmp_path / "plain.csv"
+    plain_path.write_text("time,signal\n0.0,1.0\n", encoding="utf-8")
+    match_path = nested / "recording.csv"
+    match_path.write_text(
+        "Analog1,Analog2,Digital1\n100,200,0\n",
+        encoding="utf-8",
+    )
+
+    assert find_first_pyphotometry_csv(tmp_path) == match_path
+    assert find_first_pyphotometry_csv(plain_path) is None
 
 
 def test_read_pyphotometry_csv_uses_json_settings_and_digital_events(tmp_path: Path) -> None:

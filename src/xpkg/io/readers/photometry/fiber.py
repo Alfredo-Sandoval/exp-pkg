@@ -13,6 +13,7 @@ import numpy as np
 import pandas as pd
 
 from xpkg._core.json_utils import parse_json_dict
+from xpkg.io.readers._discovery import find_first_file
 from xpkg.model import (
     Event,
     EventTable,
@@ -282,6 +283,12 @@ def is_neurophotometrics_csv(path: str | Path) -> bool:
     state_columns = {column.lower() for column in _NPM_STATE_COLUMNS}
     columns = {str(column).strip().strip('"').lower() for column in frame.columns}
     return bool(columns & state_columns)
+
+
+def find_first_neurophotometrics_csv(path: str | Path) -> Path | None:
+    """Return the first Neurophotometrics/Bonsai CSV under ``path``."""
+
+    return find_first_file(path, is_neurophotometrics_csv)
 
 
 def _npm_state_values(frame: pd.DataFrame, state_column: str) -> np.ndarray:
@@ -768,6 +775,12 @@ def is_doric_photometry_file(path: str | Path) -> bool:
             )
     except OSError:
         return False
+
+
+def find_first_doric_photometry_file(path: str | Path) -> Path | None:
+    """Return the first Doric photometry file under ``path``."""
+
+    return find_first_file(path, is_doric_photometry_file)
 
 
 def _dataset_sample_rate_with_source(dataset: h5py.Dataset) -> tuple[float | None, str | None]:
@@ -1375,6 +1388,8 @@ def read_tdt_photometry_block(
 
 
 __all__ = [
+    "find_first_doric_photometry_file",
+    "find_first_neurophotometrics_csv",
     "is_teleopto_h5",
     "is_doric_photometry_file",
     "is_neurophotometrics_csv",

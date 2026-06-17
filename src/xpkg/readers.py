@@ -15,6 +15,11 @@ from __future__ import annotations
 from xpkg.io.readers import (
     KNOWN_BEHAVIOR_SOURCE_TYPES,
     PoseTrack,
+    find_first_doric_photometry_file,
+    find_first_neurophotometrics_csv,
+    find_first_nwb_photometry_file,
+    find_first_pyphotometry_csv,
+    find_first_pyphotometry_ppd_file,
     is_doric_photometry_file,
     is_neurophotometrics_csv,
     is_nwb_photometry_file,
@@ -53,6 +58,11 @@ from xpkg.io.readers import (
 __all__ = [
     "PoseTrack",
     "KNOWN_BEHAVIOR_SOURCE_TYPES",
+    "find_first_doric_photometry_file",
+    "find_first_neurophotometrics_csv",
+    "find_first_nwb_photometry_file",
+    "find_first_pyphotometry_csv",
+    "find_first_pyphotometry_ppd_file",
     "is_doric_photometry_file",
     "is_neurophotometrics_csv",
     "is_nwb_photometry_file",

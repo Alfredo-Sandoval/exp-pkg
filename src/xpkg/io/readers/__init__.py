@@ -15,6 +15,8 @@ from xpkg.io.readers.behavior import (
 from xpkg.io.readers.opencv_stereo import read_opencv_stereo_calibration
 from xpkg.io.readers.photometry import read_events_csv, read_photometry_csv
 from xpkg.io.readers.photometry.fiber import (
+    find_first_doric_photometry_file,
+    find_first_neurophotometrics_csv,
     is_doric_photometry_file,
     is_neurophotometrics_csv,
     is_rwd_ofrs_session,
@@ -30,10 +32,13 @@ from xpkg.io.readers.photometry.fiber import (
     read_teleopto_h5,
 )
 from xpkg.io.readers.photometry.nwb import (
+    find_first_nwb_photometry_file,
     is_nwb_photometry_file,
     read_nwb_photometry,
 )
 from xpkg.io.readers.photometry.pyphotometry import (
+    find_first_pyphotometry_csv,
+    find_first_pyphotometry_ppd_file,
     is_pyphotometry_csv,
     is_pyphotometry_ppd_file,
     read_pyphotometry_csv,
@@ -49,6 +54,11 @@ from xpkg.io.readers.pose import (
 __all__ = [
     "PoseTrack",
     "KNOWN_BEHAVIOR_SOURCE_TYPES",
+    "find_first_doric_photometry_file",
+    "find_first_neurophotometrics_csv",
+    "find_first_nwb_photometry_file",
+    "find_first_pyphotometry_csv",
+    "find_first_pyphotometry_ppd_file",
     "is_doric_photometry_file",
     "is_neurophotometrics_csv",
     "is_rwd_ofrs_session",
