@@ -959,7 +959,7 @@ def test_is_tdt_block_detects_sev_stream_blocks(tmp_path) -> None:
 
 def test_read_tdt_photometry_block_uses_optional_module() -> None:
     streams = SimpleNamespace(
-        x465A=SimpleNamespace(data=np.asarray([1.0, 1.1, 1.2]), fs=100.0),
+        x465A=SimpleNamespace(data=np.asarray([1.0, 1.1, 1.2]), fs=100.0, start_time=0.0),
         x405A=SimpleNamespace(data=np.asarray([0.5, 0.4, 0.3]), fs=100.0),
     )
     epocs = SimpleNamespace(Cue=SimpleNamespace(onset=np.asarray([0.25])))
@@ -981,11 +981,59 @@ def test_read_tdt_photometry_block_uses_optional_module() -> None:
     assert photometry.reference_channel == "x405A"
     assert photometry.metadata["sampling_rate_hz"] == pytest.approx(100.0)
     assert photometry.metadata["sampling_rate_source"] == "streams.x465A.fs"
+    assert photometry.metadata["stream_start_s"] == pytest.approx(0.0)
+    assert photometry.metadata["stream_start_source"] == "streams.x465A.start_time"
     assert photometry.metadata["channel_inference"] == "explicit_store"
     assert photometry.metadata["reference_channel_inference"] == "explicit_store"
     assert session.metadata["sampling_rate_hz"] == pytest.approx(100.0)
     assert session.metadata["sampling_rate_source"] == "streams.x465A.fs"
+    assert session.metadata["stream_start_source"] == "streams.x465A.start_time"
     assert session.events.events[0].label == "Cue"
+
+
+def test_read_tdt_photometry_block_rejects_missing_start_time() -> None:
+    # A signal stream without start_time is corrupt metadata: failing fast beats
+    # silently aligning every event to 0.0.
+    streams = SimpleNamespace(
+        x465A=SimpleNamespace(data=np.asarray([1.0, 1.1, 1.2]), fs=100.0),
+        x405A=SimpleNamespace(data=np.asarray([0.5, 0.4, 0.3]), fs=100.0, start_time=0.0),
+    )
+    fake_tdt = SimpleNamespace(
+        read_block=lambda *_args, **_kwargs: SimpleNamespace(
+            streams=streams, epocs=SimpleNamespace()
+        )
+    )
+
+    with pytest.raises(ValueError, match="start_time"):
+        read_tdt_photometry_block(
+            "tank/block",
+            signal_store="x465A",
+            reference_store="x405A",
+            tdt_module=fake_tdt,
+        )
+
+
+def test_read_tdt_photometry_block_accepts_zero_start_time() -> None:
+    # A legitimately present, finite 0.0 (stream starts at recording onset) is
+    # valid and must not be rejected.
+    streams = SimpleNamespace(
+        x465A=SimpleNamespace(data=np.asarray([1.0, 1.1, 1.2]), fs=100.0, start_time=0.0),
+        x405A=SimpleNamespace(data=np.asarray([0.5, 0.4, 0.3]), fs=100.0, start_time=0.0),
+    )
+    fake_tdt = SimpleNamespace(
+        read_block=lambda *_args, **_kwargs: SimpleNamespace(
+            streams=streams, epocs=SimpleNamespace()
+        )
+    )
+
+    session = read_tdt_photometry_block(
+        "tank/block",
+        signal_store="x465A",
+        reference_store="x405A",
+        tdt_module=fake_tdt,
+    )
+
+    assert session.signals["photometry"].metadata["stream_start_s"] == pytest.approx(0.0)
 
 
 def test_read_tdt_photometry_block_accepts_sev_only_stream_shape() -> None:
@@ -1001,6 +1049,9 @@ def test_read_tdt_photometry_block_accepts_sev_only_stream_shape() -> None:
     assert isinstance(photometry, PhotometryRecording)
     assert photometry.signal_channel == "x465A"
     assert photometry.reference_channel == "x405A"
+    assert photometry.metadata["stream_start_s"] == pytest.approx(0.0)
+    assert photometry.metadata["stream_start_source"] == "tdt.read_sev.t1_default"
+    assert session.metadata["stream_start_source"] == "tdt.read_sev.t1_default"
     assert len(session.events.events) == 0
     np.testing.assert_allclose(photometry.series.values[:, 0], [1.0, 1.1, 1.2])
     np.testing.assert_allclose(photometry.series.values[:, 1], [0.5, 0.4, 0.3])
@@ -1044,7 +1095,7 @@ def test_read_tdt_photometry_block_prefers_official_wavelength_stores() -> None:
 
 def test_read_tdt_photometry_block_flags_storage_order_signal() -> None:
     streams = SimpleNamespace(
-        RandomStore=SimpleNamespace(data=np.asarray([1.0, 1.1, 1.2]), fs=100.0),
+        RandomStore=SimpleNamespace(data=np.asarray([1.0, 1.1, 1.2]), fs=100.0, start_time=0.0),
         OtherStore=SimpleNamespace(data=np.asarray([0.5, 0.4, 0.3]), fs=100.0),
     )
     fake_tdt = SimpleNamespace(

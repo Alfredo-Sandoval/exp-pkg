@@ -1271,16 +1271,28 @@ def _one_dimensional(values: object) -> np.ndarray:
     return array[:, 0]
 
 
-def _tdt_stream_start(stream: Any) -> float:
-    start = getattr(stream, "start_time", 0.0)
+def _tdt_stream_start(stream: Any, *, allow_missing_zero: bool = False) -> tuple[float, str]:
+    # A missing or non-finite start_time would silently shift every event
+    # timestamp by the wrong offset, so fail fast instead of defaulting to 0.0.
+    # A legitimately present, finite 0.0 (stream starts at recording onset) is
+    # valid and returned as-is.
+    if not hasattr(stream, "start_time"):
+        if allow_missing_zero:
+            return 0.0, "tdt.read_sev.t1_default"
+        raise ValueError("TDT stream is missing start_time.")
+    start = stream.start_time
     if isinstance(start, (list, tuple, np.ndarray)):
         flat = np.asarray(start, dtype=np.float64).ravel()
-        start = float(flat[0]) if flat.size else 0.0
+        if not flat.size:
+            raise ValueError("TDT stream start_time is empty.")
+        start = float(flat[0])
     try:
         value = float(start)
-    except (TypeError, ValueError):
-        return 0.0
-    return value if np.isfinite(value) else 0.0
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"TDT stream start_time is not numeric: {start!r}.") from exc
+    if not np.isfinite(value):
+        raise ValueError(f"TDT stream start_time must be finite, got {value!r}.")
+    return value, "streams.<signal>.start_time"
 
 
 def _tdt_epoc_times(
@@ -1325,7 +1337,8 @@ def read_tdt_photometry_block(
     block_path = Path(path)
     module = _tdt_module(tdt_module)
     data = module.read_block(str(block_path), evtype=["streams", "epocs"])
-    streams_obj = getattr(data, "streams", data)
+    has_streams_container = hasattr(data, "streams")
+    streams_obj = data.streams if has_streams_container else data
     stream_map = dict(_iter_tdt_streams(streams_obj))
     if not stream_map:
         raise ValueError("TDT block did not contain readable stream data.")
@@ -1337,7 +1350,15 @@ def read_tdt_photometry_block(
     signal = stream_map[resolved_signal]
     values = [_one_dimensional(signal.data)]
     names = [resolved_signal]
-    stream_start_s = _tdt_stream_start(signal)
+    stream_start_s, stream_start_source = _tdt_stream_start(
+        signal,
+        allow_missing_zero=not has_streams_container,
+    )
+    resolved_stream_start_source = (
+        stream_start_source.replace("<signal>", resolved_signal)
+        if "<signal>" in stream_start_source
+        else stream_start_source
+    )
     sample_rate = float(getattr(signal, "fs", 0.0) or 0.0)
     if not np.isfinite(sample_rate) or sample_rate <= 0:
         raise ValueError(f"TDT stream {resolved_signal!r} is missing a positive sampling rate.")
@@ -1369,6 +1390,7 @@ def read_tdt_photometry_block(
         metadata={
             "stores": ranked,
             "stream_start_s": stream_start_s,
+            "stream_start_source": resolved_stream_start_source,
             "sampling_rate_hz": sample_rate,
             "sampling_rate_source": sample_rate_source,
             "channel_inference": _tdt_channel_inference(
@@ -1398,6 +1420,8 @@ def read_tdt_photometry_block(
             "source": {"type": "tdt_block", "path": str(block_path)},
             "sampling_rate_hz": sample_rate,
             "sampling_rate_source": sample_rate_source,
+            "stream_start_s": stream_start_s,
+            "stream_start_source": resolved_stream_start_source,
         },
     )
 
