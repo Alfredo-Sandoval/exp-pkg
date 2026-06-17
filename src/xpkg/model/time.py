@@ -12,10 +12,13 @@ from xpkg.model._metadata_validation import (
 
 
 def _nonempty_name(value: object, *, name: str) -> str:
-    text = str(value).strip()
-    if not text:
+    if not isinstance(value, str):
+        raise TypeError(f"{name} must be a string.")
+    if not value:
         raise ValueError(f"{name} must be a non-empty string.")
-    return text
+    if value != value.strip():
+        raise ValueError(f"{name} must not contain surrounding whitespace.")
+    return value
 
 
 @dataclass(frozen=True, slots=True)
@@ -29,9 +32,7 @@ class TimeRange:
         start_s = finite_float(self.start_s, name="time range start_s")
         end_s = finite_float(self.end_s, name="time range end_s")
         if end_s < start_s:
-            raise ValueError(
-                f"time range end_s must be >= start_s, got {end_s} < {start_s}."
-            )
+            raise ValueError(f"time range end_s must be >= start_s, got {end_s} < {start_s}.")
         object.__setattr__(self, "start_s", start_s)
         object.__setattr__(self, "end_s", end_s)
 
@@ -68,8 +69,7 @@ class Timebase:
         offset_s = finite_float(self.offset_s, name="timebase offset_s")
         if unit not in {"s", "sec", "second", "seconds"}:
             raise ValueError(
-                "timebase unit must be seconds-compatible "
-                "('s', 'sec', 'second', or 'seconds')."
+                "timebase unit must be seconds-compatible ('s', 'sec', 'second', or 'seconds')."
             )
         object.__setattr__(self, "name", name)
         object.__setattr__(self, "unit", unit)
@@ -102,10 +102,7 @@ class Timeline:
     def __post_init__(self) -> None:
         timestamps_s = np.asarray(self.timestamps_s, dtype=np.float64)
         if timestamps_s.ndim != 1:
-            raise ValueError(
-                "timeline timestamps_s must be 1D, "
-                f"got shape {timestamps_s.shape}."
-            )
+            raise ValueError(f"timeline timestamps_s must be 1D, got shape {timestamps_s.shape}.")
         if timestamps_s.size == 0:
             raise ValueError("timeline timestamps_s must contain at least one sample.")
         if not np.isfinite(timestamps_s).all():

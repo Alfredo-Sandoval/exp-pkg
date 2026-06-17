@@ -11,6 +11,7 @@ from xpkg.model import (
     RecordingSession,
     SignalChannel,
     SyncEvent,
+    Timebase,
     Timeline,
     TimeRange,
     TimeSeries,
@@ -33,6 +34,33 @@ def test_timeline_rejects_non_monotonic_timestamps() -> None:
         Timeline(timestamps_s=np.array([0.0, 0.2, 0.1]))
 
 
+@pytest.mark.parametrize(
+    ("kwargs", "exc_type", "message"),
+    [
+        ({"name": 1}, TypeError, "timebase name must be a string"),
+        ({"name": ""}, ValueError, "timebase name must be a non-empty string"),
+        (
+            {"name": " session"},
+            ValueError,
+            "timebase name must not contain surrounding whitespace",
+        ),
+        ({"unit": 1}, TypeError, "timebase unit must be a string"),
+        (
+            {"unit": " s"},
+            ValueError,
+            "timebase unit must not contain surrounding whitespace",
+        ),
+    ],
+)
+def test_timebase_rejects_unclean_text(
+    kwargs: dict[str, object],
+    exc_type: type[Exception],
+    message: str,
+) -> None:
+    with pytest.raises(exc_type, match=message):
+        Timebase(**kwargs)
+
+
 def test_event_table_queries_and_round_trips() -> None:
     events = EventTable.from_events(
         [
@@ -50,6 +78,16 @@ def test_event_table_queries_and_round_trips() -> None:
 
     hydrated = EventTable.from_dict(events.to_dict())
     assert hydrated.to_dict() == events.to_dict()
+
+
+def test_event_table_from_dict_rejects_unclean_timebase_text() -> None:
+    payload = {
+        "timebase": {"name": " session", "unit": "s", "offset_s": 0.0},
+        "events": [{"kind": "cue", "start_s": 0.0}],
+    }
+
+    with pytest.raises(ValueError, match="timebase name must not contain surrounding whitespace"):
+        EventTable.from_dict(payload)
 
 
 @pytest.mark.parametrize(
@@ -286,10 +324,14 @@ def test_recording_session_collects_signal_and_event_time_range() -> None:
     recording = PhotometryRecording(series=series, signal_channel="gcamp")
     events = EventTable.from_events([Event(kind="trial", start_s=0.0, duration_s=1.0)])
 
-    session = RecordingSession(session_id="session-001").with_signal(
-        "fiber",
-        recording,
-    ).with_events(events)
+    session = (
+        RecordingSession(session_id="session-001")
+        .with_signal(
+            "fiber",
+            recording,
+        )
+        .with_events(events)
+    )
 
     assert session.modality_names == ("signals", "events")
     assert session.signals["fiber"] is recording

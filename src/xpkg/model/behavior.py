@@ -60,10 +60,7 @@ def _sequence(value: object, *, name: str) -> Sequence[object]:
 
 
 def _float_tuple(value: object, *, name: str) -> tuple[float, ...]:
-    return tuple(
-        finite_float(item, name=f"{name} item")
-        for item in _sequence(value, name=name)
-    )
+    return tuple(finite_float(item, name=f"{name} item") for item in _sequence(value, name=name))
 
 
 @dataclass(frozen=True, slots=True)
@@ -421,8 +418,8 @@ def _timebase_from_payload(payload: object) -> Timebase:
         return Timebase()
     fields = payload_mapping(payload, name="timebase payload")
     return Timebase(
-        name=str(fields.get("name", "session")),
-        unit=str(fields.get("unit", "s")),
+        name=fields.get("name", "session"),
+        unit=fields.get("unit", "s"),
         offset_s=fields.get("offset_s", 0.0),
     )
 

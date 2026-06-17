@@ -193,8 +193,8 @@ class EventTable:
         raw_timebase = payload.get("timebase")
         if isinstance(raw_timebase, Mapping):
             timebase = Timebase(
-                name=str(raw_timebase.get("name", "session")),
-                unit=str(raw_timebase.get("unit", "s")),
+                name=raw_timebase.get("name", "session"),
+                unit=raw_timebase.get("unit", "s"),
                 offset_s=raw_timebase.get("offset_s", 0.0),
             )
         else:

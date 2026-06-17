@@ -45,6 +45,18 @@ def test_behavior_labels_round_trip_intervals_frames_and_embeddings() -> None:
     assert hydrated.embeddings[0].values == (0.1, -0.2, 0.3)
 
 
+def test_behavior_labels_from_dict_rejects_unclean_timebase_text() -> None:
+    labels = BehaviorLabels(
+        source_type="human_annotation",
+        intervals=(BehaviorInterval(label="rear", start_s=1.0),),
+    )
+    payload = labels.to_dict()
+    payload["timebase"]["unit"] = " s"
+
+    with pytest.raises(ValueError, match="timebase unit must not contain surrounding whitespace"):
+        BehaviorLabels.from_dict(payload)
+
+
 def test_behavior_labels_project_time_intervals_to_event_table() -> None:
     labels = BehaviorLabels(
         source_type="human_annotation",
@@ -66,9 +78,7 @@ def test_behavior_labels_project_time_intervals_to_event_table() -> None:
 
 
 def test_behavior_labels_can_hydrate_from_generic_event_table() -> None:
-    events = EventTable.from_events(
-        [Event(kind="cue", start_s=1.0, duration_s=0.25, label="tone")]
-    )
+    events = EventTable.from_events([Event(kind="cue", start_s=1.0, duration_s=0.25, label="tone")])
 
     labels = BehaviorLabels.from_event_table(events, source_type="events_csv")
 
