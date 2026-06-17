@@ -136,6 +136,7 @@ from xpkg.readers import (
     is_rwd_ofrs_session,
     is_tdt_block,
     is_teleopto_h5,
+    neurophotometrics_channel_selection_from_label,
     neurophotometrics_source_column_from_label,
     parse_teleopto_h5_arrays,
     read_behavior_events_csv,
@@ -241,6 +242,7 @@ def test_root_namespace_is_curated_to_project_first_modules() -> None:
     assert callable(reloaded.readers.is_rwd_ofrs_session)
     assert callable(reloaded.readers.is_tdt_block)
     assert callable(reloaded.readers.is_teleopto_h5)
+    assert callable(reloaded.readers.neurophotometrics_channel_selection_from_label)
     assert callable(reloaded.readers.neurophotometrics_source_column_from_label)
     assert callable(reloaded.readers.parse_teleopto_h5_arrays)
     assert callable(reloaded.readers.read_doric_photometry)
@@ -353,6 +355,7 @@ def test_public_exports_are_callable() -> None:
     assert callable(is_rwd_ofrs_session)
     assert callable(is_tdt_block)
     assert callable(is_teleopto_h5)
+    assert callable(neurophotometrics_channel_selection_from_label)
     assert callable(neurophotometrics_source_column_from_label)
     assert callable(read_doric_photometry)
     assert callable(read_events_csv)

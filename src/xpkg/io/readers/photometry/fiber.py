@@ -7,7 +7,7 @@ import re
 from collections.abc import Iterable, Mapping, Sequence
 from json import JSONDecodeError
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, NamedTuple
 
 import h5py
 import numpy as np
@@ -50,10 +50,21 @@ _NPM_DEFAULT_LED_CODE_TO_NM = {1: 415, 2: 470, 4: 560}
 _NPM_SIGNAL_NM = 470
 _NPM_REFERENCE_NM = 415
 _NPM_DEMUXED_LABEL_SUFFIX_RE = re.compile(r"_(?:\d+nm|led_state_-?\d+)$")
+_NPM_DEMUXED_LABEL_PARTS_RE = re.compile(
+    r"_(?:(?P<wavelength_nm>\d+)nm|led_state_(?P<led_state_code>-?\d+))$"
+)
 _RWD_SIGNAL_SUFFIXES = ("-470", "_470", "-560", "_560")
 _RWD_REFERENCE_SUFFIXES = ("-410", "_410", "-405", "_405", "-415", "_415")
 _TELEOPTO_EVENT_KEYS = ("ct1", "ct2", "ct3", "ct4", "ar1", "ar2")
 _TELEOPTO_REQUIRED_KEYS = frozenset({"d1", "num", "st1", "str"})
+
+
+class NeurophotometricsChannelSelection(NamedTuple):
+    """Parsed source column and LED identity from a Neurophotometrics label."""
+
+    source_column: str | None
+    wavelength_nm: int | None = None
+    led_state_code: int | None = None
 
 
 def _read_csv(path: str | Path, *, max_mb: float | None = None) -> pd.DataFrame:
@@ -349,9 +360,29 @@ def _npm_channel_name(roi_column: str, *, code: int, nm: int | None) -> str:
 def neurophotometrics_source_column_from_label(label: str | None) -> str | None:
     """Return the raw ROI column for a Neurophotometrics channel label."""
 
+    return neurophotometrics_channel_selection_from_label(label).source_column
+
+
+def neurophotometrics_channel_selection_from_label(
+    label: str | None,
+) -> NeurophotometricsChannelSelection:
+    """Return the ROI column plus LED identity encoded in a demuxed label."""
+
     if not label:
-        return None
-    return _NPM_DEMUXED_LABEL_SUFFIX_RE.sub("", label)
+        return NeurophotometricsChannelSelection(None, None, None)
+    match = _NPM_DEMUXED_LABEL_PARTS_RE.search(label)
+    if match is None:
+        return NeurophotometricsChannelSelection(label, None, None)
+    source_column = label[: match.start()]
+    raw_wavelength = match.group("wavelength_nm")
+    raw_code = match.group("led_state_code")
+    wavelength_nm = int(raw_wavelength) if raw_wavelength is not None else None
+    led_state_code = int(raw_code) if raw_code is not None else None
+    return NeurophotometricsChannelSelection(
+        source_column,
+        wavelength_nm,
+        led_state_code,
+    )
 
 
 def _npm_demux_photometry(
@@ -385,6 +416,12 @@ def _npm_demux_photometry(
         (code for code in codes if code_map.get(code) == reference_nm),
         None,
     )
+    if reference_code == signal_code:
+        raise ValueError(
+            "Neurophotometrics signal and reference wavelengths resolve to the "
+            f"same LedState code {signal_code}. Use distinct signal_nm and "
+            "reference_nm values."
+        )
     signal_values = _numeric(frame, signal_column)
     reference_roi = reference_column or signal_column
     reference_values = _numeric(frame, reference_roi)
@@ -1548,6 +1585,7 @@ __all__ = [
     "is_neurophotometrics_csv",
     "is_rwd_ofrs_session",
     "is_tdt_block",
+    "neurophotometrics_channel_selection_from_label",
     "neurophotometrics_source_column_from_label",
     "read_doric_photometry",
     "read_neurophotometrics_csv",

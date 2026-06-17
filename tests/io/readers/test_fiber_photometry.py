@@ -19,6 +19,7 @@ from xpkg.io.readers import (
     is_rwd_ofrs_session,
     is_tdt_block,
     is_teleopto_h5,
+    neurophotometrics_channel_selection_from_label,
     neurophotometrics_source_column_from_label,
     parse_teleopto_h5_arrays,
     read_doric_photometry,
@@ -197,6 +198,25 @@ def test_neurophotometrics_source_column_from_label_strips_demux_suffix() -> Non
     assert neurophotometrics_source_column_from_label("") is None
 
 
+def test_neurophotometrics_channel_selection_from_label_parses_led_identity() -> None:
+    assert neurophotometrics_channel_selection_from_label("Region1G_560nm") == (
+        "Region1G",
+        560,
+        None,
+    )
+    assert neurophotometrics_channel_selection_from_label("Region1G_led_state_7") == (
+        "Region1G",
+        None,
+        7,
+    )
+    assert neurophotometrics_channel_selection_from_label("Region1G") == (
+        "Region1G",
+        None,
+        None,
+    )
+    assert neurophotometrics_channel_selection_from_label(None) == (None, None, None)
+
+
 def test_read_neurophotometrics_csv_accepts_custom_led_map(tmp_path) -> None:
     path = tmp_path / "custom_npm.csv"
     path.write_text(
@@ -220,6 +240,59 @@ def test_read_neurophotometrics_csv_accepts_custom_led_map(tmp_path) -> None:
     assert photometry.signal_channel == "Region0G_470nm"
     assert photometry.reference_channel == "Region0G_415nm"
     assert photometry.metadata["led_demux"]["signal_code"] == 7
+
+
+def test_read_neurophotometrics_csv_selects_requested_signal_wavelength(
+    tmp_path,
+) -> None:
+    path = tmp_path / "npm_560.csv"
+    path.write_text(
+        "\n".join(
+            [
+                "Timestamp,LedState,Region0G",
+                "0.0,2,100.0",
+                "0.1,1,50.0",
+                "0.2,4,700.0",
+                "0.3,2,101.0",
+                "0.4,1,51.0",
+                "0.5,4,701.0",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    photometry = read_neurophotometrics_csv(
+        path,
+        signal_nm=560,
+        reference_nm=415,
+    ).signals["photometry"]
+
+    assert photometry.signal_channel == "Region0G_560nm"
+    assert photometry.reference_channel == "Region0G_415nm"
+    assert photometry.metadata["led_demux"]["signal_code"] == 4
+    np.testing.assert_allclose(photometry.series.values[:, 0], [700.0, 701.0])
+    np.testing.assert_allclose(photometry.series.values[:, 1], [50.0, 51.0])
+
+
+def test_read_neurophotometrics_csv_rejects_same_signal_and_reference_wavelength(
+    tmp_path,
+) -> None:
+    path = tmp_path / "npm.csv"
+    path.write_text(
+        "\n".join(
+            [
+                "Timestamp,LedState,Region0G",
+                "0.0,2,100.0",
+                "0.1,1,50.0",
+                "0.2,2,101.0",
+                "0.3,1,51.0",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="same LedState code"):
+        read_neurophotometrics_csv(path, signal_nm=470, reference_nm=470)
 
 
 def test_read_neurophotometrics_csv_preserves_raw_channels_without_state(
