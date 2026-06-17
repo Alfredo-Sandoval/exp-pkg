@@ -979,6 +979,18 @@ def _numeric_1d_dataset(dataset: h5py.Dataset) -> bool:
     return dataset.ndim == 1 and np.issubdtype(dataset.dtype, np.number)
 
 
+def _doric_dataset_selector(value: object, *, role: str) -> str | None:
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise TypeError(f"Doric {role} must be a string or None.")
+    if not value:
+        raise ValueError(f"Doric {role} must be a non-empty string or None.")
+    if value != value.strip():
+        raise ValueError(f"Doric {role} must not contain surrounding whitespace.")
+    return value
+
+
 def is_doric_photometry_file(path: str | Path) -> bool:
     """Return whether ``path`` is a Doric photometry HDF5 container."""
 
@@ -1051,23 +1063,26 @@ def read_doric_photometry(
     """Read a Doric ``.doric`` HDF5 photometry container."""
 
     source_path = Path(path)
+    clean_signal_path = _doric_dataset_selector(signal_path, role="signal_path")
+    clean_reference_path = _doric_dataset_selector(reference_path, role="reference_path")
+    clean_time_path = _doric_dataset_selector(time_path, role="time_path")
     with h5py.File(source_path, "r") as handle:
         datasets = _walk_hdf5_datasets(handle)
         numeric_paths = [name for name, dataset in datasets.items() if _numeric_1d_dataset(dataset)]
         if not numeric_paths:
             raise ValueError(f"Doric file '{source_path}' contains no 1D numeric datasets.")
-        resolved_time = time_path
+        resolved_time = clean_time_path
         if resolved_time is None:
             resolved_time = next((name for name in numeric_paths if "time" in name.lower()), None)
         signal_candidates = [name for name in numeric_paths if name != resolved_time]
         signal_matched = True
-        if signal_path is not None:
-            resolved_signal = signal_path
+        if clean_signal_path is not None:
+            resolved_signal = clean_signal_path
         else:
             resolved_signal, signal_matched = _preferred_doric_signal(signal_candidates)
         if resolved_signal not in datasets:
             raise ValueError(f"Doric signal dataset {resolved_signal!r} was not found.")
-        resolved_reference = reference_path
+        resolved_reference = clean_reference_path
         reference_matched = True
         if resolved_reference is None and len(signal_candidates) > 1:
             resolved_reference, reference_matched = _preferred_doric_reference(

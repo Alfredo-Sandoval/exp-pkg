@@ -856,6 +856,36 @@ def test_read_doric_photometry_rejects_duplicate_signal_reference_path(
         )
 
 
+@pytest.mark.parametrize(
+    ("kwargs", "exc_type", "message"),
+    [
+        (
+            {"signal_path": " Signal470"},
+            ValueError,
+            "Doric signal_path must not contain surrounding whitespace",
+        ),
+        (
+            {"reference_path": ""},
+            ValueError,
+            "Doric reference_path must be a non-empty string or None",
+        ),
+        (
+            {"time_path": 0},
+            TypeError,
+            "Doric time_path must be a string or None",
+        ),
+    ],
+)
+def test_read_doric_photometry_rejects_unclean_explicit_dataset_selectors(
+    tmp_path,
+    kwargs: dict[str, object],
+    exc_type: type[Exception],
+    message: str,
+) -> None:
+    with pytest.raises(exc_type, match=message):
+        read_doric_photometry(tmp_path / "missing.doric", **kwargs)  # type: ignore[arg-type]
+
+
 def test_read_doric_photometry_rejects_time_dataset_as_signal(
     tmp_path,
 ) -> None:
