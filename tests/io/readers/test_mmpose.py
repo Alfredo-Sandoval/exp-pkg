@@ -21,6 +21,14 @@ def test_read_track_uses_instance_slot_semantics_for_mmpose(tmp_path: Path) -> N
     assert track_zero.coords.shape == (3, 3, 2)
     assert track_zero.scores.shape == (3, 3)
     assert track_zero.instance_score.shape == (3,)
+    assert track_zero.metadata["source"] == {
+        "type": "mmpose_topdown_json",
+        "path": str(json_path),
+    }
+    assert track_zero.metadata["software"] == "MMPOSE"
+    assert track_zero.metadata["file_type"] == "json"
+    assert track_zero.metadata["track_index"] == 0
+    assert track_zero.metadata["dataset_name"] == "toy_subject"
     np.testing.assert_allclose(track_zero.coords[0, 0], np.array([10.0, 20.0]))
     np.testing.assert_allclose(track_zero.coords[2, 2], np.array([52.0, 62.0]))
 
@@ -45,6 +53,10 @@ def test_mmpose_node_names_and_generic_dispatch_work(tmp_path: Path) -> None:
         track_index=0,
     )
     assert track.coords.shape == (3, 3, 2)
+    assert track.metadata["source"] == {
+        "type": "mmpose_topdown_json",
+        "path": str(json_path),
+    }
     assert read_pose_node_names(
         json_path,
         software="MMPose",

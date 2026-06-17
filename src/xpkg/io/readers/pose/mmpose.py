@@ -243,6 +243,13 @@ def _read_track_from_sequence(
         node_names=sequence.node_names,
         instance_score=instance_score,
         source_label=f"MMPose file {path}",
+        metadata={
+            "source": {"type": "mmpose_topdown_json", "path": str(path)},
+            "software": "MMPOSE",
+            "file_type": "json",
+            "track_index": idx,
+            "dataset_name": sequence.dataset_name,
+        },
     )
 
 

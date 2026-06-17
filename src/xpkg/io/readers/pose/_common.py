@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
-from dataclasses import dataclass
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass, field
+from types import MappingProxyType
+from typing import Any
 
 import numpy as np
 
@@ -16,6 +18,10 @@ class PoseTrack:
     scores: np.ndarray
     node_names: tuple[str, ...]
     instance_score: np.ndarray
+    metadata: Mapping[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "metadata", MappingProxyType(dict(self.metadata)))
 
 
 def build_pose_track(
@@ -25,6 +31,7 @@ def build_pose_track(
     node_names: Sequence[str],
     instance_score: np.ndarray,
     source_label: str,
+    metadata: Mapping[str, Any] | None = None,
 ) -> PoseTrack:
     """Coerce arrays into the stable PoseTrack contract."""
 
@@ -35,8 +42,7 @@ def build_pose_track(
 
     if coords_array.ndim != 3 or coords_array.shape[2] != 2:
         raise ValueError(
-            f"{source_label} coords must have shape (frames, nodes, 2), "
-            f"got {coords_array.shape}."
+            f"{source_label} coords must have shape (frames, nodes, 2), got {coords_array.shape}."
         )
 
     frames = int(coords_array.shape[0])
@@ -53,14 +59,31 @@ def build_pose_track(
         )
     if len(node_name_tuple) != nodes:
         raise ValueError(
-            f"{source_label} node_names length {len(node_name_tuple)} does not match "
-            f"nodes={nodes}."
+            f"{source_label} node_names length {len(node_name_tuple)} does not match nodes={nodes}."
         )
     return PoseTrack(
         coords=coords_array,
         scores=scores_array,
         node_names=node_name_tuple,
         instance_score=instance_score_array,
+        metadata={} if metadata is None else metadata,
+    )
+
+
+def with_pose_track_metadata(
+    track: PoseTrack,
+    metadata: Mapping[str, Any],
+) -> PoseTrack:
+    """Return ``track`` with metadata merged over its existing metadata."""
+
+    merged = dict(track.metadata)
+    merged.update(dict(metadata))
+    return PoseTrack(
+        coords=track.coords,
+        scores=track.scores,
+        node_names=track.node_names,
+        instance_score=track.instance_score,
+        metadata=merged,
     )
 
 
@@ -93,4 +116,5 @@ __all__ = [
     "PoseTrack",
     "build_pose_track",
     "resolve_node_indices_from_names",
+    "with_pose_track_metadata",
 ]

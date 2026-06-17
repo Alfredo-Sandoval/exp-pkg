@@ -41,6 +41,13 @@ def test_read_track_returns_pixel_space_arrays_and_scores(tmp_path: Path) -> Non
     np.testing.assert_allclose(track.scores[2, 0], 0.7)
     np.testing.assert_allclose(track.instance_score[[0, 2]], np.array([0.8, 0.7]))
     assert np.isnan(track.instance_score[1])
+    assert track.metadata["source"] == {
+        "type": "mediapipe_pose_landmarks_json",
+        "path": str(json_path),
+    }
+    assert track.metadata["software"] == "MEDIAPIPE"
+    assert track.metadata["file_type"] == "json"
+    assert track.metadata["track_index"] == 0
 
 
 def test_read_node_names_and_resolve_indices_for_mediapipe(tmp_path: Path) -> None:
@@ -74,6 +81,10 @@ def test_generic_pose_reader_dispatches_to_mediapipe(tmp_path: Path) -> None:
     )
 
     assert track.coords.shape == (2, len(MEDIAPIPE_POSE_LANDMARK_NAMES), 2)
+    assert track.metadata["source"] == {
+        "type": "mediapipe_pose_landmarks_json",
+        "path": str(json_path),
+    }
     assert read_pose_node_names(
         json_path,
         software="MEDIAPIPE",

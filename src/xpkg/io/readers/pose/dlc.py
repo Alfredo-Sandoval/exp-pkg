@@ -179,7 +179,8 @@ def read_track(path: Path, *, file_type: str, track_index: int) -> PoseTrack:
         )
 
     resolved_path = Path(path)
-    df, keypoints = _read_dlc_table(resolved_path, file_type=file_type)
+    normalized_type = _normalize_file_type(file_type)
+    df, keypoints = _read_dlc_table(resolved_path, file_type=normalized_type)
     _validate_dlc_columns(df, keypoints, path=resolved_path)
 
     coords = np.empty((len(df), len(keypoints), 2), dtype=np.float64)
@@ -206,6 +207,15 @@ def read_track(path: Path, *, file_type: str, track_index: int) -> PoseTrack:
         node_names=keypoints,
         instance_score=instance_score,
         source_label=f"DLC file {resolved_path}",
+        metadata={
+            "source": {
+                "type": "dlc_h5" if normalized_type in _DLC_H5_FILE_TYPES else "dlc_csv",
+                "path": str(resolved_path),
+            },
+            "software": "DLC",
+            "file_type": normalized_type,
+            "track_index": idx,
+        },
     )
 
 

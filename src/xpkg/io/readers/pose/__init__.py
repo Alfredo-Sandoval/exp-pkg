@@ -6,7 +6,7 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from xpkg.io.readers.pose import dlc, mediapipe_pose_landmarks, mmpose, sleap_analysis_h5
-from xpkg.io.readers.pose._common import PoseTrack
+from xpkg.io.readers.pose._common import PoseTrack, with_pose_track_metadata
 
 _SLEAP_FILE_TYPES = {"h5", "hdf5"}
 _DLC_FILE_TYPES = {"csv", "h5", "hdf5"}
@@ -57,8 +57,7 @@ def _resolve_reader(software: str, file_type: str) -> tuple[str, str]:
     if normalized_software in _LIGHTNING_POSE_ALIASES:
         if normalized_file_type not in _LIGHTNING_POSE_FILE_TYPES:
             raise ValueError(
-                "Unsupported Lightning Pose file_type "
-                f"{file_type!r}. Expected one of ['csv']."
+                f"Unsupported Lightning Pose file_type {file_type!r}. Expected one of ['csv']."
             )
         return "LIGHTNING_POSE", normalized_file_type
 
@@ -82,6 +81,35 @@ def _resolve_reader(software: str, file_type: str) -> tuple[str, str]:
     )
 
 
+def _source_type_for_reader(software: str, file_type: str) -> str:
+    if software == "SLEAP":
+        return "sleap_analysis_h5"
+    if software == "DLC":
+        return "dlc_h5" if file_type in _DLC_FILE_TYPES - {"csv"} else "dlc_csv"
+    if software == "LIGHTNING_POSE":
+        return "lightning_pose_csv"
+    if software == "MEDIAPIPE":
+        return "mediapipe_pose_landmarks_json"
+    if software == "MMPOSE":
+        return "mmpose_topdown_json"
+    raise ValueError(f"Unsupported normalized pose software {software!r}.")
+
+
+def _dispatch_metadata(
+    *,
+    path: Path,
+    software: str,
+    file_type: str,
+    track_index: int,
+) -> dict[str, object]:
+    return {
+        "source": {"type": _source_type_for_reader(software, file_type), "path": str(path)},
+        "software": software,
+        "file_type": file_type,
+        "track_index": int(track_index),
+    }
+
+
 def read_pose_track(
     path: Path | str,
     *,
@@ -95,15 +123,51 @@ def read_pose_track(
     resolved_path = Path(path)
 
     if normalized_software == "SLEAP":
-        return sleap_analysis_h5.read_track(resolved_path, track_index=track_index)
+        track = sleap_analysis_h5.read_track(resolved_path, track_index=track_index)
+        return with_pose_track_metadata(
+            track,
+            _dispatch_metadata(
+                path=resolved_path,
+                software=normalized_software,
+                file_type=normalized_file_type,
+                track_index=track_index,
+            ),
+        )
     if normalized_software == "MEDIAPIPE":
-        return mediapipe_pose_landmarks.read_track(resolved_path, track_index=track_index)
+        track = mediapipe_pose_landmarks.read_track(resolved_path, track_index=track_index)
+        return with_pose_track_metadata(
+            track,
+            _dispatch_metadata(
+                path=resolved_path,
+                software=normalized_software,
+                file_type=normalized_file_type,
+                track_index=track_index,
+            ),
+        )
     if normalized_software == "MMPOSE":
-        return mmpose.read_track(resolved_path, track_index=track_index)
-    return dlc.read_track(
+        track = mmpose.read_track(resolved_path, track_index=track_index)
+        return with_pose_track_metadata(
+            track,
+            _dispatch_metadata(
+                path=resolved_path,
+                software=normalized_software,
+                file_type=normalized_file_type,
+                track_index=track_index,
+            ),
+        )
+    track = dlc.read_track(
         resolved_path,
         file_type=normalized_file_type,
         track_index=track_index,
+    )
+    return with_pose_track_metadata(
+        track,
+        _dispatch_metadata(
+            path=resolved_path,
+            software=normalized_software,
+            file_type=normalized_file_type,
+            track_index=track_index,
+        ),
     )
 
 

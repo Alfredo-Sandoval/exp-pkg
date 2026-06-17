@@ -106,6 +106,12 @@ def read_track(path: Path, *, track_index: int) -> PoseTrack:
         node_names=node_names,
         instance_score=instance_score,
         source_label=f"SLEAP file {path}",
+        metadata={
+            "source": {"type": "sleap_analysis_h5", "path": str(path)},
+            "software": "SLEAP",
+            "file_type": "h5",
+            "track_index": idx,
+        },
     )
 
 

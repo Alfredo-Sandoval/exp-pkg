@@ -323,6 +323,15 @@ def read_track(path: Path, *, track_index: int) -> PoseTrack:
         node_names=MEDIAPIPE_POSE_LANDMARK_NAMES,
         instance_score=instance_score,
         source_label=f"MediaPipe pose-landmarks file {resolved_path}",
+        metadata={
+            "source": {
+                "type": "mediapipe_pose_landmarks_json",
+                "path": str(resolved_path),
+            },
+            "software": "MEDIAPIPE",
+            "file_type": "json",
+            "track_index": idx,
+        },
     )
 
 

@@ -105,6 +105,13 @@ def test_read_track_returns_expected_dlc_arrays(
     assert track.scores.dtype == np.float64
     assert track.instance_score.dtype == np.float64
     assert track.node_names == ("HIP", "KNEE")
+    assert track.metadata["source"] == {
+        "type": "dlc_h5" if file_type in {"h5", "hdf5"} else "dlc_csv",
+        "path": str(path),
+    }
+    assert track.metadata["software"] == "DLC"
+    assert track.metadata["file_type"] == file_type
+    assert track.metadata["track_index"] == 0
     np.testing.assert_allclose(track.coords, expected_coords, equal_nan=True)
     np.testing.assert_allclose(track.scores, expected_scores, equal_nan=True)
     np.testing.assert_allclose(track.instance_score, expected_instance_score, equal_nan=True)
@@ -192,6 +199,16 @@ def test_generic_pose_reader_dispatches_to_dlc_lightning_pose_and_sleap(tmp_path
     assert sleap_track.coords.shape == (10, 4, 2)
     assert dlc_track.coords.shape == (3, 2, 2)
     assert lightning_pose_track.coords.shape == (3, 2, 2)
+    assert sleap_track.metadata["source"] == {
+        "type": "sleap_analysis_h5",
+        "path": str(sleap_path),
+    }
+    assert dlc_track.metadata["source"] == {"type": "dlc_csv", "path": str(dlc_path)}
+    assert lightning_pose_track.metadata["source"] == {
+        "type": "lightning_pose_csv",
+        "path": str(dlc_path),
+    }
+    assert lightning_pose_track.metadata["software"] == "LIGHTNING_POSE"
     assert read_pose_node_names(dlc_path, software="DLC", file_type="csv") == ["HIP", "KNEE"]
     assert read_pose_node_names(dlc_path, software="lightning-pose", file_type="csv") == [
         "HIP",

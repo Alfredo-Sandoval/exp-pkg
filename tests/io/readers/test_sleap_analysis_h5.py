@@ -54,6 +54,13 @@ def test_read_track_returns_expected_values_and_shapes(tmp_path: Path, track_ind
     assert track.scores.dtype == np.float64
     assert track.instance_score.dtype == np.float64
     assert track.node_names == ("HIP", "KNEE", "ANKLE", "TOE")
+    assert track.metadata["source"] == {
+        "type": "sleap_analysis_h5",
+        "path": str(path),
+    }
+    assert track.metadata["software"] == "SLEAP"
+    assert track.metadata["file_type"] == "h5"
+    assert track.metadata["track_index"] == track_index
     np.testing.assert_allclose(track.coords, expected_coords, equal_nan=True)
     np.testing.assert_allclose(track.scores, expected_scores)
     np.testing.assert_allclose(track.instance_score, expected_instance)
