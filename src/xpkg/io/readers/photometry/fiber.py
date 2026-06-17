@@ -1078,6 +1078,12 @@ def is_teleopto_h5(path: str | Path) -> bool:
         return False
 
 
+def find_first_teleopto_h5(path: str | Path) -> Path | None:
+    """Return the first Teleopto/PMAT HDF5 file under ``path``."""
+
+    return find_first_file(path, is_teleopto_h5)
+
+
 def parse_teleopto_h5_arrays(
     datasets: Mapping[str, object],
     *,
@@ -1390,6 +1396,7 @@ def read_tdt_photometry_block(
 __all__ = [
     "find_first_doric_photometry_file",
     "find_first_neurophotometrics_csv",
+    "find_first_teleopto_h5",
     "is_teleopto_h5",
     "is_doric_photometry_file",
     "is_neurophotometrics_csv",

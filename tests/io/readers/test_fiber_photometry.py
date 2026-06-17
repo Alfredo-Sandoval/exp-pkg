@@ -10,6 +10,7 @@ from xpkg.io.readers import (
     find_first_doric_photometry_file,
     find_first_neurophotometrics_csv,
     find_first_nwb_photometry_file,
+    find_first_teleopto_h5,
     is_doric_photometry_file,
     is_neurophotometrics_csv,
     is_nwb_photometry_file,
@@ -781,6 +782,24 @@ def test_is_teleopto_h5_rejects_missing_contract_and_non_hdf5(tmp_path) -> None:
     assert is_teleopto_h5(missing_key_path) is False
     assert is_teleopto_h5(text_path) is False
     assert is_teleopto_h5(tmp_path / "missing.h5") is False
+
+
+def test_find_first_teleopto_h5_uses_detector_contract(tmp_path) -> None:
+    nested = tmp_path / "nested"
+    nested.mkdir()
+    not_teleopto = tmp_path / "plain.h5"
+    with h5py.File(not_teleopto, "w") as handle:
+        handle.create_dataset("signal", data=np.arange(3, dtype=float))
+    match_path = nested / "recording.h5"
+    with h5py.File(match_path, "w") as handle:
+        handle.create_dataset("d1", data=np.arange(3, dtype=float))
+        handle.create_dataset("d2", data=np.arange(3, dtype=float))
+        handle.create_dataset("num", data=np.asarray([10.0, 10.0]))
+        handle.create_dataset("st1", data=np.asarray([0.0]))
+        handle.create_dataset("str", data=np.asarray([b"Signal", b"Control"]))
+
+    assert find_first_teleopto_h5(tmp_path) == match_path
+    assert find_first_teleopto_h5(not_teleopto) is None
 
 
 def test_parse_teleopto_h5_arrays_matches_file_semantics() -> None:

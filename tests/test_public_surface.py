@@ -124,6 +124,7 @@ from xpkg.readers import (
     find_first_nwb_photometry_file,
     find_first_pyphotometry_csv,
     find_first_pyphotometry_ppd_file,
+    find_first_teleopto_h5,
     is_doric_photometry_file,
     is_neurophotometrics_csv,
     is_nwb_photometry_file,
@@ -224,6 +225,7 @@ def test_root_namespace_is_curated_to_project_first_modules() -> None:
     assert callable(reloaded.readers.find_first_nwb_photometry_file)
     assert callable(reloaded.readers.find_first_pyphotometry_csv)
     assert callable(reloaded.readers.find_first_pyphotometry_ppd_file)
+    assert callable(reloaded.readers.find_first_teleopto_h5)
     assert callable(reloaded.readers.is_doric_photometry_file)
     assert callable(reloaded.readers.is_neurophotometrics_csv)
     assert callable(reloaded.readers.is_nwb_photometry_file)
@@ -330,6 +332,7 @@ def test_public_exports_are_callable() -> None:
     assert callable(find_first_nwb_photometry_file)
     assert callable(find_first_pyphotometry_csv)
     assert callable(find_first_pyphotometry_ppd_file)
+    assert callable(find_first_teleopto_h5)
     assert callable(is_doric_photometry_file)
     assert callable(is_neurophotometrics_csv)
     assert callable(is_nwb_photometry_file)

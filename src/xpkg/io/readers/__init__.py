@@ -17,6 +17,7 @@ from xpkg.io.readers.photometry import read_events_csv, read_photometry_csv
 from xpkg.io.readers.photometry.fiber import (
     find_first_doric_photometry_file,
     find_first_neurophotometrics_csv,
+    find_first_teleopto_h5,
     is_doric_photometry_file,
     is_neurophotometrics_csv,
     is_rwd_ofrs_session,
@@ -59,6 +60,7 @@ __all__ = [
     "find_first_nwb_photometry_file",
     "find_first_pyphotometry_csv",
     "find_first_pyphotometry_ppd_file",
+    "find_first_teleopto_h5",
     "is_doric_photometry_file",
     "is_neurophotometrics_csv",
     "is_rwd_ofrs_session",
