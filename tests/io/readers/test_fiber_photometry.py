@@ -221,7 +221,36 @@ def test_read_doric_photometry_uses_hdf5_datasets(tmp_path) -> None:
     assert photometry.signal_channel == "Data/Signal"
     assert photometry.reference_channel == "Data/Control"
     np.testing.assert_allclose(photometry.timeline.timestamps_s, [0.0, 0.1, 0.2])
+    assert photometry.metadata["sampling_rate_hz"] == pytest.approx(10.0)
+    assert photometry.metadata["sampling_rate_source"] == "Time.timestamps_uniform"
+    assert session.metadata["sampling_rate_hz"] == pytest.approx(10.0)
+    assert session.metadata["sampling_rate_source"] == "Time.timestamps_uniform"
     assert photometry.metadata["channel_inference"] == "wavelength_tokens"
+
+
+def test_read_doric_photometry_records_sampling_rate_attribute_source(tmp_path) -> None:
+    path = tmp_path / "rate_attr.doric"
+    with h5py.File(path, "w") as handle:
+        signal = handle.create_dataset("Signal470", data=np.asarray([1.0, 1.1, 1.2]))
+        signal.attrs["SamplingRate"] = 20.0
+
+    session = read_doric_photometry(path)
+    photometry = session.signals["photometry"]
+
+    assert photometry.metadata["sampling_rate_hz"] == pytest.approx(20.0)
+    assert photometry.metadata["sampling_rate_source"] == "Signal470.attrs.SamplingRate"
+    assert session.metadata["sampling_rate_hz"] == pytest.approx(20.0)
+    assert session.metadata["sampling_rate_source"] == "Signal470.attrs.SamplingRate"
+
+
+def test_read_doric_photometry_rejects_irregular_time_dataset(tmp_path) -> None:
+    path = tmp_path / "irregular.doric"
+    with h5py.File(path, "w") as handle:
+        handle.create_dataset("Signal470", data=np.asarray([1.0, 1.1, 1.2]))
+        handle.create_dataset("Time", data=np.asarray([0.0, 0.1, 0.25]))
+
+    with pytest.raises(ValueError, match="uniformly sampled"):
+        read_doric_photometry(path)
 
 
 def test_read_doric_photometry_selects_560_signal_over_isosbestic(tmp_path) -> None:

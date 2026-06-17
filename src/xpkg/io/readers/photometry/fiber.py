@@ -667,13 +667,22 @@ def _numeric_1d_dataset(dataset: h5py.Dataset) -> bool:
     return dataset.ndim == 1 and np.issubdtype(dataset.dtype, np.number)
 
 
-def _dataset_sample_rate(dataset: h5py.Dataset) -> float | None:
+def _dataset_sample_rate_with_source(dataset: h5py.Dataset) -> tuple[float | None, str | None]:
     for key in ("SamplingRate", "sampling_rate", "Rate", "Fs", "fs"):
         if key in dataset.attrs:
             value = float(dataset.attrs[key])
             if np.isfinite(value) and value > 0:
-                return value
-    return None
+                return value, f"{dataset.name.lstrip('/')}.attrs.{key}"
+    return None, None
+
+
+def _doric_time_dataset_sample_rate(timeline: Timeline, time_dataset: str) -> tuple[float, str]:
+    sample_rate = timeline.estimated_sample_rate_hz
+    if sample_rate is None:
+        raise ValueError(
+            f"Doric time dataset {time_dataset!r} must be uniformly sampled."
+        )
+    return float(sample_rate), f"{time_dataset}.timestamps_uniform"
 
 
 # Wavelength tokens are the most specific/authoritative for Doric exports, so
@@ -756,8 +765,14 @@ def read_doric_photometry(
             if timestamps.shape != signal.shape:
                 raise ValueError("Doric time dataset must match signal dataset length.")
             timeline = _timeline_from_time(timestamps)
+            sample_rate, sample_rate_source = _doric_time_dataset_sample_rate(
+                timeline,
+                resolved_time,
+            )
         else:
-            sample_rate = _dataset_sample_rate(datasets[resolved_signal])
+            sample_rate, sample_rate_source = _dataset_sample_rate_with_source(
+                datasets[resolved_signal]
+            )
             if sample_rate is None:
                 raise ValueError(
                     "Doric file missing time dataset and signal sampling-rate attribute."
@@ -775,6 +790,8 @@ def read_doric_photometry(
         metadata={
             "datasets": numeric_paths,
             "time_dataset": resolved_time,
+            "sampling_rate_hz": sample_rate,
+            "sampling_rate_source": sample_rate_source,
             "channel_inference": ("storage_order" if inferred_by_order else "wavelength_tokens"),
             "root_attributes": root_attributes,
         },
@@ -782,7 +799,11 @@ def read_doric_photometry(
     return RecordingSession(
         session_id=source_path.stem,
         signals={"photometry": photometry},
-        metadata={"source": {"type": "doric_photometry", "path": str(source_path)}},
+        metadata={
+            "source": {"type": "doric_photometry", "path": str(source_path)},
+            "sampling_rate_hz": sample_rate,
+            "sampling_rate_source": sample_rate_source,
+        },
     )
 
 
