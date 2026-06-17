@@ -823,6 +823,7 @@ def test_read_doric_photometry_uses_hdf5_datasets(tmp_path) -> None:
     assert session.metadata["sampling_rate_hz"] == pytest.approx(10.0)
     assert session.metadata["sampling_rate_source"] == "Time.timestamps_uniform"
     assert photometry.metadata["channel_inference"] == "wavelength_tokens"
+    assert photometry.metadata["reference_channel_inference"] == "wavelength_tokens"
 
 
 def test_read_doric_photometry_records_sampling_rate_attribute_source(tmp_path) -> None:
@@ -924,6 +925,7 @@ def test_read_doric_photometry_selects_560_signal_over_isosbestic(tmp_path) -> N
     assert photometry.signal_channel == "Data/Sig560"
     assert photometry.reference_channel == "Data/Ref405"
     assert photometry.metadata["channel_inference"] == "wavelength_tokens"
+    assert photometry.metadata["reference_channel_inference"] == "wavelength_tokens"
 
 
 def test_read_doric_photometry_flags_storage_order_inference(tmp_path) -> None:
@@ -935,6 +937,26 @@ def test_read_doric_photometry_flags_storage_order_inference(tmp_path) -> None:
 
     photometry = read_doric_photometry(path).signals["photometry"]
     assert photometry.metadata["channel_inference"] == "storage_order"
+    assert photometry.metadata["reference_channel_inference"] == "storage_order"
+
+
+def test_read_doric_photometry_records_explicit_dataset_inference(tmp_path) -> None:
+    path = tmp_path / "explicit.doric"
+    with h5py.File(path, "w") as handle:
+        handle.create_dataset("Main470", data=np.asarray([1.0, 1.1, 1.2]))
+        handle.create_dataset("Iso405", data=np.asarray([0.5, 0.4, 0.3]))
+        handle.create_dataset("Time", data=np.asarray([0.0, 0.1, 0.2]))
+
+    photometry = read_doric_photometry(
+        path,
+        signal_path="Main470",
+        reference_path="Iso405",
+    ).signals["photometry"]
+
+    assert photometry.signal_channel == "Main470"
+    assert photometry.reference_channel == "Iso405"
+    assert photometry.metadata["channel_inference"] == "explicit_dataset"
+    assert photometry.metadata["reference_channel_inference"] == "explicit_dataset"
 
 
 def _write_nwb_series(

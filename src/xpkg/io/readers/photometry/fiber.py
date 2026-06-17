@@ -1076,6 +1076,7 @@ def read_doric_photometry(
             resolved_time = next((name for name in numeric_paths if "time" in name.lower()), None)
         signal_candidates = [name for name in numeric_paths if name != resolved_time]
         signal_matched = True
+        signal_explicit = clean_signal_path is not None
         if clean_signal_path is not None:
             resolved_signal = clean_signal_path
         else:
@@ -1084,6 +1085,7 @@ def read_doric_photometry(
             raise ValueError(f"Doric signal dataset {resolved_signal!r} was not found.")
         resolved_reference = clean_reference_path
         reference_matched = True
+        reference_explicit = clean_reference_path is not None
         if resolved_reference is None and len(signal_candidates) > 1:
             resolved_reference, reference_matched = _preferred_doric_reference(
                 signal_candidates, resolved_signal
@@ -1097,9 +1099,18 @@ def read_doric_photometry(
                 raise ValueError("Doric reference dataset must not be the time dataset.")
         # Signal/control identity is a swap risk worth surfacing when it falls back
         # to storage order rather than a wavelength/name token.
-        inferred_by_order = (not signal_matched) or (
-            resolved_reference is not None and not reference_matched
+        channel_inference = (
+            "explicit_dataset"
+            if signal_explicit
+            else ("wavelength_tokens" if signal_matched else "storage_order")
         )
+        reference_channel_inference = None
+        if resolved_reference is not None:
+            reference_channel_inference = (
+                "explicit_dataset"
+                if reference_explicit
+                else ("wavelength_tokens" if reference_matched else "storage_order")
+            )
         root_attributes = {str(key): handle.attrs[key] for key in handle.attrs}
 
         signal = np.asarray(datasets[resolved_signal], dtype=np.float64)
@@ -1145,7 +1156,8 @@ def read_doric_photometry(
             "time_dataset": resolved_time,
             "sampling_rate_hz": sample_rate,
             "sampling_rate_source": sample_rate_source,
-            "channel_inference": ("storage_order" if inferred_by_order else "wavelength_tokens"),
+            "channel_inference": channel_inference,
+            "reference_channel_inference": reference_channel_inference,
             "root_attributes": root_attributes,
         },
     )
