@@ -72,7 +72,47 @@ def test_read_pmat_csv_and_events(tmp_path) -> None:
     assert events.metadata["offset_column"] == "Offset"
     assert events.metadata["columns"] == ["Name", "Onset", "Offset"]
     assert events.metadata["rows"] == 1
+    assert events.metadata["event_records"] == [
+        {
+            "source_row": 0,
+            "time_s": 0.25,
+            "duration_s": pytest.approx(0.15),
+            "offset_s": 0.4,
+            "kind": "event",
+            "label": "cue",
+        }
+    ]
     assert events.metadata["time_unit"] == "s"
+
+
+def test_read_pmat_events_records_sorted_event_rows(tmp_path) -> None:
+    event_path = tmp_path / "events.csv"
+    event_path.write_text(
+        "Name,Onset,Offset\nReward,300,300\nCue,100,150\n",
+        encoding="utf-8",
+    )
+
+    events = read_pmat_events_csv(event_path, time_unit="ms")
+
+    assert [event.metadata["source_row"] for event in events] == [1, 0]
+    assert events.metadata["event_records"] == [
+        {
+            "source_row": 1,
+            "time_s": 0.1,
+            "duration_s": pytest.approx(0.05),
+            "offset_s": 0.15,
+            "kind": "event",
+            "label": "Cue",
+        },
+        {
+            "source_row": 0,
+            "time_s": 0.3,
+            "duration_s": 0.0,
+            "offset_s": 0.3,
+            "kind": "event",
+            "label": "Reward",
+        },
+    ]
 
 
 def test_read_pmat_events_rejects_nonfinite_offset(tmp_path) -> None:

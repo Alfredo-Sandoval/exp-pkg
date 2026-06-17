@@ -304,6 +304,7 @@ def read_pmat_events_csv(
         "offset_column": resolved_offset,
         "columns": columns,
         "rows": int(len(frame)),
+        "event_records": [],
         "time_unit": time_unit,
     }
     if frame.empty:
@@ -337,10 +338,23 @@ def read_pmat_events_csv(
                 label=label,
                 metadata={
                     "source": {"type": "pmat_events_csv", "path": str(source_path)},
+                    "source_row": int(index),
                     "offset_s": float(offset),
                 },
             )
         )
+    rows = sorted(rows, key=lambda event: (event.start_s, event.end_s, event.kind))
+    table_metadata["event_records"] = [
+        {
+            "source_row": int(event.metadata["source_row"]),
+            "time_s": float(event.start_s),
+            "duration_s": float(event.duration_s),
+            "offset_s": float(event.metadata["offset_s"]),
+            "kind": event.kind,
+            "label": event.label,
+        }
+        for event in rows
+    ]
     return EventTable(events=tuple(rows), metadata=table_metadata)
 
 
