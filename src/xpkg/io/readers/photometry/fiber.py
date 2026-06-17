@@ -128,6 +128,18 @@ def _pmat_event_label(value: object, *, column: str, row: int) -> str:
     return value
 
 
+def _rwd_event_label(value: object, *, row: int) -> str:
+    message = (
+        f"RWD Events.csv Name column at row {row} must be a non-empty string "
+        "without surrounding whitespace."
+    )
+    if pd.isna(value) or not isinstance(value, str):
+        raise ValueError(message)
+    if not value or value != value.strip():
+        raise ValueError(message)
+    return value
+
+
 def _timeline_from_time(values: np.ndarray) -> Timeline:
     return Timeline(timestamps_s=np.asarray(values, dtype=np.float64))
 
@@ -788,13 +800,15 @@ def _rwd_event_table(events_path: Path, time_scale: float) -> tuple[EventTable, 
     starts = raw_starts * time_scale
     if "Name" in frame.columns:
         raw_labels = frame["Name"]
-        if raw_labels.isna().any():
-            raise ValueError("RWD Events.csv contains empty event names.")
-        labels = raw_labels.astype(str).str.strip()
+        labels = pd.Series(
+            [
+                _rwd_event_label(value, row=index)
+                for index, value in enumerate(raw_labels)
+            ],
+            dtype=str,
+        )
     else:
         labels = pd.Series(["event"] * len(frame), dtype=str)
-    if labels.eq("").any():
-        raise ValueError("RWD Events.csv contains empty event names.")
     event_metadata["unique_labels"] = sorted(set(labels.tolist()))
     states = None
     if "State" in frame.columns:

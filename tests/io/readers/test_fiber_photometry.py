@@ -589,7 +589,34 @@ def test_read_rwd_ofrs_session_rejects_empty_event_name(tmp_path) -> None:
         encoding="utf-8",
     )
 
-    with pytest.raises(ValueError, match="empty event names"):
+    with pytest.raises(ValueError, match=r"Name column at row 0"):
+        read_rwd_ofrs_session(session_dir)
+
+
+@pytest.mark.parametrize("name", [" brush", "1"])
+def test_read_rwd_ofrs_session_rejects_malformed_event_name(
+    tmp_path,
+    name: str,
+) -> None:
+    session_dir = tmp_path / "rwd-session"
+    session_dir.mkdir()
+    (session_dir / "Fluorescence.csv").write_text(
+        "\n".join(
+            [
+                '{"Fps":30.0;"Channels":[{"Name":"CH1"}]}',
+                "TimeStamp,Events,CH1-410,CH1-470,",
+                "0.000,,1.0,2.0,",
+                "33.333,,1.1,2.1,",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    (session_dir / "Events.csv").write_text(
+        f"TimeStamp,Name,State\n33.333,{name},0\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match=r"Name column at row 0"):
         read_rwd_ofrs_session(session_dir)
 
 
