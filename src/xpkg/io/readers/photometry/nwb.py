@@ -237,6 +237,15 @@ def _series_timeline(series: _Series, n_samples: int) -> Timeline:
     )
 
 
+def _sampling_rate_with_source(timeline: Timeline) -> tuple[float | None, str | None]:
+    if timeline.sample_rate_hz is not None:
+        return float(timeline.sample_rate_hz), "starting_time.rate"
+    sample_rate = timeline.estimated_sample_rate_hz
+    if sample_rate is None:
+        return None, None
+    return float(sample_rate), "timestamps_uniform"
+
+
 def _read_series(
     series: _Series,
     *,
@@ -313,6 +322,7 @@ def _photometry_recording(
         nonfinite_repairs[signal_series.path] = signal_nonfinite_repair
     if control_series is not None and control_nonfinite_repair is not None:
         nonfinite_repairs[control_series.path] = control_nonfinite_repair
+    sampling_rate_hz, sampling_rate_source = _sampling_rate_with_source(timeline)
     metadata: dict[str, Any] = {
         "source_type": "nwb_photometry",
         "signal_series": signal_series.path,
@@ -323,6 +333,9 @@ def _photometry_recording(
         ),
         "n_fibers": int(signal_values.shape[1]),
     }
+    if sampling_rate_hz is not None:
+        metadata["sampling_rate_hz"] = sampling_rate_hz
+        metadata["sampling_rate_source"] = sampling_rate_source
     if nonfinite_repairs:
         metadata["nonfinite_repairs"] = nonfinite_repairs
     return PhotometryRecording(
@@ -466,6 +479,9 @@ def _metadata(handle: h5py.File, path: Path, photometry: PhotometryRecording) ->
         "signal_series": photometry.metadata["signal_series"],
         "control_series": photometry.metadata["control_series"],
     }
+    for key in ("sampling_rate_hz", "sampling_rate_source"):
+        if key in photometry.metadata:
+            metadata[key] = photometry.metadata[key]
     for key in ("identifier", "session_description"):
         if key in handle and isinstance(handle[key], h5py.Dataset):
             metadata[key] = _scalar_dataset(handle, key)

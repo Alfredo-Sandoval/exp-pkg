@@ -308,6 +308,8 @@ def test_read_nwb_photometry_prefers_dff_and_extracts_events(tmp_path) -> None:
     assert photometry.signal_channel == "DfOverFResponseSeries"
     assert photometry.reference_channel == "FiberPhotometryResponseSeriesIsosbestic"
     assert photometry.metadata["signal_is_dff"] is True
+    assert photometry.metadata["sampling_rate_hz"] == pytest.approx(100.0)
+    assert photometry.metadata["sampling_rate_source"] == "starting_time.rate"
     assert photometry.channel_names == (
         "DfOverFResponseSeries",
         "DfOverFResponseSeries_fiber1",
@@ -334,6 +336,30 @@ def test_read_nwb_photometry_prefers_dff_and_extracts_events(tmp_path) -> None:
     )
     assert "TtlsTable" not in {event.label for event in session.events}
     assert session.metadata["subject"]["genotype"] == "Anxa1-iCre"
+    assert session.metadata["sampling_rate_hz"] == pytest.approx(100.0)
+    assert session.metadata["sampling_rate_source"] == "starting_time.rate"
+
+
+def test_read_nwb_photometry_records_timestamp_sampling_rate_source(tmp_path) -> None:
+    path = tmp_path / "timestamped.nwb"
+    timestamps = np.arange(6, dtype=np.float64) * 0.25
+    with h5py.File(path, "w") as handle:
+        acquisition = handle.create_group("acquisition")
+        _write_nwb_series(
+            acquisition,
+            "FiberPhotometryResponseSeries",
+            np.linspace(0.0, 1.0, timestamps.size),
+            rate=None,
+            timestamps=timestamps,
+        )
+
+    session = read_nwb_photometry(path)
+    photometry = session.signals["photometry"]
+
+    assert photometry.metadata["sampling_rate_hz"] == pytest.approx(4.0)
+    assert photometry.metadata["sampling_rate_source"] == "timestamps_uniform"
+    assert session.metadata["sampling_rate_hz"] == pytest.approx(4.0)
+    assert session.metadata["sampling_rate_source"] == "timestamps_uniform"
 
 
 def test_read_nwb_photometry_rejects_missing_timebase(tmp_path) -> None:
