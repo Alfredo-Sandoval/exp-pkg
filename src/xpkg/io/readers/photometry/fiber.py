@@ -1616,6 +1616,21 @@ def _tdt_event_store_names(event_stores: Sequence[str] | None) -> tuple[str, ...
     )
 
 
+def _tdt_read_block_kwargs(
+    *,
+    signal_store: str | None,
+    reference_store: str | None,
+    event_stores: Sequence[str] | None,
+) -> dict[str, Any]:
+    kwargs: dict[str, Any] = {"evtype": ["streams", "epocs"]}
+    if signal_store is None or reference_store is None or event_stores is None:
+        return kwargs
+
+    selected = [signal_store, reference_store, *event_stores]
+    kwargs["store"] = list(dict.fromkeys(selected))
+    return kwargs
+
+
 def _tdt_epoc_times(
     epocs_obj: Any,
     event_stores: Sequence[str] | None,
@@ -1675,7 +1690,14 @@ def read_tdt_photometry_block(
     )
     event_store_names = _tdt_event_store_names(event_stores)
     module = _tdt_module(tdt_module)
-    data = module.read_block(str(block_path), evtype=["streams", "epocs"])
+    data = module.read_block(
+        str(block_path),
+        **_tdt_read_block_kwargs(
+            signal_store=signal_store_name,
+            reference_store=reference_store_name,
+            event_stores=event_store_names,
+        ),
+    )
     has_streams_container = hasattr(data, "streams")
     streams_obj = data.streams if has_streams_container else data
     stream_map = dict(_iter_tdt_streams(streams_obj))

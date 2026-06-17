@@ -1472,9 +1472,13 @@ def test_read_tdt_photometry_block_uses_optional_module() -> None:
         x405A=SimpleNamespace(data=np.asarray([0.5, 0.4, 0.3]), fs=100.0),
     )
     epocs = SimpleNamespace(Cue=SimpleNamespace(onset=np.asarray([0.25])))
-    fake_tdt = SimpleNamespace(
-        read_block=lambda *_args, **_kwargs: SimpleNamespace(streams=streams, epocs=epocs)
-    )
+    calls: list[tuple[tuple[object, ...], dict[str, object]]] = []
+
+    def fake_read_block(*args: object, **kwargs: object) -> SimpleNamespace:
+        calls.append((args, kwargs))
+        return SimpleNamespace(streams=streams, epocs=epocs)
+
+    fake_tdt = SimpleNamespace(read_block=fake_read_block)
 
     session = read_tdt_photometry_block(
         "tank/block",
@@ -1498,6 +1502,36 @@ def test_read_tdt_photometry_block_uses_optional_module() -> None:
     assert session.metadata["sampling_rate_source"] == "streams.x465A.fs"
     assert session.metadata["stream_start_source"] == "streams.x465A.start_time"
     assert session.events.events[0].label == "Cue"
+    assert calls == [
+        (
+            ("tank/block",),
+            {"evtype": ["streams", "epocs"], "store": ["x465A", "x405A", "Cue"]},
+        )
+    ]
+
+
+def test_read_tdt_photometry_block_avoids_store_filter_for_auto_reference() -> None:
+    streams = SimpleNamespace(
+        x465A=SimpleNamespace(data=np.asarray([1.0, 1.1, 1.2]), fs=100.0, start_time=0.0),
+        x405A=SimpleNamespace(data=np.asarray([0.5, 0.4, 0.3]), fs=100.0),
+    )
+    calls: list[dict[str, object]] = []
+
+    def fake_read_block(*_args: object, **kwargs: object) -> SimpleNamespace:
+        calls.append(kwargs)
+        return SimpleNamespace(streams=streams, epocs=SimpleNamespace())
+
+    session = read_tdt_photometry_block(
+        "tank/block",
+        signal_store="x465A",
+        tdt_module=SimpleNamespace(read_block=fake_read_block),
+    )
+    photometry = session.signals["photometry"]
+
+    assert isinstance(photometry, PhotometryRecording)
+    assert photometry.signal_channel == "x465A"
+    assert photometry.reference_channel == "x405A"
+    assert calls == [{"evtype": ["streams", "epocs"]}]
 
 
 def test_read_tdt_photometry_block_rejects_missing_explicit_event_store() -> None:
