@@ -519,6 +519,56 @@ def test_read_rwd_ofrs_session_records_source_event_order_metadata(tmp_path) -> 
     )
 
 
+@pytest.mark.parametrize("state", ["2", "0.5"])
+def test_read_rwd_ofrs_session_rejects_invalid_event_state(
+    tmp_path,
+    state: str,
+) -> None:
+    session_dir = tmp_path / "rwd-session"
+    session_dir.mkdir()
+    (session_dir / "Fluorescence.csv").write_text(
+        "\n".join(
+            [
+                '{"Fps":30.0;"Channels":[{"Name":"CH1"}]}',
+                "TimeStamp,Events,CH1-410,CH1-470,",
+                "0.000,,1.0,2.0,",
+                "33.333,,1.1,2.1,",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    (session_dir / "Events.csv").write_text(
+        f"TimeStamp,Name,State\n33.333,brush,{state}\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="State values must be 0"):
+        read_rwd_ofrs_session(session_dir)
+
+
+def test_read_rwd_ofrs_session_rejects_empty_event_name(tmp_path) -> None:
+    session_dir = tmp_path / "rwd-session"
+    session_dir.mkdir()
+    (session_dir / "Fluorescence.csv").write_text(
+        "\n".join(
+            [
+                '{"Fps":30.0;"Channels":[{"Name":"CH1"}]}',
+                "TimeStamp,Events,CH1-410,CH1-470,",
+                "0.000,,1.0,2.0,",
+                "33.333,,1.1,2.1,",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    (session_dir / "Events.csv").write_text(
+        "TimeStamp,Name,State\n33.333,,0\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="empty event names"):
+        read_rwd_ofrs_session(session_dir)
+
+
 def _write_rwd_fluorescence(
     session_dir, *, metadata_line: str | None, timestamps: list[float]
 ) -> None:

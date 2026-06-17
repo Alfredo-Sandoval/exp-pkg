@@ -762,10 +762,32 @@ def _rwd_event_table(events_path: Path, time_scale: float) -> tuple[EventTable, 
     if raw_starts.size >= 2:
         event_metadata["time_monotonic"] = bool(np.all(np.diff(raw_starts) >= 0))
     starts = raw_starts * time_scale
-    labels = frame["Name"] if "Name" in frame.columns else pd.Series(["event"] * len(frame))
-    cleaned_labels = labels.astype(str).str.strip()
-    event_metadata["unique_labels"] = sorted({label for label in cleaned_labels.tolist() if label})
-    states = pd.to_numeric(frame["State"], errors="raise") if "State" in frame.columns else None
+    if "Name" in frame.columns:
+        raw_labels = frame["Name"]
+        if raw_labels.isna().any():
+            raise ValueError("RWD Events.csv contains empty event names.")
+        labels = raw_labels.astype(str).str.strip()
+    else:
+        labels = pd.Series(["event"] * len(frame), dtype=str)
+    if labels.eq("").any():
+        raise ValueError("RWD Events.csv contains empty event names.")
+    event_metadata["unique_labels"] = sorted(set(labels.tolist()))
+    states = None
+    if "State" in frame.columns:
+        states = pd.to_numeric(frame["State"], errors="raise")
+        state_values = states.to_numpy(dtype=np.float64)
+        invalid_states = sorted(
+            {
+                float(state)
+                for state in state_values
+                if not np.isfinite(state) or not state.is_integer() or int(state) not in {0, 1}
+            }
+        )
+        if invalid_states:
+            raise ValueError(
+                "RWD Events.csv State values must be 0 for onset or 1 for offset; "
+                f"got {invalid_states}."
+            )
     rows: list[Event] = []
     for index, start in enumerate(starts):
         state = None if states is None else int(states.iloc[index])
@@ -774,7 +796,7 @@ def _rwd_event_table(events_path: Path, time_scale: float) -> tuple[EventTable, 
             Event(
                 kind="behavior",
                 start_s=float(start),
-                label=f"{str(labels.iloc[index]).strip()}{suffix}",
+                label=f"{labels.iloc[index]}{suffix}",
                 metadata={"source": {"type": "rwd_ofrs_events", "path": str(events_path)}},
             )
         )
