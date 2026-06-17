@@ -399,17 +399,37 @@ def neurophotometrics_source_column_from_label(label: str | None) -> str | None:
     return neurophotometrics_channel_selection_from_label(label).source_column
 
 
+def _npm_clean_optional_label(label: object) -> str | None:
+    if label is None:
+        return None
+    if not isinstance(label, str):
+        raise TypeError("Neurophotometrics label must be a string or None.")
+    if label == "":
+        return None
+    if label != label.strip():
+        raise ValueError(
+            "Neurophotometrics label must be a non-empty string without "
+            "surrounding whitespace, or None."
+        )
+    return label
+
+
 def neurophotometrics_channel_selection_from_label(
     label: str | None,
 ) -> NeurophotometricsChannelSelection:
     """Return the ROI column plus LED identity encoded in a demuxed label."""
 
-    if not label:
+    clean_label = _npm_clean_optional_label(label)
+    if clean_label is None:
         return NeurophotometricsChannelSelection(None, None, None)
-    match = _NPM_DEMUXED_LABEL_PARTS_RE.search(label)
+    match = _NPM_DEMUXED_LABEL_PARTS_RE.search(clean_label)
     if match is None:
-        return NeurophotometricsChannelSelection(label, None, None)
-    source_column = label[: match.start()]
+        return NeurophotometricsChannelSelection(clean_label, None, None)
+    source_column = clean_label[: match.start()]
+    if not source_column:
+        raise ValueError(
+            "Neurophotometrics label must include a source column before the demux suffix."
+        )
     raw_wavelength = match.group("wavelength_nm")
     raw_code = match.group("led_state_code")
     wavelength_nm = int(raw_wavelength) if raw_wavelength is not None else None

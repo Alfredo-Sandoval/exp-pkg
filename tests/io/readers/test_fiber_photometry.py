@@ -241,6 +241,40 @@ def test_neurophotometrics_channel_selection_from_label_parses_led_identity() ->
     assert neurophotometrics_channel_selection_from_label(None) == (None, None, None)
 
 
+@pytest.mark.parametrize(
+    ("label", "exc_type", "message"),
+    [
+        (
+            " Region1G_470nm",
+            ValueError,
+            "Neurophotometrics label must be a non-empty string without",
+        ),
+        (
+            "Region1G_led_state_7 ",
+            ValueError,
+            "Neurophotometrics label must be a non-empty string without",
+        ),
+        (
+            470,
+            TypeError,
+            "Neurophotometrics label must be a string or None",
+        ),
+        (
+            "_470nm",
+            ValueError,
+            "source column before the demux suffix",
+        ),
+    ],
+)
+def test_neurophotometrics_channel_selection_from_label_rejects_unclean_label(
+    label: object,
+    exc_type: type[Exception],
+    message: str,
+) -> None:
+    with pytest.raises(exc_type, match=message):
+        neurophotometrics_channel_selection_from_label(label)  # type: ignore[arg-type]
+
+
 def test_read_neurophotometrics_csv_accepts_custom_led_map(tmp_path) -> None:
     path = tmp_path / "custom_npm.csv"
     path.write_text(
