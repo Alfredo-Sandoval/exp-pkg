@@ -62,6 +62,22 @@ def test_read_behavior_events_json_maps_human_annotation_intervals(tmp_path) -> 
     assert labels.to_event_table().events[0].metadata["notes"] == "clean bout"
 
 
+@pytest.mark.parametrize(
+    ("reader", "source_type"),
+    [
+        (read_behavior_events_json, " behavior_events_json"),
+        (read_behavior_events_csv, " behavior_csv"),
+    ],
+)
+def test_behavior_event_readers_reject_unclean_source_type_before_file_access(
+    tmp_path,
+    reader,
+    source_type: str,
+) -> None:
+    with pytest.raises(ValueError, match="source_type must not contain surrounding whitespace"):
+        reader(tmp_path / "missing-source.csv", source_type=source_type)
+
+
 def test_read_behavior_events_csv_accepts_interval_labels_from_package_exports(tmp_path) -> None:
     path = tmp_path / "bsoid_bouts.csv"
     path.write_text(

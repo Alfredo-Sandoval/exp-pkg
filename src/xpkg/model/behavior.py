@@ -53,6 +53,16 @@ def _path_text(value: str | Path | None, *, name: str) -> str | None:
     return required_text(Path(value).as_posix(), name=name)
 
 
+def _required_clean_text(value: object, *, name: str) -> str:
+    if not isinstance(value, str):
+        raise TypeError(f"{name} must be a string.")
+    if not value:
+        raise ValueError(f"{name} must be a non-empty string.")
+    if value != value.strip():
+        raise ValueError(f"{name} must not contain surrounding whitespace.")
+    return value
+
+
 def _sequence(value: object, *, name: str) -> Sequence[object]:
     if isinstance(value, str | bytes) or not isinstance(value, Sequence):
         raise TypeError(f"{name} must be a sequence.")
@@ -282,7 +292,11 @@ class BehaviorLabels:
             raise ValueError("behavior labels require intervals, frame_labels, or embeddings.")
         if not isinstance(self.timebase, Timebase):
             raise TypeError(f"behavior labels timebase must be a Timebase, got {self.timebase!r}.")
-        object.__setattr__(self, "source_type", required_text(self.source_type, name="source_type"))
+        object.__setattr__(
+            self,
+            "source_type",
+            _required_clean_text(self.source_type, name="source_type"),
+        )
         object.__setattr__(self, "intervals", tuple(sorted(intervals, key=_interval_sort_key)))
         object.__setattr__(
             self,
@@ -349,7 +363,7 @@ class BehaviorLabels:
 
         fields = payload_mapping(payload, name="behavior labels payload")
         return cls(
-            source_type=str(fields.get("source_type", "")),
+            source_type=fields.get("source_type", ""),
             intervals=_intervals_from_payload(fields.get("intervals", ())),
             frame_labels=_frame_labels_from_payload(fields.get("frame_labels", ())),
             embeddings=_embeddings_from_payload(fields.get("embeddings", ())),

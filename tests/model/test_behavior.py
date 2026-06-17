@@ -45,6 +45,38 @@ def test_behavior_labels_round_trip_intervals_frames_and_embeddings() -> None:
     assert hydrated.embeddings[0].values == (0.1, -0.2, 0.3)
 
 
+@pytest.mark.parametrize(
+    ("source_type", "exc_type", "message"),
+    [
+        (" human_annotation", ValueError, "source_type must not contain surrounding whitespace"),
+        ("", ValueError, "source_type must be a non-empty string"),
+        (0, TypeError, "source_type must be a string"),
+    ],
+)
+def test_behavior_labels_rejects_unclean_source_type(
+    source_type: object,
+    exc_type: type[Exception],
+    message: str,
+) -> None:
+    with pytest.raises(exc_type, match=message):
+        BehaviorLabels(
+            source_type=source_type,  # type: ignore[arg-type]
+            intervals=(BehaviorInterval(label="rear", start_s=1.0),),
+        )
+
+
+def test_behavior_labels_from_dict_rejects_unclean_source_type() -> None:
+    labels = BehaviorLabels(
+        source_type="human_annotation",
+        intervals=(BehaviorInterval(label="rear", start_s=1.0),),
+    )
+    payload = labels.to_dict()
+    payload["source_type"] = " human_annotation"
+
+    with pytest.raises(ValueError, match="source_type must not contain surrounding whitespace"):
+        BehaviorLabels.from_dict(payload)
+
+
 def test_behavior_labels_from_dict_rejects_unclean_timebase_text() -> None:
     labels = BehaviorLabels(
         source_type="human_annotation",

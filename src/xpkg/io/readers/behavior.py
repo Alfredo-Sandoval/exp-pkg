@@ -193,6 +193,7 @@ def read_behavior_events_json(
 ) -> BehaviorLabels:
     """Read a behavior annotation JSON with a top-level ``behaviorEvents`` list."""
 
+    clean_source_type = _clean_required_text(source_type, role="source_type")
     source_path = Path(path)
     payload = _read_json_object(source_path)
     raw_events = payload.get("behaviorEvents")
@@ -204,7 +205,7 @@ def read_behavior_events_json(
     intervals = tuple(_interval_from_json_event(event) for event in raw_events)
     metadata = _behavior_json_metadata(payload, source_metadata, source_path)
     return BehaviorLabels(
-        source_type=source_type,
+        source_type=clean_source_type,
         intervals=intervals,
         media_path=resolved_media_path,
         annotator=_optional_text(source_metadata.get("annotatorName")),
@@ -232,6 +233,7 @@ def read_behavior_events_csv(
 ) -> BehaviorLabels:
     """Read behavior interval or per-frame labels from a flexible CSV export."""
 
+    clean_source_type = _clean_required_text(source_type, role="source_type")
     source_path = Path(path)
     column_selectors = {
         "label_column": _clean_optional_column_name(label_column, role="label_column"),
@@ -268,13 +270,13 @@ def read_behavior_events_csv(
     intervals = _csv_intervals(frame, columns, scale=scale)
     frame_labels = _csv_frame_labels(frame, columns) if not intervals else ()
     return BehaviorLabels(
-        source_type=source_type,
+        source_type=clean_source_type,
         intervals=intervals,
         frame_labels=frame_labels,
         media_path=None if media_path is None else Path(media_path).as_posix(),
         metadata={
             "source": {
-                "type": source_type,
+                "type": clean_source_type,
                 "path": str(source_path),
                 "size_bytes": size_bytes,
             }
@@ -876,6 +878,16 @@ def _time_scale(unit: TimeUnit) -> float:
     if normalized in {"ms", "millisecond", "milliseconds"}:
         return 0.001
     raise ValueError(f"Unsupported time_unit {unit!r}; expected seconds or milliseconds.")
+
+
+def _clean_required_text(value: str, *, role: str) -> str:
+    if not isinstance(value, str):
+        raise TypeError(f"{role} must be a string.")
+    if not value:
+        raise ValueError(f"{role} must be a non-empty string.")
+    if value != value.strip():
+        raise ValueError(f"{role} must not contain surrounding whitespace.")
+    return value
 
 
 def _clean_optional_column_name(value: str | None, *, role: str) -> str | None:
