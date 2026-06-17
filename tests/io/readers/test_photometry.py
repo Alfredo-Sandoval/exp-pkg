@@ -197,6 +197,41 @@ def test_read_events_csv_maps_labels_kinds_and_millisecond_times(tmp_path) -> No
     assert events.query(kind="trial")[0].label == "A"
 
 
+@pytest.mark.parametrize(
+    ("kwargs", "exc_type", "message"),
+    [
+        (
+            {"time_column": " timestamp"},
+            ValueError,
+            "time_column must not contain surrounding whitespace",
+        ),
+        (
+            {"kind_column": 0},
+            TypeError,
+            "kind_column must be a string",
+        ),
+        (
+            {"label_column": ""},
+            ValueError,
+            "label_column must be a non-empty string",
+        ),
+        (
+            {"duration_column": " duration"},
+            ValueError,
+            "duration_column must not contain surrounding whitespace",
+        ),
+    ],
+)
+def test_read_events_csv_rejects_unclean_explicit_column_selectors(
+    tmp_path,
+    kwargs: dict[str, object],
+    exc_type: type[Exception],
+    message: str,
+) -> None:
+    with pytest.raises(exc_type, match=message):
+        read_events_csv(tmp_path / "missing.csv", **kwargs)  # type: ignore[arg-type]
+
+
 def test_read_events_csv_uses_default_kind_without_label_columns(tmp_path) -> None:
     path = tmp_path / "timestamps.csv"
     path.write_text("timestamps\n0.2\n0.1\n", encoding="utf-8")

@@ -376,20 +376,27 @@ def read_events_csv(
 ) -> EventTable:
     """Read an event CSV into an ``EventTable``."""
 
+    clean_time_column = _clean_optional_column_name(time_column, role="time_column")
+    clean_kind_column = _clean_optional_column_name(kind_column, role="kind_column")
+    clean_label_column = _clean_optional_column_name(label_column, role="label_column")
+    clean_duration_column = _clean_optional_column_name(
+        duration_column,
+        role="duration_column",
+    )
     frame, _size_bytes = _read_csv(path, max_mb=max_mb)
     if frame.empty:
         return EventTable()
-    resolved_time = resolve_column(frame, time_column, _EVENT_TIME_COLUMN_CANDIDATES)
+    resolved_time = resolve_column(frame, clean_time_column, _EVENT_TIME_COLUMN_CANDIDATES)
     if resolved_time is None:
         raise ValueError(
             "Event CSV must include a timestamp column named one of: "
             f"{', '.join(_EVENT_TIME_COLUMN_CANDIDATES)}."
         )
-    resolved_kind = resolve_column(frame, kind_column, _EVENT_KIND_CANDIDATES)
-    resolved_label = resolve_column(frame, label_column, _EVENT_LABEL_CANDIDATES)
+    resolved_kind = resolve_column(frame, clean_kind_column, _EVENT_KIND_CANDIDATES)
+    resolved_label = resolve_column(frame, clean_label_column, _EVENT_LABEL_CANDIDATES)
     resolved_duration = resolve_column(
         frame,
-        duration_column,
+        clean_duration_column,
         _EVENT_DURATION_CANDIDATES,
     )
 
