@@ -58,8 +58,13 @@ def _volts_per_division(header: dict[str, Any], channel_count: int) -> np.ndarra
                 "volts_per_division length must match n_analog_channels: "
                 f"{values.size} vs {channel_count}."
             )
+        if not np.all(np.isfinite(values)) or np.any(values <= 0.0):
+            raise ValueError("volts_per_division values must be positive and finite.")
         return values.reshape((1, channel_count))
-    return np.full((1, channel_count), float(raw), dtype=np.float64)
+    value = float(raw)
+    if not np.isfinite(value) or value <= 0.0:
+        raise ValueError("volts_per_division must be positive and finite.")
+    return np.full((1, channel_count), value, dtype=np.float64)
 
 
 def _read_ppd_words(path: Path) -> tuple[dict[str, Any], np.ndarray]:
@@ -297,8 +302,12 @@ def read_pyphotometry_ppd(path: str | Path) -> RecordingSession:
     )
 
 
-def _load_settings(settings_path: Path | None) -> dict[str, Any]:
-    if settings_path is None or not settings_path.is_file():
+def _load_settings(settings_path: Path | None, *, required: bool = False) -> dict[str, Any]:
+    if settings_path is None:
+        return {}
+    if not settings_path.is_file():
+        if required:
+            raise FileNotFoundError(f"pyPhotometry settings_path was not found: {settings_path}")
         return {}
     try:
         return load_json_dict(settings_path)
@@ -345,10 +354,11 @@ def read_pyphotometry_csv(
     """Read a pyPhotometry CSV export and optional JSON settings sidecar."""
 
     source_path = Path(path)
+    explicit_settings_path = settings_path is not None
     sidecar_path = (
         Path(settings_path) if settings_path is not None else source_path.with_suffix(".json")
     )
-    settings = _load_settings(sidecar_path)
+    settings = _load_settings(sidecar_path, required=explicit_settings_path)
     header = dict(settings)
     if sample_rate_hz is not None:
         header["sampling_rate"] = float(sample_rate_hz)

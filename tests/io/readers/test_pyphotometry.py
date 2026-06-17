@@ -90,6 +90,16 @@ def test_read_pyphotometry_ppd_applies_volts_per_division(tmp_path: Path) -> Non
     np.testing.assert_allclose(photometry.series.values[:2, 0], [0.1, 0.101])
 
 
+def test_read_pyphotometry_ppd_rejects_nonpositive_volts_per_division(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "bad-scale.ppd"
+    _write_ppd(path, fs=100.0, volts_per_division=0.0)
+
+    with pytest.raises(ValueError, match="volts_per_division must be positive"):
+        read_pyphotometry_ppd(path)
+
+
 def test_read_pyphotometry_ppd_rejects_missing_sample_rate(tmp_path: Path) -> None:
     path = tmp_path / "missing_fs.ppd"
     _write_ppd(path, fs=None)
@@ -260,6 +270,41 @@ def test_read_pyphotometry_csv_uses_json_settings_and_digital_events(tmp_path: P
     assert session.metadata["event_label_scheme"] == "digital_channels"
     np.testing.assert_allclose(photometry.series.values[:, 0], [0.1, 0.101])
     assert [event.label for event in session.events] == ["digital_1"]
+
+
+def test_read_pyphotometry_csv_rejects_missing_explicit_settings_path(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "recording.csv"
+    path.write_text(
+        "Analog1,Analog2\n100,200\n101,201\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(FileNotFoundError, match="pyPhotometry settings_path was not found"):
+        read_pyphotometry_csv(
+            path,
+            settings_path=tmp_path / "missing-settings.json",
+            sample_rate_hz=10.0,
+            volts_per_division=0.001,
+        )
+
+
+def test_read_pyphotometry_csv_rejects_invalid_explicit_volts_per_division(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "recording.csv"
+    path.write_text(
+        "Analog1,Analog2\n100,200\n101,201\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="volts_per_division must be positive"):
+        read_pyphotometry_csv(
+            path,
+            sample_rate_hz=10.0,
+            volts_per_division=0.0,
+        )
 
 
 def test_read_pyphotometry_csv_tolerates_real_spaced_header(tmp_path: Path) -> None:
