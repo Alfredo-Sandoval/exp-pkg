@@ -95,6 +95,9 @@ def test_read_rwd_ofrs_session_parses_multicolor_bundle_and_events(tmp_path) -> 
     assert photometry.channel_names == ("CH1-410", "CH1-470", "CH1-560")
     assert photometry.signal_channel == "CH1-470"
     assert photometry.reference_channel == "CH1-410"
+    assert photometry.metadata["time_scale_inference"] == "declared_fps_milliseconds"
+    assert photometry.metadata["declared_fps_hz"] == pytest.approx(30.0)
+    assert photometry.metadata["median_raw_time_delta"] == pytest.approx(33.333)
     assert [event.label for event in session.events] == ["brush", "brush_offset"]
     np.testing.assert_allclose([event.start_s for event in session.events], [0.033333, 0.066666])
 
@@ -122,6 +125,9 @@ def test_read_rwd_ofrs_slow_seconds_anchors_to_declared_fps(tmp_path) -> None:
     photometry = session.signals["photometry"]
     assert photometry.metadata["sampling_rate_hz"] == pytest.approx(0.5)
     assert photometry.metadata["time_scale"] == pytest.approx(1.0)
+    assert photometry.metadata["time_scale_inference"] == "declared_fps_seconds"
+    assert photometry.metadata["declared_fps_hz"] == pytest.approx(0.5)
+    assert photometry.metadata["median_raw_time_delta"] == pytest.approx(2.0)
     np.testing.assert_allclose(photometry.timeline.timestamps_s, [0.0, 2.0, 4.0, 6.0])
 
 
@@ -130,6 +136,9 @@ def test_read_rwd_ofrs_subsecond_without_fps_infers_milliseconds(tmp_path) -> No
     session = read_rwd_ofrs_session(tmp_path / "sub")
     photometry = session.signals["photometry"]
     assert photometry.metadata["time_scale"] == pytest.approx(0.001)
+    assert photometry.metadata["time_scale_inference"] == "subsecond_spacing_milliseconds"
+    assert photometry.metadata["declared_fps_hz"] is None
+    assert photometry.metadata["median_raw_time_delta"] == pytest.approx(0.4)
     assert photometry.metadata["sampling_rate_hz"] == pytest.approx(2500.0, rel=1e-6)
 
 

@@ -330,7 +330,7 @@ def _rwd_unit_scale_from_fps(median_delta: float, declared_fps: float) -> float:
 def _rwd_timebase(
     values: np.ndarray,
     declared_fps: float | None,
-) -> tuple[np.ndarray, float, float]:
+) -> tuple[np.ndarray, float, float, str, float | None]:
     if values.size == 0:
         raise ValueError("RWD OFRS time column is empty.")
     if not np.all(np.isfinite(values)):
@@ -341,7 +341,18 @@ def _rwd_timebase(
                 "RWD OFRS time column has a single sample and no declared 'Fps' "
                 "metadata; cannot determine a sampling rate."
             )
-        return values.astype(np.float64), float(declared_fps), 1.0
+        if values[0] != 0.0:
+            raise ValueError(
+                "RWD OFRS time column has a single non-zero timestamp; cannot "
+                "determine whether the value is seconds or milliseconds."
+            )
+        return (
+            values.astype(np.float64),
+            float(declared_fps),
+            1.0,
+            "declared_fps_zero_start_single_sample",
+            None,
+        )
     diffs = np.diff(values)
     if np.any(diffs <= 0):
         raise ValueError("RWD OFRS time column must be strictly increasing.")
@@ -351,7 +362,8 @@ def _rwd_timebase(
         # slow (>= 1 s/sample) acquisition in seconds is never divided by 1000 by
         # accident. The sampling rate is the declared Fps, not a re-estimate.
         scale = _rwd_unit_scale_from_fps(median_delta, declared_fps)
-        return values * scale, float(declared_fps), scale
+        inference = "declared_fps_seconds" if scale == 1.0 else "declared_fps_milliseconds"
+        return values * scale, float(declared_fps), scale, inference, median_delta
     # No declared Fps: only the magnitude heuristic remains. An ambiguous (>= 1 s)
     # spacing could be slow-seconds or fast-milliseconds; refuse to silently guess.
     if median_delta >= _RWD_AMBIGUOUS_DELTA_SECONDS:
@@ -361,7 +373,13 @@ def _rwd_timebase(
             "seconds and milliseconds. Provide 'Fps' metadata to anchor the timebase."
         )
     time_s = values * 0.001
-    return time_s, float(1.0 / np.median(np.diff(time_s))), 0.001
+    return (
+        time_s,
+        float(1.0 / np.median(np.diff(time_s))),
+        0.001,
+        "subsecond_spacing_milliseconds",
+        median_delta,
+    )
 
 
 def _rwd_metadata_line(path: Path) -> tuple[str | None, dict[str, Any] | None]:
@@ -426,7 +444,13 @@ def read_rwd_ofrs_session(path: str | Path) -> RecordingSession:
         raw_fps = parsed_metadata.get("Fps")
         if isinstance(raw_fps, int | float) and np.isfinite(float(raw_fps)) and float(raw_fps) > 0:
             declared_fps = float(raw_fps)
-    timestamps, sample_rate, time_scale = _rwd_timebase(_numeric(frame, time_column), declared_fps)
+    (
+        timestamps,
+        sample_rate,
+        time_scale,
+        time_scale_inference,
+        median_raw_time_delta,
+    ) = _rwd_timebase(_numeric(frame, time_column), declared_fps)
     excluded = {time_column.lower(), "events", "event", "name", "state"}
     signal_columns = [
         str(column) for column in frame.columns if str(column).lower() not in excluded
@@ -453,6 +477,9 @@ def read_rwd_ofrs_session(path: str | Path) -> RecordingSession:
         metadata={
             "sampling_rate_hz": sample_rate,
             "time_scale": time_scale,
+            "time_scale_inference": time_scale_inference,
+            "declared_fps_hz": declared_fps,
+            "median_raw_time_delta": median_raw_time_delta,
             "metadata_line": metadata_line,
             "metadata": parsed_metadata,
         },
