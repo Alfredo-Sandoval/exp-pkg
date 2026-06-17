@@ -244,8 +244,6 @@ def read_pmat_events_csv(
 
     source_path = Path(path)
     frame = _read_csv(source_path, max_mb=max_mb)
-    if frame.empty:
-        return EventTable()
     columns = [str(column) for column in frame.columns]
     resolved_label = _column(frame, label_column) if label_column else columns[0]
     resolved_onset = _column(frame, onset_column) if onset_column else columns[1]
@@ -254,6 +252,17 @@ def read_pmat_events_csv(
         if offset_column is not None
         else (columns[2] if len(columns) > 2 else None)
     )
+    table_metadata = {
+        "source_type": "pmat_events_csv",
+        "label_column": resolved_label,
+        "onset_column": resolved_onset,
+        "offset_column": resolved_offset,
+        "columns": columns,
+        "rows": int(len(frame)),
+        "time_unit": time_unit,
+    }
+    if frame.empty:
+        return EventTable(metadata=table_metadata)
     scale = _time_scale(time_unit)
     starts = _numeric(frame, resolved_onset) * scale
     if resolved_offset:
@@ -277,7 +286,7 @@ def read_pmat_events_csv(
                 },
             )
         )
-    return EventTable.from_events(rows)
+    return EventTable(events=tuple(rows), metadata=table_metadata)
 
 
 def _npm_led_code_map(value: Mapping[int, int] | None) -> dict[int, int]:

@@ -60,6 +60,13 @@ def test_read_pmat_csv_and_events(tmp_path) -> None:
     assert isinstance(events, EventTable)
     assert events.events[0].label == "cue"
     assert events.events[0].duration_s == pytest.approx(0.15)
+    assert events.metadata["source_type"] == "pmat_events_csv"
+    assert events.metadata["label_column"] == "Name"
+    assert events.metadata["onset_column"] == "Onset"
+    assert events.metadata["offset_column"] == "Offset"
+    assert events.metadata["columns"] == ["Name", "Onset", "Offset"]
+    assert events.metadata["rows"] == 1
+    assert events.metadata["time_unit"] == "s"
 
 
 def test_read_pmat_csv_rejects_file_exceeding_max_mb(tmp_path) -> None:

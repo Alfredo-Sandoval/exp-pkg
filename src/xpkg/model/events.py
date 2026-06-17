@@ -93,6 +93,7 @@ class EventTable:
 
     events: tuple[Event, ...] = ()
     timebase: Timebase = field(default_factory=Timebase)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         events = tuple(self.events)
@@ -101,8 +102,10 @@ class EventTable:
                 raise TypeError(f"event table entries must be Event objects, got {event!r}.")
         if not isinstance(self.timebase, Timebase):
             raise TypeError(f"event table timebase must be a Timebase, got {self.timebase!r}.")
+        metadata = metadata_dict(self.metadata, name="event table metadata")
         events = tuple(sorted(events, key=lambda event: (event.start_s, event.end_s, event.kind)))
         object.__setattr__(self, "events", events)
+        object.__setattr__(self, "metadata", metadata)
 
     @classmethod
     def from_events(
@@ -122,7 +125,11 @@ class EventTable:
 
     def append(self, event: Event) -> EventTable:
         """Return a new table with ``event`` added."""
-        return EventTable(events=(*self.events, event), timebase=self.timebase)
+        return EventTable(
+            events=(*self.events, event),
+            timebase=self.timebase,
+            metadata=dict(self.metadata),
+        )
 
     def query(
         self,
@@ -157,7 +164,7 @@ class EventTable:
 
     def to_dict(self) -> dict[str, Any]:
         """Return a JSON-friendly event table payload."""
-        return {
+        payload: dict[str, Any] = {
             "timebase": {
                 "name": self.timebase.name,
                 "unit": self.timebase.unit,
@@ -165,12 +172,18 @@ class EventTable:
             },
             "events": [event.to_dict() for event in self.events],
         }
+        if self.metadata:
+            payload["metadata"] = dict(self.metadata)
+        return payload
 
     @classmethod
     def from_dict(cls, payload: Mapping[str, Any]) -> EventTable:
         """Hydrate an event table from a JSON-friendly payload."""
         if not isinstance(payload, Mapping):
             raise TypeError("event table payload must be a mapping.")
+        raw_metadata = payload.get("metadata")
+        if raw_metadata is not None and not isinstance(raw_metadata, Mapping):
+            raise TypeError("event table metadata must be a mapping when present.")
         raw_timebase = payload.get("timebase")
         if isinstance(raw_timebase, Mapping):
             timebase = Timebase(
@@ -186,6 +199,7 @@ class EventTable:
         return cls(
             events=tuple(Event.from_dict(event) for event in raw_events),
             timebase=timebase,
+            metadata=metadata_dict(raw_metadata, name="event table metadata"),
         )
 
 

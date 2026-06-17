@@ -39,11 +39,13 @@ def test_event_table_queries_and_round_trips() -> None:
             Event(kind="trial", start_s=1.0, duration_s=2.0, label="A"),
         ]
     )
+    events = EventTable(events=events.events, metadata={"source": "unit-test"})
 
     assert [event.kind for event in events] == ["trial", "cue"]
     assert events.query(kind="trial") == (events.events[0],)
     assert events.query(time_s=1.6) == events.events
     assert events.query(overlaps=TimeRange(1.4, 1.55)) == events.events
+    assert events.append(Event(kind="cue", start_s=3.0)).metadata == events.metadata
 
     hydrated = EventTable.from_dict(events.to_dict())
     assert hydrated.to_dict() == events.to_dict()
