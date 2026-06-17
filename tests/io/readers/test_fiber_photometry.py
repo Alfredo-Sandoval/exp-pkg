@@ -1084,8 +1084,12 @@ def test_read_nwb_photometry_rejects_multicolumn_event_channel(tmp_path) -> None
         read_nwb_photometry(path)
 
 
-def test_read_nwb_photometry_rejects_empty_annotation_label(tmp_path) -> None:
-    path = tmp_path / "empty-annotation.nwb"
+@pytest.mark.parametrize("label", [b"", b" cue"])
+def test_read_nwb_photometry_rejects_malformed_annotation_label(
+    tmp_path,
+    label: bytes,
+) -> None:
+    path = tmp_path / "malformed-annotation.nwb"
     with h5py.File(path, "w") as handle:
         acquisition = handle.create_group("acquisition")
         _write_nwb_series(
@@ -1095,10 +1099,10 @@ def test_read_nwb_photometry_rejects_empty_annotation_label(tmp_path) -> None:
         )
         annotations = acquisition.create_group("events")
         annotations.attrs["neurodata_type"] = "AnnotationSeries"
-        annotations.create_dataset("data", data=np.asarray([b"cue", b""]))
+        annotations.create_dataset("data", data=np.asarray([b"cue", label]))
         annotations.create_dataset("timestamps", data=np.asarray([0.1, 0.2]))
 
-    with pytest.raises(ValueError, match="empty labels"):
+    with pytest.raises(ValueError, match=r"label at row 1"):
         read_nwb_photometry(path)
 
 

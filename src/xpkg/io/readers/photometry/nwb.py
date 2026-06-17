@@ -457,10 +457,8 @@ def _annotation_series_events(
             raise ValueError(f"NWB AnnotationSeries '{series.path}' label/time lengths differ.")
         if not np.isfinite(stamps).all():
             raise ValueError(f"NWB AnnotationSeries '{series.path}' contains non-finite times.")
-        for label, stamp in zip(labels, stamps, strict=True):
-            decoded_label = str(_decode(label)).strip()
-            if not decoded_label:
-                raise ValueError(f"NWB AnnotationSeries '{series.path}' contains empty labels.")
+        for index, (label, stamp) in enumerate(zip(labels, stamps, strict=True)):
+            decoded_label = _nwb_annotation_label(label, path=series.path, row=index)
             rows.append(
                 Event(
                     kind="event",
@@ -470,6 +468,19 @@ def _annotation_series_events(
                 )
             )
     return rows
+
+
+def _nwb_annotation_label(value: object, *, path: str, row: int) -> str:
+    decoded = _decode(value)
+    message = (
+        f"NWB AnnotationSeries '{path}' label at row {row} must be a non-empty "
+        "string without surrounding whitespace."
+    )
+    if not isinstance(decoded, str):
+        raise ValueError(message)
+    if not decoded or decoded != decoded.strip():
+        raise ValueError(message)
+    return decoded
 
 
 def _analysis_timestamp_events(handle: h5py.File, *, source_path: Path) -> list[Event]:
