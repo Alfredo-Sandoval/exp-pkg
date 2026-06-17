@@ -754,6 +754,22 @@ def _numeric_1d_dataset(dataset: h5py.Dataset) -> bool:
     return dataset.ndim == 1 and np.issubdtype(dataset.dtype, np.number)
 
 
+def is_doric_photometry_file(path: str | Path) -> bool:
+    """Return whether ``path`` is a Doric photometry HDF5 container."""
+
+    source_path = Path(path)
+    if not source_path.is_file() or source_path.suffix.lower() != ".doric":
+        return False
+    try:
+        with h5py.File(source_path, "r") as handle:
+            return any(
+                _numeric_1d_dataset(dataset)
+                for dataset in _walk_hdf5_datasets(handle).values()
+            )
+    except OSError:
+        return False
+
+
 def _dataset_sample_rate_with_source(dataset: h5py.Dataset) -> tuple[float | None, str | None]:
     for key in ("SamplingRate", "sampling_rate", "Rate", "Fs", "fs"):
         if key in dataset.attrs:
@@ -1360,6 +1376,7 @@ def read_tdt_photometry_block(
 
 __all__ = [
     "is_teleopto_h5",
+    "is_doric_photometry_file",
     "is_neurophotometrics_csv",
     "is_rwd_ofrs_session",
     "is_tdt_block",

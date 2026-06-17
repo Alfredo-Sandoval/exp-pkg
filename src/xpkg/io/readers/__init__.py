@@ -15,6 +15,7 @@ from xpkg.io.readers.behavior import (
 from xpkg.io.readers.opencv_stereo import read_opencv_stereo_calibration
 from xpkg.io.readers.photometry import read_events_csv, read_photometry_csv
 from xpkg.io.readers.photometry.fiber import (
+    is_doric_photometry_file,
     is_neurophotometrics_csv,
     is_rwd_ofrs_session,
     is_tdt_block,
@@ -44,6 +45,7 @@ from xpkg.io.readers.pose import (
 __all__ = [
     "PoseTrack",
     "KNOWN_BEHAVIOR_SOURCE_TYPES",
+    "is_doric_photometry_file",
     "is_neurophotometrics_csv",
     "is_rwd_ofrs_session",
     "is_tdt_block",

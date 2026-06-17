@@ -7,6 +7,7 @@ import numpy as np
 import pytest
 
 from xpkg.io.readers import (
+    is_doric_photometry_file,
     is_neurophotometrics_csv,
     is_rwd_ofrs_session,
     is_tdt_block,
@@ -350,6 +351,30 @@ def test_read_rwd_ofrs_ambiguous_spacing_without_fps_raises(tmp_path) -> None:
     _write_rwd_fluorescence(tmp_path / "amb", metadata_line=None, timestamps=[0.0, 2.0, 4.0, 6.0])
     with pytest.raises(ValueError, match="ambiguous"):
         read_rwd_ofrs_session(tmp_path / "amb")
+
+
+def test_is_doric_photometry_file_detects_doric_hdf5_contract(tmp_path) -> None:
+    path = tmp_path / "recording.doric"
+    with h5py.File(path, "w") as handle:
+        handle.create_dataset("Signal470", data=np.asarray([1.0, 1.1, 1.2]))
+        handle.create_dataset("Time", data=np.asarray([0.0, 0.1, 0.2]))
+
+    wrong_suffix = tmp_path / "recording.h5"
+    with h5py.File(wrong_suffix, "w") as handle:
+        handle.create_dataset("Signal470", data=np.asarray([1.0, 1.1, 1.2]))
+
+    not_hdf5 = tmp_path / "not-hdf5.doric"
+    not_hdf5.write_text("not hdf5", encoding="utf-8")
+
+    only_matrix = tmp_path / "matrix-only.doric"
+    with h5py.File(only_matrix, "w") as handle:
+        handle.create_dataset("Signal470", data=np.asarray([[1.0, 1.1], [1.2, 1.3]]))
+
+    assert is_doric_photometry_file(path) is True
+    assert is_doric_photometry_file(wrong_suffix) is False
+    assert is_doric_photometry_file(not_hdf5) is False
+    assert is_doric_photometry_file(only_matrix) is False
+    assert is_doric_photometry_file(tmp_path / "missing.doric") is False
 
 
 def test_read_doric_photometry_uses_hdf5_datasets(tmp_path) -> None:
