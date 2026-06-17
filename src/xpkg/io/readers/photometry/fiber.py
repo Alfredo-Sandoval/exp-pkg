@@ -223,9 +223,7 @@ def read_pmat_events_csv(
     starts = _numeric(frame, resolved_onset) * scale
     if resolved_offset:
         offsets = (
-            pd.to_numeric(frame[resolved_offset], errors="raise")
-            .to_numpy(dtype=np.float64)
-            * scale
+            pd.to_numeric(frame[resolved_offset], errors="raise").to_numpy(dtype=np.float64) * scale
         )
     else:
         offsets = starts
@@ -262,9 +260,7 @@ def read_neurophotometrics_csv(
     if frame.empty:
         raise ValueError(f"Neurophotometrics CSV '{source_path}' is empty.")
     resolved_time = (
-        _column(frame, time_column)
-        if time_column
-        else _first_column(frame, _NPM_TIME_COLUMNS)
+        _column(frame, time_column) if time_column else _first_column(frame, _NPM_TIME_COLUMNS)
     )
     if resolved_time is None:
         raise ValueError(
@@ -318,19 +314,54 @@ def read_neurophotometrics_csv(
     )
 
 
+# Magnitude threshold (seconds) used only as a last resort when no declared
+# ``Fps`` metadata is available to anchor the RWD timestamp unit deterministically.
+_RWD_AMBIGUOUS_DELTA_SECONDS = 1.0
+
+
+def _rwd_unit_scale_from_fps(median_delta: float, declared_fps: float) -> float:
+    """Pick seconds vs milliseconds by closeness to the declared FPS spacing."""
+    expected_delta_s = 1.0 / declared_fps
+    seconds_residual = abs(float(np.log(median_delta * 1.0 / expected_delta_s)))
+    millis_residual = abs(float(np.log(median_delta * 0.001 / expected_delta_s)))
+    return 1.0 if seconds_residual <= millis_residual else 0.001
+
+
 def _rwd_timebase(
     values: np.ndarray,
     declared_fps: float | None,
 ) -> tuple[np.ndarray, float, float]:
-    if values.size > 1:
-        diffs = np.diff(values)
-        if np.any(diffs <= 0):
-            raise ValueError("RWD OFRS time column must be strictly increasing.")
-        scale = 0.001 if float(np.median(diffs)) >= 1.0 else 1.0
-        return values * scale, float(1.0 / np.median(np.diff(values * scale))), scale
+    if values.size == 0:
+        raise ValueError("RWD OFRS time column is empty.")
+    if not np.all(np.isfinite(values)):
+        raise ValueError("RWD OFRS time column contains non-finite values.")
+    if values.size <= 1:
+        if declared_fps is None:
+            raise ValueError(
+                "RWD OFRS time column has a single sample and no declared 'Fps' "
+                "metadata; cannot determine a sampling rate."
+            )
+        return values.astype(np.float64), float(declared_fps), 1.0
+    diffs = np.diff(values)
+    if np.any(diffs <= 0):
+        raise ValueError("RWD OFRS time column must be strictly increasing.")
+    median_delta = float(np.median(diffs))
     if declared_fps is not None:
-        return values, float(declared_fps), 1.0
-    return values, 1.0, 1.0
+        # Declared metadata is authoritative: it fixes both the unit and fs, so a
+        # slow (>= 1 s/sample) acquisition in seconds is never divided by 1000 by
+        # accident. The sampling rate is the declared Fps, not a re-estimate.
+        scale = _rwd_unit_scale_from_fps(median_delta, declared_fps)
+        return values * scale, float(declared_fps), scale
+    # No declared Fps: only the magnitude heuristic remains. An ambiguous (>= 1 s)
+    # spacing could be slow-seconds or fast-milliseconds; refuse to silently guess.
+    if median_delta >= _RWD_AMBIGUOUS_DELTA_SECONDS:
+        raise ValueError(
+            "RWD OFRS Fluorescence.csv has no declared 'Fps' metadata and the "
+            f"median timestamp spacing ({median_delta:g}) is ambiguous between "
+            "seconds and milliseconds. Provide 'Fps' metadata to anchor the timebase."
+        )
+    time_s = values * 0.001
+    return time_s, float(1.0 / np.median(np.diff(time_s))), 0.001
 
 
 def _rwd_metadata_line(path: Path) -> tuple[str | None, dict[str, Any] | None]:
@@ -421,6 +452,7 @@ def read_rwd_ofrs_session(path: str | Path) -> RecordingSession:
         reference_channel=reference_column,
         metadata={
             "sampling_rate_hz": sample_rate,
+            "time_scale": time_scale,
             "metadata_line": metadata_line,
             "metadata": parsed_metadata,
         },
@@ -654,23 +686,48 @@ def _tdt_module(module: Any | None) -> Any:
 
 def _iter_tdt_streams(streams_obj: Any) -> Iterable[tuple[str, Any]]:
     for name, obj in getattr(streams_obj, "__dict__", {}).items():
-        if not name.startswith("_") and hasattr(obj, "data") and hasattr(obj, "fs"):
+        if hasattr(obj, "data") and hasattr(obj, "fs"):
             yield name, obj
 
 
+_TDT_SIGNAL_TOKENS = (
+    "465",
+    "470",
+    "gcamp",
+    "dlight",
+    "grab",
+    "signal",
+    "response",
+    "fluorescence",
+)
+_TDT_REFERENCE_TOKENS = (
+    "405",
+    "410",
+    "415",
+    "iso",
+    "isos",
+    "isosbestic",
+    "control",
+    "reference",
+)
+_TDT_BROAD_PHOTOMETRY_TOKENS = ("pho", "fiber", "fi")
+
+
+def _tdt_stream_rank(name: str, order: int) -> tuple[int, int, str]:
+    lowered = name.lower().lstrip("_")
+    if any(token in lowered for token in _TDT_SIGNAL_TOKENS):
+        return (0, order, name)
+    if any(token in lowered for token in _TDT_REFERENCE_TOKENS):
+        return (1, order, name)
+    if any(token in lowered for token in _TDT_BROAD_PHOTOMETRY_TOKENS):
+        return (2, order, name)
+    return (3, order, name)
+
+
 def _rank_tdt_streams(names: Sequence[str]) -> list[str]:
-    priority = ("fi", "pho", "gcamp", "465", "470", "405", "410", "415", "iso")
-    scored = []
-    for name in names:
-        lowered = name.lower()
-        score = sum(
-            len(priority) - index
-            for index, token in enumerate(priority)
-            if token in lowered
-        )
-        scored.append((score, name))
-    scored.sort(reverse=True)
-    return [name for _score, name in scored]
+    scored = [_tdt_stream_rank(name, order) for order, name in enumerate(names)]
+    scored.sort()
+    return [name for _category, _order, name in scored]
 
 
 def _one_dimensional(values: object) -> np.ndarray:
@@ -685,7 +742,9 @@ def _one_dimensional(values: object) -> np.ndarray:
 def _tdt_epoc_times(epocs_obj: Any, event_stores: Sequence[str] | None) -> dict[str, np.ndarray]:
     events: dict[str, np.ndarray] = {}
     names = event_stores or tuple(
-        name for name in getattr(epocs_obj, "__dict__", {}) if not name.startswith("_")
+        name
+        for name, obj in getattr(epocs_obj, "__dict__", {}).items()
+        if hasattr(obj, "onset") or hasattr(obj, "data")
     )
     for name in names:
         obj = getattr(epocs_obj, name, None)

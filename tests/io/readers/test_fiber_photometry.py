@@ -97,6 +97,46 @@ def test_read_rwd_ofrs_session_parses_multicolor_bundle_and_events(tmp_path) -> 
     np.testing.assert_allclose([event.start_s for event in session.events], [0.033333, 0.066666])
 
 
+def _write_rwd_fluorescence(
+    session_dir, *, metadata_line: str | None, timestamps: list[float]
+) -> None:
+    session_dir.mkdir()
+    rows = ["TimeStamp,Events,CH1-410,CH1-470,"]
+    for index, stamp in enumerate(timestamps):
+        rows.append(f"{stamp:.6f},,{1.0 + 0.1 * index},{2.0 + 0.1 * index},")
+    lines = ([metadata_line] if metadata_line is not None else []) + rows
+    (session_dir / "Fluorescence.csv").write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def test_read_rwd_ofrs_slow_seconds_anchors_to_declared_fps(tmp_path) -> None:
+    # 0.5 Hz acquisition in seconds (2 s/sample) must stay in seconds, not be
+    # divided by 1000 because the spacing is >= 1.
+    _write_rwd_fluorescence(
+        tmp_path / "slow",
+        metadata_line='{"Fps":0.5;"Channels":[{"Name":"CH1"}]}',
+        timestamps=[0.0, 2.0, 4.0, 6.0],
+    )
+    session = read_rwd_ofrs_session(tmp_path / "slow")
+    photometry = session.signals["photometry"]
+    assert photometry.metadata["sampling_rate_hz"] == pytest.approx(0.5)
+    assert photometry.metadata["time_scale"] == pytest.approx(1.0)
+    np.testing.assert_allclose(photometry.timeline.timestamps_s, [0.0, 2.0, 4.0, 6.0])
+
+
+def test_read_rwd_ofrs_subsecond_without_fps_infers_milliseconds(tmp_path) -> None:
+    _write_rwd_fluorescence(tmp_path / "sub", metadata_line=None, timestamps=[0.0, 0.4, 0.8, 1.2])
+    session = read_rwd_ofrs_session(tmp_path / "sub")
+    photometry = session.signals["photometry"]
+    assert photometry.metadata["time_scale"] == pytest.approx(0.001)
+    assert photometry.metadata["sampling_rate_hz"] == pytest.approx(2500.0, rel=1e-6)
+
+
+def test_read_rwd_ofrs_ambiguous_spacing_without_fps_raises(tmp_path) -> None:
+    _write_rwd_fluorescence(tmp_path / "amb", metadata_line=None, timestamps=[0.0, 2.0, 4.0, 6.0])
+    with pytest.raises(ValueError, match="ambiguous"):
+        read_rwd_ofrs_session(tmp_path / "amb")
+
+
 def test_read_doric_photometry_uses_hdf5_datasets(tmp_path) -> None:
     path = tmp_path / "recording.doric"
     with h5py.File(path, "w") as handle:
@@ -156,3 +196,27 @@ def test_read_tdt_photometry_block_uses_optional_module() -> None:
     assert photometry.signal_channel == "x465A"
     assert photometry.reference_channel == "x405A"
     assert session.events.events[0].label == "Cue"
+
+
+def test_read_tdt_photometry_block_prefers_official_wavelength_stores() -> None:
+    streams = SimpleNamespace(
+        _405A=SimpleNamespace(data=np.asarray([0.5, 0.4, 0.3]), fs=100.0),
+        _465A=SimpleNamespace(data=np.asarray([1.0, 1.1, 1.2]), fs=100.0),
+        Fi1r=SimpleNamespace(data=np.arange(18, dtype=float), fs=600.0),
+    )
+    epocs = SimpleNamespace(Cam1=SimpleNamespace(onset=np.asarray([0.1, 0.2])))
+    fake_tdt = SimpleNamespace(
+        read_block=lambda *_args, **_kwargs: SimpleNamespace(streams=streams, epocs=epocs)
+    )
+
+    session = read_tdt_photometry_block("tank/block", tdt_module=fake_tdt)
+    photometry = session.signals["photometry"]
+
+    assert isinstance(photometry, PhotometryRecording)
+    assert photometry.signal_channel == "_465A"
+    assert photometry.reference_channel == "_405A"
+    assert photometry.metadata["stores"] == ["_465A", "_405A", "Fi1r"]
+    assert photometry.series.sample_rate_hz == pytest.approx(100.0)
+    np.testing.assert_allclose(photometry.series.values[:, 0], [1.0, 1.1, 1.2])
+    np.testing.assert_allclose(photometry.series.values[:, 1], [0.5, 0.4, 0.3])
+    assert [event.label for event in session.events] == ["Cam1", "Cam1"]
