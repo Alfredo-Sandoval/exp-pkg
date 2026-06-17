@@ -554,8 +554,12 @@ def test_read_tdt_photometry_block_uses_optional_module() -> None:
     assert isinstance(photometry, PhotometryRecording)
     assert photometry.signal_channel == "x465A"
     assert photometry.reference_channel == "x405A"
+    assert photometry.metadata["sampling_rate_hz"] == pytest.approx(100.0)
+    assert photometry.metadata["sampling_rate_source"] == "streams.x465A.fs"
     assert photometry.metadata["channel_inference"] == "explicit_store"
     assert photometry.metadata["reference_channel_inference"] == "explicit_store"
+    assert session.metadata["sampling_rate_hz"] == pytest.approx(100.0)
+    assert session.metadata["sampling_rate_source"] == "streams.x465A.fs"
     assert session.events.events[0].label == "Cue"
 
 
@@ -584,6 +588,10 @@ def test_read_tdt_photometry_block_prefers_official_wavelength_stores() -> None:
     assert photometry.metadata["channel_inference"] == "wavelength_tokens"
     assert photometry.metadata["reference_channel_inference"] == "wavelength_tokens"
     assert photometry.metadata["stream_start_s"] == pytest.approx(0.05)
+    assert photometry.metadata["sampling_rate_hz"] == pytest.approx(100.0)
+    assert photometry.metadata["sampling_rate_source"] == "streams._465A.fs"
+    assert session.metadata["sampling_rate_hz"] == pytest.approx(100.0)
+    assert session.metadata["sampling_rate_source"] == "streams._465A.fs"
     assert photometry.series.sample_rate_hz == pytest.approx(100.0)
     np.testing.assert_allclose(photometry.series.values[:, 0], [1.0, 1.1, 1.2])
     np.testing.assert_allclose(photometry.series.values[:, 1], [0.5, 0.4, 0.3])

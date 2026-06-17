@@ -1158,6 +1158,7 @@ def read_tdt_photometry_block(
     sample_rate = float(getattr(signal, "fs", 0.0) or 0.0)
     if not np.isfinite(sample_rate) or sample_rate <= 0:
         raise ValueError(f"TDT stream {resolved_signal!r} is missing a positive sampling rate.")
+    sample_rate_source = f"streams.{resolved_signal}.fs"
     reference_explicit = reference_store is not None
     resolved_reference = reference_store
     if resolved_reference is None:
@@ -1185,6 +1186,8 @@ def read_tdt_photometry_block(
         metadata={
             "stores": ranked,
             "stream_start_s": stream_start_s,
+            "sampling_rate_hz": sample_rate,
+            "sampling_rate_source": sample_rate_source,
             "channel_inference": _tdt_channel_inference(
                 resolved_signal,
                 explicit=signal_explicit,
@@ -1208,7 +1211,11 @@ def read_tdt_photometry_block(
         session_id=block_path.name,
         signals={"photometry": photometry},
         events=_events_from_map(event_map, source_type="tdt_block", source_path=block_path),
-        metadata={"source": {"type": "tdt_block", "path": str(block_path)}},
+        metadata={
+            "source": {"type": "tdt_block", "path": str(block_path)},
+            "sampling_rate_hz": sample_rate,
+            "sampling_rate_source": sample_rate_source,
+        },
     )
 
 
