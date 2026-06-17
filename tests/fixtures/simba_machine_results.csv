@@ -1,0 +1,4 @@
+,Ear_left_1_x,Ear_left_1_y,Ear_left_1_p,Probability_Attack,Probability_Sniffing,Attack,Sniffing
+0,10.0,20.0,0.9,0.95,0.10,1,0
+1,11.0,21.0,0.8,0.20,0.88,0,1
+2,12.0,22.0,0.7,0.05,0.04,0,0

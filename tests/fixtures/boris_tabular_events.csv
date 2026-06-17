@@ -1,0 +1,12 @@
+Observation id,obs#1,,,,,,,
+,,,,,,,,
+Media file(s),,,,,,,,
+,,,,,,,,
+Player #1,trial.mp4,,,,,,,
+,,,,,,,,
+Time,Media file path,Total length,FPS,Subject,Behavior,Behavioral category,Comment,Status
+1.250,trial.mp4,60.0,25.0,subject1,rear,posture,,START
+2.750,trial.mp4,60.0,25.0,subject1,rear,posture,,STOP
+4.000,trial.mp4,60.0,25.0,subject1,groom,maintenance,,START
+5.000,trial.mp4,60.0,25.0,subject1,groom,maintenance,,STOP
+6.500,trial.mp4,60.0,25.0,subject1,blink,,,POINT

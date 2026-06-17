@@ -100,7 +100,7 @@ class _SerializedLandmark:
     x: float
     y: float
     z: float
-    visibility: float
+    visibility: float | None
     presence: float | None
 
 
@@ -153,21 +153,30 @@ def _require_finite_float(value: Any, *, field_name: str, path: Path) -> float:
     return parsed
 
 
+def _optional_finite_float(value: Any, *, field_name: str, path: Path) -> float | None:
+    if value is None:
+        return None
+    return _require_finite_float(value, field_name=field_name, path=path)
+
+
 def _parse_landmark(value: Any, *, path: Path, index: int) -> _SerializedLandmark:
     payload = _require_mapping(
         value,
         field_name=f"frames[].pose_landmarks[{index}]",
         path=path,
     )
-    presence_raw = payload.get("presence")
-    presence = (
-        None
-        if presence_raw is None
-        else _require_finite_float(
-            presence_raw,
-            field_name=f"frames[].pose_landmarks[{index}].presence",
-            path=path,
-        )
+    # MediaPipe's NormalizedLandmark.visibility and .presence are both
+    # Optional[float] = None in the real dataclass and "stay unset if not
+    # supported", so a faithful dump may omit either. Parse both as optional.
+    presence = _optional_finite_float(
+        payload.get("presence"),
+        field_name=f"frames[].pose_landmarks[{index}].presence",
+        path=path,
+    )
+    visibility = _optional_finite_float(
+        payload.get("visibility"),
+        field_name=f"frames[].pose_landmarks[{index}].visibility",
+        path=path,
     )
     return _SerializedLandmark(
         x=_require_finite_float(
@@ -185,11 +194,7 @@ def _parse_landmark(value: Any, *, path: Path, index: int) -> _SerializedLandmar
             field_name="frames[].pose_landmarks[].z",
             path=path,
         ),
-        visibility=_require_finite_float(
-            payload.get("visibility"),
-            field_name="frames[].pose_landmarks[].visibility",
-            path=path,
-        ),
+        visibility=visibility,
         presence=presence,
     )
 
@@ -260,9 +265,12 @@ def _load_export(path: Path) -> _MediaPipePoseExport:
 
 
 def _landmark_score(landmark: _SerializedLandmark) -> float:
-    if landmark.presence is None:
-        return landmark.visibility
-    return min(landmark.visibility, landmark.presence)
+    candidates = [value for value in (landmark.visibility, landmark.presence) if value is not None]
+    if not candidates:
+        # No confidence supplied for this landmark; record an unknown score
+        # (NaN is permitted in pose scores) rather than inventing 1.0.
+        return float("nan")
+    return min(candidates)
 
 
 def read_image_size(path: Path) -> tuple[int, int]:

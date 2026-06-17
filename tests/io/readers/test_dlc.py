@@ -214,3 +214,59 @@ def test_generic_pose_reader_rejects_unsupported_software_file_type_combo(tmp_pa
 
     with pytest.raises(ValueError, match="Unsupported Lightning Pose file_type"):
         read_pose_track(path, software="LightningPose", file_type="h5")
+
+
+# --- Real-format contract tests (byte-faithful to DeepLabCut's writer) -------
+
+
+def _write_real_dlc_single_animal(csv_path: Path, h5_path: Path) -> None:
+    # Mirror DeepLabCut's create_df_from_prediction / save_data writers exactly:
+    # a DLC_resnet50_* scorer, a (scorer, bodyparts, coords=x/y/likelihood)
+    # MultiIndex, a nameless integer index, empty-cell occlusions, and the real
+    # HDF key "df_with_missing" stored as a PyTables table.
+    scorer = "DLC_resnet50_DemoMay1shuffle1_50000"
+    columns = pd.MultiIndex.from_product(
+        [[scorer], ["snout", "tailbase"], ["x", "y", "likelihood"]],
+        names=["scorer", "bodyparts", "coords"],
+    )
+    data = np.array(
+        [
+            [10.0, 20.0, 0.99, 30.0, 40.0, 0.95],
+            [11.0, 21.0, 0.98, np.nan, 41.0, np.nan],  # tailbase occluded on frame 1
+        ],
+        dtype=np.float64,
+    )
+    frame = pd.DataFrame(data, columns=columns, index=range(2))  # nameless index
+    frame.to_csv(csv_path)
+    frame.to_hdf(h5_path, key="df_with_missing", format="table", mode="w")
+
+
+def test_read_track_reads_real_dlc_single_animal_csv_and_h5(tmp_path: Path) -> None:
+    csv_path = tmp_path / "vidDLC_resnet50_DemoMay1shuffle1_50000.csv"
+    h5_path = tmp_path / "vidDLC_resnet50_DemoMay1shuffle1_50000.h5"
+    _write_real_dlc_single_animal(csv_path, h5_path)
+
+    for path, file_type in ((csv_path, "csv"), (h5_path, "h5")):
+        track = read_pose_track(path, software="DLC", file_type=file_type)
+        assert track.node_names == ("snout", "tailbase")
+        assert track.coords.shape == (2, 2, 2)
+        np.testing.assert_allclose(track.coords[0], [[10.0, 20.0], [30.0, 40.0]])
+        # Empty CSV cell / NaN HDF value -> NaN coordinate (occluded keypoint).
+        assert np.isnan(track.coords[1, 1, 0])
+
+
+def test_read_track_rejects_real_multi_animal_dlc_csv(tmp_path: Path) -> None:
+    # maDLC inserts an "individuals" header row (4 header rows). The single-animal
+    # reader must fail loud rather than silently mis-parse it.
+    scorer = "DLC_resnet50_DemoMay1shuffle1_50000"
+    columns = pd.MultiIndex.from_product(
+        [[scorer], ["mouse1", "mouse2"], ["snout", "tailbase"], ["x", "y", "likelihood"]],
+        names=["scorer", "individuals", "bodyparts", "coords"],
+    )
+    data = np.arange(2 * 12, dtype=np.float64).reshape(2, 12)
+    frame = pd.DataFrame(data, columns=columns, index=range(2))
+    csv_path = tmp_path / "maDLC.csv"
+    frame.to_csv(csv_path)
+
+    with pytest.raises(ValueError):
+        read_pose_track(csv_path, software="DLC", file_type="csv")

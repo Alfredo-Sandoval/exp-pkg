@@ -85,3 +85,35 @@ def test_generic_pose_reader_dispatches_to_mediapipe(tmp_path: Path) -> None:
         file_type="json",
         target_names=["right_ankle", "nose"],
     ) == [28, 0]
+
+
+# --- Real-format contract tests ---------------------------------------------
+# MediaPipe's NormalizedLandmark.visibility and .presence are Optional[float]
+# and may be omitted from a faithful dump, so the reader must not require them.
+
+
+def test_read_track_accepts_landmark_without_visibility(tmp_path: Path) -> None:
+    landmarks = pose_landmarks(visibility=0.9, presence=0.8)
+    del landmarks[0]["visibility"]  # real field is optional / may be unset
+    json_path = tmp_path / "no_visibility.json"
+    write_mediapipe_pose_landmarks_json(
+        json_path, frames=[{"frame_index": 0, "pose_landmarks": landmarks}]
+    )
+
+    track = read_track(json_path, track_index=0)
+
+    # With visibility absent, the score falls back to presence alone.
+    np.testing.assert_allclose(track.scores[0, 0], 0.8)
+
+
+def test_read_track_landmark_without_any_confidence_scores_nan(tmp_path: Path) -> None:
+    landmarks = pose_landmarks(visibility=0.9, presence=None)
+    del landmarks[0]["visibility"]  # neither visibility nor presence present
+    json_path = tmp_path / "no_confidence.json"
+    write_mediapipe_pose_landmarks_json(
+        json_path, frames=[{"frame_index": 0, "pose_landmarks": landmarks}]
+    )
+
+    track = read_track(json_path, track_index=0)
+
+    assert np.isnan(track.scores[0, 0])

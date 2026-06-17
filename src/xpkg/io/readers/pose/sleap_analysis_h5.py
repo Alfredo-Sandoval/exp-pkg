@@ -21,6 +21,7 @@ def _decode_node_name(name: Any) -> str:
         return name.decode("utf-8")
     return str(name)
 
+
 def read_node_names(path: Path) -> list[str]:
     """Return decoded node names from a SLEAP analysis H5."""
     with h5py.File(path, "r") as handle:
@@ -36,14 +37,25 @@ def read_track_count(path: Path) -> int:
 
 
 def read_track_names(path: Path) -> list[str]:
-    """Return decoded track names from a SLEAP analysis H5 when available."""
+    """Return decoded track names, reconciled to match ``read_track_count``.
+
+    SLEAP writes an empty ``track_names`` array (an empty ``float64`` dataset,
+    not bytes) for exports whose instances were never assigned named tracks,
+    while ``tracks`` still carries a placeholder instance. The stored names are
+    therefore shorter than the track count; synthesize ``track-{i}`` names for
+    the unnamed tail so callers that zip names against tracks (e.g. the SLEAP
+    project importer) stay aligned. Only decode ``track_names`` when it is a
+    non-empty dataset, since the empty placeholder is a float array, not bytes.
+    """
     with h5py.File(path, "r") as handle:
-        track_names_ds = handle.get("track_names")
-        if isinstance(track_names_ds, h5py.Dataset):
-            names = np.asarray(track_names_ds[...])
-            return [_decode_node_name(name) for name in names]
         track_count = int(handle["tracks"].shape[0])
-    return [f"track-{track_idx}" for track_idx in range(track_count)]
+        track_names_ds = handle.get("track_names")
+        names: list[str] = []
+        if isinstance(track_names_ds, h5py.Dataset) and track_names_ds.shape[0] > 0:
+            names = [_decode_node_name(name) for name in np.asarray(track_names_ds[...])]
+    if len(names) < track_count:
+        names = [names[idx] if idx < len(names) else f"track-{idx}" for idx in range(track_count)]
+    return names
 
 
 def read_track(path: Path, *, track_index: int) -> PoseTrack:
@@ -67,8 +79,7 @@ def read_track(path: Path, *, track_index: int) -> PoseTrack:
             )
         if point_scores.shape[0] <= idx:
             raise IndexError(
-                "track_index="
-                f"{idx} out of range for point_scores with shape {point_scores.shape}."
+                f"track_index={idx} out of range for point_scores with shape {point_scores.shape}."
             )
         if instance_scores.shape[0] <= idx:
             raise IndexError(
@@ -84,8 +95,7 @@ def read_track(path: Path, *, track_index: int) -> PoseTrack:
 
     if coords_raw.shape[0] != 2:
         raise ValueError(
-            "Expected tracks[idx] first dim=2 (x,y), "
-            f"got shape {coords_raw.shape} for {path}."
+            f"Expected tracks[idx] first dim=2 (x,y), got shape {coords_raw.shape} for {path}."
         )
     coords = np.stack([coords_raw[0].T, coords_raw[1].T], axis=-1)  # (frames, nodes, 2)
     scores = scores_raw.T  # (frames, nodes)

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import h5py
 import numpy as np
 import pytest
 
@@ -83,3 +84,22 @@ def test_read_track_preserves_nan_coordinates(tmp_path: Path) -> None:
     track = read_track(path, track_index=1)
 
     assert np.isnan(track.coords[5, 2, 0])
+
+
+def test_read_track_names_reconciles_zero_track_export(tmp_path: Path) -> None:
+    # SLEAP writes an empty float64 ``track_names`` array (not bytes) for exports
+    # whose instances were never assigned named tracks, while ``tracks`` still
+    # carries a placeholder instance. The reader must synthesize a name so the
+    # returned list matches ``read_track_count`` (else the project importer,
+    # which zips names against tracks, misaligns).
+    path = tmp_path / "zero_track.analysis.h5"
+    with h5py.File(path, "w") as handle:
+        handle.create_dataset("tracks", data=np.zeros((1, 2, 3, 4), dtype=np.float64))
+        handle.create_dataset("point_scores", data=np.zeros((1, 3, 4), dtype=np.float64))
+        handle.create_dataset("instance_scores", data=np.zeros((1, 4), dtype=np.float64))
+        handle.create_dataset("node_names", data=np.asarray([b"a", b"b", b"c"], dtype="S"))
+        # The real zero-track placeholder: an empty float64 array, not bytes.
+        handle.create_dataset("track_names", data=np.asarray([], dtype=np.float64))
+
+    assert read_track_count(path) == 1
+    assert read_track_names(path) == ["track-0"]

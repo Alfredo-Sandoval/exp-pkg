@@ -74,6 +74,11 @@ _SCORE_CANDIDATES = ("score", "probability", "prob", "likelihood", "confidence_s
 _CONFIDENCE_CANDIDATES = ("confidence", "confidence_label", "quality")
 _SOURCE_ID_CANDIDATES = ("id", "event_id", "behaviorEventId", "source_id", "uuid")
 _BSOID_LABEL_CANDIDATES = (
+    # B-SOiD writes the label column literally as "B-SOiD labels" in every
+    # standard export (per-frame, SVM-classifier, and run-length tables); it
+    # must come first so real exports resolve before the generic fallbacks.
+    "B-SOiD labels",
+    "B-SOiD label",
     "behavior",
     "label",
     "labels",
@@ -84,11 +89,28 @@ _BSOID_LABEL_CANDIDATES = (
     "bsoid_label",
     "bsoid_class",
 )
+# B-SOiD run-length / bout tables express bout onsets in frames, not seconds.
+_BSOID_START_FRAME_CANDIDATES = ("Start time (frames)", "start time (frames)")
+_BSOID_RUN_LENGTH_CANDIDATES = ("Run lengths", "run lengths", "Run length")
 _BORIS_LABEL_CANDIDATES = ("Behavior", "behavior")
 _BORIS_START_TIME_CANDIDATES = ("Start (seconds)", "Start (s)", "start")
 _BORIS_END_TIME_CANDIDATES = ("Stop (seconds)", "Stop (s)", "stop")
 _BORIS_DURATION_CANDIDATES = ("Duration (seconds)", "Duration (s)", "duration")
-_BORIS_MEDIA_CANDIDATES = ("Media file name", "media_file_name")
+# Modern BORIS aggregated exports use "Media file name"; legacy/v7 exports and
+# the aggregated golden fixtures use the singular "Media file"; the tabular
+# export uses "Media file path".
+_BORIS_MEDIA_CANDIDATES = (
+    "Media file name",
+    "Media file",
+    "Media file path",
+    "media_file_name",
+)
+# BORIS tabular exports encode events as START/STOP/POINT rows in a Status
+# column with a single Time column, rather than Start/Stop pairs. The Time,
+# Status and Behavior columns are resolved by their exact (case-insensitive)
+# names; Subject and Behavioral category are optional.
+_BORIS_SUBJECT_CANDIDATES = ("Subject", "subject")
+_BORIS_CATEGORY_CANDIDATES = ("Behavioral category", "behavioral category")
 _BORIS_SOURCE_ID_CANDIDATES = ("Observation id", "observation")
 _SIMBA_FRAME_CANDIDATES = (
     "frame",
@@ -251,26 +273,43 @@ def read_boris_csv(
     media_path: str | Path | None = None,
     max_mb: float | None = None,
 ) -> BehaviorLabels:
-    """Read BORIS tabular event CSV exports as behavior intervals."""
+    """Read BORIS event CSV exports as behavior intervals.
+
+    BORIS produces two incompatible event layouts. The default *tabular* export
+    ("Export events > Tabular events") writes a metadata preamble above the data
+    header and encodes each event as a START/STOP/POINT row in a ``Status``
+    column with a single ``Time`` column; START and STOP rows for the same
+    subject+behavior are paired into intervals, and POINT rows become
+    instantaneous events. The *aggregated* export writes one row per interval
+    with ``Start (s)``/``Stop (s)`` columns and no preamble. Both are supported.
+    """
 
     source_path = Path(path)
-    frame, size_bytes = _read_csv(source_path, max_mb=max_mb)
+    size_bytes = _csv_size_bytes(source_path, max_mb=max_mb)
+    tabular_header = _detect_boris_tabular_header(source_path)
+    if tabular_header is not None:
+        frame = pd.read_csv(source_path, skiprows=tabular_header)
+        export_format = "tabular_events_csv"
+        intervals = _boris_tabular_intervals(frame)
+    else:
+        frame = pd.read_csv(source_path)
+        export_format = "aggregated_events_csv"
+        columns = _BehaviorColumns.resolve(
+            frame,
+            label_column=first_matching_column(frame, _BORIS_LABEL_CANDIDATES),
+            start_column=first_matching_column(frame, _BORIS_START_TIME_CANDIDATES),
+            end_column=first_matching_column(frame, _BORIS_END_TIME_CANDIDATES),
+            duration_column=first_matching_column(frame, _BORIS_DURATION_CANDIDATES),
+            frame_column=None,
+            start_frame_column=None,
+            end_frame_column=None,
+            score_column=None,
+            confidence_column=None,
+            source_id_column=first_matching_column(frame, _BORIS_SOURCE_ID_CANDIDATES),
+        )
+        intervals = _csv_intervals(frame, columns, scale=1.0)
     if frame.empty:
         raise ValueError(f"BORIS CSV '{source_path}' is empty.")
-    columns = _BehaviorColumns.resolve(
-        frame,
-        label_column=first_matching_column(frame, _BORIS_LABEL_CANDIDATES),
-        start_column=first_matching_column(frame, _BORIS_START_TIME_CANDIDATES),
-        end_column=first_matching_column(frame, _BORIS_END_TIME_CANDIDATES),
-        duration_column=first_matching_column(frame, _BORIS_DURATION_CANDIDATES),
-        frame_column=None,
-        start_frame_column=None,
-        end_frame_column=None,
-        score_column=None,
-        confidence_column=None,
-        source_id_column=first_matching_column(frame, _BORIS_SOURCE_ID_CANDIDATES),
-    )
-    intervals = _csv_intervals(frame, columns, scale=1.0)
     if not intervals:
         raise ValueError("BORIS CSV must include interval start columns.")
     return BehaviorLabels(
@@ -282,10 +321,94 @@ def read_boris_csv(
                 "type": "boris",
                 "path": str(source_path),
                 "size_bytes": size_bytes,
-                "format": "tabular_events_csv",
+                "format": export_format,
             }
         },
     )
+
+
+def _detect_boris_tabular_header(path: Path) -> int | None:
+    """Return the 0-based header-row index of a BORIS *tabular* export.
+
+    The tabular export precedes its data header with a variable metadata
+    preamble; the header row is the first line carrying both a ``Behavior`` and
+    a ``Status`` field. Aggregated exports (header on row 0, with Start/Stop
+    columns and no ``Status``) return ``None`` so the caller parses them as a
+    plain one-row-per-interval table.
+    """
+    with path.open("r", encoding="utf-8-sig", newline="") as handle:
+        for index, line in enumerate(handle):
+            if index > 500:
+                break
+            cells = {cell.strip().strip('"').lower() for cell in line.rstrip("\r\n").split(",")}
+            if "behavior" in cells and "status" in cells:
+                return index
+    return None
+
+
+def _boris_tabular_intervals(frame: pd.DataFrame) -> tuple[BehaviorInterval, ...]:
+    """Pair BORIS tabular START/STOP rows into intervals; POINT rows stay points.
+
+    STATE behaviors emit a START row then a STOP row for the same
+    subject+behavior; they are paired in arrival order (a state is either on or
+    off, so at most one is open at a time). POINT behaviors emit a single row
+    that becomes a zero-duration interval.
+    """
+    time_column = column_by_name(frame, "Time")
+    status_column = column_by_name(frame, "Status")
+    behavior_column = column_by_name(frame, "Behavior")
+    subject_column = first_matching_column(frame, _BORIS_SUBJECT_CANDIDATES)
+    category_column = first_matching_column(frame, _BORIS_CATEGORY_CANDIDATES)
+
+    open_starts: dict[tuple[str, str], list[tuple[float, dict[str, Any]]]] = {}
+    intervals: list[BehaviorInterval] = []
+    for index in range(len(frame)):
+        status = _optional_text_from_frame(frame, status_column, index)
+        behavior = _optional_text_from_frame(frame, behavior_column, index)
+        time_s = _optional_float_from_frame(frame, time_column, index)
+        if status is None or behavior is None or time_s is None:
+            continue
+        subject = _optional_text_from_frame(frame, subject_column, index)
+        category = _optional_text_from_frame(frame, category_column, index)
+        metadata: dict[str, Any] = {"source_format": "tabular_events_csv"}
+        if subject is not None:
+            metadata["subject"] = subject
+        if category is not None:
+            metadata["behavioral_category"] = category
+        key = (subject or "", behavior)
+
+        normalized = status.strip().upper()
+        if normalized == "POINT":
+            metadata["behavior_type"] = "POINT"
+            intervals.append(
+                BehaviorInterval(
+                    label=behavior,
+                    start_s=time_s,
+                    end_s=time_s,
+                    source_id=subject,
+                    metadata=metadata,
+                )
+            )
+        elif normalized == "START":
+            metadata["behavior_type"] = "STATE"
+            open_starts.setdefault(key, []).append((time_s, metadata))
+        elif normalized == "STOP":
+            pending = open_starts.get(key)
+            if not pending:
+                # STOP without a matching START — skip rather than fabricate.
+                continue
+            start_s, start_metadata = pending.pop(0)
+            intervals.append(
+                BehaviorInterval(
+                    label=behavior,
+                    start_s=start_s,
+                    end_s=time_s,
+                    source_id=subject,
+                    metadata=start_metadata,
+                )
+            )
+    intervals.sort(key=lambda interval: (interval.start_s or 0.0, interval.label))
+    return tuple(intervals)
 
 
 def read_bsoid_csv(
@@ -313,33 +436,146 @@ def read_bsoid_csv(
     """
 
     source_path = Path(path)
-    frame, _size_bytes = _read_csv(source_path, max_mb=max_mb)
+    frame, size_bytes = _read_csv(source_path, max_mb=max_mb)
     if frame.empty:
         raise ValueError(f"B-SOiD CSV '{source_path}' is empty.")
     resolved_label_column = label_column or first_matching_column(frame, _BSOID_LABEL_CANDIDATES)
-    labels = read_behavior_events_csv(
-        source_path,
-        source_type="bsoid",
-        media_path=media_path,
-        label_column=resolved_label_column,
-        start_column=start_column,
-        end_column=end_column,
-        duration_column=duration_column,
-        frame_column=frame_column,
-        start_frame_column=start_frame_column,
-        end_frame_column=end_frame_column,
-        score_column=score_column,
-        confidence_column=confidence_column,
-        source_id_column=source_id_column,
-        time_unit=time_unit,
-        max_mb=max_mb,
+    if resolved_label_column is None:
+        raise ValueError(
+            "B-SOiD CSV must include a label column (B-SOiD writes 'B-SOiD labels'). "
+            "The multi-row SVM-classifier header variant is not yet supported; "
+            "pass label_column= explicitly for nonstandard exports."
+        )
+
+    # B-SOiD's run-length bout table has its own frame columns: "Start time
+    # (frames)" + "Run lengths". Detect them only by those literal names.
+    runlen_start_col = first_matching_column(frame, _BSOID_START_FRAME_CANDIDATES)
+    run_length_col = first_matching_column(frame, _BSOID_RUN_LENGTH_CANDIDATES)
+    if runlen_start_col is not None and run_length_col is not None:
+        intervals = _bsoid_runlen_intervals(
+            frame, resolved_label_column, runlen_start_col, run_length_col
+        )
+        if not intervals:
+            raise ValueError("B-SOiD run-length CSV contained no bouts.")
+        return BehaviorLabels(
+            source_type="bsoid",
+            intervals=intervals,
+            media_path=None if media_path is None else Path(media_path).as_posix(),
+            metadata=_bsoid_metadata(
+                source_path, size_bytes, "bsoid_runlen_csv", resolved_label_column
+            ),
+        )
+
+    # Any explicit time/frame column (generic bout or framewise tables) defers
+    # to the flexible parser, which resolves start/end/frame columns itself.
+    has_explicit_columns = (
+        start_column is not None
+        or frame_column is not None
+        or start_frame_column is not None
+        or end_frame_column is not None
+        or first_matching_column(frame, _START_TIME_CANDIDATES) is not None
+        or first_matching_column(frame, _FRAME_CANDIDATES) is not None
+        or first_matching_column(frame, _START_FRAME_CANDIDATES) is not None
     )
-    metadata = dict(labels.metadata)
-    source = dict(metadata["source"])
-    source["format"] = "bsoid_csv"
-    source["label_column"] = resolved_label_column
-    metadata["source"] = source
-    return replace(labels, metadata=metadata)
+    if has_explicit_columns:
+        labels = read_behavior_events_csv(
+            source_path,
+            source_type="bsoid",
+            media_path=media_path,
+            label_column=resolved_label_column,
+            start_column=start_column,
+            end_column=end_column,
+            duration_column=duration_column,
+            frame_column=frame_column,
+            start_frame_column=start_frame_column,
+            end_frame_column=end_frame_column,
+            score_column=score_column,
+            confidence_column=confidence_column,
+            source_id_column=source_id_column,
+            time_unit=time_unit,
+            max_mb=max_mb,
+        )
+        metadata = dict(labels.metadata)
+        source = dict(metadata["source"])
+        source["format"] = "bsoid_csv"
+        source["label_column"] = resolved_label_column
+        metadata["source"] = source
+        return replace(labels, metadata=metadata)
+
+    # Per-frame label export: one cluster label per frame, indexed by row order
+    # (B-SOiD's leading index column is the frame number written via index=True).
+    frame_labels = _bsoid_framewise_labels(frame, resolved_label_column)
+    if not frame_labels:
+        raise ValueError("B-SOiD CSV contained no per-frame labels.")
+    return BehaviorLabels(
+        source_type="bsoid",
+        frame_labels=frame_labels,
+        media_path=None if media_path is None else Path(media_path).as_posix(),
+        metadata=_bsoid_metadata(
+            source_path, size_bytes, "bsoid_labels_csv", resolved_label_column
+        ),
+    )
+
+
+def _bsoid_metadata(
+    source_path: Path, size_bytes: int, export_format: str, label_column: str
+) -> dict[str, Any]:
+    return {
+        "source": {
+            "type": "bsoid",
+            "path": str(source_path),
+            "size_bytes": size_bytes,
+            "format": export_format,
+            "label_column": label_column,
+        }
+    }
+
+
+def _cluster_label_text(value: Any) -> str:
+    """Render a B-SOiD cluster id as a clean string ("4", not "4.0")."""
+    if isinstance(value, bool):
+        return str(value)
+    if isinstance(value, int | np.integer):
+        return str(int(value))
+    if isinstance(value, float | np.floating) and float(value).is_integer():
+        return str(int(value))
+    return str(value)
+
+
+def _bsoid_framewise_labels(
+    frame: pd.DataFrame, label_column: str
+) -> tuple[BehaviorFrameLabel, ...]:
+    labels: list[BehaviorFrameLabel] = []
+    for index in range(len(frame)):
+        value = frame[label_column].iloc[index]
+        if _is_missing(value):
+            continue
+        labels.append(BehaviorFrameLabel(frame_index=index, label=_cluster_label_text(value)))
+    return tuple(labels)
+
+
+def _bsoid_runlen_intervals(
+    frame: pd.DataFrame,
+    label_column: str,
+    start_frame_column: str,
+    run_length_column: str,
+) -> tuple[BehaviorInterval, ...]:
+    intervals: list[BehaviorInterval] = []
+    for index in range(len(frame)):
+        value = frame[label_column].iloc[index]
+        start = _optional_int_from_frame(frame, start_frame_column, index)
+        run = _optional_int_from_frame(frame, run_length_column, index)
+        if _is_missing(value) or start is None:
+            continue
+        end = start + run - 1 if run else start
+        intervals.append(
+            BehaviorInterval(
+                label=_cluster_label_text(value),
+                start_frame=start,
+                end_frame=max(end, start),
+            )
+        )
+    return tuple(intervals)
 
 
 def read_simba_csv(
@@ -401,9 +637,7 @@ def read_simba_csv(
                 "time_unit": time_unit,
                 "classifier_labels": [item.label for item in simba_columns.behaviors],
                 "behavior_columns": [
-                    item.behavior
-                    for item in simba_columns.behaviors
-                    if item.behavior is not None
+                    item.behavior for item in simba_columns.behaviors if item.behavior is not None
                 ],
                 "probability_columns": [
                     item.probability
@@ -602,7 +836,7 @@ def _required_float(payload: Mapping[str, Any], key: str) -> float:
     return value
 
 
-def _read_csv(path: Path, *, max_mb: float | None) -> tuple[pd.DataFrame, int]:
+def _csv_size_bytes(path: Path, *, max_mb: float | None) -> int:
     size_bytes = path.stat().st_size
     if max_mb is not None:
         max_bytes = int(float(max_mb) * 1024 * 1024)
@@ -610,6 +844,11 @@ def _read_csv(path: Path, *, max_mb: float | None) -> tuple[pd.DataFrame, int]:
             raise ValueError(f"max_mb must be positive when provided, got {max_mb!r}.")
         if size_bytes > max_bytes:
             raise ValueError(f"Behavior CSV '{path}' exceeds max load size ({max_mb} MB).")
+    return size_bytes
+
+
+def _read_csv(path: Path, *, max_mb: float | None) -> tuple[pd.DataFrame, int]:
+    size_bytes = _csv_size_bytes(path, max_mb=max_mb)
     return pd.read_csv(path), size_bytes
 
 

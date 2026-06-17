@@ -79,3 +79,44 @@ def test_mmpose_reader_rejects_image_style_json(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError, match="Only video-style MMPose demo JSON is supported"):
         read_track(json_path, track_index=0)
+
+
+def test_read_track_reads_real_demo_json_shape(tmp_path: Path) -> None:
+    # Byte-faithful to topdown_demo_with_mmdet.py --save-predictions: string
+    # keypoint_id2name keys (JSON coerces ints to strings), 1-based frame_id,
+    # double-nested bbox, and numpy-bearing meta_info dumped by json_tricks.
+    json_path = tmp_path / "results_real.json"
+    write_json(
+        json_path,
+        {
+            "meta_info": {
+                "dataset_name": "coco",
+                "num_keypoints": 2,
+                "keypoint_id2name": {"0": "nose", "1": "left_eye"},
+                "keypoint_name2id": {"nose": 0, "left_eye": 1},
+                "skeleton_links": [[0, 1]],
+                "num_skeleton_links": 1,
+                # json_tricks serializes meta numpy arrays as __ndarray__ objects.
+                "sigmas": {"__ndarray__": [0.026, 0.025], "dtype": "float32", "shape": [2]},
+            },
+            "instance_info": [
+                {
+                    "frame_id": 1,
+                    "instances": [
+                        {
+                            "keypoints": [[10.0, 20.0], [30.0, 40.0]],
+                            "keypoint_scores": [0.95, 0.85],
+                            "bbox": [[5.0, 5.0, 64.0, 48.0]],
+                            "bbox_score": 0.9,
+                        }
+                    ],
+                }
+            ],
+        },
+    )
+
+    track = read_track(json_path, track_index=0)
+
+    assert track.node_names == ("nose", "left_eye")
+    np.testing.assert_allclose(track.coords[0], [[10.0, 20.0], [30.0, 40.0]])
+    np.testing.assert_allclose(track.scores[0], [0.95, 0.85])

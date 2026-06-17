@@ -86,7 +86,7 @@ def test_read_behavior_events_csv_accepts_interval_labels_from_package_exports(t
     assert labels.to_event_table().query(label="groom")[0].start_s == pytest.approx(4.0)
 
 
-def test_read_boris_csv_maps_tabular_event_exports(tmp_path) -> None:
+def test_read_boris_csv_maps_aggregated_event_exports(tmp_path) -> None:
     path = tmp_path / "boris_events.csv"
     path.write_text(
         "\n".join(
@@ -105,7 +105,7 @@ def test_read_boris_csv_maps_tabular_event_exports(tmp_path) -> None:
 
     assert labels.source_type == "boris"
     assert labels.media_path == "trial.mp4"
-    assert labels.metadata["source"]["format"] == "tabular_events_csv"
+    assert labels.metadata["source"]["format"] == "aggregated_events_csv"
     assert [item.label for item in labels.intervals] == ["rear", "groom"]
     assert labels.intervals[0].source_id == "obs-1"
     assert labels.intervals[0].start_s == pytest.approx(1.25)
@@ -316,3 +316,81 @@ def test_read_behavior_events_csv_requires_labels_and_timing(tmp_path) -> None:
 
     with pytest.raises(ValueError, match="time or frame index"):
         read_behavior_events_csv(missing_time)
+
+
+# --- Real-format contract tests (byte-faithful fixtures) ---------------------
+# The fixtures below reproduce the exact layouts the real tools write, derived
+# from each tool's writer source (not copied datasets), so the readers stay
+# pinned to real exports rather than synthetic conveniences.
+
+
+def test_read_boris_csv_reads_real_tabular_export() -> None:
+    # Default "Export events > Tabular": metadata preamble, then START/STOP/POINT
+    # rows in a Status column with a single Time column.
+    labels = read_boris_csv(FIXTURES / "boris_tabular_events.csv")
+
+    assert labels.source_type == "boris"
+    assert labels.metadata["source"]["format"] == "tabular_events_csv"
+    assert labels.media_path == "trial.mp4"
+    by_label = {interval.label: interval for interval in labels.intervals}
+    assert by_label["rear"].start_s == pytest.approx(1.25)
+    assert by_label["rear"].end_s == pytest.approx(2.75)
+    assert by_label["groom"].start_s == pytest.approx(4.0)
+    # POINT row becomes a zero-duration interval.
+    assert by_label["blink"].start_s == pytest.approx(6.5)
+    assert by_label["blink"].duration_s == pytest.approx(0.0)
+    assert by_label["rear"].metadata["behavior_type"] == "STATE"
+    assert by_label["blink"].metadata["behavior_type"] == "POINT"
+
+
+def test_read_boris_csv_reads_legacy_aggregated_media_file() -> None:
+    # Legacy aggregated export uses the singular "Media file" header and the
+    # "Start (s)"/"Stop (s)" naming; POINT rows carry Duration (s) = NA.
+    labels = read_boris_csv(FIXTURES / "boris_aggregated_legacy.csv")
+
+    assert labels.metadata["source"]["format"] == "aggregated_events_csv"
+    assert labels.media_path == "trial.mp4"
+    by_label = {interval.label: interval for interval in labels.intervals}
+    assert by_label["rear"].start_s == pytest.approx(1.8)
+    assert by_label["rear"].end_s == pytest.approx(8.125)
+    # POINT row: NA duration parses to a zero-length interval at its onset.
+    assert by_label["groom"].start_s == pytest.approx(32.825)
+    assert by_label["groom"].end_s == pytest.approx(32.825)
+
+
+def test_read_bsoid_csv_reads_real_per_frame_labels() -> None:
+    # Real B-SOiD "labels_pose" export: leading index column + "B-SOiD labels".
+    labels = read_bsoid_csv(FIXTURES / "bsoid_labels_pose.csv")
+
+    assert labels.metadata["source"]["format"] == "bsoid_labels_csv"
+    assert labels.metadata["source"]["label_column"] == "B-SOiD labels"
+    assert [(item.frame_index, item.label) for item in labels.frame_labels] == [
+        (0, "4"),
+        (1, "4"),
+        (2, "2"),
+    ]
+
+
+def test_read_bsoid_csv_reads_real_run_length_bouts() -> None:
+    # Real B-SOiD run-length table: "Start time (frames)" + "Run lengths".
+    labels = read_bsoid_csv(FIXTURES / "bsoid_runlen.csv")
+
+    assert labels.metadata["source"]["format"] == "bsoid_runlen_csv"
+    intervals = {interval.label: interval for interval in labels.intervals}
+    assert intervals["4"].start_frame == 0
+    assert intervals["4"].end_frame == 2  # frames 0..2 (run length 3)
+    assert intervals["7"].start_frame == 3
+    assert intervals["7"].end_frame == 4  # frames 3..4 (run length 2)
+
+
+def test_read_simba_csv_reads_real_machine_results() -> None:
+    # Real SimBA machine_results: empty-header index column, then for each
+    # classifier a Probability_<Name> float and a <Name> binary column.
+    labels = read_simba_csv(FIXTURES / "simba_machine_results.csv")
+
+    assert labels.source_type == "simba"
+    positives = {(item.frame_index, item.label) for item in labels.frame_labels}
+    assert (0, "Attack") in positives
+    assert (1, "Sniffing") in positives
+    # Frame 2 is below every classifier's 0/1 flag, so it yields no label.
+    assert all(item.frame_index != 2 for item in labels.frame_labels)
