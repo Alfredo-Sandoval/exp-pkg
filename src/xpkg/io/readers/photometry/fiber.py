@@ -268,14 +268,19 @@ def read_pmat_events_csv(
     scale = _time_scale(time_unit)
     starts = _numeric(frame, resolved_onset) * scale
     if resolved_offset:
-        offsets = (
-            pd.to_numeric(frame[resolved_offset], errors="raise").to_numpy(dtype=np.float64) * scale
-        )
+        offsets = _numeric(frame, resolved_offset) * scale
     else:
         offsets = starts
+    before_onset = np.flatnonzero(offsets < starts)
+    if before_onset.size:
+        row = int(before_onset[0])
+        raise ValueError(
+            f"pMAT event offset column {resolved_offset!r} at row {row} must be "
+            f"greater than or equal to onset column {resolved_onset!r}."
+        )
     rows = []
     for index, (start, offset) in enumerate(zip(starts, offsets, strict=True)):
-        duration = max(0.0, float(offset - start)) if np.isfinite(offset) else 0.0
+        duration = float(offset - start)
         rows.append(
             Event(
                 kind="event",
@@ -284,7 +289,7 @@ def read_pmat_events_csv(
                 label=str(frame[resolved_label].iloc[index]).strip(),
                 metadata={
                     "source": {"type": "pmat_events_csv", "path": str(source_path)},
-                    "offset_s": float(offset) if np.isfinite(offset) else str(offset),
+                    "offset_s": float(offset),
                 },
             )
         )
