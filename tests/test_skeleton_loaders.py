@@ -17,7 +17,6 @@ from xpkg.io.skeleton_io import (
 from xpkg.io.skeleton_loaders import (
     detect_skeleton_format,
     detect_yaml_skeleton_format,
-    load_skeleton_archive_json,
 )
 from xpkg.model import (
     Skeleton,
@@ -136,14 +135,6 @@ def test_io_load_skeleton_rejects_yaml_input(tmp_path: Path) -> None:
 
 def test_load_skeleton_xpkg_json(tmp_path: Path) -> None:
     skeleton = load_skeleton_xpkg_json(_write_json_skeleton(tmp_path / "skeleton.json"))
-
-    assert skeleton.name == "test_skeleton"
-    assert skeleton.keypoint_names == ["nose", "tail"]
-    assert skeleton.links_ids == [(0, 1)]
-
-
-def test_load_skeleton_archive_json_alias(tmp_path: Path) -> None:
-    skeleton = load_skeleton_archive_json(_write_json_skeleton(tmp_path / "skeleton.json"))
 
     assert skeleton.name == "test_skeleton"
     assert skeleton.keypoint_names == ["nose", "tail"]

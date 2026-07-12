@@ -78,7 +78,7 @@ def test_inspect_path_summarizes_dlc_csv_pose_qc(tmp_path: Path) -> None:
     assert per_keypoint["snout"]["below_threshold"] == 1
     assert per_keypoint["snout"]["longest_low_run"] == 1
     assert per_keypoint["tail"]["below_threshold"] == 1
-    assert report.warnings == ()
+    assert report.warning_records == ()
 
 
 def test_inspect_path_reports_per_keypoint_low_run(tmp_path: Path) -> None:
@@ -143,7 +143,7 @@ def test_inspect_path_reports_video_timing_qc(tmp_path: Path) -> None:
     assert timing["dropped_frame_suspects"] == 0
     assert timing["measured_fps"] == pytest.approx(30.0, rel=0.05)
     assert timing["fps_drift_pct"] < 1.0
-    assert report.warnings == ()
+    assert report.warning_records == ()
 
 
 def test_inspect_path_reports_empty_project(tmp_path: Path) -> None:
@@ -157,7 +157,7 @@ def test_inspect_path_reports_empty_project(tmp_path: Path) -> None:
     assert report.summary["title"] == "Empty Project"
     assert report.summary["state_kind"] == "empty"
     assert report.summary["has_current_state"] is False
-    assert report.warnings == ()
+    assert report.warning_records == ()
 
 
 def test_inspect_path_project_json_shape_is_stable(tmp_path: Path) -> None:
@@ -179,12 +179,10 @@ def test_inspect_path_project_json_shape_is_stable(tmp_path: Path) -> None:
         "description",
         "likely_importers",
         "summary",
-        "warnings",
         "warning_records",
     ]
     assert payload["kind"] == "xpkg_project"
     assert payload["likely_importers"] == []
-    assert payload["warnings"] == []
     assert payload["warning_records"] == []
     summary = payload["summary"]
     assert list(summary) == [
@@ -338,20 +336,12 @@ def test_inspect_path_reports_project_metadata_slots_without_payload_load(tmp_pa
     assert slots["dataset_share"]["present"] is False
     assert slots["pose_provenance"]["present"] is False
     assert any(
-        "metadata slot 'model_card' is invalid" in warning and "details" in warning
-        for warning in report.warnings
-    )
-    warning_records = report.to_dict()["warning_records"]
-    assert any(
-        record == {
-            "code": "project_metadata_invalid",
-            "message": warning,
-            "path": str(model_card_path),
-            "severity": "warning",
-        }
-        for warning in report.warnings
-        for record in warning_records
-        if "metadata slot 'model_card' is invalid" in warning
+        record.code == "project_metadata_invalid"
+        and "metadata slot 'model_card' is invalid" in record.message
+        and "details" in record.message
+        and record.path == str(model_card_path)
+        and record.severity == "warning"
+        for record in report.warning_records
     )
 
 
@@ -407,8 +397,8 @@ def test_inspect_path_reports_project_media_from_summary_without_payload_load(
         }
     ]
     assert any(
-        "Project media item 'source.avi' is missing: Media/source.avi" == warning
-        for warning in report.warnings
+        record.message == "Project media item 'source.avi' is missing: Media/source.avi"
+        for record in report.warning_records
     )
     assert {
         "code": "project_media_missing",
@@ -440,7 +430,7 @@ def test_inspect_path_project_image_sequence_media_reports_current_count(
     assert media["exists"] is True
     assert media["image_count"] == 1
     assert media["current_image_count"] == 1
-    assert report.warnings == ()
+    assert report.warning_records == ()
 
 
 def test_inspect_path_warns_when_project_media_inventory_unavailable(
@@ -473,9 +463,9 @@ def test_inspect_path_warns_when_project_media_inventory_unavailable(
     assert report.kind is InspectionKind.XPKG_PROJECT
     assert report.summary["media"] == []
     assert any(
-        warning
+        record.message
         == "Project media inventory is unavailable for labels state with 1 recorded video(s)."
-        for warning in report.warnings
+        for record in report.warning_records
     )
     assert {
         "code": "project_media_inventory_unavailable",
@@ -538,9 +528,9 @@ def test_inspect_path_reports_expkg_metadata_slots_without_unpacking(tmp_path: P
     assert slots["dataset_share"]["present"] is False
     assert slots["pose_provenance"]["present"] is False
     assert any(
-        "Packed project metadata slot 'model_card' is invalid" in warning
-        and "details" in warning
-        for warning in report.warnings
+        "Packed project metadata slot 'model_card' is invalid" in record.message
+        and "details" in record.message
+        for record in report.warning_records
     )
     assert any(
         record["code"] == "packed_project_metadata_invalid"
@@ -571,8 +561,8 @@ def test_inspect_path_reports_malformed_expkg_metadata_warning_record(
 
     assert report.kind is InspectionKind.EXPKG_ARTIFACT
     assert any(
-        "Packed project metadata slot 'datasheet' is invalid" in warning
-        for warning in report.warnings
+        "Packed project metadata slot 'datasheet' is invalid" in record.message
+        for record in report.warning_records
     )
     assert any(
         record["code"] == "packed_project_metadata_invalid"
@@ -593,5 +583,4 @@ def test_inspection_report_to_dict_round_trips_wire_format(tmp_path: Path) -> No
     assert payload["description"] == "events table"
     assert payload["likely_importers"] == ["events_csv"]
     assert isinstance(payload["summary"], dict)
-    assert isinstance(payload["warnings"], list)
     assert isinstance(payload["warning_records"], list)

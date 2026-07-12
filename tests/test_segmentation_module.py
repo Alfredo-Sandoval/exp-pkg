@@ -386,19 +386,3 @@ def test_normalized_polygon_dataset_yaml_round_trip(tmp_path) -> None:
     assert payload["val"] == "images/val"
     assert payload["test"] == "images/test"
     assert payload["names"] == {0: "body", 1: "paw"}
-
-
-def test_segmentation_project_namespace_reexports_project_helpers() -> None:
-    from xpkg.project import segmentation as project_segmentation
-    from xpkg.segmentation import project as segmentation_project
-
-    assert segmentation_project.__all__ == [
-        "MaskSaveMode",
-        "VideoSelector",
-        "clear_project_segmentation_masks",
-        "load_project_segmentation_frames",
-        "load_project_segmentation_masks",
-        "save_project_segmentation_masks",
-    ]
-    for name in segmentation_project.__all__:
-        assert getattr(segmentation_project, name) is getattr(project_segmentation, name)

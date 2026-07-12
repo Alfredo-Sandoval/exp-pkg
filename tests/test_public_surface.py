@@ -463,7 +463,6 @@ def test_model_exports_are_available() -> None:
     assert callable(load_skeleton_xpkg_json)
     assert callable(load_skeleton_sleap)
     assert callable(load_skeleton_ultralytics)
-    assert "load_skeleton_archive_json" not in xpkg.model.__all__
 
 
 def test_media_surface_is_public() -> None:

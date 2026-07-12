@@ -121,10 +121,18 @@ def test_dataset_share_metadata_round_trips_citation_and_access_fields() -> None
     assert payload["keywords"] == ["behavior", "video", "pose"]
     assert payload["related_publications"] == ["Luxem et al. 2023"]
     assert DatasetShareMetadata.from_dict(payload) == share
-    legacy_payload = dict(payload)
-    legacy_payload.pop("funders")
-    legacy_payload["funder"] = "NSF"
-    assert DatasetShareMetadata.from_dict(legacy_payload).funders == ("NSF",)
+
+
+def test_dataset_share_metadata_parses_singular_funder_at_boundary() -> None:
+    metadata = DatasetShareMetadata.from_dict(
+        {
+            "title": "Dataset",
+            "creators": ["A. Researcher"],
+            "funder": "NSF",
+        }
+    )
+
+    assert metadata.funders == ("NSF",)
 
 
 def test_dataset_share_metadata_requires_title_and_creator() -> None:

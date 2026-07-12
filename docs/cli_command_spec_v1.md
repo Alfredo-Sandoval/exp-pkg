@@ -107,7 +107,6 @@ envelope:
     "description": "xpkg project",
     "likely_importers": [],
     "summary": {},
-    "warnings": [],
     "warning_records": []
   }
 }
@@ -144,10 +143,6 @@ items can include `index`, `kind`, `path`, `backend`, `video_id`, `label`,
 `duration_s`, and `timebase` come from the summary-recorded media object at
 save/import time; project inspect does not demux video containers to infer
 dropped frames or FPS drift.
-
-`warnings` is always a list of strings. Ordinary project inspect does not warn
-for absent optional metadata slots. It remains a backward-compatible human
-message list.
 
 `warning_records` is always a list of objects with `code`, `message`, `path`,
 and `severity`. For project directories and packed `.expkg` metadata, this is

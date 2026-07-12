@@ -285,11 +285,6 @@ def load_skeleton_xpkg_json(path: str | Path, **kwargs: Any) -> Skeleton:
     return Skeleton.load(Path(path), **kwargs)
 
 
-def load_skeleton_archive_json(path: str | Path, **kwargs: Any) -> Skeleton:
-    """Compatibility alias for `load_skeleton_xpkg_json(...)`."""
-    return load_skeleton_xpkg_json(path, **kwargs)
-
-
 def load_skeleton_dlc(path: str | Path) -> Skeleton:
     """Load skeleton from DeepLabCut YAML config.
 
@@ -473,7 +468,6 @@ __all__ = [
     "load_skeleton",
     "load_skeleton_dlc",
     "load_skeleton_xpkg_json",
-    "load_skeleton_archive_json",
     "load_skeleton_sleap",
     "load_skeleton_ultralytics",
 ]

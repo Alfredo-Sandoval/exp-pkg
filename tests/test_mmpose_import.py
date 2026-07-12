@@ -64,7 +64,7 @@ def test_import_mmpose_topdown_json_project_imports_sequence_into_project(
 ) -> None:
     from xpkg.model import Labels
     from xpkg.project import current_project_state_path
-    from xpkg.project.state_io import read_project_state_payload
+    from xpkg.project.state_io import read_project_state
     from xpkg.project.store.imports import import_mmpose_topdown_json_project
 
     json_path = write_mmpose_topdown_json(tmp_path / "results_session.json")
@@ -80,7 +80,7 @@ def test_import_mmpose_topdown_json_project_imports_sequence_into_project(
     )
 
     assert state_path == current_project_state_path(project)
-    payload = read_project_state_payload(state_path)
+    payload = read_project_state(state_path)
     assert payload["metadata"]["source"] == "mmpose_topdown_json_import"
     assert payload["metadata"]["source_json"] == json_path.name
 

@@ -255,90 +255,6 @@ def make_path_id(path: str | Path, *, prefix: str) -> PathId:
     return PathId(id=identifier, label=label, path=normalized)
 
 
-def resolve_unified_archive_or_error(
-    path: str | Path,
-) -> tuple[Path | None, ValueError | FileNotFoundError | None]:
-    """Resolve user input to a legacy ``.xpkg`` annotation file without raising.
-
-    Returns:
-        (resolved_path, None) on success, or (None, exception) on failure.
-    """
-    candidate = resolve_path(path)
-
-    if candidate.is_dir():
-        canonical = candidate / f"{candidate.name}.xpkg"
-        if canonical.exists():
-            return canonical.resolve(), None
-
-        archives = (
-            sorted(candidate.glob("*.xpkg"))
-        )
-        if not archives:
-            return (
-                None,
-                ValueError(
-                    "Expected a native archive path, got a directory with no archives: "
-                    f"{candidate}"
-                ),
-            )
-        if len(archives) > 1:
-            names = ", ".join(archive.name for archive in archives)
-            return (
-                None,
-                ValueError(
-                    "Expected a native archive path, got a directory with multiple archives "
-                    f"({names}): {candidate}"
-                ),
-            )
-        return archives[0].resolve(), None
-
-    if candidate.suffix.lower() != ".xpkg":
-        return None, ValueError(f"Expected a native archive path, got: {candidate}")
-
-    if not candidate.exists():
-        return None, FileNotFoundError(f"Native archive not found: {candidate}")
-
-    return candidate, None
-
-
-def resolve_unified_archive(path: str | Path) -> Path:
-    """Resolve user input to one legacy ``.xpkg`` annotation file.
-
-    Args:
-        path: The input path to a ``.xpkg`` file or a directory containing one.
-
-    Returns:
-        The resolved path to the legacy annotation file.
-
-    Raises:
-        ValueError: If the path is not a ``.xpkg`` file or a directory with exactly one.
-        FileNotFoundError: If the file is not found.
-    """
-    resolved, err = resolve_unified_archive_or_error(path)
-    if err is not None:
-        raise err
-    if resolved is None:
-        raise RuntimeError("resolve_unified_archive_or_error returned (None, None)")
-    return resolved
-
-
-def find_project_archives(project_root: str | Path) -> list[Path]:
-    """Return legacy project-adjacent ``.xpkg`` files when present.
-
-    Args:
-        project_root: The root directory of the project.
-
-    Returns:
-        A list containing the project-adjacent file when it exists, else empty.
-    """
-    root = Path(project_root)
-    for suffix in (".xpkg",):
-        archive = root / f"{root.name}{suffix}"
-        if archive.exists():
-            return [archive]
-    return []
-
-
 def iter_image_files(directory: str | Path, sort: bool = True) -> Iterable[Path]:
     """Yield image file paths from a directory (non-recursive).
 
@@ -396,25 +312,6 @@ def resolve_project_roots(
     return root, video_dir
 
 
-def locate_annotation_archive(project_root: Path, annotation_files: list[str]) -> Path | None:
-    """Locate the first existing legacy annotation file from candidate paths.
-
-    Args:
-        project_root: The root directory of the project.
-        annotation_files: A list of potential annotation file paths.
-
-    Returns:
-        The first existing ``.xpkg`` annotation file, or None if none is found.
-    """
-    for entry in annotation_files:
-        candidate = Path(entry)
-        if not candidate.is_absolute():
-            candidate = project_root / candidate
-        if candidate.suffix.lower() == ".xpkg" and candidate.exists():
-            return candidate
-    return None
-
-
 def get_package_file(filename: str) -> str:
     """Return the installed package-resource path for ``filename``.
 
@@ -431,19 +328,16 @@ def get_package_file(filename: str) -> str:
 __all__ = [
     "PathId",
     "ensure_dir",
-    "find_project_archives",
     "get_package_file",
     "get_repo_devtools_dir",
     "get_repo_root",
     "iter_image_files",
-    "locate_annotation_archive",
     "make_path_id",
     "normalize_separators",
     "parse_uri_path",
     "resolve_engine_meta",
     "resolve_path",
     "resolve_project_roots",
-    "resolve_unified_archive",
     "return_absolute_data_paths",
     "return_absolute_path",
     "slugify_path_component",

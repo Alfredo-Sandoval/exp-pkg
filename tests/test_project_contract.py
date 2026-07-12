@@ -663,7 +663,7 @@ def test_validate_expkg_rejects_tampered_member_payload(tmp_path: Path) -> None:
 def test_labels_save_file_to_project_creates_first_committed_state(tmp_path: Path) -> None:
     from xpkg.model import Labels
     from xpkg.project import current_project_state_path, init_project
-    from xpkg.project.durable_store import ArchiveStore
+    from xpkg.project.durable_store import ProjectDurableStore
     from xpkg.project.layout import project_store_root
 
     source_root = tmp_path / "source"
@@ -678,7 +678,7 @@ def test_labels_save_file_to_project_creates_first_committed_state(tmp_path: Pat
 
     assert saved_target == project.as_posix()
     assert current_state.exists()
-    store = ArchiveStore.open(project_store_root(project))
+    store = ProjectDurableStore.open(project_store_root(project))
     assert store.has_current_root("state")
     assert not store.has_current_root("archive")
     assert labels.path == project
@@ -695,7 +695,7 @@ def test_labels_save_file_to_project_preserves_predictions(tmp_path: Path) -> No
         current_project_state_path,
         init_project,
     )
-    from xpkg.project.state_io import read_project_state_payload
+    from xpkg.project.state_io import read_project_state
 
     source_root = tmp_path / "source"
     source_root.mkdir()
@@ -714,7 +714,7 @@ def test_labels_save_file_to_project_preserves_predictions(tmp_path: Path) -> No
     Labels.save_file(initial_labels, project.as_posix())
 
     saved_target = Labels.save_file(updated_labels, project.as_posix())
-    payload = read_project_state_payload(current_project_state_path(project))
+    payload = read_project_state(current_project_state_path(project))
 
     assert saved_target == project.as_posix()
     label_keypoints = np.asarray(payload["data"]["keypoints"], dtype=np.float32)
@@ -735,7 +735,7 @@ def test_labels_save_file_to_project_seeds_predictions_from_labels_when_current_
 ) -> None:
     from xpkg.model import Labels
     from xpkg.project import current_project_state_path, init_project
-    from xpkg.project.state_io import read_project_state_payload
+    from xpkg.project.state_io import read_project_state
 
     source_root = tmp_path / "source"
     source_root.mkdir()
@@ -751,7 +751,7 @@ def test_labels_save_file_to_project_seeds_predictions_from_labels_when_current_
     init_project(project, title="Project Save")
     Labels.save_file(labels_without_predictions, project.as_posix())
     Labels.save_file(labels_with_predictions, project.as_posix())
-    payload = read_project_state_payload(current_project_state_path(project))
+    payload = read_project_state(current_project_state_path(project))
 
     assert int(payload["predictions"]["attrs"]["committed_length"]) == 1
     prediction_track_ids = np.asarray(payload["predictions"]["data"]["track_id"], dtype=np.int32)

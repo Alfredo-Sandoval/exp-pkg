@@ -10,10 +10,11 @@ from typing import TYPE_CHECKING, Any, Literal, cast
 from xpkg._core.path_registry import resolve_path
 from xpkg.io.labels.model import Labels
 from xpkg.media.video import Video
-from xpkg.pose.annotations import LabeledFrame, SegmentationMask
+from xpkg.pose.annotations import LabeledFrame
 from xpkg.pose.skeleton import build_keypoint_skeleton
 from xpkg.project.layout import require_project_root as _project_root
 from xpkg.project.store import save_project_labels
+from xpkg.segmentation import SegmentationMask
 
 if TYPE_CHECKING:
     from xpkg.io.labels.video_types import VideoProtocol

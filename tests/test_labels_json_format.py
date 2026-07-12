@@ -136,13 +136,12 @@ def test_labels_json_roundtrip_preserves_tracks_and_segmentation(tmp_path: Path)
     from xpkg.model import Labels, Video, build_keypoint_skeleton
     from xpkg.model.identity import IdentityProvenanceRecord
     from xpkg.pose.annotations import (
-        ROI,
         Instance,
         LabeledFrame,
         Point,
-        SegmentationMask,
         Track,
     )
+    from xpkg.segmentation import ROI, SegmentationMask
 
     frames_dir = tmp_path / "frames"
     frames_dir.mkdir()

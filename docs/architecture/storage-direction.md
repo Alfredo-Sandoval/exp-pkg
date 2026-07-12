@@ -81,6 +81,16 @@ The public cleanup now matches that storage model:
 - package-level `xpkg.adapters` and the CLI `xpkg convert` surface were removed
 - compatibility alias maps for direct `.xpkg` archive files were removed from
   the public facades
+- unused single-file `.xpkg` discovery helpers were removed from the private
+  path registry
+- the `ArchiveStore` Python alias was removed; the canonical class is
+  `ProjectDurableStore`
+
+The store reader still accepts the older `xpkg.archive-store` discriminator at
+the persisted-data boundary. Deleting that parser was rejected because the
+0.x artifact contract promises that previously written project data remains
+readable. New writes use only `xpkg.project-durable-store`, and interior code
+uses only `ProjectDurableStore`.
 
 ## Removed Archive Layer
 

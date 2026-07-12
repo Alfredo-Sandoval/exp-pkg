@@ -1113,7 +1113,6 @@ def test_cli_inspect_json_mode(monkeypatch, capsys) -> None:
             kind=InspectionKind.POSE_PREDICTIONS,
             likely_importers=("dlc_csv",),
             summary={"frames": 2, "keypoints": 3},
-            warnings=(),
         )
 
     monkeypatch.setattr("xpkg.cli.commands.inspect.inspect_path", fake_inspect_path)
@@ -1134,7 +1133,7 @@ def test_cli_inspect_json_mode(monkeypatch, capsys) -> None:
 
 def test_cli_inspect_human_mode(monkeypatch, capsys) -> None:
     from xpkg.cli import main
-    from xpkg.inspection import InspectionKind, InspectionReport
+    from xpkg.inspection import InspectionKind, InspectionReport, InspectionWarning
 
     def fake_inspect_path(target: str, *, confidence_threshold: float) -> InspectionReport:
         return InspectionReport(
@@ -1147,7 +1146,13 @@ def test_cli_inspect_human_mode(monkeypatch, capsys) -> None:
             kind=InspectionKind.VIDEO,
             likely_importers=(),
             summary={"frames": 12, "fps": 30.0, "width": 640, "height": 480},
-            warnings=("Frame count is approximate.",),
+            warning_records=(
+                InspectionWarning(
+                    code="frame_count_approximate",
+                    message="Frame count is approximate.",
+                    path=target,
+                ),
+            ),
         )
 
     monkeypatch.setattr("xpkg.cli.commands.inspect.inspect_path", fake_inspect_path)

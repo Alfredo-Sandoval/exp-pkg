@@ -32,9 +32,6 @@ class ProjectDurableStoreError(Exception):
     """Base exception for the private project durability layer."""
 
 
-ArchiveStoreError = ProjectDurableStoreError
-
-
 class StoreCorruptionError(ProjectDurableStoreError):
     """Raised when required store files are missing or checksum validation fails."""
 
@@ -1023,12 +1020,7 @@ class ProjectDurableStore:
             return commit_id
 
 
-ArchiveStore = ProjectDurableStore
-
-
 __all__ = [
-    "ArchiveStore",
-    "ArchiveStoreError",
     "ChecksumError",
     "Commit",
     "IncompatibleStoreVersionError",

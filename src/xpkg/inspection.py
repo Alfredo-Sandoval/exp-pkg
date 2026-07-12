@@ -104,7 +104,6 @@ class InspectionReport:
     kind: InspectionKind
     likely_importers: tuple[str, ...]
     summary: Mapping[str, Any]
-    warnings: tuple[str, ...]
     warning_records: tuple[InspectionWarning, ...] = ()
 
     @property
@@ -129,9 +128,19 @@ class InspectionReport:
             "description": self.description,
             "likely_importers": list(self.likely_importers),
             "summary": dict(self.summary),
-            "warnings": list(self.warnings),
             "warning_records": [warning.to_dict() for warning in self.warning_records],
         }
+
+
+@dataclass(frozen=True, slots=True)
+class _InspectionDetails:
+    """Canonical result produced by one format-specific inspector."""
+
+    kind: InspectionKind
+    likely_importers: tuple[str, ...]
+    summary: Mapping[str, Any]
+    warning_records: tuple[InspectionWarning, ...] = ()
+
 
 _VIDEO_SUFFIXES = {
     ".avi",
@@ -206,47 +215,6 @@ def _warning_record(
     )
 
 
-def _generic_warning_records(
-    warnings: Sequence[str],
-    *,
-    path: object | None = None,
-) -> tuple[InspectionWarning, ...]:
-    return tuple(
-        _warning_record("inspection_warning", warning, path=path) for warning in warnings
-    )
-
-
-def _coerce_warning_records(
-    records: object,
-    *,
-    fallback_warnings: Sequence[str],
-    fallback_path: object | None,
-) -> tuple[InspectionWarning, ...]:
-    if records is None:
-        return _generic_warning_records(fallback_warnings, path=fallback_path)
-    if not isinstance(records, Sequence) or isinstance(records, str | bytes | bytearray):
-        return _generic_warning_records(fallback_warnings, path=fallback_path)
-    out: list[InspectionWarning] = []
-    for record in records:
-        if isinstance(record, InspectionWarning):
-            out.append(record)
-            continue
-        if not isinstance(record, Mapping):
-            continue
-        record_map = cast("Mapping[str, Any]", record)
-        out.append(
-            _warning_record(
-                record_map.get("code", "inspection_warning"),
-                record_map.get("message", ""),
-                path=record_map.get("path"),
-                severity=str(record_map.get("severity", "warning")),
-            )
-        )
-    if len(out) != len(fallback_warnings):
-        return _generic_warning_records(fallback_warnings, path=fallback_path)
-    return tuple(out)
-
-
 def _read_text_lines(path: Path, *, limit: int = 8) -> list[str]:
     lines: list[str] = []
     with path.open("r", encoding="utf-8", errors="replace") as handle:
@@ -262,23 +230,21 @@ def _columns_lower(columns: Sequence[object]) -> set[str]:
     return {str(column).strip().lower() for column in columns}
 
 
-def _inspect_project_dir(path: Path) -> dict[str, Any]:
+def _inspect_project_dir(path: Path) -> _InspectionDetails:
     project_root = resolve_project_root(path)
     if project_root is None:
         raise FileNotFoundError(f"Not an xpkg project: {path}")
     descriptor = load_project_descriptor(project_root).to_dict()
     summary = snapshot_project_summary(project_root)
-    metadata_slots, metadata_warnings, metadata_warning_records = (
-        _inspect_project_metadata_slots(project_root)
-    )
-    inventory_warnings, inventory_warning_records = _project_media_inventory_warnings(
+    metadata_slots, metadata_warning_records = _inspect_project_metadata_slots(project_root)
+    inventory_warning_records = _project_media_inventory_warnings(
         state_kind=summary.state_kind,
         has_current_state=summary.has_current_state,
         state_summary=summary.state_summary,
         media_items=summary.media,
         summary_path=project_summary_path(project_root),
     )
-    media_warnings, media_warning_records = _project_media_warnings(project_root, summary.media)
+    media_warning_records = _project_media_warnings(project_root, summary.media)
     summary_warning_records = [
         _warning_record(
             "project_summary_warning",
@@ -287,10 +253,10 @@ def _inspect_project_dir(path: Path) -> dict[str, Any]:
         )
         for warning in summary.warnings
     ]
-    return {
-        "kind": "xpkg_project",
-        "likely_importers": [],
-        "summary": {
+    return _InspectionDetails(
+        kind=InspectionKind.XPKG_PROJECT,
+        likely_importers=(),
+        summary={
             "project_id": descriptor["project_id"],
             "title": descriptor["title"],
             "state_kind": summary.state_kind,
@@ -302,26 +268,21 @@ def _inspect_project_dir(path: Path) -> dict[str, Any]:
             "metadata_slots": metadata_slots,
             "media": _inspect_project_media(project_root, summary.media),
         },
-        "warnings": [
-            *summary.warnings,
-            *metadata_warnings,
-            *inventory_warnings,
-            *media_warnings,
-        ],
-        "warning_records": [
-            *summary_warning_records,
-            *metadata_warning_records,
-            *inventory_warning_records,
-            *media_warning_records,
-        ],
-    }
+        warning_records=tuple(
+            [
+                *summary_warning_records,
+                *metadata_warning_records,
+                *inventory_warning_records,
+                *media_warning_records,
+            ]
+        ),
+    )
 
 
 def _inspect_project_metadata_slots(
     project_root: Path,
-) -> tuple[dict[str, dict[str, Any]], list[str], list[InspectionWarning]]:
+) -> tuple[dict[str, dict[str, Any]], list[InspectionWarning]]:
     slots: dict[str, dict[str, Any]] = {}
-    warnings: list[str] = []
     warning_records: list[InspectionWarning] = []
     for name, path_for, load in _PROJECT_METADATA_SLOTS:
         metadata_path = path_for(project_root)
@@ -338,7 +299,6 @@ def _inspect_project_metadata_slots(
                 slot["valid"] = False
                 slot["error"] = str(exc)
                 message = f"Project metadata slot {name!r} is invalid: {exc}"
-                warnings.append(message)
                 warning_records.append(
                     _warning_record(
                         "project_metadata_invalid",
@@ -349,7 +309,7 @@ def _inspect_project_metadata_slots(
             else:
                 slot["valid"] = True
         slots[name] = slot
-    return slots, warnings, warning_records
+    return slots, warning_records
 
 
 def _inspect_project_media(
@@ -374,12 +334,12 @@ def _project_media_inventory_warnings(
     state_summary: Mapping[str, Any],
     media_items: Sequence[Mapping[str, Any]],
     summary_path: Path,
-) -> tuple[list[str], list[InspectionWarning]]:
+) -> list[InspectionWarning]:
     if state_kind != "labels" or not has_current_state or media_items:
-        return [], []
+        return []
     video_count = _optional_non_negative_int(state_summary.get("video_count"))
     if video_count == 0:
-        return [], []
+        return []
     if video_count is None:
         message = (
             "Project media inventory is unavailable for labels state; no "
@@ -391,8 +351,6 @@ def _project_media_inventory_warnings(
             f"{video_count} recorded video(s)."
         )
     return [
-        message
-    ], [
         _warning_record(
             "project_media_inventory_unavailable",
             message,
@@ -404,15 +362,13 @@ def _project_media_inventory_warnings(
 def _project_media_warnings(
     project_root: Path,
     media_items: Sequence[Mapping[str, Any]],
-) -> tuple[list[str], list[InspectionWarning]]:
-    warnings: list[str] = []
+) -> list[InspectionWarning]:
     warning_records: list[InspectionWarning] = []
     for item in media_items:
         label = str(item.get("label") or item.get("path") or item.get("index") or "unknown")
         media_path = _resolve_project_media_path(project_root, item.get("path"))
         if not _media_item_exists(media_path, item.get("kind")):
             message = f"Project media item {label!r} is missing: {item.get('path')}"
-            warnings.append(message)
             warning_records.append(
                 _warning_record(
                     "project_media_missing",
@@ -429,7 +385,6 @@ def _project_media_warnings(
                     f"Project media item {label!r} expected {expected_images} image file(s), "
                     f"found {current_images}."
                 )
-                warnings.append(message)
                 warning_records.append(
                     _warning_record(
                         "project_media_image_count_drift",
@@ -447,7 +402,6 @@ def _project_media_warnings(
                 f"Project media item {label!r} has label frame index {max_label} "
                 f"outside {frame_count} frame(s)."
             )
-            warnings.append(message)
             warning_records.append(
                 _warning_record(
                     "project_media_label_frame_out_of_range",
@@ -461,7 +415,6 @@ def _project_media_warnings(
                 f"Project media item {label!r} has prediction frame index {max_prediction} "
                 f"outside {frame_count} frame(s)."
             )
-            warnings.append(message)
             warning_records.append(
                 _warning_record(
                     "project_media_prediction_frame_out_of_range",
@@ -469,7 +422,7 @@ def _project_media_warnings(
                     path=item.get("path"),
                 )
             )
-    return warnings, warning_records
+    return warning_records
 
 
 def _resolve_project_media_path(project_root: Path, raw_path: object) -> Path | None:
@@ -509,7 +462,7 @@ def _optional_non_negative_int(value: object) -> int | None:
     return result if result >= 0 else None
 
 
-def _inspect_directory(path: Path) -> dict[str, Any]:
+def _inspect_directory(path: Path) -> _InspectionDetails:
     if (path / PROJECT_DESCRIPTOR_FILENAME).is_file() and resolve_project_root(path) == path:
         return _inspect_project_dir(path)
 
@@ -529,12 +482,11 @@ def _inspect_directory(path: Path) -> dict[str, Any]:
     if (path / "config.yaml").is_file() and (path / "labeled-data").is_dir():
         kind = "dlc_project"
         likely_importers.append("dlc_project")
-    return {
-        "kind": kind,
-        "likely_importers": likely_importers,
-        "summary": summary,
-        "warnings": [],
-    }
+    return _InspectionDetails(
+        kind=InspectionKind(kind),
+        likely_importers=tuple(likely_importers),
+        summary=summary,
+    )
 
 
 def _longest_true_run(mask: np.ndarray) -> int:
@@ -662,11 +614,11 @@ def _pose_qc(
     }
 
 
-def _inspect_csv(path: Path, *, confidence_threshold: float) -> dict[str, Any]:
+def _inspect_csv(path: Path, *, confidence_threshold: float) -> _InspectionDetails:
     lines = _read_text_lines(path)
     lowered = "\n".join(lines).lower()
     likely_importers: list[str] = []
-    warnings: list[str] = []
+    warning_records: list[InspectionWarning] = []
     summary: dict[str, Any] = {"preview_rows": len(lines)}
     kind = "csv"
 
@@ -683,20 +635,22 @@ def _inspect_csv(path: Path, *, confidence_threshold: float) -> dict[str, Any]:
                 )
             )
         except (RuntimeError, TypeError, ValueError) as exc:
-            warnings.append(f"Could not compute pose QC: {exc}")
-        return {
-            "kind": kind,
-            "likely_importers": _unique(likely_importers),
-            "summary": summary,
-            "warnings": warnings,
-        }
+            warning_records.append(
+                _warning_record(
+                    "pose_qc_unavailable", f"Could not compute pose QC: {exc}", path=path
+                )
+            )
+        return _InspectionDetails(
+            kind=InspectionKind(kind),
+            likely_importers=tuple(_unique(likely_importers)),
+            summary=summary,
+            warning_records=tuple(warning_records),
+        )
 
     frame = pd.read_csv(path, nrows=25)
     columns = [str(column) for column in frame.columns]
     column_names = _columns_lower(columns)
-    numeric_columns = [
-        column for column in columns if pd.api.types.is_numeric_dtype(frame[column])
-    ]
+    numeric_columns = [column for column in columns if pd.api.types.is_numeric_dtype(frame[column])]
     summary.update(
         {
             "columns": columns,
@@ -712,9 +666,7 @@ def _inspect_csv(path: Path, *, confidence_threshold: float) -> dict[str, Any]:
             likely_importers.append("events_csv")
             is_events_table = True
         non_time_numeric = [
-            column
-            for column in numeric_columns
-            if str(column).strip().lower() not in _TIME_COLUMNS
+            column for column in numeric_columns if str(column).strip().lower() not in _TIME_COLUMNS
         ]
         if non_time_numeric and not is_events_table:
             kind = "signals_table" if kind == "csv" else kind
@@ -725,14 +677,20 @@ def _inspect_csv(path: Path, *, confidence_threshold: float) -> dict[str, Any]:
     if "likelihood" in column_names or any(
         column.endswith("_likelihood") for column in column_names
     ):
-        warnings.append("Pose-like likelihood columns are present but this is not a DLC header.")
+        warning_records.append(
+            _warning_record(
+                "pose_header_unrecognized",
+                "Pose-like likelihood columns are present but this is not a DLC header.",
+                path=path,
+            )
+        )
 
-    return {
-        "kind": kind,
-        "likely_importers": _unique(likely_importers),
-        "summary": summary,
-        "warnings": warnings,
-    }
+    return _InspectionDetails(
+        kind=InspectionKind(kind),
+        likely_importers=tuple(_unique(likely_importers)),
+        summary=summary,
+        warning_records=tuple(warning_records),
+    )
 
 
 def _load_json_payload(path: Path) -> object:
@@ -745,12 +703,12 @@ def _object_mapping(value: object) -> dict[str, Any] | None:
     return {str(key): item for key, item in value.items()}
 
 
-def _inspect_json(path: Path, *, confidence_threshold: float) -> dict[str, Any]:
+def _inspect_json(path: Path, *, confidence_threshold: float) -> _InspectionDetails:
     payload = _load_json_payload(path)
     payload_map = _object_mapping(payload)
     keys = sorted(payload_map or {})
     likely_importers: list[str] = []
-    warnings: list[str] = []
+    warning_records: list[InspectionWarning] = []
     kind = "json"
     summary: dict[str, Any] = {"top_level_keys": keys}
 
@@ -767,7 +725,11 @@ def _inspect_json(path: Path, *, confidence_threshold: float) -> dict[str, Any]:
                 )
             )
         except (RuntimeError, TypeError, ValueError) as exc:
-            warnings.append(f"Could not compute pose QC: {exc}")
+            warning_records.append(
+                _warning_record(
+                    "pose_qc_unavailable", f"Could not compute pose QC: {exc}", path=path
+                )
+            )
     elif payload_map is not None and "frames" in payload_map:
         frames = payload_map.get("frames")
         summary["frames"] = len(frames) if isinstance(frames, list) else None
@@ -786,18 +748,24 @@ def _inspect_json(path: Path, *, confidence_threshold: float) -> dict[str, Any]:
                     )
                 )
             except (RuntimeError, TypeError, ValueError) as exc:
-                warnings.append(f"Could not compute pose QC: {exc}")
+                warning_records.append(
+                    _warning_record(
+                        "pose_qc_unavailable",
+                        f"Could not compute pose QC: {exc}",
+                        path=path,
+                    )
+                )
     elif payload_map is not None and payload_map.get("format") == "xpkg-project":
         kind = "xpkg_project_descriptor"
     elif payload_map is not None and payload_map.get("format") == "xpkg-packed-project":
         kind = "expkg_manifest"
 
-    return {
-        "kind": kind,
-        "likely_importers": _unique(likely_importers),
-        "summary": summary,
-        "warnings": warnings,
-    }
+    return _InspectionDetails(
+        kind=InspectionKind(kind),
+        likely_importers=tuple(_unique(likely_importers)),
+        summary=summary,
+        warning_records=tuple(warning_records),
+    )
 
 
 def _h5_keys(path: Path) -> list[str]:
@@ -807,11 +775,11 @@ def _h5_keys(path: Path) -> list[str]:
     return keys
 
 
-def _inspect_h5(path: Path, *, confidence_threshold: float) -> dict[str, Any]:
+def _inspect_h5(path: Path, *, confidence_threshold: float) -> _InspectionDetails:
     keys = _h5_keys(path)
     key_set = set(keys)
     likely_importers: list[str] = []
-    warnings: list[str] = []
+    warning_records: list[InspectionWarning] = []
     kind = "hdf5"
     summary: dict[str, Any] = {"keys": keys[:50], "key_count": len(keys)}
 
@@ -828,7 +796,11 @@ def _inspect_h5(path: Path, *, confidence_threshold: float) -> dict[str, Any]:
                 )
             )
         except (RuntimeError, TypeError, ValueError) as exc:
-            warnings.append(f"Could not compute pose QC: {exc}")
+            warning_records.append(
+                _warning_record(
+                    "pose_qc_unavailable", f"Could not compute pose QC: {exc}", path=path
+                )
+            )
     elif any("DataAcquisition" in key for key in key_set) or any(
         key.endswith("Signal") or key.endswith("Control") for key in key_set
     ):
@@ -837,36 +809,72 @@ def _inspect_h5(path: Path, *, confidence_threshold: float) -> dict[str, Any]:
     elif path.suffix.lower() in {".h5", ".hdf5"}:
         likely_importers.append("dlc_h5")
 
-    return {
-        "kind": kind,
-        "likely_importers": _unique(likely_importers),
-        "summary": summary,
-        "warnings": warnings,
-    }
+    return _InspectionDetails(
+        kind=InspectionKind(kind),
+        likely_importers=tuple(_unique(likely_importers)),
+        summary=summary,
+        warning_records=tuple(warning_records),
+    )
 
 
 _FPS_DRIFT_PCT_WARN = 1.0
 _FRAME_GAP_RATIO_WARN = 1.5
 
 
-def _video_timing_qc(path: Path) -> tuple[dict[str, Any] | None, list[str]]:
-    """Demux PTS via PyAV to estimate dropped frames and FPS drift.
+def _video_timing_warning_records(
+    path: Path,
+    *,
+    declared_fps: float | None,
+    measured_fps: float,
+    dropped_suspects: int,
+) -> tuple[list[InspectionWarning], float | None]:
+    warning_records: list[InspectionWarning] = []
+    drift_pct: float | None = None
+    if declared_fps is not None and declared_fps > 0.0:
+        drift_pct = abs(measured_fps - declared_fps) / declared_fps * 100.0
+        if drift_pct >= _FPS_DRIFT_PCT_WARN:
+            warning_records.append(
+                _warning_record(
+                    "video_fps_drift",
+                    "Measured FPS deviates from declared FPS by "
+                    f"{drift_pct:.2f}% (declared={declared_fps:.3f}, "
+                    f"measured={measured_fps:.3f}).",
+                    path=path,
+                )
+            )
+    if dropped_suspects > 0:
+        warning_records.append(
+            _warning_record(
+                "video_frame_gap",
+                f"Detected {dropped_suspects} inter-frame gap(s) longer than "
+                f"{_FRAME_GAP_RATIO_WARN:g}x the median dt; possible dropped frames.",
+                path=path,
+            )
+        )
+    return warning_records, drift_pct
 
-    Returns a ``(timing, warnings)`` pair. ``timing`` is ``None`` when PyAV is
-    not installed or the stream lacks a usable timing signal.
-    """
+
+def _video_timing_qc(
+    path: Path,
+) -> tuple[dict[str, Any] | None, list[InspectionWarning]]:
+    """Demux PTS via PyAV to estimate dropped frames and FPS drift."""
     try:
         av: Any = importlib.import_module("av")
     except ImportError:
         return None, []
 
-    warnings: list[str] = []
     timing: dict[str, Any] = {}
     av_error: type[BaseException] = getattr(av, "AVError", OSError)
     try:
         container = av.open(str(path))
     except (OSError, av_error) as exc:
-        return None, [f"PyAV could not open this video for timing QC: {exc}"]
+        return None, [
+            _warning_record(
+                "video_timing_unavailable",
+                f"PyAV could not open this video for timing QC: {exc}",
+                path=path,
+            )
+        ]
 
     try:
         if not container.streams.video:
@@ -915,53 +923,67 @@ def _video_timing_qc(path: Path) -> tuple[dict[str, Any] | None, list[str]]:
         }
     )
 
-    if declared_fps is not None and declared_fps > 0.0:
-        drift_pct = abs(measured_fps - declared_fps) / declared_fps * 100.0
+    warning_records, drift_pct = _video_timing_warning_records(
+        path,
+        declared_fps=declared_fps,
+        measured_fps=measured_fps,
+        dropped_suspects=dropped_suspects,
+    )
+    if drift_pct is not None:
         timing["fps_drift_pct"] = float(drift_pct)
-        if drift_pct >= _FPS_DRIFT_PCT_WARN:
-            warnings.append(
-                "Measured FPS deviates from declared FPS by "
-                f"{drift_pct:.2f}% (declared={declared_fps:.3f}, "
-                f"measured={measured_fps:.3f})."
-            )
-    if dropped_suspects > 0:
-        warnings.append(
-            f"Detected {dropped_suspects} inter-frame gap(s) longer than "
-            f"{_FRAME_GAP_RATIO_WARN:g}x the median dt; possible dropped frames."
-        )
-    return timing, warnings
+    return timing, warning_records
 
 
-def _inspect_video(path: Path) -> dict[str, Any]:
+def _inspect_video(path: Path) -> _InspectionDetails:
     try:
         import cv2
     except ImportError as exc:
-        return {
-            "kind": "video",
-            "likely_importers": [],
-            "summary": {},
-            "warnings": [f"OpenCV is not available for video metadata: {exc}"],
-        }
+        return _InspectionDetails(
+            kind=InspectionKind.VIDEO,
+            likely_importers=(),
+            summary={},
+            warning_records=(
+                _warning_record(
+                    "video_metadata_unavailable",
+                    f"OpenCV is not available for video metadata: {exc}",
+                    path=path,
+                ),
+            ),
+        )
 
     capture = cv2.VideoCapture(str(path))
-    warnings: list[str] = []
+    warning_records: list[InspectionWarning] = []
     if not capture.isOpened():
-        warnings.append("OpenCV could not open this video.")
-        return {
-            "kind": "video",
-            "likely_importers": [],
-            "summary": {},
-            "warnings": warnings,
-        }
+        capture.release()
+        return _InspectionDetails(
+            kind=InspectionKind.VIDEO,
+            likely_importers=(),
+            summary={},
+            warning_records=(
+                _warning_record(
+                    "video_metadata_unavailable",
+                    "OpenCV could not open this video.",
+                    path=path,
+                ),
+            ),
+        )
     frame_count = int(capture.get(cv2.CAP_PROP_FRAME_COUNT))
     fps = float(capture.get(cv2.CAP_PROP_FPS))
     width = int(capture.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
     capture.release()
     if frame_count <= 0:
-        warnings.append("Frame count is missing or zero.")
+        warning_records.append(
+            _warning_record(
+                "video_frame_count_missing",
+                "Frame count is missing or zero.",
+                path=path,
+            )
+        )
     if fps <= 0.0:
-        warnings.append("FPS is missing or zero.")
+        warning_records.append(
+            _warning_record("video_fps_missing", "FPS is missing or zero.", path=path)
+        )
     summary: dict[str, Any] = {
         "frames": frame_count,
         "fps": fps,
@@ -969,60 +991,67 @@ def _inspect_video(path: Path) -> dict[str, Any]:
         "height": height,
         "duration_s": float(frame_count / fps) if frame_count > 0 and fps > 0.0 else None,
     }
-    timing, timing_warnings = _video_timing_qc(path)
+    timing, timing_warning_records = _video_timing_qc(path)
     if timing is not None:
         summary["timing"] = timing
-    warnings.extend(timing_warnings)
-    return {
-        "kind": "video",
-        "likely_importers": [],
-        "summary": summary,
-        "warnings": warnings,
-    }
+    warning_records.extend(timing_warning_records)
+    return _InspectionDetails(
+        kind=InspectionKind.VIDEO,
+        likely_importers=(),
+        summary=summary,
+        warning_records=tuple(warning_records),
+    )
 
 
-def _inspect_image(path: Path) -> dict[str, Any]:
+def _inspect_image(path: Path) -> _InspectionDetails:
     try:
         import cv2
     except ImportError as exc:
-        return {
-            "kind": "image",
-            "likely_importers": [],
-            "summary": {},
-            "warnings": [f"OpenCV is not available for image metadata: {exc}"],
-        }
+        return _InspectionDetails(
+            kind=InspectionKind.IMAGE,
+            likely_importers=(),
+            summary={},
+            warning_records=(
+                _warning_record(
+                    "image_metadata_unavailable",
+                    f"OpenCV is not available for image metadata: {exc}",
+                    path=path,
+                ),
+            ),
+        )
     image = cv2.imread(str(path), cv2.IMREAD_UNCHANGED)
     if image is None:
-        return {
-            "kind": "image",
-            "likely_importers": [],
-            "summary": {},
-            "warnings": ["OpenCV could not read this image."],
-        }
-    return {
-        "kind": "image",
-        "likely_importers": [],
-        "summary": {
+        return _InspectionDetails(
+            kind=InspectionKind.IMAGE,
+            likely_importers=(),
+            summary={},
+            warning_records=(
+                _warning_record(
+                    "image_metadata_unavailable",
+                    "OpenCV could not read this image.",
+                    path=path,
+                ),
+            ),
+        )
+    return _InspectionDetails(
+        kind=InspectionKind.IMAGE,
+        likely_importers=(),
+        summary={
             "height": int(image.shape[0]),
             "width": int(image.shape[1]),
             "channels": int(image.shape[2]) if image.ndim == 3 else 1,
         },
-        "warnings": [],
-    }
+    )
 
 
-def _inspect_expkg(path: Path) -> dict[str, Any]:
-    warnings: list[str] = []
+def _inspect_expkg(path: Path) -> _InspectionDetails:
     warning_records: list[InspectionWarning] = []
     summary: dict[str, Any] = {}
     with zipfile.ZipFile(path, "r") as archive:
         names = archive.namelist()
         summary["members"] = len(names)
-        metadata_slots, metadata_warnings, metadata_warning_records = (
-            _inspect_expkg_metadata_slots(archive, names)
-        )
+        metadata_slots, metadata_warning_records = _inspect_expkg_metadata_slots(archive, names)
         summary["metadata_slots"] = metadata_slots
-        warnings.extend(metadata_warnings)
         warning_records.extend(metadata_warning_records)
         if EXPKG_MANIFEST_FILENAME in names:
             manifest = parse_json(archive.read(EXPKG_MANIFEST_FILENAME))
@@ -1035,7 +1064,6 @@ def _inspect_expkg(path: Path) -> dict[str, Any]:
                 }
         else:
             message = f"Missing {EXPKG_MANIFEST_FILENAME}."
-            warnings.append(message)
             warning_records.append(
                 _warning_record(
                     "packed_project_manifest_missing",
@@ -1043,22 +1071,20 @@ def _inspect_expkg(path: Path) -> dict[str, Any]:
                     path=EXPKG_MANIFEST_FILENAME,
                 )
             )
-    return {
-        "kind": "expkg_artifact",
-        "likely_importers": [],
-        "summary": summary,
-        "warnings": warnings,
-        "warning_records": warning_records,
-    }
+    return _InspectionDetails(
+        kind=InspectionKind.EXPKG_ARTIFACT,
+        likely_importers=(),
+        summary=summary,
+        warning_records=tuple(warning_records),
+    )
 
 
 def _inspect_expkg_metadata_slots(
     archive: zipfile.ZipFile,
     names: Sequence[str],
-) -> tuple[dict[str, dict[str, Any]], list[str], list[InspectionWarning]]:
+) -> tuple[dict[str, dict[str, Any]], list[InspectionWarning]]:
     name_set = set(names)
     slots: dict[str, dict[str, Any]] = {}
-    warnings: list[str] = []
     warning_records: list[InspectionWarning] = []
     for name, filename, load in _PROJECT_METADATA_ARCHIVE_SLOTS:
         member_path = f"{STORE_DIRNAME}/{PROJECT_METADATA_DIRNAME}/{filename}"
@@ -1079,7 +1105,6 @@ def _inspect_expkg_metadata_slots(
                 slot["valid"] = False
                 slot["error"] = str(exc)
                 message = f"Packed project metadata slot {name!r} is invalid: {exc}"
-                warnings.append(message)
                 warning_records.append(
                     _warning_record(
                         "packed_project_metadata_invalid",
@@ -1090,7 +1115,7 @@ def _inspect_expkg_metadata_slots(
             else:
                 slot["valid"] = True
         slots[name] = slot
-    return slots, warnings, warning_records
+    return slots, warning_records
 
 
 def inspect_path(
@@ -1118,12 +1143,11 @@ def inspect_path(
         elif suffix in {".h5", ".hdf5"}:
             details = _inspect_h5(resolved, confidence_threshold=threshold)
         elif suffix == ".slp":
-            details = {
-                "kind": "sleap_package",
-                "likely_importers": ["sleap_package"],
-                "summary": {},
-                "warnings": [],
-            }
+            details = _InspectionDetails(
+                kind=InspectionKind.SLEAP_PACKAGE,
+                likely_importers=("sleap_package",),
+                summary={},
+            )
         elif suffix == ".expkg":
             details = _inspect_expkg(resolved)
         elif suffix in _VIDEO_SUFFIXES:
@@ -1131,23 +1155,20 @@ def inspect_path(
         elif suffix in _IMAGE_SUFFIXES:
             details = _inspect_image(resolved)
         else:
-            details = {
-                "kind": "unknown",
-                "likely_importers": [],
-                "summary": {},
-                "warnings": ["No xpkg importer was inferred from this path."],
-            }
+            details = _InspectionDetails(
+                kind=InspectionKind.UNKNOWN,
+                likely_importers=(),
+                summary={},
+                warning_records=(
+                    _warning_record(
+                        "importer_unknown",
+                        "No xpkg importer was inferred from this path.",
+                        path=resolved,
+                    ),
+                ),
+            )
 
-    importers = cast(Sequence[str], details["likely_importers"])
-    summary_value = details["summary"]
-    warnings = cast(Sequence[str], details["warnings"])
-    summary = dict(summary_value) if isinstance(summary_value, Mapping) else {}
     payload = _path_payload(resolved)
-    warning_records = _coerce_warning_records(
-        details.get("warning_records"),
-        fallback_warnings=tuple(str(item) for item in warnings),
-        fallback_path=payload["path"],
-    )
     return InspectionReport(
         path=payload["path"],
         name=payload["name"],
@@ -1155,11 +1176,10 @@ def inspect_path(
         exists=payload["exists"],
         is_dir=payload["is_dir"],
         size_bytes=payload["size_bytes"],
-        kind=InspectionKind(str(details["kind"])),
-        likely_importers=tuple(str(item) for item in importers),
-        summary=summary,
-        warnings=tuple(str(item) for item in warnings),
-        warning_records=warning_records,
+        kind=details.kind,
+        likely_importers=details.likely_importers,
+        summary=details.summary,
+        warning_records=details.warning_records,
     )
 
 

@@ -460,11 +460,6 @@ def read_project_state(path: str | Path) -> dict[str, Any]:
     return read_labels_json_payload(path)
 
 
-def read_project_state_payload(path: str | Path) -> dict[str, Any]:
-    """Alias for the canonical project state payload reader."""
-    return read_project_state(path)
-
-
 def state_commit_id(payload: Mapping[str, Any]) -> str | None:
     metadata = payload.get("metadata")
     if not isinstance(metadata, Mapping):
@@ -482,7 +477,6 @@ __all__ = [
     "normalize_predictions_payload",
     "predictions_payload_from_labels",
     "read_project_state",
-    "read_project_state_payload",
     "rewrite_project_metadata_paths",
     "state_commit_id",
     "PROJECT_COMMIT_ID_KEY",

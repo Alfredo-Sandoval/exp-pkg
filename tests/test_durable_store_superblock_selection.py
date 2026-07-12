@@ -74,3 +74,20 @@ def test_recover_breaks_generation_ties_with_updated_at(tmp_path: Path) -> None:
     head = ProjectDurableStore(paths.root).recover()
     assert head.slot == "b"
     assert head.superblock.current_commit_id == "c_000000000003_beta"
+
+
+def test_recover_parses_legacy_store_discriminator_at_boundary(tmp_path: Path) -> None:
+    paths = StorePaths(root=tmp_path / ".xpkg")
+    paths.root.mkdir(parents=True)
+    legacy = _superblock(
+        generation=1,
+        current_commit_id="c_000000000001_deadbeef",
+        updated_at="2026-01-01T00:00:00Z",
+    )
+    legacy.format = "xpkg.archive-store"
+    legacy.with_checksum()
+    atomic_write_json(paths.superblock_a, legacy.to_dict())
+
+    head = ProjectDurableStore(paths.root).recover()
+
+    assert head.superblock.format == "xpkg.archive-store"

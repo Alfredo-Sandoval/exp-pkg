@@ -19,7 +19,7 @@ from xpkg.pose.annotations.instances import (
     Track,
     is_predicted_instance,
 )
-from xpkg.pose.annotations.regions import ROI, SegmentationMask
+from xpkg.segmentation.model import ROI, SegmentationMask
 
 logger = get_logger("xpkg.pose.annotations")
 

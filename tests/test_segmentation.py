@@ -7,7 +7,7 @@ import json
 import numpy as np
 import pytest
 
-from xpkg.pose.annotations.regions import (
+from xpkg.segmentation import (
     ROI,
     MaskType,
     PromptType,
@@ -363,25 +363,6 @@ class TestPublicAPISurface:
         assert callable(rle_decode)
         assert MaskType.POLYGON == 0
         assert MaskType.RLE == 1
-        assert PromptType.BOX == 1
-        assert ROI.__name__ == "ROI"
-        assert SegmentationMask.__name__ == "SegmentationMask"
-        assert SegmentationPrompt.__name__ == "SegmentationPrompt"
-
-    def test_annotations_exports(self):
-        from xpkg.pose.annotations import (
-            ROI,
-            MaskType,
-            PromptType,
-            SegmentationMask,
-            SegmentationPrompt,
-            rle_decode,
-            rle_encode,
-        )
-
-        assert callable(rle_encode)
-        assert callable(rle_decode)
-        assert MaskType.POLYGON == 0
         assert PromptType.BOX == 1
         assert ROI.__name__ == "ROI"
         assert SegmentationMask.__name__ == "SegmentationMask"

@@ -22,15 +22,6 @@ from xpkg.pose.annotations.points import (
     PredictedPoint,
     PredictedPointArray,
 )
-from xpkg.pose.annotations.regions import (
-    ROI,
-    MaskType,
-    PromptType,
-    SegmentationMask,
-    SegmentationPrompt,
-    rle_decode,
-    rle_encode,
-)
 from xpkg.pose.annotations.serde import make_instance_cattr
 from xpkg.pose.skeleton import Keypoint, Skeleton
 
@@ -47,16 +38,11 @@ __all__ = [
     "KPFlag",
     "Keypoint",
     "LabeledFrame",
-    "MaskType",
     "Point",
     "PointArray",
     "PredictedInstance",
     "PredictedPoint",
     "PredictedPointArray",
-    "PromptType",
-    "ROI",
-    "SegmentationMask",
-    "SegmentationPrompt",
     "Skeleton",
     "Track",
     "Video",
@@ -65,6 +51,4 @@ __all__ = [
     "make_instance_cattr",
     "normalize_point_like",
     "normalize_points_sequence",
-    "rle_decode",
-    "rle_encode",
 ]

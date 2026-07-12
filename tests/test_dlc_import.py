@@ -112,7 +112,7 @@ def test_import_dlc_project_directory_imports_supported_items_into_one_project(
     from xpkg.model import Labels
     from xpkg.project import current_project_state_path
     from xpkg.project.layout import project_media_root
-    from xpkg.project.state_io import read_project_state_payload
+    from xpkg.project.state_io import read_project_state
     from xpkg.project.store.imports import import_dlc_project_directory
 
     project_root = _make_dlc_project_fixture(tmp_path)
@@ -129,7 +129,7 @@ def test_import_dlc_project_directory_imports_supported_items_into_one_project(
     assert "IMPORT: Skipping session-missing-video (no video found)" in progress
     assert "IMPORT: Skipping session-no-data (no data file)" in progress
 
-    payload = read_project_state_payload(state_path)
+    payload = read_project_state(state_path)
     assert payload["metadata"]["source"] == "dlc_project_import"
     assert payload["metadata"]["project_name"] == "dlc-project"
     assert payload["metadata"]["source_items"] == [
@@ -172,7 +172,7 @@ def test_import_lightning_pose_csv_project_uses_dlc_style_predictions(
     from xpkg._core.hashing import sha256_file
     from xpkg.model import Labels
     from xpkg.project import current_project_state_path
-    from xpkg.project.state_io import read_project_state_payload
+    from xpkg.project.state_io import read_project_state
     from xpkg.project.store.imports import import_lightning_pose_csv_project
 
     csv_path = tmp_path / "video_preds" / "session0.csv"
@@ -202,7 +202,7 @@ def test_import_lightning_pose_csv_project_uses_dlc_style_predictions(
 
     assert state_path == current_project_state_path(project)
     assert "IMPORT: Reading Lightning Pose CSV session0.csv" in progress
-    payload = read_project_state_payload(state_path)
+    payload = read_project_state(state_path)
     assert payload["metadata"]["source"] == "lightning_pose_csv_import"
     assert payload["metadata"]["source_csv"] == csv_path.name
     provenance = payload["provenance"]["pose_prediction"]

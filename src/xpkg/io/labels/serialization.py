@@ -13,17 +13,16 @@ from xpkg.io.labels.json_format import read_labels_json_payload, write_labels_js
 from xpkg.io.labels.video_types import VideoProtocol
 from xpkg.media.video import Video
 from xpkg.pose.annotations import (
-    ROI,
     Instance,
     LabeledFrame,
     PointArray,
     PredictedInstance,
     PredictedPointArray,
-    SegmentationMask,
     Track,
 )
 from xpkg.pose.skeleton import SCHEMA_VERSION as SKELETON_SCHEMA_VERSION
 from xpkg.pose.skeleton import Keypoint, Skeleton
+from xpkg.segmentation.model import ROI, SegmentationMask
 
 if TYPE_CHECKING:
     from xpkg.io.labels.model import Labels, SuggestionFrame

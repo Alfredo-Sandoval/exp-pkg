@@ -26,7 +26,7 @@ from xpkg.project.metadata import (
     project_acquisition_metadata_path,
     project_dataset_share_metadata_path,
 )
-from xpkg.project.state_io import read_project_state_payload
+from xpkg.project.state_io import read_project_state
 
 
 def _make_labels(tmp_path: Path):
@@ -85,7 +85,7 @@ def test_project_metadata_roundtrips_on_project_head(tmp_path: Path) -> None:
     assert loaded_metadata["manifest_json"] == metadata["manifest_json"]
     assert loaded_metadata["preferences"] == {}
 
-    state_payload = read_project_state_payload(state_path)
+    state_payload = read_project_state(state_path)
     assert state_payload["metadata"]["session_json"] == metadata["session_json"]
     assert state_payload["metadata"]["training_state_json"] == metadata["training_state_json"]
     assert state_payload["metadata"]["manifest_json"] == metadata["manifest_json"]

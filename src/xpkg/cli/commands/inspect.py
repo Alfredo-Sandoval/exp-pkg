@@ -52,11 +52,10 @@ def inspect_target(
                     "confidence below threshold: "
                     f"{confidence.get('below_threshold')} / {confidence.get('finite_values')}\n"
                 )
-        warnings = payload.get("warnings") or []
-        for warning in warnings:
-            if isinstance(warning, dict):
-                warning = warning.get("message", warning)
-            sys.stdout.write(f"Warning: {warning}\n")
+        warning_records = payload.get("warning_records") or []
+        for record in warning_records:
+            if isinstance(record, dict):
+                sys.stdout.write(f"Warning: {record.get('message', record)}\n")
 
     run_command(json_output=json_output, action=action, human_output=human_output)
 
