@@ -78,7 +78,7 @@ def test_read_photometry_csv_rejects_unclean_explicit_column_selectors(
     message: str,
 ) -> None:
     with pytest.raises(exc_type, match=message):
-        read_photometry_csv(tmp_path / "missing.csv", **kwargs)  # type: ignore[arg-type]
+        read_photometry_csv(tmp_path / "missing.csv", **kwargs)
 
 
 def test_read_photometry_csv_reports_resolved_layout_metadata(tmp_path) -> None:
@@ -322,7 +322,7 @@ def test_read_events_csv_rejects_unclean_explicit_column_selectors(
     message: str,
 ) -> None:
     with pytest.raises(exc_type, match=message):
-        read_events_csv(tmp_path / "missing.csv", **kwargs)  # type: ignore[arg-type]
+        read_events_csv(tmp_path / "missing.csv", **kwargs)
 
 
 def test_read_events_csv_uses_default_kind_without_label_columns(tmp_path) -> None:

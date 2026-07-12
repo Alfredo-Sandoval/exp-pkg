@@ -13,19 +13,14 @@ from xpkg.io.calibration import read_calibration_json, write_calibration_json
 from xpkg.model.calibration import Calibration, CalibrationSource, WorldFrame
 from xpkg.project.layout import (
     project_store_root,
-    resolve_project_root,
+)
+from xpkg.project.layout import (
+    require_project_root as _require_project_root,
 )
 
 CALIBRATIONS_DIRNAME = "calibrations"
 CALIBRATION_FILENAME = "calibration.json"
 CALIBRATION_SOURCE_DIRNAME = "source"
-
-
-def _require_project_root(project: str | Path) -> Path:
-    root = resolve_project_root(project)
-    if root is None:
-        raise FileNotFoundError(f"Not an xpkg project: {project}")
-    return root
 
 
 def _calibration_id(value: str | None, *, fallback: str) -> str:

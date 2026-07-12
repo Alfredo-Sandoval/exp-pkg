@@ -5,24 +5,44 @@ from __future__ import annotations
 import sys
 
 import typer
-from typer.completion import get_completion_script
 
 from xpkg.cli.shared import JsonOption, run_command
 
+_COMPLETION_SCRIPTS = {
+    "bash": """_xpkg_completion() {
+    local IFS=$'\\n'
+    COMPREPLY=( $( env COMP_WORDS="${COMP_WORDS[*]}" \\
+                   COMP_CWORD=$COMP_CWORD \\
+                   _XPKG_COMPLETE=complete_bash $1 ) )
+    return 0
+}
+
+complete -o default -F _xpkg_completion xpkg""",
+    "fish": (
+        "complete --command xpkg --no-files --arguments "
+        '"(env _XPKG_COMPLETE=complete_fish '
+        "_TYPER_COMPLETE_FISH_ACTION=get-args "
+        '_TYPER_COMPLETE_ARGS=(commandline -cp) xpkg)" --condition '
+        '"env _XPKG_COMPLETE=complete_fish '
+        "_TYPER_COMPLETE_FISH_ACTION=is-args "
+        '_TYPER_COMPLETE_ARGS=(commandline -cp) xpkg"'
+    ),
+    "zsh": """#compdef xpkg
+
+_xpkg_completion() {
+  eval $(env _TYPER_COMPLETE_ARGS="${words[1,$CURRENT]}" _XPKG_COMPLETE=complete_zsh xpkg)
+}
+
+compdef _xpkg_completion xpkg""",
+}
+
 
 def _completion_script(shell: str) -> str:
-    """Return the shell completion script for ``xpkg``.
-
-    typer 0.26 vendors its own click as ``typer._click``, so generate the script
-    through typer's own generator instead of the standalone ``click`` package.
-    This keeps the script consistent with the installed CLI runtime and returns
-    text directly (the standalone-click path wrote bytes).
-    """
-    return get_completion_script(
-        prog_name="xpkg",
-        complete_var="_XPKG_COMPLETE",
-        shell=shell,
-    )
+    """Return the shell completion script for ``xpkg``."""
+    try:
+        return _COMPLETION_SCRIPTS[shell]
+    except KeyError as exc:
+        raise ValueError(f"Unsupported completion shell: {shell}") from exc
 
 
 def build_app(root_app: typer.Typer) -> typer.Typer:

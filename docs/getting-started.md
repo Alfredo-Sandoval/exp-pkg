@@ -39,7 +39,7 @@ environment; `make env` remains the canonical setup path.
 ## Local checks
 
 ```bash
-make qa          # conflict-check + ruff + ty + pytest
+make qa          # conflict-check + Ruff + Pyright (warnings fail) + pytest
 make ci-local    # qa + package-check + docs-build
 ```
 
@@ -140,7 +140,16 @@ project yet. The timing, event, signal, photometry, and session classes are
 the foundation for the next direct-reader and project-import work.
 
 ```python
-from xpkg.model import Event, EventTable, PhotometryRecording, RecordingSession, TimeSeries
+from xpkg.model import (
+    Event,
+    EventTable,
+    PhotometryRecording,
+    RecordingSession,
+    SessionSignal,
+    TimeSeries,
+    add_session_signal,
+    replace_session_events,
+)
 
 series = TimeSeries.from_samples(
     [[1.0, 0.5], [1.1, 0.48], [1.2, 0.47]],
@@ -160,7 +169,8 @@ events = EventTable.from_events(
 )
 
 session = RecordingSession(session_id="session-001")
-session = session.with_signal("fiber", photometry).with_events(events)
+session = add_session_signal(session, SessionSignal("fiber", photometry))
+session = replace_session_events(session, events)
 ```
 
 Read [Multimodal Session Model](architecture/multimodal-session.md) for the

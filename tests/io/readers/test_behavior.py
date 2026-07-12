@@ -396,7 +396,7 @@ def test_read_behavior_events_csv_rejects_unclean_explicit_column_selectors(
     message: str,
 ) -> None:
     with pytest.raises(exc_type, match=message):
-        read_behavior_events_csv(tmp_path / "missing.csv", **kwargs)  # type: ignore[arg-type]
+        read_behavior_events_csv(tmp_path / "missing.csv", **kwargs)
 
 
 # --- Real-format contract tests (byte-faithful fixtures) ---------------------

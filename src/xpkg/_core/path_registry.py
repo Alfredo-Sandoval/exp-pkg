@@ -6,11 +6,11 @@ import hashlib
 import os
 import re
 import sys
-from collections.abc import Hashable, Iterable, Mapping
+from collections.abc import Callable, Hashable, Iterable, Mapping
 from dataclasses import dataclass
 from importlib.resources import files
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 from urllib.parse import unquote, urlparse
 from urllib.request import url2pathname
 
@@ -62,7 +62,11 @@ def usable_cpu_count() -> int:
         RuntimeError: If the CPU count cannot be determined.
     """
     if sys.platform.startswith("linux"):
-        return len(os.sched_getaffinity(0))
+        affinity_fn = getattr(os, "sched_getaffinity", None)
+        if not callable(affinity_fn):
+            raise RuntimeError("Linux runtime does not expose os.sched_getaffinity()")
+        get_affinity = cast("Callable[[int], set[int]]", affinity_fn)
+        return len(get_affinity(0))
     result = os.cpu_count()
     if result is None:
         raise RuntimeError("os.cpu_count() returned None; cannot determine CPU count")

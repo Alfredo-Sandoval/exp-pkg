@@ -49,7 +49,7 @@ jobs:
           echo "VIRTUAL_ENV=${GITHUB_WORKSPACE}/.venv" >> "$GITHUB_ENV"
           echo "${GITHUB_WORKSPACE}/.venv/bin" >> "$GITHUB_PATH"
 
-      # Install the package plus the [dev] extra (pytest, ruff, ty, twine).
+      # Install the package plus the [dev] extra (Pyright, pytest, Ruff, twine).
       - name: Install package with dev extras
         run: uv pip install -e ".[dev]"
 
@@ -57,17 +57,20 @@ jobs:
       # the exact gate. We use the canonical `make` targets so CI matches the
       # local gate exactly: environment/run-in-env.sh execs straight through
       # when VIRTUAL_ENV is set (the venv step above), so no conda is needed,
-      # and `make typecheck` passes `--python "$(command -v python)"` to ty so
-      # it resolves the venv's installed dependencies (click, numpy, ...).
+      # and `make typecheck` passes the active interpreter to Pyright so it
+      # resolves the venv's installed dependencies (click, numpy, ...).
       - name: Lint (ruff)
         run: make lint
 
-      - name: Type check (ty)
+      - name: Type check (Pyright)
         run: make typecheck
 
       # `make coverage` runs pytest with coverage and writes coverage.xml.
       - name: Test with coverage
         run: make coverage
+
+      - name: Check performance budgets
+        run: make performance-check
 
       # coverage.xml may not exist if the coverage target changes; do not fail.
       - name: Upload coverage report

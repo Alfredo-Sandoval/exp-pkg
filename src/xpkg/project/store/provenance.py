@@ -10,9 +10,10 @@ from typing import TYPE_CHECKING, Any
 from xpkg._core.hashing import sha256_file
 from xpkg._core.path_registry import resolve_path
 from xpkg._core.time import now_utc_iso
+from xpkg.model.metadata import PoseModelProvenance
 
 if TYPE_CHECKING:
-    from xpkg.model import Labels, PoseModelProvenance
+    from xpkg.model import Labels
 
 
 _POSE_PREDICTION_TOOLS: dict[str, tuple[str, str]] = {
@@ -155,7 +156,6 @@ def _persist_pose_provenance(
 ) -> None:
     if provenance is None:
         return
-    from xpkg.model import PoseModelProvenance
     from xpkg.project.metadata import save_project_pose_provenance
 
     if isinstance(provenance, PoseModelProvenance):
@@ -178,4 +178,3 @@ def _persist_pose_provenance(
     if fields:
         record = PoseModelProvenance.from_dict({**record.to_dict(), **fields})
     save_project_pose_provenance(root, record)
-

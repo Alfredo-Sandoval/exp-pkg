@@ -47,7 +47,7 @@ def test_validate_accepts_consistent_payload() -> None:
 
 def test_validate_rejects_non_dict_payload() -> None:
     with pytest.raises(TypeError, match="not a dict"):
-        validate_loaded_project(["labels"])  # type: ignore[arg-type]
+        validate_loaded_project(["labels"])
 
 
 def test_validate_reports_all_missing_required_keys() -> None:

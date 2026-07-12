@@ -14,6 +14,7 @@ from xpkg.io.readers._columns import (
     first_matching_column,
     resolve_column,
 )
+from xpkg.io.readers._normalization import time_scale as _time_scale
 from xpkg.model import (
     Event,
     EventTable,
@@ -73,15 +74,6 @@ def _numeric_column(frame: pd.DataFrame, column: str, *, role: str) -> np.ndarra
     if not np.isfinite(values).all():
         raise ValueError(f"{role} column {column!r} contains non-finite values.")
     return values
-
-
-def _time_scale(unit: TimeUnit) -> float:
-    normalized = unit.lower()
-    if normalized in {"s", "sec", "second", "seconds"}:
-        return 1.0
-    if normalized in {"ms", "millisecond", "milliseconds"}:
-        return 0.001
-    raise ValueError(f"Unsupported time_unit {unit!r}; expected seconds or milliseconds.")
 
 
 def _positive_sample_rate(value: float) -> float:
@@ -328,18 +320,6 @@ def _required_event_text(
     return value
 
 
-def _optional_text(
-    frame: pd.DataFrame,
-    column: str | None,
-    index: int,
-    *,
-    role: str,
-) -> str | None:
-    if column is None:
-        return None
-    return _required_event_text(frame, column, index, role=role)
-
-
 def _clean_default_kind(default_kind: str) -> str:
     if (
         not isinstance(default_kind, str)
@@ -430,7 +410,7 @@ def read_events_csv(
             index,
             Event(
                 kind=(
-                    _optional_text(frame, resolved_kind, index, role="kind")
+                    _required_event_text(frame, resolved_kind, index, role="kind")
                     if resolved_kind is not None
                     else default_kind_text
                 ),

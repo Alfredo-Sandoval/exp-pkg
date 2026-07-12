@@ -60,7 +60,7 @@ def test_behavior_labels_rejects_unclean_source_type(
 ) -> None:
     with pytest.raises(exc_type, match=message):
         BehaviorLabels(
-            source_type=source_type,  # type: ignore[arg-type]
+            source_type=source_type,
             intervals=(BehaviorInterval(label="rear", start_s=1.0),),
         )
 

@@ -2,9 +2,9 @@
 
 Mirrors ``test_fiber_photometry_external_fixtures`` for the pose and behavior
 readers: point ``XPKG_POSE_FIXTURE_ROOT`` / ``XPKG_BEHAVIOR_FIXTURE_ROOT`` at a
-directory of real exports (kept out of git under ``tests/vendor_data/``) and the
-readers are exercised against the actual bytes the upstream tools write. Each
-case skips when its file is absent, so the suite is a no-op without local data.
+directory of real exports and the readers are exercised against the actual
+bytes the upstream tools write. The explicit vendor test target fails when a
+configured corpus is incomplete.
 
 The committed byte-faithful fixtures in ``tests/fixtures`` pin the same formats
 deterministically in CI; these tests add coverage against genuine captures (and
@@ -32,19 +32,27 @@ pytestmark = pytest.mark.vendorfixtures
 
 
 def _pose_root() -> Path:
-    return Path(os.environ.get("XPKG_POSE_FIXTURE_ROOT", "tests/vendor_data/pose"))
+    return _required_root("XPKG_POSE_FIXTURE_ROOT")
 
 
 def _behavior_root() -> Path:
-    return Path(
-        os.environ.get("XPKG_BEHAVIOR_FIXTURE_ROOT", "tests/vendor_data/behavior")
-    )
+    return _required_root("XPKG_BEHAVIOR_FIXTURE_ROOT")
+
+
+def _required_root(environment_variable: str) -> Path:
+    raw_root = os.environ.get(environment_variable)
+    if not raw_root:
+        raise RuntimeError(
+            f"{environment_variable} is required for vendor-fixture tests. "
+            "Run them through `make test-vendor`."
+        )
+    return Path(raw_root)
 
 
 def _fixture(root: Path, relative: str) -> Path:
     path = root / relative
     if not path.exists():
-        pytest.skip()
+        raise FileNotFoundError(f"Required vendor fixture does not exist: {path}")
     return path
 
 

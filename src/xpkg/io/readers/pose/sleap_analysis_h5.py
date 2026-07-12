@@ -9,6 +9,7 @@ from typing import Any
 import h5py
 import numpy as np
 
+from xpkg.io.hdf5 import require_dataset
 from xpkg.io.readers.pose._common import (
     PoseTrack,
     build_pose_track,
@@ -24,15 +25,15 @@ def _decode_node_name(name: Any) -> str:
 
 def read_node_names(path: Path) -> list[str]:
     """Return decoded node names from a SLEAP analysis H5."""
-    with h5py.File(path, "r") as handle:
-        names = np.asarray(handle["node_names"][...])
+    with h5py.File(str(path), "r") as handle:
+        names = np.asarray(require_dataset(handle, "node_names")[...])
     return [_decode_node_name(name) for name in names]
 
 
 def read_track_count(path: Path) -> int:
     """Return the number of tracked instances stored in a SLEAP analysis H5."""
-    with h5py.File(path, "r") as handle:
-        tracks = handle["tracks"]
+    with h5py.File(str(path), "r") as handle:
+        tracks = require_dataset(handle, "tracks")
         return int(tracks.shape[0])
 
 
@@ -47,8 +48,8 @@ def read_track_names(path: Path) -> list[str]:
     project importer) stay aligned. Only decode ``track_names`` when it is a
     non-empty dataset, since the empty placeholder is a float array, not bytes.
     """
-    with h5py.File(path, "r") as handle:
-        track_count = int(handle["tracks"].shape[0])
+    with h5py.File(str(path), "r") as handle:
+        track_count = int(require_dataset(handle, "tracks").shape[0])
         track_names_ds = handle.get("track_names")
         names: list[str] = []
         if isinstance(track_names_ds, h5py.Dataset) and track_names_ds.shape[0] > 0:
@@ -65,12 +66,13 @@ def read_track(path: Path, *, track_index: int) -> PoseTrack:
         raise ValueError(f"track_index must be >= 0, got {track_index!r}.")
 
     path = Path(path)
-    with h5py.File(path, "r") as handle:
-        tracks = handle["tracks"]
-        point_scores = handle["point_scores"]
-        instance_scores = handle["instance_scores"]
+    with h5py.File(str(path), "r") as handle:
+        tracks = require_dataset(handle, "tracks")
+        point_scores = require_dataset(handle, "point_scores")
+        instance_scores = require_dataset(handle, "instance_scores")
         node_names = tuple(
-            _decode_node_name(name) for name in np.asarray(handle["node_names"][...])
+            _decode_node_name(name)
+            for name in np.asarray(require_dataset(handle, "node_names")[...])
         )
 
         if tracks.shape[0] <= idx:

@@ -1,4 +1,4 @@
-.PHONY: env setup bootstrap env-macos env-linux loc conflict-check lint typecheck test coverage require-real-data test-real qa ci-local release-check build package-check docs-build docs-serve clean
+.PHONY: env setup bootstrap loc conflict-check export-stubs export-stubs-check lint typecheck test coverage performance-check require-vendor-data test-vendor require-real-data test-real qa ci-local release-check build package-check docs-build docs-serve clean
 
 ENV_ARGS ?=
 PYTHON ?= python
@@ -6,11 +6,13 @@ SOURCE_DIRS ?= src
 DOCS_ADDR ?= 127.0.0.1:8123
 REAL_DATA_ROOT ?=
 REAL_DATA_MANIFEST ?=
+FIBER_FIXTURE_ROOT ?=
+POSE_FIXTURE_ROOT ?=
+BEHAVIOR_FIXTURE_ROOT ?=
 RUN_IN_ENV := bash environment/run-in-env.sh
-EXCLUDE_PATHS ?= .git .venv venv env node_modules .next .turbo out __pycache__ *.egg-info .eggs .pytest_cache .ruff_cache .mypy_cache .cache build dist htmlcov coverage .coverage site results data external
+EXCLUDE_PATHS ?= .git .venv venv env node_modules .next .turbo out __pycache__ *.egg-info .eggs .pytest_cache .ruff_cache .cache build dist htmlcov coverage .coverage site results data external
 LOC_PRUNE_NAMES := $(foreach p,$(EXCLUDE_PATHS),-name '$(p)' -o ) -false
 LOC_GROUP_DEPTH ?= 2
-TY_EXTRA_SEARCH_PATHS ?=
 
 env:
 	@test -f environment/setup.sh || { echo "Missing setup script: environment/setup.sh"; exit 1; }
@@ -19,14 +21,6 @@ env:
 setup: env
 
 bootstrap: env
-
-env-macos:
-	@test -f environment/setup.sh || { echo "Missing setup script: environment/setup.sh"; exit 1; }
-	bash environment/setup.sh $(ENV_ARGS) --target macos
-
-env-linux:
-	@test -f environment/setup.sh || { echo "Missing setup script: environment/setup.sh"; exit 1; }
-	bash environment/setup.sh $(ENV_ARGS) --target linux
 
 conflict-check:
 	@set -eu; \
@@ -41,11 +35,17 @@ conflict-check:
 		fi; \
 	fi
 
+export-stubs:
+	$(RUN_IN_ENV) python scripts/generate_export_stubs.py
+
+export-stubs-check:
+	$(RUN_IN_ENV) python scripts/generate_export_stubs.py --check
+
 lint:
 	$(RUN_IN_ENV) ruff check .
 
 typecheck:
-	$(RUN_IN_ENV) sh -c 'ty check --python "$$(command -v python)" $(TY_EXTRA_SEARCH_PATHS)'
+	$(RUN_IN_ENV) sh -c 'pyright --warnings --pythonpath "$$(command -v python)"'
 
 test:
 	PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 $(RUN_IN_ENV) python -m pytest
@@ -55,6 +55,26 @@ test:
 # explicitly via -p because plugin autoload is disabled.
 coverage:
 	PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 $(RUN_IN_ENV) python -m pytest -p pytest_cov --cov=xpkg --cov-report=term-missing --cov-report=xml --cov-report=html
+
+performance-check:
+	$(RUN_IN_ENV) python scripts/check_performance_budgets.py
+
+require-vendor-data:
+	@set -eu; \
+	for spec in \
+		"XPKG_FIBER_FIXTURE_ROOT:$${XPKG_FIBER_FIXTURE_ROOT:-$(FIBER_FIXTURE_ROOT)}" \
+		"XPKG_POSE_FIXTURE_ROOT:$${XPKG_POSE_FIXTURE_ROOT:-$(POSE_FIXTURE_ROOT)}" \
+		"XPKG_BEHAVIOR_FIXTURE_ROOT:$${XPKG_BEHAVIOR_FIXTURE_ROOT:-$(BEHAVIOR_FIXTURE_ROOT)}"; do \
+		name="$${spec%%:*}"; root="$${spec#*:}"; \
+		test -n "$$root" || { echo "Set $$name or its matching make argument."; exit 1; }; \
+		test -d "$$root" || { echo "Vendor fixture root does not exist for $$name: $$root"; exit 1; }; \
+	done
+
+test-vendor: require-vendor-data
+	XPKG_FIBER_FIXTURE_ROOT="$${XPKG_FIBER_FIXTURE_ROOT:-$(FIBER_FIXTURE_ROOT)}" \
+	XPKG_POSE_FIXTURE_ROOT="$${XPKG_POSE_FIXTURE_ROOT:-$(POSE_FIXTURE_ROOT)}" \
+	XPKG_BEHAVIOR_FIXTURE_ROOT="$${XPKG_BEHAVIOR_FIXTURE_ROOT:-$(BEHAVIOR_FIXTURE_ROOT)}" \
+	PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 $(RUN_IN_ENV) python -m pytest -m vendorfixtures tests/io/readers
 
 require-real-data:
 	@root="$${XPKG_REAL_DATA_ROOT:-$(REAL_DATA_ROOT)}"; \
@@ -72,11 +92,11 @@ test-real: require-real-data
 	XPKG_REAL_DATA_MANIFEST="$${XPKG_REAL_DATA_MANIFEST:-$(REAL_DATA_MANIFEST)}" \
 	PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 $(RUN_IN_ENV) python -m pytest -m realdata tests/real_data
 
-qa: conflict-check lint typecheck test
+qa: conflict-check export-stubs-check lint typecheck test
 
-ci-local: qa package-check docs-build
+ci-local: qa performance-check package-check docs-build
 
-release-check: require-real-data qa package-check docs-build test-real
+release-check: require-real-data qa performance-check package-check docs-build test-real
 
 build:
 	$(RUN_IN_ENV) env UV_CACHE_DIR="$${UV_CACHE_DIR:-.cache/uv}" uv build --out-dir dist --clear
@@ -154,6 +174,6 @@ loc:
 		}'
 
 clean:
-	rm -rf __pycache__ .pytest_cache .ruff_cache .mypy_cache
+	rm -rf __pycache__ .pytest_cache .ruff_cache
 	find . -name "*.tsbuildinfo" -type f -delete
 	find . -type d -name "__pycache__" -prune -exec rm -rf {} +

@@ -10,17 +10,10 @@ from xpkg.model._metadata_validation import (
     finite_float,
     metadata_dict,
 )
+from xpkg.model._metadata_validation import (
+    strict_required_text as _required_text,
+)
 from xpkg.model.time import Timebase, TimeRange
-
-
-def _required_text(value: object, *, name: str) -> str:
-    if not isinstance(value, str):
-        raise TypeError(f"{name} must be a string.")
-    if not value:
-        raise ValueError(f"{name} must be a non-empty string.")
-    if value != value.strip():
-        raise ValueError(f"{name} must not contain surrounding whitespace.")
-    return value
 
 
 @dataclass(frozen=True, slots=True)

@@ -15,13 +15,18 @@ import numpy as np
 import pandas as pd
 
 from xpkg._core.json_utils import parse_json_dict
+from xpkg.io.hdf5 import float_attribute
 from xpkg.io.readers._discovery import find_first_file
+from xpkg.io.readers._normalization import photometry_excitation as _excitation_from_name
+from xpkg.io.readers._normalization import time_scale as _time_scale
 from xpkg.model import (
     Event,
     EventTable,
     PhotometryChannel,
     PhotometryRecording,
     RecordingSession,
+    SessionSignal,
+    SessionVideo,
     SignalChannel,
     Timeline,
     TimeSeries,
@@ -80,15 +85,6 @@ def _read_csv(path: str | Path, *, max_mb: float | None = None) -> pd.DataFrame:
     return pd.read_csv(source_path)
 
 
-def _time_scale(unit: TimeUnit) -> float:
-    normalized = unit.lower()
-    if normalized in {"s", "sec", "second", "seconds"}:
-        return 1.0
-    if normalized in {"ms", "millisecond", "milliseconds"}:
-        return 0.001
-    raise ValueError(f"Unsupported time_unit {unit!r}; expected seconds or milliseconds.")
-
-
 def _column(frame: pd.DataFrame, name: str) -> str:
     lookup = {str(column).lower(): str(column) for column in frame.columns}
     key = name.lower()
@@ -122,7 +118,7 @@ def _pmat_event_label(value: object, *, column: str, row: int) -> str:
         f"pMAT event label column {column!r} at row {row} must be a non-empty "
         "string without surrounding whitespace."
     )
-    if pd.isna(value) or not isinstance(value, str):
+    if not isinstance(value, str):
         raise ValueError(message)
     if not value or value != value.strip():
         raise ValueError(message)
@@ -134,7 +130,7 @@ def _rwd_event_label(value: object, *, row: int) -> str:
         f"RWD Events.csv Name column at row {row} must be a non-empty string "
         "without surrounding whitespace."
     )
-    if pd.isna(value) or not isinstance(value, str):
+    if not isinstance(value, str):
         raise ValueError(message)
     if not value or value != value.strip():
         raise ValueError(message)
@@ -150,14 +146,6 @@ def _uniform_timeline_sample_rate(timeline: Timeline, source: str) -> tuple[floa
     if sample_rate is None:
         raise ValueError(f"{source} must be uniformly sampled.")
     return float(sample_rate), f"{source}.timestamps_uniform"
-
-
-def _excitation_from_name(name: str) -> str:
-    lowered = name.lower()
-    for token in ("405", "410", "415", "465", "470", "560"):
-        if token in lowered:
-            return token
-    return ""
 
 
 def _photometry_recording(
@@ -726,7 +714,7 @@ def read_neurophotometrics_csv(
         metadata["frame_counter"] = _numeric(frame, frame_counter).astype(int).tolist()
     return RecordingSession(
         session_id=source_path.stem,
-        signals=signals,
+        signals=tuple(SessionSignal(name, signal) for name, signal in signals.items()),
         metadata=metadata,
     )
 
@@ -975,14 +963,14 @@ def read_rwd_ofrs_session(path: str | Path) -> RecordingSession:
             "metadata": parsed_metadata,
         },
     )
-    videos = {}
+    videos: tuple[SessionVideo, ...] = ()
     video_path = session_path / "Video.mp4"
     if video_path.is_file():
-        videos["behavior"] = {"path": str(video_path)}
+        videos = (SessionVideo(role="behavior", path=video_path),)
     event_table, event_metadata = _rwd_event_table(session_path / "Events.csv", time_scale)
     return RecordingSession(
         session_id=session_path.name,
-        signals={"photometry": photometry},
+        signals=(SessionSignal("photometry", photometry),),
         videos=videos,
         events=event_table,
         metadata={
@@ -1029,7 +1017,7 @@ def is_doric_photometry_file(path: str | Path) -> bool:
     if not source_path.is_file() or source_path.suffix.lower() != ".doric":
         return False
     try:
-        with h5py.File(source_path, "r") as handle:
+        with h5py.File(str(source_path), "r") as handle:
             return any(
                 _numeric_1d_dataset(dataset) for dataset in _walk_hdf5_datasets(handle).values()
             )
@@ -1046,7 +1034,7 @@ def find_first_doric_photometry_file(path: str | Path) -> Path | None:
 def _dataset_sample_rate_with_source(dataset: h5py.Dataset) -> tuple[float | None, str | None]:
     for key in ("SamplingRate", "sampling_rate", "Rate", "Fs", "fs"):
         if key in dataset.attrs:
-            value = float(dataset.attrs[key])
+            value = float_attribute(dataset.attrs[key], name=f"{dataset.name}.{key}")
             if np.isfinite(value) and value > 0:
                 return value, f"{dataset.name.lstrip('/')}.attrs.{key}"
     return None, None
@@ -1097,7 +1085,7 @@ def read_doric_photometry(
     clean_signal_path = _doric_dataset_selector(signal_path, role="signal_path")
     clean_reference_path = _doric_dataset_selector(reference_path, role="reference_path")
     clean_time_path = _doric_dataset_selector(time_path, role="time_path")
-    with h5py.File(source_path, "r") as handle:
+    with h5py.File(str(source_path), "r") as handle:
         datasets = _walk_hdf5_datasets(handle)
         numeric_paths = [name for name, dataset in datasets.items() if _numeric_1d_dataset(dataset)]
         if not numeric_paths:
@@ -1195,7 +1183,7 @@ def read_doric_photometry(
     )
     return RecordingSession(
         session_id=source_path.stem,
-        signals={"photometry": photometry},
+        signals=(SessionSignal("photometry", photometry),),
         metadata={
             "source": {"type": "doric_photometry", "path": str(source_path)},
             "sampling_rate_hz": sample_rate,
@@ -1221,11 +1209,6 @@ def _finite_vector(values: object, name: str) -> np.ndarray:
     if not np.isfinite(array).all():
         raise ValueError(f"{name} must contain only finite values.")
     return array
-
-
-def _teleopto_sample_rate(num: np.ndarray, st1: np.ndarray, n_samples: int) -> float:
-    sample_rate, _source = _teleopto_sample_rate_with_source(num, st1, n_samples)
-    return sample_rate
 
 
 def _teleopto_sample_rate_with_source(
@@ -1339,7 +1322,7 @@ def read_teleopto_h5(
     """Read a Teleopto/PMAT-style HDF5 photometry export."""
 
     source_path = Path(path)
-    with h5py.File(source_path, "r") as handle:
+    with h5py.File(str(source_path), "r") as handle:
         return parse_teleopto_h5_arrays(
             handle,
             session_id=source_path.stem,
@@ -1352,10 +1335,10 @@ def is_teleopto_h5(path: str | Path) -> bool:
     """Return whether ``path`` has the Teleopto/PMAT HDF5 dataset contract."""
 
     source_path = Path(path)
-    if not source_path.is_file() or not h5py.is_hdf5(source_path):
+    if not source_path.is_file():
         return False
     try:
-        with h5py.File(source_path, "r") as handle:
+        with h5py.File(str(source_path), "r") as handle:
             return _TELEOPTO_REQUIRED_KEYS.issubset(handle.keys())
     except OSError:
         return False
@@ -1438,7 +1421,7 @@ def parse_teleopto_h5_arrays(
     )
     return RecordingSession(
         session_id=session_id,
-        signals={"photometry": photometry},
+        signals=(SessionSignal("photometry", photometry),),
         events=_events_from_map(event_map, source_type="teleopto_h5", source_path=resolved_source),
         metadata={
             "source": {"type": "teleopto_h5", "path": str(resolved_source)},
@@ -1868,7 +1851,7 @@ def read_tdt_photometry_block(
     )
     return RecordingSession(
         session_id=block_path.name,
-        signals={"photometry": photometry},
+        signals=(SessionSignal("photometry", photometry),),
         events=_events_from_map(event_map, source_type="tdt_block", source_path=block_path),
         metadata={
             "source": {"type": "tdt_block", "path": str(block_path)},

@@ -1,8 +1,9 @@
-"""Shared SLEAP ``.pkg.slp`` extraction routines for converter modules."""
+"""Boundary parser for SLEAP ``.pkg.slp`` frame and label data."""
 
 from __future__ import annotations
 
-import os
+from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, cast
 
 import cv2
@@ -11,543 +12,557 @@ import numpy as np
 import pandas as pd
 
 from xpkg._core.json_utils import parse_json, parse_json_dict
-from xpkg._core.logging_utils import get_logger
 from xpkg._core.path_registry import ensure_dir
-
-_LOGGER = get_logger(__name__)
 
 _ERR_NO_VIDEOS = "No videos found in SLEAP package"
 
 
-def _warn(msg: str) -> None:
-    if _LOGGER.hasHandlers():
-        _LOGGER.warning(msg.rstrip())
-    else:
-        import sys as _sys
-
-        _sys.stderr.write(msg.rstrip() + "\n")
+class SleapPackageFormatError(ValueError):
+    """Raised when a SLEAP package cannot form a valid label table."""
 
 
-def _column_index(column_names: list[str]) -> pd.Index:
-    return pd.Index(column_names)
+@dataclass(frozen=True, slots=True)
+class _SkeletonLayout:
+    node_ids: tuple[int, ...]
+    keypoints: tuple[str, ...]
 
-
-def _get_field(record: Any, field: str) -> Any:
-    return record[field]
+    @property
+    def columns(self) -> list[str]:
+        columns = ["frame"]
+        for keypoint in self.keypoints:
+            columns.extend((f"{keypoint}_x", f"{keypoint}_y"))
+        return columns
 
 
 def _video_groups(hdf: h5py.File) -> dict[str, str]:
     videos: dict[str, str] = {}
     for group in hdf.keys():
-        if not group.startswith("video"):
+        source_video = f"{group}/source_video"
+        if not group.startswith("video") or source_video not in hdf:
             continue
-        sv = f"{group}/source_video"
-        if sv in hdf:
-            js = hdf[sv].attrs.get("json", "")
-            if js:
-                meta = parse_json_dict(cast(str | bytes | bytearray, js))
-                fn = meta.get("backend", {}).get("filename")
-                if fn:
-                    videos[group] = fn
+        raw_json = hdf[source_video].attrs.get("json", "")
+        if not raw_json:
+            continue
+        metadata = parse_json_dict(cast(str | bytes | bytearray, raw_json))
+        backend = metadata.get("backend")
+        filename = backend.get("filename") if isinstance(backend, dict) else None
+        if isinstance(filename, str) and filename:
+            videos[group] = filename
     return videos
 
 
 def _group_video_indices_from_json(hdf: h5py.File) -> dict[str, int]:
     if "videos_json" not in hdf:
         return {}
-    ds = cast(h5py.Dataset, hdf["videos_json"])
+    dataset = cast(h5py.Dataset, hdf["videos_json"])
     mapping: dict[str, int] = {}
-    for idx in range(len(ds)):
-        raw = ds[idx]
-        if isinstance(raw, bytes | np.bytes_):
-            payload_raw = parse_json(bytes(raw))
-        else:
-            payload_raw = parse_json(str(raw))
+    for index in range(len(dataset)):
+        raw = dataset[index]
+        payload_raw = parse_json(bytes(raw) if isinstance(raw, bytes | np.bytes_) else str(raw))
         if not isinstance(payload_raw, dict):
-            raise TypeError("videos_json entries must be JSON objects")
-        payload: dict[str, object] = {str(key): value for key, value in payload_raw.items()}
+            raise SleapPackageFormatError("videos_json entries must be JSON objects")
+        payload = {str(key): value for key, value in payload_raw.items()}
         backend_raw = payload.get("backend")
-        backend: dict[str, object] | None = None
-        if isinstance(backend_raw, dict):
-            backend = {str(key): value for key, value in backend_raw.items()}
-        dataset = backend.get("dataset") if backend is not None else None
-        if dataset is None:
-            dataset = payload.get("dataset")
-        if not isinstance(dataset, str) or not dataset.strip():
-            raise ValueError("videos_json entry missing backend.dataset")
-        group = dataset.split("/", 1)[0]
+        backend = (
+            {str(key): value for key, value in backend_raw.items()}
+            if isinstance(backend_raw, dict)
+            else {}
+        )
+        dataset_path = backend.get("dataset", payload.get("dataset"))
+        if not isinstance(dataset_path, str) or not dataset_path.strip():
+            raise SleapPackageFormatError("videos_json entry missing backend.dataset")
+        group = dataset_path.split("/", 1)[0]
         if not group:
-            raise ValueError("videos_json entry missing dataset group")
-        mapping[group] = idx
+            raise SleapPackageFormatError("videos_json entry missing dataset group")
+        mapping[group] = index
     return mapping
 
 
-def extract_frames(
-    slp_path: str,
-    out_dir: str,
-) -> None:
-    ensure_dir(out_dir)
-    labeled = os.path.join(out_dir, "labeled-data")
-    ensure_dir(labeled)
-
+def extract_frames(slp_path: str, out_dir: str) -> None:
+    output_root = Path(out_dir)
+    labeled_root = output_root / "labeled-data"
+    ensure_dir(labeled_root)
     with h5py.File(slp_path, "r") as hdf:
-        vids = _video_groups(hdf)
-        if not vids:
+        videos = _video_groups(hdf)
+        if not videos:
             raise RuntimeError(_ERR_NO_VIDEOS)
-        for vg, fn in vids.items():
-            base = os.path.splitext(os.path.basename(fn))[0]
-            out_vdir = os.path.join(labeled, base)
-            ensure_dir(out_vdir)
-
-            if f"{vg}/video" not in hdf:
+        for group, filename in videos.items():
+            output_dir = labeled_root / Path(filename).stem
+            ensure_dir(output_dir)
+            if f"{group}/video" not in hdf:
                 continue
-            frames = cast(Any, hdf[f"{vg}/video"])
-            frame_numbers = cast(Any, hdf[f"{vg}/frame_numbers"])
-            for img_bytes, frame_num in zip(frames, frame_numbers, strict=False):
-                from xpkg.media.images import read_rgb_bytes as _read_rgb_bytes
+            frames = cast(Any, hdf[f"{group}/video"])
+            frame_numbers = cast(Any, hdf[f"{group}/frame_numbers"])
+            for image_bytes, frame_number in zip(frames, frame_numbers, strict=False):
+                from xpkg.media.images import read_rgb_bytes
 
-                rgb = _read_rgb_bytes(bytes(img_bytes))
-                name = f"img{int(frame_num):08d}.png"
-                dst = os.path.join(out_vdir, name)
-                cv2.imwrite(dst, rgb)
+                rgb = read_rgb_bytes(bytes(image_bytes))
+                destination = output_dir / f"img{int(frame_number):08d}.png"
+                cv2.imwrite(destination.as_posix(), rgb)
 
 
-def extract_labels_step4(
-    slp_path: str,
-    out_dir: str,
+def _skeleton_layout(hdf: h5py.File) -> _SkeletonLayout:
+    metadata = parse_json_dict(
+        cast(str | bytes | bytearray, hdf["metadata"].attrs.get("json", "{}"))
+    )
+    raw_nodes = metadata.get("nodes")
+    raw_skeletons = metadata.get("skeletons")
+    if not isinstance(raw_nodes, list) or not raw_nodes:
+        raise SleapPackageFormatError("SLEAP metadata must contain a non-empty nodes list")
+    if not isinstance(raw_skeletons, list) or not raw_skeletons:
+        raise SleapPackageFormatError("SLEAP metadata must contain a skeleton")
+
+    names: dict[int, str] = {}
+    for node_id, raw_node in enumerate(raw_nodes):
+        if not isinstance(raw_node, dict):
+            raise SleapPackageFormatError(f"SLEAP node {node_id} must be an object")
+        name = raw_node.get("name")
+        if not isinstance(name, str) or not name.strip():
+            raise SleapPackageFormatError(f"SLEAP node {node_id} must have a name")
+        names[node_id] = name.strip()
+
+    skeleton = raw_skeletons[0]
+    if not isinstance(skeleton, dict):
+        raise SleapPackageFormatError("SLEAP skeleton must be an object")
+    raw_order = skeleton.get("nodes")
+    if not raw_order:
+        order = tuple(sorted(names))
+    elif isinstance(raw_order, list):
+        order = _parse_node_order(raw_order, names)
+    else:
+        raise SleapPackageFormatError("SLEAP skeleton nodes must be a list")
+    return _SkeletonLayout(order, tuple(names[node_id] for node_id in order))
+
+
+def _parse_node_order(raw_order: list[object], names: dict[int, str]) -> tuple[int, ...]:
+    order: list[int] = []
+    for item in raw_order:
+        raw_id = item.get("id") if isinstance(item, dict) else item
+        if isinstance(raw_id, dict):
+            raw_id = raw_id.get("id")
+        if not isinstance(raw_id, int | str) or not str(raw_id).isdigit():
+            raise SleapPackageFormatError(f"Invalid SLEAP skeleton node reference: {item!r}")
+        node_id = int(raw_id)
+        if node_id not in names:
+            raise SleapPackageFormatError(f"Unknown SLEAP skeleton node id: {node_id}")
+        if node_id in order:
+            raise SleapPackageFormatError(f"Duplicate SLEAP skeleton node id: {node_id}")
+        order.append(node_id)
+    if not order:
+        raise SleapPackageFormatError("SLEAP skeleton must reference at least one node")
+    return tuple(order)
+
+
+def _frame_index(frame: Any, fields: set[str]) -> int:
+    for field in ("frame_idx", "frame", "frame_id"):
+        if field in fields:
+            return int(frame[field])
+    raise SleapPackageFormatError("SLEAP frames table has no frame index field")
+
+
+def _frame_id(frame: Any, fields: set[str]) -> int:
+    for field in ("frame_id", "frame", "frame_idx"):
+        if field in fields:
+            return int(frame[field])
+    raise SleapPackageFormatError("SLEAP frames table has no frame identifier field")
+
+
+def _frame_indices_by_video(frames: h5py.Dataset, fields: set[str]) -> dict[int, set[int]]:
+    result: dict[int, set[int]] = {}
+    if "video" not in fields:
+        raise SleapPackageFormatError("SLEAP frames table has no video field")
+    for frame in frames:
+        result.setdefault(int(frame["video"]), set()).add(_frame_index(frame, fields))
+    return result
+
+
+def _group_frame_indices(hdf: h5py.File, groups: dict[str, str]) -> dict[str, set[int]]:
+    result: dict[str, set[int]] = {}
+    for group in groups:
+        path = f"{group}/frame_numbers"
+        if path not in hdf:
+            raise SleapPackageFormatError(f"SLEAP video group is missing frame_numbers: {group}")
+        result[group] = {int(value) for value in cast(h5py.Dataset, hdf[path])}
+    return result
+
+
+def _match_video_groups(
+    hdf: h5py.File,
+    group_indices: dict[str, set[int]],
+    video_indices: dict[int, set[int]],
+) -> dict[str, int]:
+    mapping = _group_video_indices_from_json(hdf)
+    missing = sorted({video for video in mapping.values() if video not in video_indices})
+    if missing:
+        raise SleapPackageFormatError(f"videos_json indices missing from frames table: {missing}")
+    for group, indices in group_indices.items():
+        if group in mapping:
+            continue
+        exact = [video for video, candidate in video_indices.items() if candidate == indices]
+        if len(exact) == 1:
+            mapping[group] = exact[0]
+            continue
+        scored = [
+            (len(indices & candidate) / len(indices | candidate), video)
+            for video, candidate in video_indices.items()
+            if indices & candidate
+        ]
+        if not scored:
+            raise SleapPackageFormatError(f"No labeled-frame match for SLEAP group {group}")
+        best_score = max(score for score, _video in scored)
+        best = [video for score, video in scored if score == best_score]
+        if len(best) != 1:
+            raise SleapPackageFormatError(f"Ambiguous labeled-frame match for SLEAP group {group}")
+        mapping[group] = best[0]
+    return mapping
+
+
+def _empty_table(layout: _SkeletonLayout) -> pd.DataFrame:
+    return pd.DataFrame(columns=pd.Index(layout.columns))
+
+
+def _table_from_rows(
+    rows: list[list[float | None]], layout: _SkeletonLayout, video_name: str
 ) -> pd.DataFrame:
-    """Build the flattened Step-4 labels table without writing a CSV file."""
+    if not rows:
+        return _empty_table(layout)
+    table = pd.DataFrame(rows, columns=pd.Index(layout.columns))
+    table["frame"] = [
+        f"labeled-data/{video_name}/img{int(frame):08d}.png" for frame in table["frame"]
+    ]
+    return table
 
-    ensure_dir(out_dir)
-    labeled = os.path.join(out_dir, "labeled-data")
-    ensure_dir(labeled)
 
-    with h5py.File(slp_path, "r") as hdf:
-        vids = _video_groups(hdf)
-        if not vids:
-            raise RuntimeError(_ERR_NO_VIDEOS)
+def _instance_indices(frame: Any, frame_fields: set[str], instances: h5py.Dataset) -> list[int]:
+    if {"instance_id_start", "instance_id_end"}.issubset(frame_fields):
+        start = int(frame["instance_id_start"])
+        end = int(frame["instance_id_end"])
+        return list(range(start, end)) if end > start else []
+    frame_id = _frame_id(frame, frame_fields)
+    instance_fields = set(instances.dtype.names or ())
+    if "frame_id" not in instance_fields:
+        raise SleapPackageFormatError("SLEAP instances table has no frame_id field")
+    return [
+        index
+        for index in range(len(instances))
+        if int(instances[index]["frame_id"]) == frame_id
+    ]
 
-        md = parse_json_dict(cast(str | bytes | bytearray, hdf["metadata"].attrs.get("json", "{}")))
-        nodes = md.get("nodes", [])
-        sk = (md.get("skeletons", []) or [{}])[0]
-        id2name: dict[int, str] = {}
-        for i, n in enumerate(nodes):
-            nm = str(n.get("name") or "").strip()
-            if nm:
-                id2name[int(i)] = nm
-        sk_nodes = sk.get("nodes") or []
-        order_ids: list[int] = []
-        for item in sk_nodes:
-            if isinstance(item, dict):
-                cand_node = item.get("id")
-                if isinstance(cand_node, dict) and "id" in cand_node:
-                    cand_node = cand_node["id"]
-                if isinstance(cand_node, int | str) and str(cand_node).isdigit():
-                    order_ids.append(int(cand_node))
-            elif isinstance(item, int | str) and str(item).isdigit():
-                order_ids.append(int(item))
-        node_ids_order = (
-            order_ids if order_ids and all(i in id2name for i in order_ids) else sorted(id2name)
-        )
-        kp_ordered = [id2name[i] for i in node_ids_order]
-        column_names = ["frame"]
-        for kp in kp_ordered:
-            column_names.extend([f"{kp}_x", f"{kp}_y"])
 
-        frames_ds = cast(h5py.Dataset, hdf["frames"])
-        points_ds = cast(h5py.Dataset, hdf["points"])
-        inst_ds = cast(h5py.Dataset, hdf["instances"])
-
-        fr_names = set(frames_ds.dtype.names or ())
-        vid_to_idx: dict[int, set[int]] = {}
-        for fr in frames_ds:
-            vid_val = int(fr["video"])
-            if "frame_idx" in fr_names:
-                fidx = int(fr["frame_idx"])
-            elif "frame" in fr_names:
-                fidx = int(fr["frame"])
-            else:
-                fidx = int(fr["frame_id"])
-            vid_to_idx.setdefault(vid_val, set()).add(fidx)
-
-        g_idx_by_group: dict[str, set[int]] = {}
-        for vg in vids.keys():
-            g_idxs: set[int] = set()
-            if f"{vg}/frame_numbers" in hdf:
-                g_idxs = set(int(x) for x in cast(h5py.Dataset, hdf[f"{vg}/frame_numbers"]))
-            g_idx_by_group[vg] = g_idxs
-
-        group_to_vid = _group_video_indices_from_json(hdf)
-        if group_to_vid:
-            missing = [vid for vid in group_to_vid.values() if vid not in vid_to_idx]
-            if missing:
-                raise ValueError(
-                    f"videos_json video indices missing from frames table: {sorted(set(missing))}"
-                )
-
-        for vg, g_idxs in g_idx_by_group.items():
-            if vg in group_to_vid:
-                continue
-            eq_matches = [vid for vid, idxs in vid_to_idx.items() if idxs == g_idxs]
-            if len(eq_matches) == 1:
-                group_to_vid[vg] = int(eq_matches[0])
-                continue
-            best_vid = None
-            best_score = -1.0
-            for vid, idxs in vid_to_idx.items():
-                inter = len(g_idxs & idxs)
-                if inter <= 0:
-                    continue
-                union = len(g_idxs | idxs) or 1
-                jacc = inter / union
-                if jacc > best_score:
-                    best_score = jacc
-                    best_vid = int(vid)
-            if best_vid is not None:
-                group_to_vid[vg] = int(best_vid)
-            else:
-                _warn(f"XPKG_IMPORT WARN: No labeled-frame match for {vg}; skipping group.")
-
-        dfs: list[pd.DataFrame] = []
-        pts_fields = set(points_ds.dtype.names or ())
-        compact_points = {"x", "y"}.issubset(pts_fields) and not (
-            {
-                "instance",
-                "instance_id",
-                "node",
-                "node_id",
-                "frame",
-                "frame_idx",
-                "frame_id",
-                "video",
-            }
-            & pts_fields
-        )
-
-        if compact_points:
-            for vg, _fn in vids.items():
-                if vg not in group_to_vid:
-                    continue
-                vid_val = int(group_to_vid[vg])
-                g_idxs = g_idx_by_group.get(vg, set())
-                base = os.path.splitext(os.path.basename(_fn))[0]
-                rows: list[list[float | None]] = []
-                for fr in frames_ds:
-                    if int(fr["video"]) != vid_val:
-                        continue
-                    fidx = int(fr["frame_idx"]) if "frame_idx" in fr_names else int(fr["frame"])
-                    if fidx not in g_idxs:
-                        continue
-                    inst_indices: list[int] = []
-                    if "instance_id_start" in fr_names and "instance_id_end" in fr_names:
-                        s = int(fr["instance_id_start"])
-                        e = int(fr["instance_id_end"])
-                        if e > s:
-                            inst_indices = list(range(s, e))
-                    else:
-                        for i, inst in enumerate(cast(Any, inst_ds)):
-                            if int(_get_field(inst, "frame_id")) == int(fr["frame_id"]):
-                                inst_indices.append(i)
-                    if not inst_indices:
-                        rows.append([float(fidx)] + [None] * (2 * len(kp_ordered)))
-                        continue
-                    best_flat: list[float | None] | None = None
-                    best_count = -1
-                    for inst_idx in inst_indices:
-                        inst = inst_ds[inst_idx]
-                        inst_names = set(inst.dtype.names or ())
-                        if "instance_type" in inst_names and int(inst["instance_type"]) != 0:
-                            continue
-                        if "point_id_start" not in inst_names or "point_id_end" not in inst_names:
-                            raise KeyError("SLEAP instances missing point_id_start/point_id_end")
-                        pstart = int(inst["point_id_start"])
-                        pend = int(inst["point_id_end"])
-                        if pend <= pstart:
-                            continue
-                        cand = cast(list[Any], list(points_ds[pstart:pend]))
-                        flat: list[float | None] = []
-                        valid_points = 0
-                        for i_idx, p in enumerate(cand):
-                            if i_idx >= len(node_ids_order):
-                                break
-                            xv = float(p["x"])
-                            yv = float(p["y"])
-                            if "visible" in pts_fields and not bool(p["visible"]):
-                                flat.extend([None, None])
-                                continue
-                            if not np.isfinite(xv) or not np.isfinite(yv):
-                                flat.extend([None, None])
-                                continue
-                            flat.extend([xv, yv])
-                            valid_points += 1
-                        need = len(kp_ordered) * 2
-                        if len(flat) < need:
-                            flat.extend([None] * (need - len(flat)))
-                        elif len(flat) > need:
-                            flat = flat[:need]
-                        if valid_points > best_count:
-                            best_flat = flat
-                            best_count = valid_points
-                    if best_flat is None:
-                        rows.append([float(fidx)] + [None] * (2 * len(kp_ordered)))
-                        continue
-                    rows.append([float(fidx), *best_flat])
-
-                if rows:
-                    df = pd.DataFrame(rows, columns=_column_index(column_names))
-                    df["frame"] = df["frame"].apply(
-                        lambda x, _base=base: f"labeled-data/{_base}/img{int(x):08d}.png"
-                    )
-                    dfs.append(df)
+def _compact_instance_points(
+    instance: Any,
+    points: h5py.Dataset,
+    point_fields: set[str],
+    point_count: int,
+) -> tuple[list[float | None], int] | None:
+    instance_fields = set(instance.dtype.names or ())
+    if "instance_type" in instance_fields and int(instance["instance_type"]) != 0:
+        return None
+    if not {"point_id_start", "point_id_end"}.issubset(instance_fields):
+        raise SleapPackageFormatError("SLEAP instances missing point_id_start/point_id_end")
+    start = int(instance["point_id_start"])
+    end = int(instance["point_id_end"])
+    if end <= start:
+        return None
+    flat: list[float | None] = []
+    valid = 0
+    for point in points[start:end]:
+        if len(flat) >= point_count * 2:
+            break
+        x = float(point["x"])
+        y = float(point["y"])
+        visible = "visible" not in point_fields or bool(point["visible"])
+        if visible and np.isfinite(x) and np.isfinite(y):
+            flat.extend((x, y))
+            valid += 1
         else:
-            for vg, _fn in vids.items():
-                if vg not in group_to_vid:
-                    continue
-                vid = int(group_to_vid.get(vg, 0))
-                g_idxs = g_idx_by_group.get(vg, set())
-                fmap = {}
-                fmap_inv = {}
-                for fr in frames_ds:
-                    if int(fr["video"]) != vid:
-                        continue
-                    fid = int(fr["frame_id"]) if "frame_id" in fr_names else int(fr["frame"])
-                    fidx = int(fr["frame_idx"]) if "frame_idx" in fr_names else int(fr["frame"])
-                    if fidx not in g_idxs:
-                        continue
-                    fmap[fid] = fidx
-                    fmap_inv[fidx] = fid
-                insts_by_frame: dict[int, list[Any]] = {}
-                inst_names_all = set(inst_ds.dtype.names or ())
-                inst_has_video = "video" in inst_names_all
-                for inst in inst_ds:
-                    inst_names = set(inst.dtype.names or ())
-                    if inst_has_video and int(inst["video"]) != vid:
-                        continue
-                    if "frame_id" in inst_names:
-                        fid = int(inst["frame_id"])
-                    elif "frame_idx" in inst_names:
-                        fidx = int(inst["frame_idx"])
-                        fid = int(fmap_inv.get(fidx, -1))
-                    elif "frame" in inst_names:
-                        fidx = int(inst["frame"])
-                        fid = int(fmap_inv.get(fidx, -1))
-                    else:
-                        fid = -1
-                    if fid in fmap:
-                        insts_by_frame.setdefault(fid, []).append(inst)
-                rows: list[list[float | None]] = []
-                for fid, fidx in fmap.items():
-                    inst_list = insts_by_frame.get(fid, [])
-                    if not inst_list:
-                        rows.append([float(fidx)] + [None] * (2 * len(kp_ordered)))
-                        continue
-                    p_names = set(points_ds.dtype.names or ())
-                    best_flat: list[float | None] | None = None
-                    best_count = -1
-                    for inst in inst_list:
-                        inst_names = set(inst.dtype.names or ())
-                        if "instance_type" in inst_names and int(inst["instance_type"]) != 0:
-                            continue
-                        inst_id: int | None = None
-                        for key in ("id", "instance", "instance_id", "inst_id"):
-                            if key in inst_names:
-                                inst_id = int(inst[key])
-                                break
-                        cand: list[Any] = []
-                        if inst_id is not None and (
-                            "instance" in p_names or "instance_id" in p_names
-                        ):
-                            p_inst_key = "instance" if "instance" in p_names else "instance_id"
-                            if "frame_id" in p_names:
-                                p_frame_key = "frame_id"
-                            elif "frame_idx" in p_names:
-                                p_frame_key = "frame_idx"
-                            elif "frame" in p_names:
-                                p_frame_key = "frame"
-                            else:
-                                p_frame_key = None
-                            p_has_video = "video" in p_names
-                            for p in points_ds:
-                                if p_inst_key in p and int(p[p_inst_key]) != inst_id:
-                                    continue
-                                if p_has_video and "video" in p and int(p["video"]) != vid:
-                                    continue
-                                if p_frame_key is not None:
-                                    if p_frame_key == "frame_id":
-                                        if p_frame_key in p and int(p[p_frame_key]) != int(fid):
-                                            continue
-                                    elif p_frame_key in ("frame_idx", "frame"):
-                                        cur_idx = int(fmap.get(int(fid), -1))
-                                        if p_frame_key in p and int(p[p_frame_key]) != cur_idx:
-                                            continue
-                                cand.append(p)
-
-                        if (
-                            not cand
-                            and {"x", "y"}.issubset(p_names)
-                            and not (
-                                {
-                                    "instance",
-                                    "instance_id",
-                                    "node",
-                                    "node_id",
-                                    "frame",
-                                    "frame_idx",
-                                    "frame_id",
-                                }
-                                & p_names
-                            )
-                        ):
-                            pstart = None
-                            pend = None
-                            if "point_id_start" in inst_names:
-                                val = _get_field(inst, "point_id_start")
-                                if isinstance(val, int | np.integer):
-                                    pstart = int(val)
-                            if "point_id_end" in inst_names:
-                                val = _get_field(inst, "point_id_end")
-                                if isinstance(val, int | np.integer):
-                                    pend = int(val)
-                            if (
-                                pstart is not None
-                                and pend is not None
-                                and 0 <= pstart <= pend
-                                and pend <= len(points_ds)
-                            ):
-                                cand = cast(list[np.void], list(points_ds[pstart:pend]))
-
-                        pts_by_node: dict[int, dict[str, float | int | bool | None]] = {}
-                        if cand:
-                            node_key = (
-                                "node"
-                                if "node" in p_names
-                                else ("node_id" if "node_id" in p_names else None)
-                            )
-                            if node_key is not None:
-                                for p in cand:
-                                    node_id = int(p[node_key])
-                                    rec: dict[str, float | int | bool | None] = {}
-                                    for k in p_names:
-                                        rec[k] = p[k] if k in p else None
-                                    pts_by_node[node_id] = rec
-                            else:
-                                for idx, p in enumerate(cand):
-                                    if idx >= len(node_ids_order):
-                                        break
-                                    node_id = int(node_ids_order[idx])
-                                    rec: dict[str, float | int | bool | None] = {}
-                                    for k in p_names:
-                                        rec[k] = p[k] if k in p else None
-                                    pts_by_node[node_id] = rec
-                        if not pts_by_node:
-                            if "frame_id" in p_names:
-                                p_frame_key = "frame_id"
-                            elif "frame_idx" in p_names:
-                                p_frame_key = "frame_idx"
-                            elif "frame" in p_names:
-                                p_frame_key = "frame"
-                            else:
-                                p_frame_key = None
-                            p_has_video = "video" in p_names
-                            node_key = (
-                                "node"
-                                if "node" in p_names
-                                else ("node_id" if "node_id" in p_names else None)
-                            )
-                            by_inst: dict[int, dict[int, dict[str, float | int | bool | None]]] = {}
-                            for p in points_ds:
-                                if p_has_video and "video" in p and int(p["video"]) != vid:
-                                    continue
-                                if p_frame_key is not None:
-                                    if p_frame_key == "frame_id":
-                                        if p_frame_key in p and int(p[p_frame_key]) != int(fid):
-                                            continue
-                                    else:
-                                        cur_idx = int(fmap.get(int(fid), -1))
-                                        if p_frame_key in p and int(p[p_frame_key]) != cur_idx:
-                                            continue
-                                if node_key is None:
-                                    continue
-                                if node_key not in p:
-                                    continue
-                                node_val = p[node_key]
-                                if not isinstance(node_val, int | np.integer):
-                                    continue
-                                node_id = int(node_val)
-                                inst_key = None
-                                for key in ("instance", "instance_id"):
-                                    if key in p_names:
-                                        inst_key = key
-                                        break
-                                inst_val = int(p[inst_key]) if inst_key else 0
-                                rec: dict[str, float | int | bool | None] = {}
-                                for k in p_names:
-                                    rec[k] = p[k] if k in p else None
-                                by_inst.setdefault(inst_val, {})[node_id] = rec
-                            if by_inst:
-                                inst_choice = max(by_inst.items(), key=lambda kv: len(kv[1]))[0]
-                                pts_by_node = by_inst[inst_choice]
-
-                        visibility_key = None
-                        if "visible" in p_names:
-                            visibility_key = "visible"
-                        elif "is_visible" in p_names:
-                            visibility_key = "is_visible"
-                        has_vis = visibility_key is not None
-                        flat: list[float | None] = []
-                        valid_points = 0
-                        for node_id in node_ids_order:
-                            rec_d = pts_by_node.get(int(node_id))
-                            if not isinstance(rec_d, dict):
-                                flat.extend([None, None])
-                                continue
-                            x = rec_d.get("x")
-                            y = rec_d.get("y")
-                            if has_vis:
-                                vis_key = str(visibility_key)
-                                vis = bool(rec_d.get(vis_key, True))
-                            else:
-                                vis = True
-                            xv = float(x) if x is not None else None
-                            yv = float(y) if y is not None else None
-                            if xv is None or yv is None:
-                                flat.extend([None, None])
-                            elif has_vis and not bool(vis):
-                                flat.extend([None, None])
-                            elif not np.isfinite(xv) or not np.isfinite(yv):
-                                flat.extend([None, None])
-                            else:
-                                flat.extend([xv, yv])
-                                valid_points += 1
-                        need = len(kp_ordered) * 2
-                        if len(flat) < need:
-                            flat.extend([None] * (need - len(flat)))
-                        elif len(flat) > need:
-                            flat = flat[:need]
-                        if valid_points > best_count:
-                            best_flat = flat
-                            best_count = valid_points
-                    if best_flat is None:
-                        rows.append([float(fidx)] + [None] * (2 * len(kp_ordered)))
-                        continue
-                    rows.append([float(fidx), *best_flat])
-                if rows:
-                    df = pd.DataFrame(rows, columns=_column_index(column_names))
-                    base = os.path.splitext(os.path.basename(_fn))[0]
-                    df["frame"] = df["frame"].apply(
-                        lambda x, _base=base: f"labeled-data/{_base}/img{int(x):08d}.png"
-                    )
-                    dfs.append(df)
-        if not dfs:
-            return pd.DataFrame(columns=_column_index(column_names))
-        row_blocks = [df.to_numpy(copy=False) for df in dfs if not df.empty]
-        if not row_blocks:
-            return pd.DataFrame(columns=_column_index(column_names))
-        out = np.concatenate(row_blocks, axis=0)
-        return pd.DataFrame(out, columns=_column_index(column_names))
+            flat.extend((None, None))
+    flat.extend([None] * (point_count * 2 - len(flat)))
+    return flat, valid
 
 
-__all__ = [
-    "extract_frames",
-    "extract_labels_step4",
-]
+def _compact_rows(
+    frames: h5py.Dataset,
+    instances: h5py.Dataset,
+    points: h5py.Dataset,
+    *,
+    video: int,
+    allowed_frames: set[int],
+    point_count: int,
+) -> list[list[float | None]]:
+    frame_fields = set(frames.dtype.names or ())
+    point_fields = set(points.dtype.names or ())
+    rows: list[list[float | None]] = []
+    for frame in frames:
+        frame_index = _frame_index(frame, frame_fields)
+        if int(frame["video"]) != video or frame_index not in allowed_frames:
+            continue
+        candidates = [
+            _compact_instance_points(instances[index], points, point_fields, point_count)
+            for index in _instance_indices(frame, frame_fields, instances)
+        ]
+        available = [candidate for candidate in candidates if candidate is not None]
+        best = max(available, key=lambda candidate: candidate[1])[0] if available else None
+        rows.append([float(frame_index), *(best or [None] * (point_count * 2))])
+    return rows
+
+
+def _frame_maps(
+    frames: h5py.Dataset, *, video: int, allowed_frames: set[int]
+) -> tuple[dict[int, int], dict[int, int]]:
+    fields = set(frames.dtype.names or ())
+    by_id: dict[int, int] = {}
+    by_index: dict[int, int] = {}
+    for frame in frames:
+        frame_index = _frame_index(frame, fields)
+        if int(frame["video"]) != video or frame_index not in allowed_frames:
+            continue
+        frame_id = _frame_id(frame, fields)
+        by_id[frame_id] = frame_index
+        by_index[frame_index] = frame_id
+    return by_id, by_index
+
+
+def _instances_by_frame(
+    instances: h5py.Dataset,
+    *,
+    video: int,
+    frame_map: dict[int, int],
+    inverse_map: dict[int, int],
+) -> dict[int, list[Any]]:
+    fields = set(instances.dtype.names or ())
+    grouped: dict[int, list[Any]] = {}
+    for instance in instances:
+        if "video" in fields and int(instance["video"]) != video:
+            continue
+        if "frame_id" in fields:
+            frame_id = int(instance["frame_id"])
+        elif "frame_idx" in fields:
+            frame_id = inverse_map.get(int(instance["frame_idx"]), -1)
+        elif "frame" in fields:
+            frame_id = inverse_map.get(int(instance["frame"]), -1)
+        else:
+            raise SleapPackageFormatError("SLEAP instances table has no frame field")
+        if frame_id in frame_map:
+            grouped.setdefault(frame_id, []).append(instance)
+    return grouped
+
+
+def _point_record(point: Any, fields: set[str]) -> dict[str, object]:
+    return {field: point[field] for field in fields}
+
+
+def _candidate_points(
+    instance: Any,
+    points: h5py.Dataset,
+    *,
+    video: int,
+    frame_id: int,
+    frame_index: int,
+) -> list[Any]:
+    instance_fields = set(instance.dtype.names or ())
+    point_fields = set(points.dtype.names or ())
+    instance_id = next(
+        (
+            int(instance[key])
+            for key in ("id", "instance", "instance_id", "inst_id")
+            if key in instance_fields
+        ),
+        None,
+    )
+    instance_key = "instance" if "instance" in point_fields else "instance_id"
+    if instance_id is not None and instance_key in point_fields:
+        result: list[Any] = []
+        for point in points:
+            if int(point[instance_key]) != instance_id:
+                continue
+            if "video" in point_fields and int(point["video"]) != video:
+                continue
+            if "frame_id" in point_fields and int(point["frame_id"]) != frame_id:
+                continue
+            if "frame_idx" in point_fields and int(point["frame_idx"]) != frame_index:
+                continue
+            if "frame" in point_fields and int(point["frame"]) != frame_index:
+                continue
+            result.append(point)
+        if result:
+            return result
+    if {"point_id_start", "point_id_end"}.issubset(instance_fields):
+        start = int(instance["point_id_start"])
+        end = int(instance["point_id_end"])
+        if 0 <= start <= end <= len(points):
+            return list(points[start:end])
+    return []
+
+
+def _points_by_node(
+    candidates: list[Any], point_fields: set[str], node_order: tuple[int, ...]
+) -> dict[int, dict[str, object]]:
+    node_key = "node" if "node" in point_fields else "node_id"
+    if node_key in point_fields:
+        return {int(point[node_key]): _point_record(point, point_fields) for point in candidates}
+    return {
+        node_order[index]: _point_record(point, point_fields)
+        for index, point in enumerate(candidates[: len(node_order)])
+    }
+
+
+def _fallback_points_by_node(
+    points: h5py.Dataset,
+    *,
+    video: int,
+    frame_id: int,
+    frame_index: int,
+) -> dict[int, dict[str, object]]:
+    fields = set(points.dtype.names or ())
+    node_key = "node" if "node" in fields else "node_id"
+    if node_key not in fields:
+        return {}
+    instance_key = "instance" if "instance" in fields else "instance_id"
+    grouped: dict[int, dict[int, dict[str, object]]] = {}
+    for point in points:
+        if "video" in fields and int(point["video"]) != video:
+            continue
+        if "frame_id" in fields and int(point["frame_id"]) != frame_id:
+            continue
+        if "frame_idx" in fields and int(point["frame_idx"]) != frame_index:
+            continue
+        if "frame" in fields and int(point["frame"]) != frame_index:
+            continue
+        instance_id = int(point[instance_key]) if instance_key in fields else 0
+        grouped.setdefault(instance_id, {})[int(point[node_key])] = _point_record(point, fields)
+    return max(grouped.values(), key=len) if grouped else {}
+
+
+def _flatten_points(
+    points_by_node: dict[int, dict[str, object]],
+    node_order: tuple[int, ...],
+) -> tuple[list[float | None], int]:
+    flat: list[float | None] = []
+    valid = 0
+    for node_id in node_order:
+        point = points_by_node.get(node_id)
+        if point is None or point.get("x") is None or point.get("y") is None:
+            flat.extend((None, None))
+            continue
+        x = float(cast(float | int, point["x"]))
+        y = float(cast(float | int, point["y"]))
+        visible = point.get("visible", point.get("is_visible", True))
+        if bool(visible) and np.isfinite(x) and np.isfinite(y):
+            flat.extend((x, y))
+            valid += 1
+        else:
+            flat.extend((None, None))
+    return flat, valid
+
+
+def _best_relational_points(
+    frame_instances: list[Any],
+    points: h5py.Dataset,
+    *,
+    video: int,
+    frame_id: int,
+    frame_index: int,
+    node_order: tuple[int, ...],
+) -> list[float | None] | None:
+    point_fields = set(points.dtype.names or ())
+    candidates: list[tuple[list[float | None], int]] = []
+    for instance in frame_instances:
+        fields = set(instance.dtype.names or ())
+        if "instance_type" in fields and int(instance["instance_type"]) != 0:
+            continue
+        raw_points = _candidate_points(
+            instance, points, video=video, frame_id=frame_id, frame_index=frame_index
+        )
+        by_node = _points_by_node(raw_points, point_fields, node_order) if raw_points else {}
+        if not by_node:
+            by_node = _fallback_points_by_node(
+                points, video=video, frame_id=frame_id, frame_index=frame_index
+            )
+        candidates.append(_flatten_points(by_node, node_order))
+    return max(candidates, key=lambda candidate: candidate[1])[0] if candidates else None
+
+
+def _relational_rows(
+    frames: h5py.Dataset,
+    instances: h5py.Dataset,
+    points: h5py.Dataset,
+    *,
+    video: int,
+    allowed_frames: set[int],
+    node_order: tuple[int, ...],
+) -> list[list[float | None]]:
+    frame_map, inverse_map = _frame_maps(frames, video=video, allowed_frames=allowed_frames)
+    grouped = _instances_by_frame(
+        instances, video=video, frame_map=frame_map, inverse_map=inverse_map
+    )
+    rows: list[list[float | None]] = []
+    for frame_id, frame_index in frame_map.items():
+        best = _best_relational_points(
+            grouped.get(frame_id, []),
+            points,
+            video=video,
+            frame_id=frame_id,
+            frame_index=frame_index,
+            node_order=node_order,
+        )
+        rows.append([float(frame_index), *(best or [None] * (len(node_order) * 2))])
+    return rows
+
+
+def build_sleap_label_table(slp_path: str, out_dir: str) -> pd.DataFrame:
+    """Parse a SLEAP package into the flattened label-table boundary object."""
+
+    ensure_dir(Path(out_dir) / "labeled-data")
+    with h5py.File(slp_path, "r") as hdf:
+        videos = _video_groups(hdf)
+        if not videos:
+            raise RuntimeError(_ERR_NO_VIDEOS)
+        layout = _skeleton_layout(hdf)
+        frames = cast(h5py.Dataset, hdf["frames"])
+        points = cast(h5py.Dataset, hdf["points"])
+        instances = cast(h5py.Dataset, hdf["instances"])
+        frame_fields = set(frames.dtype.names or ())
+        video_indices = _frame_indices_by_video(frames, frame_fields)
+        group_indices = _group_frame_indices(hdf, videos)
+        group_to_video = _match_video_groups(hdf, group_indices, video_indices)
+        point_fields = set(points.dtype.names or ())
+        compact = {"x", "y"}.issubset(point_fields) and not {
+            "instance",
+            "instance_id",
+            "node",
+            "node_id",
+            "frame",
+            "frame_idx",
+            "frame_id",
+            "video",
+        }.intersection(point_fields)
+        tables: list[pd.DataFrame] = []
+        for group, filename in videos.items():
+            video = group_to_video[group]
+            if compact:
+                rows = _compact_rows(
+                    frames,
+                    instances,
+                    points,
+                    video=video,
+                    allowed_frames=group_indices[group],
+                    point_count=len(layout.node_ids),
+                )
+            else:
+                rows = _relational_rows(
+                    frames,
+                    instances,
+                    points,
+                    video=video,
+                    allowed_frames=group_indices[group],
+                    node_order=layout.node_ids,
+                )
+            if rows:
+                tables.append(_table_from_rows(rows, layout, Path(filename).stem))
+        if not tables:
+            return _empty_table(layout)
+        return cast(pd.DataFrame, pd.concat(tables, ignore_index=True))
+
+
+__all__ = ["SleapPackageFormatError", "build_sleap_label_table", "extract_frames"]

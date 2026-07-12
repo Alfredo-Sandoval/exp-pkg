@@ -68,8 +68,9 @@ model outputs.
 
 - `Labels` is the main dataset container. It owns labeled frames, videos,
   skeletons, tracks, suggestions, preferences, and session metadata.
-- `RecordingSession` is the emerging multimodal session container. It groups
-  pose, video, signals, and events without making xpkg an analysis framework.
+- `RecordingSession` is the multimodal session container. It groups typed video
+  and signal links with events. Pose data remains in `Labels` until the model
+  defines a typed session-to-pose link.
 
 ### Timing, events, and signals
 
@@ -83,7 +84,16 @@ model outputs.
   `PhotometryRecording` represent sampled signals such as fiber photometry.
 
 ```python
-from xpkg.model import Event, EventTable, PhotometryRecording, RecordingSession, TimeSeries
+from xpkg.model import (
+    Event,
+    EventTable,
+    PhotometryRecording,
+    RecordingSession,
+    SessionSignal,
+    TimeSeries,
+    add_session_signal,
+    replace_session_events,
+)
 
 series = TimeSeries.from_samples(
     [[1.0, 0.5], [1.1, 0.48], [1.2, 0.47]],
@@ -102,7 +112,8 @@ events = EventTable.from_events(
 )
 
 session = RecordingSession(session_id="session-001")
-session = session.with_signal("fiber", photometry).with_events(events)
+session = add_session_signal(session, SessionSignal("fiber", photometry))
+session = replace_session_events(session, events)
 ```
 
 These objects are direct model primitives today. `xpkg.readers.read_photometry_csv`,

@@ -18,15 +18,11 @@ from xpkg.model import (
     PhotometryChannel,
     PhotometryRecording,
     RecordingSession,
+    SessionSignal,
     SignalChannel,
     Timeline,
     TimeSeries,
 )
-
-
-def _sampling_rate(header: dict[str, Any]) -> float:
-    rate, _source = _sampling_rate_with_source(header)
-    return rate
 
 
 def _sampling_rate_with_source(header: dict[str, Any]) -> tuple[float, str]:
@@ -296,7 +292,11 @@ def read_pyphotometry_ppd(path: str | Path) -> RecordingSession:
     )
     return RecordingSession(
         session_id=source_path.stem,
-        signals={"photometry": photometry, "digital": digital_series, **extra_signals},
+        signals=(
+            SessionSignal("photometry", photometry),
+            SessionSignal("digital", digital_series),
+            *(SessionSignal(name, signal) for name, signal in extra_signals.items()),
+        ),
         events=_digital_events(
             digital,
             sample_rate_hz,
@@ -444,7 +444,7 @@ def read_pyphotometry_csv(
 
     return RecordingSession(
         session_id=source_path.stem,
-        signals=signals,
+        signals=tuple(SessionSignal(name, signal) for name, signal in signals.items()),
         events=events,
         metadata={
             "source": {"type": "pyphotometry_csv", "path": str(source_path)},

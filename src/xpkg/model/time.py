@@ -9,16 +9,9 @@ import numpy as np
 from xpkg.model._metadata_validation import (
     finite_float,
 )
-
-
-def _nonempty_name(value: object, *, name: str) -> str:
-    if not isinstance(value, str):
-        raise TypeError(f"{name} must be a string.")
-    if not value:
-        raise ValueError(f"{name} must be a non-empty string.")
-    if value != value.strip():
-        raise ValueError(f"{name} must not contain surrounding whitespace.")
-    return value
+from xpkg.model._metadata_validation import (
+    strict_required_text as _nonempty_name,
+)
 
 
 @dataclass(frozen=True, slots=True)

@@ -3,46 +3,12 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 
-detect_target_os() {
-  local uname_s
-  uname_s="$(uname -s)"
-  case "${uname_s}" in
-    Darwin)
-      echo "macos"
-      ;;
-    Linux)
-      echo "linux"
-      ;;
-    *)
-      echo ""
-      ;;
-  esac
-}
-
 if [[ "$#" -eq 0 ]]; then
   echo "[run-in-env] Usage: environment/run-in-env.sh <command> [args...]" >&2
   exit 1
 fi
 
-TARGET_OS="${ARC_SETUP_OS:-}"
-if [[ -z "${TARGET_OS}" ]]; then
-  TARGET_OS="$(detect_target_os)"
-fi
-
-case "${TARGET_OS}" in
-  macos | linux)
-    ;;
-  "")
-    echo "[run-in-env] Unsupported host OS: $(uname -s)." >&2
-    exit 1
-    ;;
-  *)
-    echo "[run-in-env] Invalid ARC_SETUP_OS='${TARGET_OS}'. Expected 'macos' or 'linux'." >&2
-    exit 1
-    ;;
-esac
-
-ENV_FILE="${SCRIPT_DIR}/${TARGET_OS}/environment.yml"
+ENV_FILE="${SCRIPT_DIR}/environment.yml"
 if [[ ! -f "${ENV_FILE}" ]]; then
   echo "[run-in-env] Missing environment spec: ${ENV_FILE}" >&2
   exit 1

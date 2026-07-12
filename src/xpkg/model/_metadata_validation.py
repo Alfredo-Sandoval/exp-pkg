@@ -36,6 +36,23 @@ def required_text(value: object, *, name: str) -> str:
     return text
 
 
+def strict_text(value: object, *, name: str) -> str:
+    """Require a string without normalizing whitespace; empty strings are valid."""
+    if not isinstance(value, str):
+        raise TypeError(f"{name} must be a string.")
+    if value != value.strip():
+        raise ValueError(f"{name} must not contain surrounding whitespace.")
+    return value
+
+
+def strict_required_text(value: object, *, name: str) -> str:
+    """Require a non-empty string without normalizing the supplied value."""
+    text = strict_text(value, name=name)
+    if not text:
+        raise ValueError(f"{name} must be a non-empty string.")
+    return text
+
+
 def optional_bool(value: Any | None, *, name: str) -> bool | None:
     if value is None:
         return None
@@ -98,6 +115,8 @@ __all__ = [
     "optional_text",
     "payload_mapping",
     "required_text",
+    "strict_required_text",
+    "strict_text",
     "text_mapping",
     "text_tuple",
 ]

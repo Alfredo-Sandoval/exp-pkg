@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "benchmarks": {
+    "package_cold_import": {
+      "budget_ms": 250.0,
+      "samples": 7
+    },
+    "cli_help_cold_start": {
+      "budget_ms": 750.0,
+      "samples": 7
+    },
+    "project_create": {
+      "budget_ms": 100.0,
+      "samples": 7
+    },
+    "project_describe": {
+      "budget_ms": 10.0,
+      "samples": 25
+    },
+    "project_inspect_path": {
+      "budget_ms": 50.0,
+      "samples": 25
+    }
+  }
+}

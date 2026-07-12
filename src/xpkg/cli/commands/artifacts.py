@@ -9,13 +9,6 @@ import typer
 
 from xpkg._core.json_utils import dump_json
 from xpkg.cli.shared import JsonOption, run_command
-from xpkg.project.artifacts import (
-    list_project_artifact_index,
-    load_project_artifact,
-    rebuild_project_artifact_index,
-    validate_project_artifact,
-    validate_project_artifacts,
-)
 
 app = typer.Typer(
     add_completion=False,
@@ -38,7 +31,9 @@ def artifacts_list(
     """List registered artifacts."""
 
     def action() -> dict[str, Any]:
-        entries = list_project_artifact_index(
+        import xpkg.project.artifacts as project_artifacts
+
+        entries = project_artifacts.list_project_artifact_index(
             project,
             artifact_type=kind,
             namespace=namespace,
@@ -79,7 +74,9 @@ def artifacts_inspect(
     """Print one artifact manifest."""
 
     def action() -> dict[str, Any]:
-        artifact = load_project_artifact(
+        import xpkg.project.artifacts as project_artifacts
+
+        artifact = project_artifacts.load_project_artifact(
             project,
             artifact_id,
             artifact_type=kind,
@@ -107,8 +104,10 @@ def artifacts_validate(
     """Validate one artifact or every matching artifact."""
 
     def action() -> dict[str, Any]:
+        import xpkg.project.artifacts as project_artifacts
+
         if artifact_id:
-            artifact = validate_project_artifact(
+            artifact = project_artifacts.validate_project_artifact(
                 project,
                 artifact_id,
                 artifact_type=kind,
@@ -122,7 +121,7 @@ def artifacts_validate(
                 "namespace": artifact.namespace,
                 "count": 1,
             }
-        artifacts = validate_project_artifacts(
+        artifacts = project_artifacts.validate_project_artifacts(
             project,
             artifact_type=kind,
             namespace=namespace,
@@ -151,7 +150,9 @@ def artifacts_rebuild_index(
     """Rebuild the project artifact index from manifests."""
 
     def action() -> dict[str, Any]:
-        entries = rebuild_project_artifact_index(project)
+        import xpkg.project.artifacts as project_artifacts
+
+        entries = project_artifacts.rebuild_project_artifact_index(project)
         return {
             "status": "indexed",
             "project": project,

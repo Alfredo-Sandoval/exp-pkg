@@ -25,21 +25,6 @@ from xpkg.cli.shared import (
     run_command,
     write_path,
 )
-from xpkg.project.calibration import (
-    import_anipose_calibration_project,
-    import_opencv_stereo_calibration_project,
-)
-from xpkg.project.store.imports import (
-    import_dlc_csv_project,
-    import_dlc_h5_project,
-    import_dlc_project_directory,
-    import_lightning_pose_csv_project,
-    import_mediapipe_pose_landmarks_json_project,
-    import_mmpose_topdown_json_project,
-    import_sleap_h5_project,
-    import_sleap_package_project,
-)
-from xpkg.services.project import CalibrationFormat, PoseFormat
 
 app = typer.Typer(
     add_completion=False,
@@ -48,9 +33,6 @@ app = typer.Typer(
     rich_markup_mode="rich",
 )
 
-
-_POSE_FORMATS: tuple[str, ...] = get_args(PoseFormat)
-_CALIBRATION_FORMATS: tuple[str, ...] = get_args(CalibrationFormat)
 
 _PER_CLIP_POSE_FORMATS: frozenset[str] = frozenset(
     {
@@ -95,6 +77,18 @@ def _validate_format(format_value: str, allowed: tuple[str, ...], family: str) -
             f"unknown {family} format {format_value!r}. Choose from: {choices}"
         )
     return format_value
+
+
+def _pose_formats() -> tuple[str, ...]:
+    from xpkg.services.project import PoseFormat
+
+    return tuple(str(value) for value in get_args(PoseFormat))
+
+
+def _calibration_formats() -> tuple[str, ...]:
+    from xpkg.services.project import CalibrationFormat
+
+    return tuple(str(value) for value in get_args(CalibrationFormat))
 
 
 def _import_payload(source: str, project: str, state_path: Path) -> dict[str, str]:
@@ -145,9 +139,7 @@ def import_pose(
         typer.Option(
             "--path",
             "--input-json",
-            help=(
-                "Path to the input file or directory (CSV/H5/JSON/.pkg.slp/DLC project)."
-            ),
+            help=("Path to the input file or directory (CSV/H5/JSON/.pkg.slp/DLC project)."),
         ),
     ] = None,
     video: Annotated[
@@ -212,7 +204,7 @@ def import_pose(
     json_output: JsonOption = False,
 ) -> None:
     """Import a pose track using the kebab-case dispatch format string."""
-    format = _validate_format(format, _POSE_FORMATS, "pose")
+    format = _validate_format(format, _pose_formats(), "pose")
     out = require_option_value(out, "--out")
     path = require_option_value(path, "--path")
 
@@ -222,6 +214,8 @@ def import_pose(
         video_path = video
 
     def action() -> dict[str, str]:
+        import xpkg.project.store.imports as project_imports
+
         prediction = _load_provenance_json(prediction_provenance, "--prediction-provenance")
         model_provenance = _load_provenance_json(provenance_json, "--provenance-json")
         progress = progress_callback(json_output)
@@ -236,7 +230,7 @@ def import_pose(
         # No-video formats dispatch first so the per-clip branches can rely
         # on `video_path` being non-None.
         if format == "dlc-project":
-            state_path = import_dlc_project_directory(
+            state_path = project_imports.import_dlc_project_directory(
                 path,
                 out,
                 skeleton_name=skeleton_name,
@@ -244,7 +238,7 @@ def import_pose(
                 **common,
             )
         elif format == "sleap-package":
-            state_path = import_sleap_package_project(
+            state_path = project_imports.import_sleap_package_project(
                 path,
                 out,
                 fps=fps,
@@ -254,7 +248,7 @@ def import_pose(
         else:
             assert video_path is not None  # narrowed via _PER_CLIP_POSE_FORMATS above
             if format == "dlc-csv":
-                state_path = import_dlc_csv_project(
+                state_path = project_imports.import_dlc_csv_project(
                     path,
                     video_path,
                     out,
@@ -263,7 +257,7 @@ def import_pose(
                     **common,
                 )
             elif format == "dlc-h5":
-                state_path = import_dlc_h5_project(
+                state_path = project_imports.import_dlc_h5_project(
                     path,
                     video_path,
                     out,
@@ -272,7 +266,7 @@ def import_pose(
                     **common,
                 )
             elif format == "lightning-pose-csv":
-                state_path = import_lightning_pose_csv_project(
+                state_path = project_imports.import_lightning_pose_csv_project(
                     path,
                     video_path,
                     out,
@@ -281,7 +275,7 @@ def import_pose(
                     **common,
                 )
             elif format == "mediapipe-pose-landmarks-json":
-                state_path = import_mediapipe_pose_landmarks_json_project(
+                state_path = project_imports.import_mediapipe_pose_landmarks_json_project(
                     path,
                     video_path,
                     out,
@@ -290,7 +284,7 @@ def import_pose(
                     **common,
                 )
             elif format == "mmpose-topdown-json":
-                state_path = import_mmpose_topdown_json_project(
+                state_path = project_imports.import_mmpose_topdown_json_project(
                     path,
                     video_path,
                     out,
@@ -300,7 +294,7 @@ def import_pose(
                     **common,
                 )
             elif format == "sleap-h5":
-                state_path = import_sleap_h5_project(
+                state_path = project_imports.import_sleap_h5_project(
                     path,
                     video_path,
                     out,
@@ -355,13 +349,15 @@ def import_calibration(
     json_output: JsonOption = False,
 ) -> None:
     """Import a camera calibration using the kebab-case dispatch format string."""
-    format = _validate_format(format, _CALIBRATION_FORMATS, "calibration")
+    format = _validate_format(format, _calibration_formats(), "calibration")
     out = require_option_value(out, "--out")
     path = require_option_value(path, "--path")
 
     def action() -> dict[str, str]:
+        import xpkg.project.calibration as project_calibration
+
         if format == "anipose":
-            calibration_path = import_anipose_calibration_project(
+            calibration_path = project_calibration.import_anipose_calibration_project(
                 path,
                 out,
                 calibration_id=calibration_id,
@@ -371,7 +367,7 @@ def import_calibration(
                 force=force,
             )
         elif format == "opencv-stereo-yaml":
-            calibration_path = import_opencv_stereo_calibration_project(
+            calibration_path = project_calibration.import_opencv_stereo_calibration_project(
                 path,
                 out,
                 calibration_id=calibration_id,

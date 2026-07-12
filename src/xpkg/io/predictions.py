@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping, Sequence
-from typing import Any, Protocol, TypedDict, cast, overload
+from typing import Any, Protocol, TypedDict, cast
 
 import numpy as np
 
@@ -218,39 +218,18 @@ def _validate_heatmaps(data: Mapping[str, object], *, frame_count: int) -> None:
         )
 
 
-@overload
-def _base_instance_prediction(
-    *,
-    keypoints: list[KeypointXY],
-    score: float,
-    track_id: int | None,
-) -> CoordinateOnlyInstancePrediction: ...
-
-
-@overload
 def _base_instance_prediction(
     *,
     keypoints: list[KeypointXYC],
     score: float,
     track_id: int | None,
-) -> CoordinateConfidenceInstancePrediction: ...
-
-
-def _base_instance_prediction(
-    *,
-    keypoints: list[KeypointXY] | list[KeypointXYC],
-    score: float,
-    track_id: int | None,
-) -> InstancePrediction:
-    return cast(
-        InstancePrediction,
-        {
-            "keypoints": keypoints,
-            "score": float(score),
-            "track_id": track_id,
-            "bbox": None,
-        },
-    )
+) -> CoordinateConfidenceInstancePrediction:
+    return {
+        "keypoints": keypoints,
+        "score": float(score),
+        "track_id": track_id,
+        "bbox": None,
+    }
 
 
 def prediction_frame_payloads_from_payload(

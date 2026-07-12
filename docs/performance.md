@@ -5,6 +5,25 @@ xpkg has two different usage modes:
 - shallow description for project pickers, catalogs, startup checks, and agents
 - full hydration or validation when a user opens, edits, validates, or publishes a project
 
+## Enforced Budgets
+
+Run the deterministic performance gate with:
+
+```bash
+make performance-check
+```
+
+The canonical limits and sample counts live in `performance-budgets.json` at
+the repository root. The gate measures package import, CLI help startup,
+project creation, shallow project description, and shallow path inspection. It
+prints a versioned JSON verdict and exits with a nonzero status when any median
+exceeds its declared budget. CI runs the same command on macOS and Linux.
+
+Media decode, seek, encode, and transcode throughput depend on codecs, hardware,
+and acceleration backends. Keep those measurements in the media benchmark lane
+described in [Media I/O Architecture](architecture/media-io.md); do not disguise
+machine-specific throughput as a portable CI threshold.
+
 Use the shallowest public surface that answers the current question. Project
 state can hold dense frame labels, predictions, masks, and media references,
 so materializing it during a list refresh turns a cheap UI action into a full

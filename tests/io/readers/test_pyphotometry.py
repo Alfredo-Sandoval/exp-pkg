@@ -57,8 +57,8 @@ def test_read_pyphotometry_ppd_returns_session_signals_and_events(tmp_path: Path
     session = read_pyphotometry_ppd(path)
 
     assert isinstance(session, RecordingSession)
-    photometry = session.signals["photometry"]
-    digital = session.signals["digital"]
+    photometry = session.signal("photometry")
+    digital = session.signal("digital")
     assert isinstance(photometry, PhotometryRecording)
     assert isinstance(digital, TimeSeries)
     assert photometry.signal_channel == "analog_1"
@@ -84,7 +84,7 @@ def test_read_pyphotometry_ppd_applies_volts_per_division(tmp_path: Path) -> Non
     _write_ppd(path, fs=100.0, volts_per_division=0.001)
 
     session = read_pyphotometry_ppd(path)
-    photometry = session.signals["photometry"]
+    photometry = session.signal("photometry")
     assert isinstance(photometry, PhotometryRecording)
 
     assert photometry.series.channels[0].unit == "V"
@@ -147,13 +147,13 @@ def test_read_pyphotometry_ppd_supports_v11_pulsed_baseline_layout(tmp_path: Pat
     path.write_bytes(struct.pack("<H", len(header_bytes)) + header_bytes + rows.tobytes())
 
     session = read_pyphotometry_ppd(path)
-    photometry = session.signals["photometry"]
+    photometry = session.signal("photometry")
 
     assert isinstance(photometry, PhotometryRecording)
     np.testing.assert_allclose(photometry.series.values[:, 0], [0.08, 0.08])
     np.testing.assert_allclose(photometry.series.values[:, 1], [0.16, 0.16])
-    assert "raw_led_on" in session.signals
-    assert "raw_baseline" in session.signals
+    assert "raw_led_on" in session.signal_names
+    assert "raw_baseline" in session.signal_names
     assert [event.label for event in session.events] == ["digital_1"]
 
 
@@ -260,7 +260,7 @@ def test_read_pyphotometry_csv_uses_json_settings_and_digital_events(tmp_path: P
     )
 
     session = read_pyphotometry_csv(path)
-    photometry = session.signals["photometry"]
+    photometry = session.signal("photometry")
 
     assert isinstance(session, RecordingSession)
     assert isinstance(photometry, PhotometryRecording)
@@ -323,7 +323,7 @@ def test_read_pyphotometry_csv_tolerates_real_spaced_header(tmp_path: Path) -> N
     )
 
     session = read_pyphotometry_csv(path)
-    photometry = session.signals["photometry"]
+    photometry = session.signal("photometry")
 
     assert isinstance(photometry, PhotometryRecording)
     assert photometry.channel_names == ("analog_1", "analog_2")

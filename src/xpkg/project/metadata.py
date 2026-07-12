@@ -14,7 +14,12 @@ from xpkg.model.metadata import (
     PoseModelProvenance,
 )
 from xpkg.model.reporting import DatasetDatasheet, ModelCard
-from xpkg.project.layout import project_store_root, resolve_project_root
+from xpkg.project.layout import (
+    project_store_root,
+)
+from xpkg.project.layout import (
+    require_project_root as _require_project_root,
+)
 from xpkg.project.store import load_project_metadata, save_project_metadata
 
 PROJECT_METADATA_DIRNAME = "metadata"
@@ -41,13 +46,6 @@ def _require_mapping(value: Any, *, name: str) -> dict[str, Any]:
             raise TypeError(f"{name} keys must be strings")
         payload[key] = item
     return payload
-
-
-def _require_project_root(project: str | Path) -> Path:
-    root = resolve_project_root(project)
-    if root is None:
-        raise FileNotFoundError(f"Not an xpkg project: {project}")
-    return root
 
 
 def _acquisition_metadata(value: AcquisitionMetadata | Mapping[str, Any]) -> AcquisitionMetadata:

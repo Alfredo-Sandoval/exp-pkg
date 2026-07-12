@@ -78,6 +78,13 @@ def _as_array(
     return arr
 
 
+def _matrix_shape(array: np.ndarray) -> tuple[int, int] | None:
+    shape = array.shape
+    if len(shape) < 2:
+        return None
+    return int(shape[0]), int(shape[1])
+
+
 def _to_str(value: Any) -> str:
     if isinstance(value, Path):
         return str(value)
@@ -856,11 +863,13 @@ def _hydrate_predicted_frames(
             labeled_frames.append(labeled_frame)
             frames_by_key[frame_key] = labeled_frame
 
+        deleted_shape = _matrix_shape(deleted_arr)
+        score_shape = _matrix_shape(instance_score_arr)
         for inst_idx in range(n_inst):
             if (
-                deleted_arr.ndim >= 2
-                and row < deleted_arr.shape[0]
-                and inst_idx < deleted_arr.shape[1]
+                deleted_shape is not None
+                and row < deleted_shape[0]
+                and inst_idx < deleted_shape[1]
                 and bool(deleted_arr[row, inst_idx])
             ):
                 continue
@@ -878,9 +887,10 @@ def _hydrate_predicted_frames(
             inst_score = (
                 float(instance_score_arr[row, inst_idx])
                 if (
-                    instance_score_arr.ndim == 2
-                    and row < instance_score_arr.shape[0]
-                    and inst_idx < instance_score_arr.shape[1]
+                    score_shape is not None
+                    and instance_score_arr.ndim == 2
+                    and row < score_shape[0]
+                    and inst_idx < score_shape[1]
                 )
                 else 0.0
             )

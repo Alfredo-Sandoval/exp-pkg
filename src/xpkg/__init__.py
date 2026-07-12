@@ -21,8 +21,21 @@ from __future__ import annotations
 
 import importlib
 from types import ModuleType
+from typing import TYPE_CHECKING
 
 from xpkg.version import __version__
+
+if TYPE_CHECKING:
+    from xpkg import adapters as adapters
+    from xpkg import json_utils as json_utils
+    from xpkg import media as media
+    from xpkg import model as model
+    from xpkg import payloads as payloads
+    from xpkg import pose as pose
+    from xpkg import project as project
+    from xpkg import readers as readers
+    from xpkg import segmentation as segmentation
+    from xpkg import services as services
 
 __all__ = [
     "__version__",

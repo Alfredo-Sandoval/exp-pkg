@@ -6,7 +6,7 @@ import subprocess
 import sys
 from pathlib import Path
 from threading import Event
-from typing import Any
+from typing import Any, Protocol, cast
 
 import cv2
 import imageio.v2 as iio
@@ -33,11 +33,15 @@ _NVENC_FLAGS_CACHE: dict[str, dict[str, bool]] = {}
 _FFMPEG_ENCODER_CACHE: set[str] | None = None
 
 
+class _FourCCFunction(Protocol):
+    def __call__(self, c1: str, c2: str, c3: str, c4: str) -> int: ...
+
+
 def _video_writer_fourcc(code: str) -> int:
     fourcc_fn = getattr(cv2, "VideoWriter_fourcc", None)
     if not callable(fourcc_fn):
         raise RuntimeError("OpenCV build does not expose VideoWriter_fourcc")
-    return int(fourcc_fn(code[0], code[1], code[2], code[3]))
+    return cast(_FourCCFunction, fourcc_fn)(code[0], code[1], code[2], code[3])
 
 
 class VideoWriterOpenCV:

@@ -93,7 +93,7 @@ def has_metrics_group(path: str | Path) -> bool:
     bundle_path = Path(path)
     if not bundle_path.is_file():
         return False
-    with h5py.File(bundle_path, "r") as handle:
+    with h5py.File(str(bundle_path), "r") as handle:
         return METRICS_GROUP in handle and isinstance(handle[METRICS_GROUP], h5py.Group)
 
 
@@ -106,7 +106,7 @@ def _require_metrics_group(handle: h5py.File, bundle_path: str | Path) -> h5py.G
 
 def iter_tables(path: str | Path) -> Iterator[str]:
     bundle_path = Path(path)
-    with h5py.File(bundle_path, "r") as handle:
+    with h5py.File(str(bundle_path), "r") as handle:
         metrics_group = _require_metrics_group(handle, bundle_path)
         for name in sorted(metrics_group.keys()):
             if isinstance(metrics_group[name], h5py.Group):
@@ -157,7 +157,10 @@ def _read_table_group(table_group: h5py.Group) -> pd.DataFrame:
         if not isinstance(strings_group, h5py.Group):
             raise MetricsReadError("Metrics table is missing its strings group")
         for name in string_names:
-            raw_values = strings_group[str(name)].asstr()[()]
+            dataset = strings_group.get(str(name))
+            if not isinstance(dataset, h5py.Dataset):
+                raise MetricsReadError(f"Metrics string column {name!r} is not a dataset")
+            raw_values = dataset.asstr()[()]
             data[str(name)] = np.asarray(raw_values, dtype=object)
 
     ordered = {str(name): data[str(name)] for name in column_order if str(name) in data}
@@ -166,7 +169,7 @@ def _read_table_group(table_group: h5py.Group) -> pd.DataFrame:
 
 def read_table(path: str | Path, table: str) -> pd.DataFrame:
     bundle_path = Path(path)
-    with h5py.File(bundle_path, "r") as handle:
+    with h5py.File(str(bundle_path), "r") as handle:
         metrics_group = _require_metrics_group(handle, bundle_path)
         table_group = metrics_group.get(table)
         if not isinstance(table_group, h5py.Group):
@@ -204,7 +207,7 @@ def write_table(
 ) -> None:
     if mode not in {"replace", "append"}:
         raise ValueError("mode must be 'replace' or 'append'")
-    with h5py.File(Path(path), "a") as handle:
+    with h5py.File(str(Path(path)), "a") as handle:
         write_table_to_handle(handle, table, df, mode=mode)
 
 

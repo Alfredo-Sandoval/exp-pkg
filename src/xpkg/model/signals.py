@@ -11,25 +11,13 @@ import numpy as np
 from xpkg.model._metadata_validation import (
     metadata_dict,
 )
+from xpkg.model._metadata_validation import (
+    strict_required_text as _required_text,
+)
+from xpkg.model._metadata_validation import (
+    strict_text as _optional_text,
+)
 from xpkg.model.time import Timeline
-
-
-def _required_text(value: object, *, name: str) -> str:
-    if not isinstance(value, str):
-        raise TypeError(f"{name} must be a string.")
-    if not value:
-        raise ValueError(f"{name} must be a non-empty string.")
-    if value != value.strip():
-        raise ValueError(f"{name} must not contain surrounding whitespace.")
-    return value
-
-
-def _optional_text(value: object, *, name: str) -> str:
-    if not isinstance(value, str):
-        raise TypeError(f"{name} must be a string.")
-    if value != value.strip():
-        raise ValueError(f"{name} must not contain surrounding whitespace.")
-    return value
 
 
 @dataclass(frozen=True, slots=True)

@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from pathlib import Path
 
+from xpkg.io.readers._normalization import normalize_file_type as _normalize_file_type
 from xpkg.io.readers.pose import dlc, mediapipe_pose_landmarks, mmpose, sleap_analysis_h5
 from xpkg.io.readers.pose._common import PoseTrack, with_pose_track_metadata
 
@@ -26,13 +27,6 @@ def _normalize_software(software: str) -> str:
     normalized = str(software).strip().upper()
     if not normalized:
         raise ValueError("software must be a non-empty string.")
-    return normalized
-
-
-def _normalize_file_type(file_type: str) -> str:
-    normalized = str(file_type).strip().lower()
-    if not normalized:
-        raise ValueError("file_type must be a non-empty string.")
     return normalized
 
 

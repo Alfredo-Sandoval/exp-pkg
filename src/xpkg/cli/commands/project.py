@@ -12,41 +12,6 @@ import typer
 
 from xpkg._core.json_utils import load_json_dict
 from xpkg.cli.shared import JsonOption, PackMedia, require_option_value, run_command, write_path
-from xpkg.model import AcquisitionMetadata, DatasetDatasheet, DatasetShareMetadata, ModelCard
-from xpkg.project.artifact import (
-    pack_project,
-    unpack_project,
-)
-from xpkg.project.artifact import (
-    validate_artifact as validate_artifact_target,
-)
-from xpkg.project.artifacts import project_artifacts_root
-from xpkg.project.layout import (
-    load_project_descriptor,
-    project_descriptor_path,
-    project_exports_root,
-    project_media_root,
-    project_state_root,
-    project_store_root,
-    project_summary_path,
-    resolve_project_root,
-)
-from xpkg.project.metadata import (
-    load_project_acquisition_metadata,
-    load_project_dataset_share_metadata,
-    load_project_datasheet,
-    load_project_model_card,
-    project_acquisition_metadata_path,
-    project_dataset_share_metadata_path,
-    project_datasheet_path,
-    project_model_card_path,
-    save_project_acquisition_metadata,
-    save_project_dataset_share_metadata,
-    save_project_datasheet,
-    save_project_model_card,
-)
-from xpkg.project.store import current_project_state_path, init_project
-from xpkg.project.summary import refresh_project_summary
 
 app = typer.Typer(
     add_completion=False,
@@ -57,25 +22,30 @@ app = typer.Typer(
 
 
 def _project_describe_payload(path: str) -> dict[str, Any]:
-    root = resolve_project_root(path)
+    import xpkg.project.artifacts as project_artifacts
+    import xpkg.project.layout as project_layout
+    import xpkg.project.store as project_store
+    import xpkg.project.summary as project_summary
+
+    root = project_layout.resolve_project_root(path)
     if root is None:
         raise FileNotFoundError(f"Not an xpkg project: {path}")
-    descriptor = load_project_descriptor(root)
-    current_state = current_project_state_path(root)
-    summary = refresh_project_summary(root)
+    descriptor = project_layout.load_project_descriptor(root)
+    current_state = project_store.current_project_state_path(root)
+    summary = project_summary.refresh_project_summary(root)
     return {
         "status": "described",
         "project": str(root),
         "descriptor": descriptor.to_dict(),
         "paths": {
-            "descriptor": str(project_descriptor_path(root)),
-            "store": str(project_store_root(root)),
-            "artifacts": str(project_artifacts_root(root)),
-            "state": str(project_state_root(root)),
-            "media": str(project_media_root(root)),
-            "exports": str(project_exports_root(root)),
+            "descriptor": str(project_layout.project_descriptor_path(root)),
+            "store": str(project_layout.project_store_root(root)),
+            "artifacts": str(project_artifacts.project_artifacts_root(root)),
+            "state": str(project_layout.project_state_root(root)),
+            "media": str(project_layout.project_media_root(root)),
+            "exports": str(project_layout.project_exports_root(root)),
             "current_state": str(current_state),
-            "summary": str(project_summary_path(root)),
+            "summary": str(project_layout.project_summary_path(root)),
         },
         "has_current_state": summary.has_current_state,
         "summary": summary.to_dict(),
@@ -147,7 +117,9 @@ def init(
     """Create a new empty exp-pkg project."""
 
     def action() -> dict[str, object]:
-        init_project(
+        import xpkg.project.store as project_store
+
+        project_store.init_project(
             project,
             title=title,
             project_id=project_id,
@@ -178,50 +150,55 @@ class _MetadataSlot:
     path_for: Callable[[str], Path]
 
 
-_METADATA_SLOTS: dict[str, _MetadataSlot] = {
-    "acquisition": _MetadataSlot(
-        name="acquisition",
-        payload_key="acquisition",
-        coerce=AcquisitionMetadata.from_dict,
-        save=save_project_acquisition_metadata,
-        load=load_project_acquisition_metadata,
-        path_for=project_acquisition_metadata_path,
-    ),
-    "dataset-share": _MetadataSlot(
-        name="dataset-share",
-        payload_key="dataset_share",
-        coerce=DatasetShareMetadata.from_dict,
-        save=save_project_dataset_share_metadata,
-        load=load_project_dataset_share_metadata,
-        path_for=project_dataset_share_metadata_path,
-    ),
-    "datasheet": _MetadataSlot(
-        name="datasheet",
-        payload_key="datasheet",
-        coerce=DatasetDatasheet.from_dict,
-        save=save_project_datasheet,
-        load=load_project_datasheet,
-        path_for=project_datasheet_path,
-    ),
-    "model-card": _MetadataSlot(
-        name="model-card",
-        payload_key="model_card",
-        coerce=ModelCard.from_dict,
-        save=save_project_model_card,
-        load=load_project_model_card,
-        path_for=project_model_card_path,
-    ),
-}
+def _metadata_slots() -> dict[str, _MetadataSlot]:
+    from xpkg.model import AcquisitionMetadata, DatasetDatasheet, DatasetShareMetadata, ModelCard
+    from xpkg.project import metadata as project_metadata
+
+    return {
+        "acquisition": _MetadataSlot(
+            "acquisition",
+            "acquisition",
+            AcquisitionMetadata.from_dict,
+            project_metadata.save_project_acquisition_metadata,
+            project_metadata.load_project_acquisition_metadata,
+            project_metadata.project_acquisition_metadata_path,
+        ),
+        "dataset-share": _MetadataSlot(
+            "dataset-share",
+            "dataset_share",
+            DatasetShareMetadata.from_dict,
+            project_metadata.save_project_dataset_share_metadata,
+            project_metadata.load_project_dataset_share_metadata,
+            project_metadata.project_dataset_share_metadata_path,
+        ),
+        "datasheet": _MetadataSlot(
+            "datasheet",
+            "datasheet",
+            DatasetDatasheet.from_dict,
+            project_metadata.save_project_datasheet,
+            project_metadata.load_project_datasheet,
+            project_metadata.project_datasheet_path,
+        ),
+        "model-card": _MetadataSlot(
+            "model-card",
+            "model_card",
+            ModelCard.from_dict,
+            project_metadata.save_project_model_card,
+            project_metadata.load_project_model_card,
+            project_metadata.project_model_card_path,
+        ),
+    }
 
 
 def _resolve_metadata_slot(slot: str) -> _MetadataSlot:
-    if slot not in _METADATA_SLOTS:
-        choices = ", ".join(sorted(_METADATA_SLOTS))
+    slots = _metadata_slots()
+    if slot not in slots:
+        choices = ", ".join(sorted(slots))
         raise typer.BadParameter(
             f"Unknown metadata slot {slot!r}. Choose from: {choices}.",
             param_hint="SLOT",
         )
-    return _METADATA_SLOTS[slot]
+    return slots[slot]
 
 
 metadata_app = typer.Typer(
@@ -237,10 +214,7 @@ def metadata_set(
     slot: Annotated[
         str,
         typer.Argument(
-            help=(
-                "Metadata slot to write: acquisition, dataset-share, datasheet, "
-                "or model-card."
-            ),
+            help=("Metadata slot to write: acquisition, dataset-share, datasheet, or model-card."),
         ),
     ],
     project: Annotated[str, typer.Argument(help="Project directory to update.")],
@@ -277,10 +251,7 @@ def metadata_show(
     slot: Annotated[
         str,
         typer.Argument(
-            help=(
-                "Metadata slot to read: acquisition, dataset-share, datasheet, "
-                "or model-card."
-            ),
+            help=("Metadata slot to read: acquisition, dataset-share, datasheet, or model-card."),
         ),
     ],
     project: Annotated[str, typer.Argument(help="Project directory to inspect.")],
@@ -331,7 +302,9 @@ def pack(
     """Pack a project into a .expkg artifact."""
 
     def action() -> dict[str, object]:
-        artifact_path = pack_project(
+        import xpkg.project.artifact as project_artifact
+
+        artifact_path = project_artifact.pack_project(
             project,
             out=out,
             media=media.value,
@@ -369,7 +342,9 @@ def unpack(
     out = require_option_value(out, "--out")
 
     def action() -> dict[str, object]:
-        project_path = unpack_project(
+        import xpkg.project.artifact as project_artifact
+
+        project_path = project_artifact.unpack_project(
             artifact,
             out,
             force=force,
@@ -397,7 +372,9 @@ def validate(
     """Validate a project or packed .expkg artifact."""
 
     def action() -> dict[str, object]:
-        validate_artifact_target(path)
+        import xpkg.project.artifact as project_artifact
+
+        project_artifact.validate_artifact(path)
         return {"status": "valid", "path": path}
 
     def human_output(payload: dict[str, object]) -> None:

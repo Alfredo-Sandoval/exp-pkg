@@ -118,16 +118,24 @@ photometry = PhotometryRecording(
 
 ### Recording Session
 
-`RecordingSession` groups timed modalities without becoming an analysis object.
-It is the target shape for downstream code that needs pose, video, signals, and
-events in one place.
+`RecordingSession` groups typed video and signal links with an event table. Pose
+data remains in `Labels` until a typed session-to-pose link is defined. A raw
+`pose` dictionary is not part of the session contract.
 
 ```python
-from xpkg.model import Event, EventTable, RecordingSession
+from xpkg.model import (
+    Event,
+    EventTable,
+    RecordingSession,
+    SessionSignal,
+    add_session_signal,
+    replace_session_events,
+)
 
 session = RecordingSession(session_id="session-001")
-session = session.with_signal("fiber", photometry)
-session = session.with_events(
+session = add_session_signal(session, SessionSignal("fiber", photometry))
+session = replace_session_events(
+    session,
     EventTable.from_events([Event(kind="trial", start_s=0.0, duration_s=1.0)])
 )
 

@@ -802,7 +802,7 @@ def _inspect_json(path: Path, *, confidence_threshold: float) -> dict[str, Any]:
 
 def _h5_keys(path: Path) -> list[str]:
     keys: list[str] = []
-    with h5py.File(path, "r") as handle:
+    with h5py.File(str(path), "r") as handle:
         handle.visit(keys.append)
     return keys
 

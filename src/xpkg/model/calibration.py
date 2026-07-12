@@ -379,7 +379,10 @@ class CameraExtrinsics:
             raise TypeError("extrinsics payload must be a mapping.")
         return cls(
             rotation=CameraRotation.from_dict(payload.get("rotation") or {}),
-            translation=payload.get("translation", ()),
+            translation=cast(
+                "tuple[float, float, float]",
+                _float_tuple(payload.get("translation", ()), length=3, name="translation"),
+            ),
         )
 
 
@@ -499,7 +502,7 @@ class Camera:
             raise TypeError("camera calibration payload must be a mapping.")
         return cls(
             name=payload.get("name", ""),
-            image_size=payload.get("image_size", ()),
+            image_size=_image_size(payload.get("image_size", ()), name="image_size"),
             intrinsics=CameraIntrinsics.from_dict(payload.get("intrinsics") or {}),
             extrinsics=CameraExtrinsics.from_dict(payload.get("extrinsics") or {}),
             quality=CalibrationQuality.from_dict(payload.get("quality")),

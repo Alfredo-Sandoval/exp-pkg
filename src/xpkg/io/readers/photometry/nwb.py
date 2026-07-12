@@ -9,13 +9,16 @@ from typing import Any, Literal
 import h5py
 import numpy as np
 
+from xpkg.io.hdf5 import float_attribute
 from xpkg.io.readers._discovery import find_first_file
+from xpkg.io.readers._normalization import photometry_excitation as _excitation_from_name
 from xpkg.model import (
     Event,
     EventTable,
     PhotometryChannel,
     PhotometryRecording,
     RecordingSession,
+    SessionSignal,
     Timeline,
     TimeSeries,
 )
@@ -146,7 +149,7 @@ def is_nwb_photometry_file(path: str | Path) -> bool:
     if not source_path.is_file() or source_path.suffix.lower() != ".nwb":
         return False
     try:
-        with h5py.File(source_path, "r") as handle:
+        with h5py.File(str(source_path), "r") as handle:
             candidates = _series_candidates(handle)
             return _select_series(candidates, _SIGNAL_HINTS, exclude=_SIGNAL_EXCLUDE) is not None
     except OSError:
@@ -246,7 +249,7 @@ def _series_timeline(series: _Series, n_samples: int) -> Timeline:
     if rate is None:
         raise ValueError(f"NWB TimeSeries '{series.path}' starting_time is missing rate.")
     start = float(np.asarray(starting_time).reshape(-1)[0])
-    sample_rate = float(rate)
+    sample_rate = float_attribute(rate, name=f"{series.path}.starting_time.rate")
     if not np.isfinite(start):
         raise ValueError(f"NWB TimeSeries '{series.path}' starting_time is not finite.")
     if not np.isfinite(sample_rate) or sample_rate <= 0.0:
@@ -288,14 +291,6 @@ def _timelines_match(left: Timeline, right: Timeline) -> bool:
     if left.n_samples != right.n_samples:
         return False
     return bool(np.allclose(left.timestamps_s, right.timestamps_s, rtol=1e-9, atol=1e-12))
-
-
-def _excitation_from_name(name: str) -> str:
-    lowered = name.lower()
-    for token in ("405", "410", "415", "465", "470", "560"):
-        if token in lowered:
-            return token
-    return ""
 
 
 def _channel_names(base: str, n_columns: int) -> list[str]:
@@ -550,7 +545,7 @@ def read_nwb_photometry(
 ) -> RecordingSession:
     """Read fiber-photometry data from a standard NWB HDF5 file."""
     source_path = Path(path)
-    with h5py.File(source_path, "r") as handle:
+    with h5py.File(str(source_path), "r") as handle:
         candidates = _series_candidates(handle)
         signal_key = _select_series(candidates, _SIGNAL_HINTS, exclude=_SIGNAL_EXCLUDE)
         if signal_key is None:
@@ -597,7 +592,7 @@ def read_nwb_photometry(
         session_id = str(session_metadata.get("identifier") or source_path.stem)
     return RecordingSession(
         session_id=session_id,
-        signals={"photometry": photometry},
+        signals=(SessionSignal("photometry", photometry),),
         events=EventTable.from_events(rows),
         metadata=session_metadata,
     )

@@ -16,6 +16,7 @@ from xpkg.io.readers._columns import (
     first_matching_column,
     resolve_column,
 )
+from xpkg.io.readers._normalization import time_scale as _time_scale
 from xpkg.model import BehaviorFrameLabel, BehaviorInterval, BehaviorLabels
 
 TimeUnit = Literal["s", "sec", "second", "seconds", "ms", "millisecond", "milliseconds"]
@@ -869,15 +870,6 @@ def _csv_size_bytes(path: Path, *, max_mb: float | None) -> int:
 def _read_csv(path: Path, *, max_mb: float | None) -> tuple[pd.DataFrame, int]:
     size_bytes = _csv_size_bytes(path, max_mb=max_mb)
     return pd.read_csv(path), size_bytes
-
-
-def _time_scale(unit: TimeUnit) -> float:
-    normalized = unit.lower()
-    if normalized in {"s", "sec", "second", "seconds"}:
-        return 1.0
-    if normalized in {"ms", "millisecond", "milliseconds"}:
-        return 0.001
-    raise ValueError(f"Unsupported time_unit {unit!r}; expected seconds or milliseconds.")
 
 
 def _clean_required_text(value: str, *, role: str) -> str:

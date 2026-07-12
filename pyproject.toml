@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "exp-pkg"
 dynamic = ["version"]
-description = "Project-first IO toolkit for multimodal neuroscience experiment data and portable artifacts."
+description = "Typed data I/O and portable project packaging for multimodal neuroscience experiments."
 readme = "README.md"
 requires-python = ">=3.12"
 license = "BSD-3-Clause"
@@ -69,12 +69,16 @@ Changelog = "https://github.com/Alfredo-Sandoval/exp-pkg/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
 dev = [
+  "h5py-stubs==0.1.2",
+  "hypothesis>=6.156,<7",
+  "pandas-stubs==3.0.3.260530",
+  "pyarrow-stubs==20.0.0.20260625",
+  "pyright==1.1.411",
   "pytest>=8.3,<9",
   "pytest-cov>=5,<8",
   "ruff>=0.9,<1",
   "supervision>=0.28,<0.29",
   "twine>=6.1,<7",
-  "ty==0.0.26",
 ]
 docs = [
   "mkdocs>=1.6,<2",
@@ -183,16 +187,16 @@ src = ["src"]
 select = ["E", "F", "W", "I", "B", "UP", "N"]
 ignore = []
 
-[tool.ty.src]
-# Type-check the shipped package. Test files are intentionally out of the type
-# gate: they carry pytest.skip() patterns that ty's pytest model reports as
-# false positives, and exercising runtime behavior is the test suite's job.
+[tool.pyright]
 include = ["src"]
+pythonVersion = "3.12"
+typeCheckingMode = "standard"
+enableTypeIgnoreComments = false
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 testpaths = ["tests"]
-addopts = "-ra"
+addopts = '-ra -m "not realdata and not vendorfixtures"'
 markers = [
   "realdata: opt-in integration tests that require XPKG_REAL_DATA_ROOT",
   "vendorfixtures: opt-in external vendor fixture tests",
@@ -216,7 +220,6 @@ exclude_lines = [
   "if __name__ == .__main__.:",
   "@(abc\\.)?abstractmethod",
 ]
-# Measured 69.1% on 2026-06-09 (`make coverage`, branch coverage, 496 tests).
-# Gate a few points below the measurement so optional-dependency skips
-# (e.g. `av`) do not flake the build; raise as coverage improves.
-fail_under = 65
+# Measured 74.5% combined coverage on 2026-07-12 (`make coverage`, 818 tests).
+# Keep two points of tolerance for optional-dependency variation.
+fail_under = 72

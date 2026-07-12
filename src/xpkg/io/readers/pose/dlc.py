@@ -10,6 +10,7 @@ from typing import cast
 import numpy as np
 import pandas as pd
 
+from xpkg.io.readers._normalization import normalize_file_type as _normalize_file_type
 from xpkg.io.readers.pose._common import (
     PoseTrack,
     build_pose_track,
@@ -114,13 +115,6 @@ def read_dlc_h5_table(h5_path: Path) -> tuple[pd.DataFrame, list[str]]:
     if isinstance(df.columns, pd.MultiIndex):
         df.columns = _flatten_dlc_columns(df.columns)
     return df, _extract_keypoints_from_columns(df.columns)
-
-
-def _normalize_file_type(file_type: str) -> str:
-    normalized = str(file_type).strip().lower()
-    if not normalized:
-        raise ValueError("file_type must be a non-empty string.")
-    return normalized
 
 
 def _read_dlc_table(path: Path, *, file_type: str) -> tuple[pd.DataFrame, list[str]]:

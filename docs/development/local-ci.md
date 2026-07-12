@@ -21,9 +21,11 @@ Run the standard quality gates individually:
 
 ```bash
 make conflict-check
+make export-stubs-check
 make lint
 make typecheck
 make test
+make test-vendor
 make test-real
 make docs-build
 make package-check
@@ -74,6 +76,20 @@ and the public project schema.
 `tests/real_data`. It requires either `XPKG_REAL_DATA_ROOT` or the
 `REAL_DATA_ROOT=...` make argument.
 
+`test-vendor` runs the genuine vendor-export contract suite. It is excluded
+from ordinary `pytest`, `make test`, and `make coverage` runs. Supply all three
+fixture roots explicitly:
+
+```bash
+make test-vendor \
+  FIBER_FIXTURE_ROOT=../xpkg-vendor-data/fiber-photometry \
+  POSE_FIXTURE_ROOT=../xpkg-vendor-data/pose \
+  BEHAVIOR_FIXTURE_ROOT=../xpkg-vendor-data/behavior
+```
+
+The target raises if a root or required fixture is absent. It never activates
+because an ignored directory happens to exist in the checkout.
+
 `release-check` runs:
 
 - `qa`
@@ -95,6 +111,16 @@ non-base conda environment already has the project dependencies installed, the
 wrapper runs the quality command in that environment. This is a fallback for
 prepared developer machines and CI; `make env` remains the canonical setup
 entrypoint.
+
+`make ci-local` also runs `make performance-check`. The canonical performance
+budgets are stored in `performance-budgets.json`, and CI enforces the same
+versioned benchmark contract.
+
+`xpkg.model` and `xpkg.pose` keep their lazy public exports in adjacent
+`_exports.py` registries. Those registries are the source of truth for the
+generated runtime facades and `__init__.pyi` typing facades. Run `make
+export-stubs` after changing either registry. `make qa` rejects stale generated
+files.
 
 ## Real Data Manifest
 

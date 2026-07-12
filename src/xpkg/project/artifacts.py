@@ -15,7 +15,9 @@ from xpkg._core.time import now_utc_iso
 from xpkg.project.layout import (
     project_artifacts_root,
     project_store_root,
-    resolve_project_root,
+)
+from xpkg.project.layout import (
+    require_project_root as _project_root,
 )
 
 ARTIFACT_MANIFEST_FILENAME = "manifest.json"
@@ -189,13 +191,6 @@ class FigureArtifact:
             "created_at": self.created_at,
             "updated_at": self.updated_at,
         }
-
-
-def _project_root(path: str | Path) -> Path:
-    root = resolve_project_root(path)
-    if root is None:
-        raise FileNotFoundError(f"Not an xpkg project: {path}")
-    return root
 
 
 def _artifact_id(value: str) -> str:

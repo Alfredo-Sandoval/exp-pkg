@@ -171,6 +171,14 @@ def is_project_root(path: str | Path) -> bool:
     return resolve_project_root(path) is not None
 
 
+def require_project_root(path: str | Path) -> Path:
+    """Return the owning project root or raise for a non-project path."""
+    root = resolve_project_root(path)
+    if root is None:
+        raise FileNotFoundError(f"Not an xpkg project: {path}")
+    return root
+
+
 def load_project_descriptor(path: str | Path) -> ProjectDescriptor:
     descriptor_path = project_descriptor_path(path)
     if not descriptor_path.is_file():
@@ -268,5 +276,6 @@ __all__ = [
     "project_summary_path",
     "project_state_root",
     "project_store_root",
+    "require_project_root",
     "write_project_descriptor",
 ]

@@ -15,6 +15,7 @@ import h5py
 from xpkg._core.json_utils import parse_json_dict
 from xpkg._core.logging_utils import get_logger
 from xpkg._core.path_registry import resolve_path
+from xpkg.io.hdf5 import text_attribute
 from xpkg.pose.skeleton import Skeleton
 
 logger = get_logger(__name__)
@@ -377,7 +378,7 @@ def _load_skeleton_sleap_pkg_slp(path: Path) -> Skeleton:
         if "json" not in metadata_attrs:
             raise ValueError("SLEAP metadata has no JSON attribute")
 
-        metadata_json_str = metadata_attrs["json"]
+        metadata_json_str = text_attribute(metadata_attrs["json"], name="metadata.json")
         metadata = parse_json_dict(metadata_json_str)
 
     skeleton_dict = build_sleap_skeleton(metadata, skeleton_name=path.stem)

@@ -8,6 +8,9 @@ from typing import TYPE_CHECKING, Any, Protocol, cast
 
 import numpy as np
 
+_NumpyRecord = cast(Any, np.record)
+_NumpyRecarray = cast(Any, np.recarray)
+
 
 class KPFlag(IntFlag):
     """Bit flags for per-keypoint state.
@@ -39,7 +42,7 @@ class CanonicalPredictedPoint(CanonicalPoint, Protocol):
     score: float
 
 
-class Point(np.record):
+class Point(_NumpyRecord):
     """Basic 2D point record with visibility/flags metadata."""
 
     dtype: Any = np.dtype(
@@ -182,7 +185,7 @@ class PredictedPoint(Point):
         ) -> None: ...
 
 
-class PointArray(np.recarray):
+class PointArray(_NumpyRecarray):
     """Array wrapper for Point records with helpful constructors."""
 
     _record_type = Point

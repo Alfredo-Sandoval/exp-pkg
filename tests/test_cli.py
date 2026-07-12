@@ -69,7 +69,7 @@ def test_cli_routes_init_project(monkeypatch, capsys) -> None:
         captured["force"] = force
         return object()
 
-    monkeypatch.setattr("xpkg.cli.commands.project.init_project", fake_init_project)
+    monkeypatch.setattr("xpkg.project.store.init_project", fake_init_project)
 
     code = main(
         [
@@ -112,7 +112,7 @@ def test_cli_init_json_mode(monkeypatch, capsys) -> None:
         captured["force"] = force
         return object()
 
-    monkeypatch.setattr("xpkg.cli.commands.project.init_project", fake_init_project)
+    monkeypatch.setattr("xpkg.project.store.init_project", fake_init_project)
 
     code = main(["project", "init", "My Project", "--title", "My Project", "--json"])
 
@@ -162,10 +162,7 @@ def test_cli_init_invalid_project_id_leaves_no_partial_layout(
     payload = json.loads(captured_streams.err)
     assert payload["ok"] is False
     assert payload["error"]["code"] == "invalid_input"
-    assert (
-        payload["error"]["message"]
-        == "PROJECT.json project_id must be a UUID or ULID"
-    )
+    assert payload["error"]["message"] == "PROJECT.json project_id must be a UUID or ULID"
     assert not project.exists()
 
 
@@ -219,7 +216,7 @@ def test_cli_routes_import_dlc_csv_project(monkeypatch, capsys) -> None:
         return _project_state_path(project)
 
     monkeypatch.setattr(
-        "xpkg.cli.commands.imports.import_dlc_csv_project",
+        "xpkg.project.store.imports.import_dlc_csv_project",
         fake_import_dlc_csv_project,
     )
 
@@ -284,7 +281,7 @@ def test_cli_routes_import_dlc_h5_project_json(monkeypatch, capsys) -> None:
         return _project_state_path(project)
 
     monkeypatch.setattr(
-        "xpkg.cli.commands.imports.import_dlc_h5_project",
+        "xpkg.project.store.imports.import_dlc_h5_project",
         fake_import_dlc_h5_project,
     )
 
@@ -366,7 +363,7 @@ def test_cli_routes_pose_prediction_provenance_json(monkeypatch, tmp_path: Path)
         return _project_state_path(project)
 
     monkeypatch.setattr(
-        "xpkg.cli.commands.imports.import_dlc_csv_project",
+        "xpkg.project.store.imports.import_dlc_csv_project",
         fake_import_dlc_csv_project,
     )
 
@@ -414,7 +411,7 @@ def test_cli_import_json_mode_suppresses_progress(monkeypatch, capsys) -> None:
         return _project_state_path(project)
 
     monkeypatch.setattr(
-        "xpkg.cli.commands.imports.import_dlc_csv_project",
+        "xpkg.project.store.imports.import_dlc_csv_project",
         fake_import_dlc_csv_project,
     )
 
@@ -474,7 +471,7 @@ def test_cli_routes_import_dlc_project_directory(monkeypatch, capsys) -> None:
         return _project_state_path(project)
 
     monkeypatch.setattr(
-        "xpkg.cli.commands.imports.import_dlc_project_directory",
+        "xpkg.project.store.imports.import_dlc_project_directory",
         fake_import_dlc_project_directory,
     )
 
@@ -531,7 +528,7 @@ def test_cli_routes_import_sleap_package_project(monkeypatch, capsys) -> None:
         return _project_state_path(project)
 
     monkeypatch.setattr(
-        "xpkg.cli.commands.imports.import_sleap_package_project",
+        "xpkg.project.store.imports.import_sleap_package_project",
         fake_import_sleap_package_project,
     )
 
@@ -591,7 +588,7 @@ def test_cli_routes_import_sleap_h5_project(monkeypatch, capsys) -> None:
         return _project_state_path(project)
 
     monkeypatch.setattr(
-        "xpkg.cli.commands.imports.import_sleap_h5_project",
+        "xpkg.project.store.imports.import_sleap_h5_project",
         fake_import_sleap_h5_project,
     )
 
@@ -657,7 +654,7 @@ def test_cli_routes_import_mmpose_project(monkeypatch, capsys) -> None:
         return _project_state_path(project)
 
     monkeypatch.setattr(
-        "xpkg.cli.commands.imports.import_mmpose_topdown_json_project",
+        "xpkg.project.store.imports.import_mmpose_topdown_json_project",
         fake_import_mmpose_topdown_json_project,
     )
 
@@ -722,7 +719,7 @@ def test_cli_routes_import_mediapipe_project(monkeypatch, capsys) -> None:
         return _project_state_path(project)
 
     monkeypatch.setattr(
-        "xpkg.cli.commands.imports.import_mediapipe_pose_landmarks_json_project",
+        "xpkg.project.store.imports.import_mediapipe_pose_landmarks_json_project",
         fake_import_mediapipe_pose_landmarks_json_project,
     )
 
@@ -784,7 +781,7 @@ def test_cli_routes_import_lightning_pose_project(monkeypatch, capsys) -> None:
         return _project_state_path(project)
 
     monkeypatch.setattr(
-        "xpkg.cli.commands.imports.import_lightning_pose_csv_project",
+        "xpkg.project.store.imports.import_lightning_pose_csv_project",
         fake_import_lightning_pose_csv_project,
     )
 
@@ -885,10 +882,10 @@ def test_cli_routes_pack_unpack_and_validate(monkeypatch, capsys) -> None:
     def fake_validate_artifact(path: str) -> None:
         validated.append(path)
 
-    monkeypatch.setattr("xpkg.cli.commands.project.pack_project", fake_pack_project)
-    monkeypatch.setattr("xpkg.cli.commands.project.unpack_project", fake_unpack_project)
+    monkeypatch.setattr("xpkg.project.artifact.pack_project", fake_pack_project)
+    monkeypatch.setattr("xpkg.project.artifact.unpack_project", fake_unpack_project)
     monkeypatch.setattr(
-        "xpkg.cli.commands.project.validate_artifact_target",
+        "xpkg.project.artifact.validate_artifact",
         fake_validate_artifact,
     )
 

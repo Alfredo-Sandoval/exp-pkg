@@ -12,7 +12,7 @@ from xpkg.io.labels.model import Labels
 from xpkg.media.video import Video
 from xpkg.pose.annotations import LabeledFrame, SegmentationMask
 from xpkg.pose.skeleton import build_keypoint_skeleton
-from xpkg.project.layout import resolve_project_root
+from xpkg.project.layout import require_project_root as _project_root
 from xpkg.project.store import save_project_labels
 
 if TYPE_CHECKING:
@@ -33,13 +33,6 @@ class SegmentationFrame:
     video_id: str = ""
     video_label: str = ""
     video_path: str = ""
-
-
-def _project_root(path: str | Path) -> Path:
-    root = resolve_project_root(path)
-    if root is None:
-        raise FileNotFoundError(f"Not an xpkg project: {path}")
-    return root
 
 
 def _load_project_labels(project: str | Path) -> tuple[Path, Labels]:

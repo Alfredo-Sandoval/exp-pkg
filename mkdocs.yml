@@ -1,5 +1,5 @@
 site_name: exp-pkg
-site_description: Multimodal neuroscience IO documentation for exp-pkg and the xpkg Python package.
+site_description: Typed data I/O and portable project packaging for multimodal neuroscience experiments.
 repo_name: Alfredo-Sandoval/exp-pkg
 repo_url: https://github.com/Alfredo-Sandoval/exp-pkg
 

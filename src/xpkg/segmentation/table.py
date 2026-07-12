@@ -529,7 +529,10 @@ class MaskTableWriter:
                 self._schema,
                 compression=self.compression,
             )
-        self._writer.write_table(table, row_group_size=len(self._rows["frame_index"]))
+        writer = self._writer
+        if writer is None:
+            raise RuntimeError("Parquet writer was not initialized")
+        writer.write_table(table, row_group_size=len(self._rows["frame_index"]))
         self._rows = _empty_rows()
 
 

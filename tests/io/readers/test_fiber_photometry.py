@@ -236,7 +236,7 @@ def test_read_neurophotometrics_csv_demuxes_led_state_channels(tmp_path) -> None
     )
 
     session = read_neurophotometrics_csv(path, reference_column="Region0R")
-    photometry = session.signals["photometry"]
+    photometry = session.signal("photometry")
 
     assert isinstance(session, RecordingSession)
     assert isinstance(photometry, PhotometryRecording)
@@ -258,7 +258,7 @@ def test_read_neurophotometrics_csv_demuxes_led_state_channels(tmp_path) -> None
     assert session.metadata["sampling_rate_source"] == "Timestamp.demux_signal.timestamps_uniform"
     np.testing.assert_allclose(photometry.timeline.timestamps_s, [0.1, 0.3])
     np.testing.assert_allclose(photometry.series.values, [[0.3, 0.1], [0.35, 0.15]])
-    assert "flags" in session.signals
+    assert "flags" in session.signal_names
     assert session.metadata["frame_counter"] == [0, 1, 2, 3]
 
 
@@ -320,7 +320,7 @@ def test_neurophotometrics_channel_selection_from_label_rejects_unclean_label(
     message: str,
 ) -> None:
     with pytest.raises(exc_type, match=message):
-        neurophotometrics_channel_selection_from_label(label)  # type: ignore[arg-type]
+        neurophotometrics_channel_selection_from_label(label)
 
 
 def test_read_neurophotometrics_csv_accepts_custom_led_map(tmp_path) -> None:
@@ -341,7 +341,7 @@ def test_read_neurophotometrics_csv_accepts_custom_led_map(tmp_path) -> None:
     photometry = read_neurophotometrics_csv(
         path,
         led_code_to_nm={7: 470, 1: 415},
-    ).signals["photometry"]
+    ).signal("photometry")
 
     assert photometry.signal_channel == "Region0G_470nm"
     assert photometry.reference_channel == "Region0G_415nm"
@@ -371,7 +371,7 @@ def test_read_neurophotometrics_csv_selects_requested_signal_wavelength(
         path,
         signal_nm=560,
         reference_nm=415,
-    ).signals["photometry"]
+    ).signal("photometry")
 
     assert photometry.signal_channel == "Region0G_560nm"
     assert photometry.reference_channel == "Region0G_415nm"
@@ -403,7 +403,7 @@ def test_read_neurophotometrics_csv_selects_requested_led_code(
         path,
         signal_led_code=4,
         reference_led_code=1,
-    ).signals["photometry"]
+    ).signal("photometry")
 
     assert photometry.signal_channel == "Region0G_560nm"
     assert photometry.reference_channel == "Region0G_415nm"
@@ -473,7 +473,7 @@ def test_read_neurophotometrics_csv_preserves_raw_channels_without_state(
     photometry = read_neurophotometrics_csv(
         path,
         reference_column="Region0R",
-    ).signals["photometry"]
+    ).signal("photometry")
 
     assert photometry.channel_names == ("Region0G", "Region0R")
     assert photometry.reference_channel == "Region0R"
@@ -574,7 +574,7 @@ def test_read_rwd_ofrs_session_parses_multicolor_bundle_and_events(tmp_path) -> 
     )
 
     session = read_rwd_ofrs_session(session_dir)
-    photometry = session.signals["photometry"]
+    photometry = session.signal("photometry")
 
     assert isinstance(photometry, PhotometryRecording)
     assert photometry.channel_names == ("CH1-410", "CH1-470", "CH1-560")
@@ -803,7 +803,7 @@ def test_read_rwd_ofrs_slow_seconds_anchors_to_declared_fps(tmp_path) -> None:
         timestamps=[0.0, 2.0, 4.0, 6.0],
     )
     session = read_rwd_ofrs_session(tmp_path / "slow")
-    photometry = session.signals["photometry"]
+    photometry = session.signal("photometry")
     assert photometry.metadata["sampling_rate_hz"] == pytest.approx(0.5)
     assert photometry.metadata["time_scale"] == pytest.approx(1.0)
     assert photometry.metadata["time_scale_inference"] == "declared_fps_seconds"
@@ -815,7 +815,7 @@ def test_read_rwd_ofrs_slow_seconds_anchors_to_declared_fps(tmp_path) -> None:
 def test_read_rwd_ofrs_subsecond_without_fps_infers_milliseconds(tmp_path) -> None:
     _write_rwd_fluorescence(tmp_path / "sub", metadata_line=None, timestamps=[0.0, 0.4, 0.8, 1.2])
     session = read_rwd_ofrs_session(tmp_path / "sub")
-    photometry = session.signals["photometry"]
+    photometry = session.signal("photometry")
     assert photometry.metadata["time_scale"] == pytest.approx(0.001)
     assert photometry.metadata["time_scale_inference"] == "subsecond_spacing_milliseconds"
     assert photometry.metadata["declared_fps_hz"] is None
@@ -876,7 +876,7 @@ def test_read_doric_photometry_uses_hdf5_datasets(tmp_path) -> None:
         handle.create_dataset("Time", data=np.asarray([0.0, 0.1, 0.2]))
 
     session = read_doric_photometry(path)
-    photometry = session.signals["photometry"]
+    photometry = session.signal("photometry")
 
     assert isinstance(photometry, PhotometryRecording)
     assert photometry.signal_channel == "Data/Signal"
@@ -901,7 +901,7 @@ def test_read_doric_photometry_records_sampling_rate_attribute_source(tmp_path) 
         signal.attrs["SamplingRate"] = 20.0
 
     session = read_doric_photometry(path)
-    photometry = session.signals["photometry"]
+    photometry = session.signal("photometry")
 
     assert photometry.metadata["sampling_rate_hz"] == pytest.approx(20.0)
     assert photometry.metadata["sampling_rate_source"] == "Signal470.attrs.SamplingRate"
@@ -952,7 +952,7 @@ def test_read_doric_photometry_rejects_unclean_explicit_dataset_selectors(
     message: str,
 ) -> None:
     with pytest.raises(exc_type, match=message):
-        read_doric_photometry(tmp_path / "missing.doric", **kwargs)  # type: ignore[arg-type]
+        read_doric_photometry(tmp_path / "missing.doric", **kwargs)
 
 
 def test_read_doric_photometry_rejects_time_dataset_as_signal(
@@ -989,7 +989,7 @@ def test_read_doric_photometry_selects_560_signal_over_isosbestic(tmp_path) -> N
         group.create_dataset("Ref405", data=np.asarray([0.5, 0.4, 0.3]))
         handle.create_dataset("Time", data=np.asarray([0.0, 0.1, 0.2]))
 
-    photometry = read_doric_photometry(path).signals["photometry"]
+    photometry = read_doric_photometry(path).signal("photometry")
     assert photometry.signal_channel == "Data/Sig560"
     assert photometry.reference_channel == "Data/Ref405"
     assert photometry.metadata["channel_inference"] == "wavelength_tokens"
@@ -1003,7 +1003,7 @@ def test_read_doric_photometry_flags_storage_order_inference(tmp_path) -> None:
         handle.create_dataset("ChannelB", data=np.asarray([0.5, 0.4, 0.3]))
         handle.create_dataset("Time", data=np.asarray([0.0, 0.1, 0.2]))
 
-    photometry = read_doric_photometry(path).signals["photometry"]
+    photometry = read_doric_photometry(path).signal("photometry")
     assert photometry.metadata["channel_inference"] == "storage_order"
     assert photometry.metadata["reference_channel_inference"] == "storage_order"
 
@@ -1019,7 +1019,7 @@ def test_read_doric_photometry_records_explicit_dataset_inference(tmp_path) -> N
         path,
         signal_path="Main470",
         reference_path="Iso405",
-    ).signals["photometry"]
+    ).signal("photometry")
 
     assert photometry.signal_channel == "Main470"
     assert photometry.reference_channel == "Iso405"
@@ -1078,7 +1078,7 @@ def test_read_nwb_photometry_prefers_dff_and_extracts_events(tmp_path) -> None:
         subject.create_dataset("genotype", data=np.bytes_("Anxa1-iCre"))
 
     session = read_nwb_photometry(path)
-    photometry = session.signals["photometry"]
+    photometry = session.signal("photometry")
 
     assert isinstance(session, RecordingSession)
     assert isinstance(photometry, PhotometryRecording)
@@ -1191,7 +1191,7 @@ def test_read_nwb_photometry_records_timestamp_sampling_rate_source(tmp_path) ->
         )
 
     session = read_nwb_photometry(path)
-    photometry = session.signals["photometry"]
+    photometry = session.signal("photometry")
 
     assert photometry.metadata["sampling_rate_hz"] == pytest.approx(4.0)
     assert (
@@ -1297,7 +1297,7 @@ def test_read_nwb_photometry_repairs_sparse_nonfinite_gaps_when_opted_in(tmp_pat
         _write_nwb_series(ophys, "DfOverFResponseSeries", signal)
 
     session = read_nwb_photometry(path, nonfinite_policy="interpolate_sparse")
-    photometry = session.signals["photometry"]
+    photometry = session.signal("photometry")
     values = photometry.series.values[:, 0]
 
     assert np.isfinite(values).all()
@@ -1347,7 +1347,7 @@ def test_read_teleopto_h5_extracts_channels_and_ttl(tmp_path) -> None:
     assert is_teleopto_h5(path) is True
 
     session = read_teleopto_h5(path)
-    photometry = session.signals["photometry"]
+    photometry = session.signal("photometry")
 
     assert isinstance(photometry, PhotometryRecording)
     assert photometry.channel_names == ("Signal", "TTL")
@@ -1410,7 +1410,7 @@ def test_parse_teleopto_h5_arrays_matches_file_semantics() -> None:
     }
 
     session = parse_teleopto_h5_arrays(datasets, session_id="arrays")
-    photometry = session.signals["photometry"]
+    photometry = session.signal("photometry")
 
     assert isinstance(photometry, PhotometryRecording)
     assert session.session_id == "arrays"
@@ -1432,7 +1432,7 @@ def test_parse_teleopto_h5_arrays_records_st1_sampling_rate_source() -> None:
         "str": np.asarray([b"Signal"]),
     }
 
-    photometry = parse_teleopto_h5_arrays(datasets).signals["photometry"]
+    photometry = parse_teleopto_h5_arrays(datasets).signal("photometry")
 
     assert photometry.metadata["sampling_rate_hz"] == pytest.approx(10.0)
     assert photometry.metadata["sampling_rate_source"] == "st1_duration"
@@ -1589,7 +1589,7 @@ def test_read_tdt_photometry_block_uses_optional_module() -> None:
         event_stores=["Cue"],
         tdt_module=fake_tdt,
     )
-    photometry = session.signals["photometry"]
+    photometry = session.signal("photometry")
 
     assert isinstance(photometry, PhotometryRecording)
     assert photometry.signal_channel == "x465A"
@@ -1629,7 +1629,7 @@ def test_read_tdt_photometry_block_avoids_store_filter_for_auto_reference() -> N
         signal_store="x465A",
         tdt_module=SimpleNamespace(read_block=fake_read_block),
     )
-    photometry = session.signals["photometry"]
+    photometry = session.signal("photometry")
 
     assert isinstance(photometry, PhotometryRecording)
     assert photometry.signal_channel == "x465A"
@@ -1662,7 +1662,7 @@ def test_read_tdt_photometry_block_filters_explicit_streams_and_all_epocs() -> N
         reference_store="x405A",
         tdt_module=SimpleNamespace(read_block=fake_read_block),
     )
-    photometry = session.signals["photometry"]
+    photometry = session.signal("photometry")
 
     assert photometry.signal_channel == "x465A"
     assert photometry.reference_channel == "x405A"
@@ -1694,7 +1694,7 @@ def test_read_tdt_photometry_block_preserves_sev_start_default_for_split_read() 
         reference_store="x405A",
         tdt_module=SimpleNamespace(read_block=fake_read_block),
     )
-    photometry = session.signals["photometry"]
+    photometry = session.signal("photometry")
 
     assert photometry.metadata["stream_start_s"] == pytest.approx(0.0)
     assert photometry.metadata["stream_start_source"] == "tdt.read_sev.t1_default"
@@ -1727,7 +1727,7 @@ def test_read_tdt_photometry_block_filters_explicit_epocs_with_auto_reference() 
         event_stores=["Cue"],
         tdt_module=SimpleNamespace(read_block=fake_read_block),
     )
-    photometry = session.signals["photometry"]
+    photometry = session.signal("photometry")
 
     assert photometry.signal_channel == "x465A"
     assert photometry.reference_channel == "x405A"
@@ -1861,7 +1861,7 @@ def test_read_tdt_photometry_block_accepts_zero_start_time() -> None:
         tdt_module=fake_tdt,
     )
 
-    assert session.signals["photometry"].metadata["stream_start_s"] == pytest.approx(0.0)
+    assert session.signal("photometry").metadata["stream_start_s"] == pytest.approx(0.0)
 
 
 def test_read_tdt_photometry_block_accepts_sev_only_stream_shape() -> None:
@@ -1872,7 +1872,7 @@ def test_read_tdt_photometry_block_accepts_sev_only_stream_shape() -> None:
     fake_tdt = SimpleNamespace(read_block=lambda *_args, **_kwargs: data)
 
     session = read_tdt_photometry_block("tank/sev", tdt_module=fake_tdt)
-    photometry = session.signals["photometry"]
+    photometry = session.signal("photometry")
 
     assert isinstance(photometry, PhotometryRecording)
     assert photometry.signal_channel == "x465A"
@@ -1901,7 +1901,7 @@ def test_read_tdt_photometry_block_prefers_official_wavelength_stores() -> None:
     )
 
     session = read_tdt_photometry_block("tank/block", tdt_module=fake_tdt)
-    photometry = session.signals["photometry"]
+    photometry = session.signal("photometry")
 
     assert isinstance(photometry, PhotometryRecording)
     assert photometry.signal_channel == "_465A"
@@ -1934,7 +1934,7 @@ def test_read_tdt_photometry_block_flags_storage_order_signal() -> None:
     )
 
     session = read_tdt_photometry_block("tank/block", tdt_module=fake_tdt)
-    photometry = session.signals["photometry"]
+    photometry = session.signal("photometry")
 
     assert isinstance(photometry, PhotometryRecording)
     assert photometry.signal_channel == "RandomStore"

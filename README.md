@@ -3,7 +3,7 @@
 [![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: BSD-3-Clause](https://img.shields.io/badge/license-BSD--3--Clause-blue.svg)](LICENSE)
 
-**Project-first IO for multimodal neuroscience experiments, managed projects, and portable artifacts.**
+**Typed data I/O and portable project packaging for multimodal neuroscience experiments.**
 
 Import from `xpkg` in Python and use `xpkg` for the CLI.
 
@@ -307,6 +307,17 @@ make release-check REAL_DATA_ROOT=../xpkg-real-data
 The local synthetic gates are the canonical public checks for this repository.
 The local release gate additionally runs the opt-in real-data suite before a
 package handoff or PyPI/TestPyPI cut.
+
+Genuine vendor exports are tested separately and never join the default suite
+because an ignored fixture directory exists. Run the explicit vendor lane with
+all required corpora:
+
+```bash
+make test-vendor \
+  FIBER_FIXTURE_ROOT=../xpkg-vendor-data/fiber-photometry \
+  POSE_FIXTURE_ROOT=../xpkg-vendor-data/pose \
+  BEHAVIOR_FIXTURE_ROOT=../xpkg-vendor-data/behavior
+```
 
 ## Real Data Tests
 

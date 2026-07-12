@@ -1,87 +1,93 @@
-"""Session container tying experiment modalities to shared timing."""
+"""Ontology objects for a multimodal recording session."""
 
 from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass, field
+from pathlib import Path
+from types import MappingProxyType
 from typing import Any
 
 from xpkg.model._metadata_validation import (
     metadata_dict,
 )
+from xpkg.model._metadata_validation import (
+    strict_required_text as _required_text,
+)
 from xpkg.model.events import EventTable
 from xpkg.model.signals import PhotometryRecording, TimeSeries
 from xpkg.model.time import Timebase, TimeRange
 
-
-def _required_text(value: object, *, name: str) -> str:
-    if not isinstance(value, str):
-        raise TypeError(f"{name} must be a string.")
-    if not value:
-        raise ValueError(f"{name} must be a non-empty string.")
-    if value != value.strip():
-        raise ValueError(f"{name} must not contain surrounding whitespace.")
-    return value
+SessionSignalValue = TimeSeries | PhotometryRecording
 
 
-def _optional_text(value: object | None, *, name: str) -> str | None:
-    if value is None:
-        return None
-    return _required_text(value, name=name)
+@dataclass(frozen=True, slots=True)
+class SessionSignal:
+    """Named link from a recording session to one sampled signal object."""
+
+    name: str
+    recording: SessionSignalValue
+
+    def __post_init__(self) -> None:
+        name = _required_text(self.name, name="session signal name")
+        if not isinstance(self.recording, TimeSeries | PhotometryRecording):
+            raise TypeError(
+                "session signal recording must be a TimeSeries or PhotometryRecording; "
+                f"got {self.recording!r}."
+            )
+        object.__setattr__(self, "name", name)
 
 
-def _strict_mapping(value: object, *, name: str) -> dict[str, Any]:
-    if not isinstance(value, Mapping):
-        raise TypeError(f"{name} must be a mapping.")
-    return {_required_text(key, name=f"{name} key"): item for key, item in value.items()}
+@dataclass(frozen=True, slots=True)
+class SessionVideo:
+    """Named link from a recording session to one source video path."""
+
+    role: str
+    path: Path
+
+    def __post_init__(self) -> None:
+        role = _required_text(self.role, name="session video role")
+        path = Path(self.path)
+        if not path.name:
+            raise ValueError("session video path must identify a file.")
+        object.__setattr__(self, "role", role)
+        object.__setattr__(self, "path", path)
 
 
 @dataclass(frozen=True, slots=True)
 class RecordingSession:
-    """Multimodal experiment session with shared time semantics."""
+    """Multimodal experiment session with explicit typed modality links."""
 
     session_id: str
     title: str | None = None
     timebase: Timebase = field(default_factory=Timebase)
-    pose: dict[str, Any] = field(default_factory=dict)
-    videos: dict[str, Any] = field(default_factory=dict)
-    signals: dict[str, TimeSeries | PhotometryRecording] = field(default_factory=dict)
+    signals: tuple[SessionSignal, ...] = ()
+    videos: tuple[SessionVideo, ...] = ()
     events: EventTable = field(default_factory=EventTable)
-    metadata: dict[str, Any] = field(default_factory=dict)
+    metadata: Mapping[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         session_id = _required_text(self.session_id, name="session_id")
-        title = _optional_text(self.title, name="session title")
+        title = None if self.title is None else _required_text(self.title, name="session title")
         if not isinstance(self.timebase, Timebase):
             raise TypeError(f"session timebase must be a Timebase, got {self.timebase!r}.")
-        pose = _strict_mapping(self.pose, name="session pose")
-        videos = _strict_mapping(self.videos, name="session videos")
-        raw_signals = _strict_mapping(self.signals, name="session signals")
-        signals: dict[str, TimeSeries | PhotometryRecording] = {}
-        for key, value in raw_signals.items():
-            if not isinstance(value, TimeSeries | PhotometryRecording):
-                raise TypeError(
-                    "session signals values must be TimeSeries or PhotometryRecording "
-                    f"objects; got {key}={value!r}."
-                )
-            signals[key] = value
+        signals = tuple(self.signals)
+        videos = tuple(self.videos)
+        _require_unique_signals(signals)
+        _require_unique_videos(videos)
         if not isinstance(self.events, EventTable):
             raise TypeError(f"session events must be an EventTable, got {self.events!r}.")
-        metadata = metadata_dict(self.metadata, name="session metadata")
-
+        metadata = MappingProxyType(metadata_dict(self.metadata, name="session metadata"))
         object.__setattr__(self, "session_id", session_id)
         object.__setattr__(self, "title", title)
-        object.__setattr__(self, "pose", pose)
-        object.__setattr__(self, "videos", videos)
         object.__setattr__(self, "signals", signals)
+        object.__setattr__(self, "videos", videos)
         object.__setattr__(self, "metadata", metadata)
 
     @property
     def modality_names(self) -> tuple[str, ...]:
         """Return modality groups currently represented in this session."""
         names: list[str] = []
-        if self.pose:
-            names.append("pose")
         if self.videos:
             names.append("videos")
         if self.signals:
@@ -93,12 +99,7 @@ class RecordingSession:
     @property
     def time_range(self) -> TimeRange | None:
         """Return the broadest available time range across timed modalities."""
-        ranges: list[TimeRange] = [
-            signal.timeline.time_range
-            if isinstance(signal, PhotometryRecording)
-            else signal.timeline.time_range
-            for signal in self.signals.values()
-        ]
+        ranges = [link.recording.timeline.time_range for link in self.signals]
         ranges.extend(event.time_range for event in self.events)
         if not ranges:
             return None
@@ -107,42 +108,46 @@ class RecordingSession:
             max(time_range.end_s for time_range in ranges),
         )
 
-    def with_signal(
-        self,
-        name: str,
-        signal: TimeSeries | PhotometryRecording,
-    ) -> RecordingSession:
-        """Return a copy with one signal recording added or replaced."""
-        key = _required_text(name, name="signal name")
-        if not isinstance(signal, TimeSeries | PhotometryRecording):
-            raise TypeError(f"signal must be a TimeSeries or PhotometryRecording, got {signal!r}.")
-        signals = dict(self.signals)
-        signals[key] = signal
-        return RecordingSession(
-            session_id=self.session_id,
-            title=self.title,
-            timebase=self.timebase,
-            pose=self.pose,
-            videos=self.videos,
-            signals=signals,
-            events=self.events,
-            metadata=self.metadata,
-        )
+    @property
+    def signal_names(self) -> tuple[str, ...]:
+        """Return signal link names in storage order."""
+        return tuple(link.name for link in self.signals)
 
-    def with_events(self, events: EventTable) -> RecordingSession:
-        """Return a copy with a new event table."""
-        if not isinstance(events, EventTable):
-            raise TypeError(f"events must be an EventTable, got {events!r}.")
-        return RecordingSession(
-            session_id=self.session_id,
-            title=self.title,
-            timebase=self.timebase,
-            pose=self.pose,
-            videos=self.videos,
-            signals=self.signals,
-            events=events,
-            metadata=self.metadata,
-        )
+    def signal(self, name: str) -> SessionSignalValue:
+        """Return the signal linked under ``name`` or raise with session context."""
+        key = _required_text(name, name="session signal name")
+        for link in self.signals:
+            if link.name == key:
+                return link.recording
+        raise KeyError(f"Recording session {self.session_id!r} has no signal named {key!r}.")
+
+    def video(self, role: str) -> SessionVideo:
+        """Return the video link for ``role`` or raise with session context."""
+        key = _required_text(role, name="session video role")
+        for link in self.videos:
+            if link.role == key:
+                return link
+        raise KeyError(f"Recording session {self.session_id!r} has no video role {key!r}.")
 
 
-__all__ = ["RecordingSession"]
+def _require_unique_signals(links: tuple[object, ...]) -> None:
+    values: list[str] = []
+    for link in links:
+        if not isinstance(link, SessionSignal):
+            raise TypeError(f"session signal entries must be SessionSignal objects, got {link!r}.")
+        if link.name in values:
+            raise ValueError(f"Duplicate session signal name: {link.name!r}.")
+        values.append(link.name)
+
+
+def _require_unique_videos(links: tuple[object, ...]) -> None:
+    values: list[str] = []
+    for link in links:
+        if not isinstance(link, SessionVideo):
+            raise TypeError(f"session video entries must be SessionVideo objects, got {link!r}.")
+        if link.role in values:
+            raise ValueError(f"Duplicate session video role: {link.role!r}.")
+        values.append(link.role)
+
+
+__all__ = ["RecordingSession", "SessionSignal", "SessionSignalValue", "SessionVideo"]

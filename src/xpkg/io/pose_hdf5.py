@@ -1,6 +1,3 @@
-# pyright: reportMissingImports=false
-# Justification: h5py lacks bundled type stubs in this environment.
-
 """HDF5 export helpers for xpkg pose labels."""
 
 from __future__ import annotations
@@ -139,7 +136,7 @@ def export_pose_h5(
         f.attrs["n_nodes"] = n_nodes
         f.attrs["n_tracks"] = n_tracks
 
-        dt = h5py.special_dtype(vlen=str)
+        dt = h5py.string_dtype(encoding="utf-8")
         f.create_dataset("node_names", data=node_names, dtype=dt)
         f.create_dataset("track_names", data=track_names, dtype=dt)
 

@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from xpkg._core.logging_utils import get_logger
 from xpkg.io.labels.query import (
@@ -19,6 +19,7 @@ from xpkg.pose.annotations import Instance, LabeledFrame, Track
 
 if TYPE_CHECKING:
     from xpkg.io.labels.model import Labels
+    from xpkg.media.video import Video
 
 
 logger = get_logger(__name__)
@@ -254,7 +255,7 @@ class LabelsDataCache:
                 idx = _idx_for_video(v)
                 if idx is None:
                     continue
-                lf.video = self.labels.videos[idx]
+                lf.video = cast("Video", self.labels.videos[idx])
             out.add((idx, lf.frame_idx))
         return out
 

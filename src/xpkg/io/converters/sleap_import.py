@@ -23,7 +23,7 @@ from xpkg.io.converters.pose_track_import import (
 )
 from xpkg.io.converters.progress import ProgressCallback, emit_progress
 from xpkg.io.converters.result import ConversionResult
-from xpkg.io.converters.sleap_helpers import extract_frames, extract_labels_step4
+from xpkg.io.converters.sleap_helpers import build_sleap_label_table, extract_frames
 from xpkg.io.converters.video_remap import (
     encode_videos as _encode_videos,
 )
@@ -310,15 +310,23 @@ def convert_sleap_package(
     emit_progress(progress_callback, _OK_FRAMES_EXTRACTED_MARKER)
 
     emit_progress(progress_callback, _START_BUILD_LABEL_TABLE_MARKER)
-    label_table = extract_labels_step4(slp_path.as_posix(), tmp_extract.as_posix())
+    label_table = build_sleap_label_table(slp_path.as_posix(), tmp_extract.as_posix())
     emit_progress(progress_callback, _OK_LABEL_TABLE_READY_MARKER)
 
     import h5py as _h5
 
+    from xpkg.io.hdf5 import text_attribute
     from xpkg.pose.skeleton import Skeleton as _Skeleton
 
     with _h5.File(slp_path.as_posix(), "r") as hdf_for_skeleton:
-        metadata = parse_json_dict(hdf_for_skeleton["metadata"].attrs.get("json", "{}"))
+        metadata_group = hdf_for_skeleton.get("metadata")
+        if not isinstance(metadata_group, _h5.Group):
+            raise TypeError("SLEAP metadata must be an HDF5 group")
+        metadata_text = text_attribute(
+            metadata_group.attrs.get("json", "{}"),
+            name="metadata.json",
+        )
+        metadata = parse_json_dict(metadata_text)
     skeleton = _Skeleton.from_dict(build_sleap_skeleton(metadata), normalize_names=True)
 
     emit_progress(progress_callback, _ASSEMBLE_LABELS_MARKER)

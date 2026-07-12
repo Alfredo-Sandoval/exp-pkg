@@ -412,7 +412,7 @@ def test_persist_pose_provenance_rejects_unsupported_payload_type(tmp_path: Path
     with pytest.raises(TypeError, match="must be PoseModelProvenance or mapping"):
         _persist_pose_provenance(
             project,
-            42,  # type: ignore[arg-type]
+            42,
             default_tool="deeplabcut",
             source_path=tmp_path / "predictions.csv",
         )

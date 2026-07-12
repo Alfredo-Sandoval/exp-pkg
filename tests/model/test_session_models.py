@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from pathlib import Path
+from typing import cast
+
 import numpy as np
 import pytest
 
@@ -9,13 +12,19 @@ from xpkg.model import (
     PhotometryChannel,
     PhotometryRecording,
     RecordingSession,
+    SessionSignal,
+    SessionVideo,
     SignalChannel,
     SyncEvent,
     Timebase,
     Timeline,
     TimeRange,
     TimeSeries,
+    add_session_signal,
+    add_session_video,
+    replace_session_events,
 )
+from xpkg.model.session_actions import InvalidSessionTransitionError
 
 
 def test_timeline_from_sample_rate_and_nearest_index() -> None:
@@ -324,17 +333,14 @@ def test_recording_session_collects_signal_and_event_time_range() -> None:
     recording = PhotometryRecording(series=series, signal_channel="gcamp")
     events = EventTable.from_events([Event(kind="trial", start_s=0.0, duration_s=1.0)])
 
-    session = (
-        RecordingSession(session_id="session-001")
-        .with_signal(
-            "fiber",
-            recording,
-        )
-        .with_events(events)
+    session = add_session_signal(
+        RecordingSession(session_id="session-001"),
+        SessionSignal("fiber", recording),
     )
+    session = replace_session_events(session, events)
 
     assert session.modality_names == ("signals", "events")
-    assert session.signals["fiber"] is recording
+    assert session.signal("fiber") is recording
     assert session.time_range == TimeRange(0.0, 1.0)
 
 
@@ -379,12 +385,12 @@ def test_recording_session_rejects_unclean_signal_keys() -> None:
 
     with pytest.raises(
         ValueError,
-        match="session signals key must not contain surrounding whitespace",
+        match="session signal name must not contain surrounding whitespace",
     ):
-        RecordingSession(session_id="session-001", signals={" fiber": recording})
+        SessionSignal(" fiber", recording)
 
 
-def test_recording_session_with_signal_rejects_unclean_name() -> None:
+def test_add_session_signal_rejects_duplicate_name() -> None:
     series = TimeSeries.from_samples(
         [1.0, 1.1, 1.2],
         sample_rate_hz=10.0,
@@ -392,5 +398,30 @@ def test_recording_session_with_signal_rejects_unclean_name() -> None:
     )
     recording = PhotometryRecording(series=series, signal_channel="gcamp")
 
-    with pytest.raises(ValueError, match="signal name must not contain surrounding whitespace"):
-        RecordingSession(session_id="session-001").with_signal(" fiber", recording)
+    session = RecordingSession(
+        session_id="session-001",
+        signals=(SessionSignal("fiber", recording),),
+    )
+
+    with pytest.raises(InvalidSessionTransitionError, match="already has signal 'fiber'"):
+        add_session_signal(session, SessionSignal("fiber", recording))
+
+
+def test_add_session_video_creates_typed_role_link() -> None:
+    session = add_session_video(
+        RecordingSession(session_id="session-001"),
+        SessionVideo(role="behavior", path=Path("recordings/session.mp4")),
+    )
+
+    assert session.modality_names == ("videos",)
+    assert session.video("behavior").path == Path("recordings/session.mp4")
+
+
+def test_recording_session_rejects_crossed_link_types() -> None:
+    video = SessionVideo(role="behavior", path=Path("recordings/session.mp4"))
+
+    with pytest.raises(TypeError, match="session signal entries must be SessionSignal"):
+        RecordingSession(
+            session_id="session-001",
+            signals=cast(tuple[SessionSignal, ...], (video,)),
+        )
