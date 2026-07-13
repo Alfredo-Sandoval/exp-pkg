@@ -34,11 +34,13 @@ from xpkg.model.metadata import (
     AcquisitionMetadata,
     DatasetShareMetadata,
     PoseModelProvenance,
+    SourceProvenance,
 )
 from xpkg.model.session import (
     AlignmentModel,
     RecordingSession,
     SessionBehavior,
+    SessionEventStream,
     SessionPose,
     SessionSignal,
     SessionVideo,
@@ -47,17 +49,17 @@ from xpkg.model.session import (
 )
 from xpkg.model.session_actions import (
     add_session_behavior,
+    add_session_event_stream,
     add_session_pose,
     add_session_signal,
     add_timebase_alignment,
     replace_session_acquisition,
     replace_session_behavior,
-    replace_session_events,
+    replace_session_event_stream,
     replace_session_pose,
     replace_session_signal,
     replace_timebase_alignment,
 )
-from xpkg.model.signals import PhotometryRecording
 from xpkg.model.time import Timebase
 from xpkg.pose.trajectory import PoseTrajectory
 from xpkg.project.layout import (
@@ -99,7 +101,7 @@ def save_project_experiment(
         )
     for session in experiment.sessions:
         for pose in session.poses:
-            from xpkg.io.labels.model import Labels
+            from xpkg.model.labels import Labels
 
             if isinstance(pose.data, Labels):
                 _manage_labels_media(pose.data, root)
@@ -178,9 +180,7 @@ def save_project_session(
     return save_project_experiment(project, experiment, reason=reason)
 
 
-def load_project_session(
-    project: str | Path, *, session_id: str | None = None
-) -> RecordingSession:
+def load_project_session(project: str | Path, *, session_id: str | None = None) -> RecordingSession:
     """Load a named session, or the sole session when selection is unambiguous."""
     experiment = load_project_experiment(project)
     if session_id is not None:
@@ -199,19 +199,16 @@ def load_project_session(
 
 def save_project_acquisition(
     project: str | Path,
-    acquisition: AcquisitionMetadata | Mapping[str, object],
+    acquisition: AcquisitionMetadata,
     *,
     session_id: str | None = None,
 ) -> Path:
     """Commit acquisition context to one recording session."""
-    value = (
-        acquisition
-        if isinstance(acquisition, AcquisitionMetadata)
-        else AcquisitionMetadata.from_dict(acquisition)
-    )
+    if not isinstance(acquisition, AcquisitionMetadata):
+        raise TypeError("acquisition must be AcquisitionMetadata.")
     experiment = _load_or_create_experiment(project)
     session = _select_or_create_session(experiment, requested_session_id=session_id)
-    session = replace_session_acquisition(session, value)
+    session = replace_session_acquisition(session, acquisition)
     return save_project_session(project, session, reason="project.save.acquisition")
 
 
@@ -229,18 +226,15 @@ def load_project_acquisition(
 
 def save_project_dataset_share(
     project: str | Path,
-    dataset_share: DatasetShareMetadata | Mapping[str, object],
+    dataset_share: DatasetShareMetadata,
 ) -> Path:
     """Commit dataset-sharing metadata to the experiment aggregate."""
-    value = (
-        dataset_share
-        if isinstance(dataset_share, DatasetShareMetadata)
-        else DatasetShareMetadata.from_dict(dataset_share)
-    )
+    if not isinstance(dataset_share, DatasetShareMetadata):
+        raise TypeError("dataset_share must be DatasetShareMetadata.")
     experiment = _load_or_create_experiment(project)
     return save_project_experiment(
         project,
-        replace_experiment_dataset_share(experiment, value),
+        replace_experiment_dataset_share(experiment, dataset_share),
         reason="project.save.dataset_share",
     )
 
@@ -270,14 +264,26 @@ def import_photometry_csv_project(
     root = _ensure_project_for_import(project, title=session_id or source.stem, force=force)
     managed_source = _copy_import_source(source, root, media_kind="signals")
     recording = read_photometry_csv(managed_source, name=signal_name)
-    recording = _portable_photometry_recording(recording, managed_source, root)
+    recording = replace(
+        recording,
+        series=replace(
+            recording.series,
+            provenance=_without_source(recording.series.provenance),
+        ),
+        metadata=_without_source(recording.metadata),
+    )
+    provenance = _portable_source(managed_source, root, source_type="photometry_csv")
     experiment = _load_or_create_experiment(root)
     session = _select_or_create_session(
         experiment,
         requested_session_id=session_id,
         fallback_session_id=source.stem,
     )
-    link = SessionSignal(name=signal_name, recording=recording)
+    link = SessionSignal(
+        name=signal_name,
+        recording=recording,
+        provenance=provenance,
+    )
     if signal_name in session.signal_names:
         if not force:
             raise FileExistsError(
@@ -294,10 +300,11 @@ def import_events_csv_project(
     path: str | Path,
     *,
     project: str | Path,
+    event_stream_name: str = "events",
     session_id: str | None = None,
     force: bool = False,
 ) -> Path:
-    """Import one event CSV as the session's canonical event table."""
+    """Import one event CSV as a named session event stream."""
     source = _require_source_file(path, role="Event CSV")
     root = _ensure_project_for_import(project, title=session_id or source.stem, force=force)
     experiment = _load_or_create_experiment(root)
@@ -306,17 +313,26 @@ def import_events_csv_project(
         requested_session_id=session_id,
         fallback_session_id=source.stem,
     )
-    if len(session.events) > 0 and not force:
+    existing = {stream.name for stream in session.event_streams}
+    if event_stream_name in existing and not force:
         raise FileExistsError(
-            f"Recording session {session.session_id!r} already has events. "
-            "Pass force=True to replace them."
+            f"Recording session {session.session_id!r} already has event stream "
+            f"{event_stream_name!r}. Pass force=True to replace it."
         )
     events = read_events_csv(source)
     if len(events) == 0:
         raise ValueError(f"Event CSV contains no events: {source}")
     managed_source = _copy_import_source(source, root, media_kind="events")
-    events = _portable_event_table(events, managed_source, root)
-    session = replace_session_events(session, events)
+    events = _without_source_metadata(events)
+    stream = SessionEventStream(
+        name=event_stream_name,
+        events=events,
+        provenance=_portable_source(managed_source, root, source_type="events_csv"),
+    )
+    if event_stream_name in existing:
+        session = replace_session_event_stream(session, stream)
+    else:
+        session = add_session_event_stream(session, stream)
     return save_project_session(root, session, reason="project.import.events_csv")
 
 
@@ -327,7 +343,8 @@ def import_behavior_project(
     project: str | Path,
     behavior_name: str = "behavior",
     session_id: str | None = None,
-    video_role: str | None = None,
+    video_roles: tuple[str, ...] = (),
+    pose_names: tuple[str, ...] = (),
     force: bool = False,
 ) -> Path:
     """Import behavior labels through one canonical format dispatch boundary."""
@@ -345,16 +362,24 @@ def import_behavior_project(
             f"Recording session {session.session_id!r} already has behavior "
             f"{behavior_name!r}. Pass force=True to replace it."
         )
+    behavior_videos, behavior_poses = _resolve_behavior_links(
+        session, video_roles=video_roles, pose_names=pose_names
+    )
     labels = _read_behavior_source(format, source)
     managed_source = _copy_import_source(source, root, media_kind="behavior")
     labels = _portable_behavior_labels(
         labels,
         managed_source,
         root,
-        session=session,
-        video_role=video_role,
+        videos=behavior_videos,
     )
-    link = SessionBehavior(name=behavior_name, labels=labels, video_role=video_role)
+    link = SessionBehavior(
+        name=behavior_name,
+        labels=labels,
+        videos=behavior_videos,
+        poses=behavior_poses,
+        provenance=_portable_source(managed_source, root, source_type=labels.source_type),
+    )
     if behavior_name in existing:
         session = replace_session_behavior(session, link)
     else:
@@ -407,55 +432,63 @@ def import_synchronization_csv_project(
     return save_project_session(root, session, reason="project.import.synchronization_csv")
 
 
-def save_project_events(
+def save_project_event_stream(
     project: str | Path,
-    events: EventTable,
+    stream: SessionEventStream,
     *,
     session_id: str | None = None,
+    replace_existing: bool = True,
 ) -> Path:
-    """Commit a typed event table to one recording session."""
-    if not isinstance(events, EventTable):
-        raise TypeError(f"events must be an EventTable, got {events!r}.")
+    """Add or replace one named event stream on a recording session."""
+    if not isinstance(stream, SessionEventStream):
+        raise TypeError("stream must be a SessionEventStream.")
     experiment = _load_or_create_experiment(project)
     session = _select_or_create_session(experiment, requested_session_id=session_id)
-    return save_project_session(
-        project,
-        replace_session_events(session, events),
-        reason="project.save.events",
-    )
+    existing = {item.name for item in session.event_streams}
+    if stream.name in existing:
+        if not replace_existing:
+            raise FileExistsError(f"Recording session already has event stream {stream.name!r}.")
+        session = replace_session_event_stream(session, stream)
+    else:
+        session = add_session_event_stream(session, stream)
+    return save_project_session(project, session, reason="project.save.event_stream")
 
 
-def load_project_events(
-    project: str | Path, *, session_id: str | None = None
+def load_project_event_stream(
+    project: str | Path,
+    *,
+    event_stream_name: str,
+    session_id: str | None = None,
 ) -> EventTable:
-    """Load the canonical event table for one recording session."""
-    return load_project_session(project, session_id=session_id).events
+    """Load one named event table from a recording session."""
+    session = load_project_session(project, session_id=session_id)
+    try:
+        return session.event_stream(event_stream_name)
+    except KeyError as exc:
+        raise FileNotFoundError(
+            f"Recording session {session.session_id!r} has no event stream {event_stream_name!r}."
+        ) from exc
 
 
 def save_project_behavior(
     project: str | Path,
-    labels: BehaviorLabels,
+    behavior: SessionBehavior,
     *,
-    behavior_name: str = "behavior",
     session_id: str | None = None,
-    video_role: str | None = None,
     replace_existing: bool = True,
 ) -> Path:
     """Add or replace one typed behavior-label link on a recording session."""
-    if not isinstance(labels, BehaviorLabels):
-        raise TypeError(f"labels must be BehaviorLabels, got {labels!r}.")
+    if not isinstance(behavior, SessionBehavior):
+        raise TypeError("behavior must be a SessionBehavior.")
     experiment = _load_or_create_experiment(project)
     session = _select_or_create_session(experiment, requested_session_id=session_id)
-    link = SessionBehavior(name=behavior_name, labels=labels, video_role=video_role)
     existing = {item.name for item in session.behaviors}
-    if behavior_name in existing:
+    if behavior.name in existing:
         if not replace_existing:
-            raise FileExistsError(
-                f"Recording session already has behavior {behavior_name!r}."
-            )
-        session = replace_session_behavior(session, link)
+            raise FileExistsError(f"Recording session already has behavior {behavior.name!r}.")
+        session = replace_session_behavior(session, behavior)
     else:
-        session = add_session_behavior(session, link)
+        session = add_session_behavior(session, behavior)
     return save_project_session(project, session, reason="project.save.behavior")
 
 
@@ -471,8 +504,7 @@ def load_project_behavior(
         return session.behavior(behavior_name)
     except KeyError as exc:
         raise FileNotFoundError(
-            f"Recording session {session.session_id!r} has no behavior "
-            f"{behavior_name!r}."
+            f"Recording session {session.session_id!r} has no behavior {behavior_name!r}."
         ) from exc
 
 
@@ -491,9 +523,7 @@ def save_project_alignment(
     existing = {item.name for item in session.alignments}
     if alignment.name in existing:
         if not replace_existing:
-            raise FileExistsError(
-                f"Recording session already has alignment {alignment.name!r}."
-            )
+            raise FileExistsError(f"Recording session already has alignment {alignment.name!r}.")
         session = replace_timebase_alignment(session, alignment)
     else:
         session = add_timebase_alignment(session, alignment)
@@ -512,8 +542,7 @@ def load_project_alignment(
         return session.alignment(alignment_name)
     except KeyError as exc:
         raise FileNotFoundError(
-            f"Recording session {session.session_id!r} has no alignment "
-            f"{alignment_name!r}."
+            f"Recording session {session.session_id!r} has no alignment {alignment_name!r}."
         ) from exc
 
 
@@ -530,14 +559,12 @@ def save_project_labels(
     replace_existing: bool = True,
 ) -> Path:
     """Commit canonical pose labels as a typed link on the project session."""
-    from xpkg.io.labels.model import Labels
+    from xpkg.model.labels import Labels
+
     if not isinstance(labels, Labels):
         raise TypeError(f"labels must be Labels, got {labels!r}.")
     if provenance is not None and not isinstance(provenance, PoseModelProvenance):
-        raise TypeError(
-            "provenance must be PoseModelProvenance or None, "
-            f"got {provenance!r}."
-        )
+        raise TypeError(f"provenance must be PoseModelProvenance or None, got {provenance!r}.")
     root = resolve_project_root(project)
     if root is None:
         raise FileNotFoundError(f"Not an xpkg project: {project}")
@@ -546,7 +573,7 @@ def save_project_labels(
     pose = SessionPose(
         name=pose_name,
         data=labels,
-        video_roles=tuple(video.role for video in videos),
+        videos=videos,
         provenance=provenance,
         metadata=dict(pose_metadata or {}),
     )
@@ -560,9 +587,9 @@ def save_project_labels(
             raise FileExistsError(
                 f"Recording session already has pose {pose_name!r}. Pass force=True to replace it."
             )
-        session = replace_session_pose(session, pose, videos=videos)
+        session = replace_session_pose(session, pose)
     else:
-        session = add_session_pose(session, pose, videos=videos)
+        session = add_session_pose(session, pose)
     if session.session_id in experiment.session_ids:
         experiment = replace_experiment_session(experiment, session)
     else:
@@ -579,7 +606,7 @@ def load_project_labels(
     session_id: str | None = None,
 ):
     """Load one typed pose link from the canonical project session."""
-    from xpkg.io.labels.model import Labels
+    from xpkg.model.labels import Labels
 
     root = resolve_project_root(project)
     if root is None:
@@ -636,29 +663,16 @@ def _read_behavior_source(format: str, source: Path) -> BehaviorLabels:
     raise ValueError(f"Unknown behavior format: {format!r}")
 
 
-def _portable_source(managed_source: Path, project_root: Path, *, source_type: str):
+def _portable_source(
+    managed_source: Path, project_root: Path, *, source_type: str
+) -> SourceProvenance:
     relative = managed_source.resolve().relative_to(project_root.resolve()).as_posix()
-    return {
-        "type": source_type,
-        "path": relative,
-        "size_bytes": managed_source.stat().st_size,
-        "sha256": sha256_file(managed_source),
-    }
-
-
-def _portable_event_table(
-    events: EventTable,
-    managed_source: Path,
-    project_root: Path,
-) -> EventTable:
-    source = _portable_source(managed_source, project_root, source_type="events_csv")
-    metadata = dict(events.metadata)
-    metadata["source"] = source
-    portable_events = tuple(
-        replace(event, metadata={**dict(event.metadata), "source": source})
-        for event in events
+    return SourceProvenance(
+        source_type=source_type,
+        source_path=relative,
+        size_bytes=managed_source.stat().st_size,
+        sha256=sha256_file(managed_source),
     )
-    return replace(events, events=portable_events, metadata=metadata)
 
 
 def _portable_behavior_labels(
@@ -666,22 +680,30 @@ def _portable_behavior_labels(
     managed_source: Path,
     project_root: Path,
     *,
-    session: RecordingSession,
-    video_role: str | None,
+    videos: tuple[SessionVideo, ...],
 ) -> BehaviorLabels:
-    source = _portable_source(
-        managed_source,
-        project_root,
-        source_type=labels.source_type,
-    )
     metadata = dict(labels.metadata)
-    metadata["source"] = source
+    metadata.pop("source", None)
     if labels.media_path is not None:
         metadata["reported_media_path"] = labels.media_path
     media_path = None
-    if video_role is not None:
-        media_path = session.video(video_role).path.as_posix()
+    if len(videos) == 1:
+        media_path = videos[0].path.as_posix()
     return replace(labels, media_path=media_path, metadata=metadata)
+
+
+def _resolve_behavior_links(
+    session: RecordingSession,
+    *,
+    video_roles: tuple[str, ...],
+    pose_names: tuple[str, ...],
+) -> tuple[tuple[SessionVideo, ...], tuple[SessionPose, ...]]:
+    videos = tuple(session.video(role) for role in video_roles)
+    pose_lookup = {pose.name: pose for pose in session.poses}
+    missing = sorted(set(pose_names) - pose_lookup.keys())
+    if missing:
+        raise KeyError(f"Recording session has no poses: {', '.join(missing)}.")
+    return videos, tuple(pose_lookup[name] for name in pose_names)
 
 
 def _portable_timebase_alignment(
@@ -689,35 +711,31 @@ def _portable_timebase_alignment(
     managed_source: Path,
     project_root: Path,
 ) -> TimebaseAlignment:
-    source = _portable_source(
-        managed_source,
-        project_root,
-        source_type="synchronization_csv",
-    )
-    return replace(alignment, metadata={**dict(alignment.metadata), "source": source})
-
-
-def _portable_photometry_recording(
-    recording: PhotometryRecording,
-    managed_source: Path,
-    project_root: Path,
-) -> PhotometryRecording:
-    relative_source = managed_source.resolve().relative_to(project_root.resolve()).as_posix()
-    source = {
-        "type": "photometry_csv",
-        "path": relative_source,
-        "size_bytes": managed_source.stat().st_size,
-        "sha256": sha256_file(managed_source),
-    }
-    provenance = dict(recording.series.provenance)
-    provenance["source"] = source
-    metadata = dict(recording.metadata)
-    metadata["source"] = source
     return replace(
-        recording,
-        series=replace(recording.series, provenance=provenance),
-        metadata=metadata,
+        alignment,
+        metadata=_without_source(alignment.metadata),
+        provenance=_portable_source(
+            managed_source,
+            project_root,
+            source_type="synchronization_csv",
+        ),
     )
+
+
+def _without_source_metadata(events: EventTable) -> EventTable:
+    return replace(
+        events,
+        events=tuple(
+            replace(event, metadata=_without_source(event.metadata)) for event in events
+        ),
+        metadata=_without_source(events.metadata),
+    )
+
+
+def _without_source(metadata: Mapping[str, object]) -> dict[str, object]:
+    values = dict(metadata)
+    values.pop("source", None)
+    return values
 
 
 def _load_or_create_experiment(project: str | Path) -> Experiment:
@@ -827,21 +845,18 @@ def _require_portable_source_paths(session: RecordingSession, project_root: Path
 
 def _session_source_paths(session: RecordingSession) -> tuple[Path, ...]:
     paths = list(_signal_source_paths(session))
-    event_source = _source_path(session.events.metadata.get("source"))
-    if event_source is not None:
-        paths.append(event_source)
-    for event in session.events:
-        event_source = _source_path(event.metadata.get("source"))
-        if event_source is not None:
-            paths.append(event_source)
+    for stream in session.event_streams:
+        source_path = _provenance_path(stream.provenance)
+        if source_path is not None:
+            paths.append(source_path)
     for link in session.behaviors:
-        behavior_source = _source_path(link.labels.metadata.get("source"))
-        if behavior_source is not None:
-            paths.append(behavior_source)
+        source_path = _provenance_path(link.provenance)
+        if source_path is not None:
+            paths.append(source_path)
     for alignment in session.alignments:
-        alignment_source = _source_path(alignment.metadata.get("source"))
-        if alignment_source is not None:
-            paths.append(alignment_source)
+        source_path = _provenance_path(alignment.provenance)
+        if source_path is not None:
+            paths.append(source_path)
     for link in session.poses:
         if isinstance(link.data, PoseTrajectory) and link.data.source_path is not None:
             paths.append(link.data.source_path)
@@ -855,29 +870,16 @@ def _session_source_paths(session: RecordingSession) -> tuple[Path, ...]:
 def _signal_source_paths(session: RecordingSession) -> tuple[Path, ...]:
     paths: list[Path] = []
     for link in session.signals:
-        recording = link.recording
-        series = recording.series if isinstance(recording, PhotometryRecording) else recording
-        source_path = _source_path(series.provenance.get("source"))
+        source_path = _provenance_path(link.provenance)
         if source_path is not None:
             paths.append(source_path)
-        if isinstance(recording, PhotometryRecording):
-            source_path = _source_path(recording.metadata.get("source"))
-            if source_path is not None:
-                paths.append(source_path)
     return tuple(dict.fromkeys(paths))
 
 
-def _source_path(source: object) -> Path | None:
-    if source is None:
+def _provenance_path(provenance: SourceProvenance | None) -> Path | None:
+    if provenance is None or provenance.source_path is None:
         return None
-    if not isinstance(source, Mapping):
-        raise TypeError("Session source must be an object when present.")
-    raw_path = source.get("path")
-    if raw_path is None:
-        return None
-    if not isinstance(raw_path, str) or not raw_path:
-        raise TypeError("Session source.path must be a non-empty string.")
-    return Path(raw_path)
+    return Path(provenance.source_path)
 
 
 __all__ = [
@@ -889,7 +891,7 @@ __all__ = [
     "load_project_alignment",
     "load_project_behavior",
     "load_project_dataset_share",
-    "load_project_events",
+    "load_project_event_stream",
     "load_project_experiment",
     "load_project_labels",
     "load_project_session",
@@ -897,7 +899,7 @@ __all__ = [
     "save_project_alignment",
     "save_project_behavior",
     "save_project_dataset_share",
-    "save_project_events",
+    "save_project_event_stream",
     "save_project_labels",
     "save_project_experiment",
     "save_project_session",

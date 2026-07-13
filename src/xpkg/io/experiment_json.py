@@ -11,7 +11,11 @@ from xpkg.io.session_json import (
     recording_session_document,
     recording_session_from_document,
 )
+from xpkg.model.events import Event
 from xpkg.model.experiment import (
+    BehaviorSubjectLink,
+    EventRelationship,
+    EventRelationshipKind,
     Experiment,
     ExperimentalCondition,
     ExperimentSessionLink,
@@ -20,12 +24,14 @@ from xpkg.model.experiment import (
     SessionProtocolLink,
     SessionSubjectLink,
     Subject,
-    SubjectTrackLink,
+    SubjectTrackAssignment,
 )
 from xpkg.model.metadata import DatasetShareMetadata
+from xpkg.model.session import RecordingSession, SessionEventStream
+from xpkg.pose.trajectory import PoseTrajectory
 
 EXPERIMENT_FORMAT = "xpkg.experiment"
-EXPERIMENT_SCHEMA_VERSION = 3
+EXPERIMENT_SCHEMA_VERSION = 4
 
 
 def experiment_document(
@@ -49,13 +55,10 @@ def experiment_document(
                 "protocols": [_protocol_payload(item) for item in experiment.protocols],
                 "conditions": [_condition_payload(item) for item in experiment.conditions],
                 "sessions": [
-                    _session_link_payload(link, root)
-                    for link in experiment.session_links
+                    _session_link_payload(link, root) for link in experiment.session_links
                 ],
                 "dataset_share": (
-                    None
-                    if experiment.dataset_share is None
-                    else experiment.dataset_share.to_dict()
+                    None if experiment.dataset_share is None else experiment.dataset_share.to_dict()
                 ),
                 "metadata": dict(experiment.metadata),
             },
@@ -122,9 +125,7 @@ def write_experiment_json(
     return target
 
 
-def read_experiment_json(
-    path: str | Path, *, project_root: str | Path | None = None
-) -> Experiment:
+def read_experiment_json(path: str | Path, *, project_root: str | Path | None = None) -> Experiment:
     """Read one experiment document."""
     return experiment_from_document(load_json_dict(path), project_root=project_root)
 
@@ -137,9 +138,7 @@ def read_experiment_metadata_json(path: str | Path) -> dict[str, Any]:
     return dict(_required_mapping(experiment, "metadata", context="experiment"))
 
 
-def _session_link_payload(
-    link: ExperimentSessionLink, project_root: Path | None
-) -> dict[str, Any]:
+def _session_link_payload(link: ExperimentSessionLink, project_root: Path | None) -> dict[str, Any]:
     return {
         "session": recording_session_document(link.session, project_root=project_root),
         "subjects": [
@@ -166,15 +165,37 @@ def _session_link_payload(
             }
             for item in link.conditions
         ],
-        "subject_tracks": [
+        "behavior_subjects": [
+            {
+                "behavior_name": item.behavior.name,
+                "subject_id": item.subject_id,
+                "role": item.role,
+                "metadata": dict(item.metadata),
+            }
+            for item in link.behavior_subjects
+        ],
+        "subject_track_assignments": [
             {
                 "subject_id": item.subject_id,
                 "pose_name": item.pose_name,
                 "track_id": item.track_id,
+                "start_frame": item.start_frame,
+                "end_frame": item.end_frame,
                 "evidence": None if item.evidence is None else item.evidence.to_dict(),
                 "metadata": dict(item.metadata),
             }
-            for item in link.subject_tracks
+            for item in link.subject_track_assignments
+        ],
+        "event_relationships": [
+            {
+                "source_stream_name": item.source_stream.name,
+                "source_event_id": item.source_event.event_id,
+                "target_stream_name": item.target_stream.name,
+                "target_event_id": item.target_event.event_id,
+                "kind": item.kind.value,
+                "metadata": dict(item.metadata),
+            }
+            for item in link.event_relationships
         ],
         "metadata": dict(link.metadata),
     }
@@ -190,38 +211,43 @@ def _session_link_from_payload(
     subject_lookup = {item.subject_id: item for item in subjects}
     protocol_lookup = {item.protocol_id: item for item in protocols}
     condition_lookup = {item.condition_id: item for item in conditions}
+    session = recording_session_from_document(
+        _required_mapping(payload, "session", context="experiment session link"),
+        project_root=project_root,
+    )
     return ExperimentSessionLink(
-        session=recording_session_from_document(
-            _required_mapping(payload, "session", context="experiment session link"),
-            project_root=project_root,
-        ),
+        session=session,
         subjects=tuple(
             _subject_link_from_payload(item, subject_lookup)
-            for item in _required_mapping_sequence(
-                payload, "subjects", "experiment session link"
-            )
+            for item in _required_mapping_sequence(payload, "subjects", "experiment session link")
         ),
         protocols=tuple(
             _protocol_link_from_payload(item, protocol_lookup)
-            for item in _required_mapping_sequence(
-                payload, "protocols", "experiment session link"
-            )
+            for item in _required_mapping_sequence(payload, "protocols", "experiment session link")
         ),
         conditions=tuple(
             _condition_link_from_payload(item, condition_lookup, subject_lookup)
+            for item in _required_mapping_sequence(payload, "conditions", "experiment session link")
+        ),
+        behavior_subjects=tuple(
+            _behavior_subject_link_from_payload(item, session, subject_lookup)
             for item in _required_mapping_sequence(
-                payload, "conditions", "experiment session link"
+                payload, "behavior_subjects", "experiment session link"
             )
         ),
-        subject_tracks=tuple(
-            _subject_track_link_from_payload(item, subject_lookup)
+        subject_track_assignments=tuple(
+            _subject_track_assignment_from_payload(item, session, subject_lookup)
             for item in _required_mapping_sequence(
-                payload, "subject_tracks", "experiment session link"
+                payload, "subject_track_assignments", "experiment session link"
             )
         ),
-        metadata=dict(
-            _required_mapping(payload, "metadata", context="experiment session link")
+        event_relationships=tuple(
+            _event_relationship_from_payload(item, session)
+            for item in _required_mapping_sequence(
+                payload, "event_relationships", "experiment session link"
+            )
         ),
+        metadata=dict(_required_mapping(payload, "metadata", context="experiment session link")),
     )
 
 
@@ -244,9 +270,7 @@ def _subject_from_payload(payload: Mapping[str, Any]) -> Subject:
         strain=_optional_str(payload.get("strain"), name="subject strain"),
         sex=_optional_str(payload.get("sex"), name="subject sex"),
         genotype=_optional_str(payload.get("genotype"), name="subject genotype"),
-        date_of_birth=_optional_str(
-            payload.get("date_of_birth"), name="subject date_of_birth"
-        ),
+        date_of_birth=_optional_str(payload.get("date_of_birth"), name="subject date_of_birth"),
         metadata=dict(_required_mapping(payload, "metadata", context="subject")),
     )
 
@@ -284,9 +308,7 @@ def _condition_from_payload(payload: Mapping[str, Any]) -> ExperimentalCondition
     return ExperimentalCondition(
         condition_id=_required_str(payload, "condition_id", context="condition"),
         name=_required_str(payload, "name", context="condition"),
-        description=_optional_str(
-            payload.get("description"), name="condition description"
-        ),
+        description=_optional_str(payload.get("description"), name="condition description"),
         metadata=dict(_required_mapping(payload, "metadata", context="condition")),
     )
 
@@ -309,9 +331,7 @@ def _protocol_link_from_payload(
     return SessionProtocolLink(
         protocol=_lookup(protocols, protocol_id, "protocol"),
         role=_required_str(payload, "role", context="session protocol link"),
-        metadata=dict(
-            _required_mapping(payload, "metadata", context="session protocol link")
-        ),
+        metadata=dict(_required_mapping(payload, "metadata", context="session protocol link")),
     )
 
 
@@ -320,41 +340,123 @@ def _condition_link_from_payload(
     conditions: Mapping[str, ExperimentalCondition],
     subjects: Mapping[str, Subject],
 ) -> SessionConditionLink:
-    condition_id = _required_str(
-        payload, "condition_id", context="session condition link"
-    )
-    subject_ids = _required_str_sequence(
-        payload, "subject_ids", context="session condition link"
-    )
+    condition_id = _required_str(payload, "condition_id", context="session condition link")
+    subject_ids = _required_str_sequence(payload, "subject_ids", context="session condition link")
     return SessionConditionLink(
         condition=_lookup(conditions, condition_id, "condition"),
         subjects=tuple(_lookup(subjects, subject_id, "subject") for subject_id in subject_ids),
-        metadata=dict(
-            _required_mapping(payload, "metadata", context="session condition link")
-        ),
+        metadata=dict(_required_mapping(payload, "metadata", context="session condition link")),
     )
 
 
-def _subject_track_link_from_payload(
-    payload: Mapping[str, Any], subjects: Mapping[str, Subject]
-) -> SubjectTrackLink:
+def _behavior_subject_link_from_payload(
+    payload: Mapping[str, Any],
+    session: RecordingSession,
+    subjects: Mapping[str, Subject],
+) -> BehaviorSubjectLink:
+    subject_id = _required_str(payload, "subject_id", context="behavior subject link")
+    behavior_name = _required_str(payload, "behavior_name", context="behavior subject link")
+    behavior = next((item for item in session.behaviors if item.name == behavior_name), None)
+    if behavior is None:
+        raise ValueError(f"Behavior subject link references unknown behavior {behavior_name!r}.")
+    return BehaviorSubjectLink(
+        behavior=behavior,
+        subject=_lookup(subjects, subject_id, "subject"),
+        role=_required_str(payload, "role", context="behavior subject link"),
+        metadata=dict(_required_mapping(payload, "metadata", context="behavior subject link")),
+    )
+
+
+def _subject_track_assignment_from_payload(
+    payload: Mapping[str, Any],
+    session: RecordingSession,
+    subjects: Mapping[str, Subject],
+) -> SubjectTrackAssignment:
     from xpkg.model.identity import IdentityProvenanceRecord
 
-    subject_id = _required_str(payload, "subject_id", context="subject track link")
+    subject_id = _required_str(payload, "subject_id", context="subject track assignment")
     raw_evidence = payload.get("evidence")
     if raw_evidence is not None and not isinstance(raw_evidence, Mapping):
-        raise TypeError("subject track link.evidence must be an object or null.")
-    return SubjectTrackLink(
+        raise TypeError("subject track assignment.evidence must be an object or null.")
+    pose_name = _required_str(payload, "pose_name", context="subject track assignment")
+    pose = next((item for item in session.poses if item.name == pose_name), None)
+    if pose is None:
+        raise ValueError(f"Subject track assignment references unknown pose {pose_name!r}.")
+    track_id = _required_str(payload, "track_id", context="subject track assignment")
+    if isinstance(pose.data, PoseTrajectory):
+        try:
+            track = pose.data.track(track_id)
+        except KeyError as exc:
+            raise ValueError(
+                f"Subject track assignment references unknown track {track_id!r}."
+            ) from exc
+    else:
+        track = next((item for item in pose.data.tracks if str(item.id) == track_id), None)
+        if track is None:
+            raise ValueError(
+                f"Subject track assignment references unknown track {track_id!r}."
+            )
+    return SubjectTrackAssignment(
         subject=_lookup(subjects, subject_id, "subject"),
-        pose_name=_required_str(payload, "pose_name", context="subject track link"),
-        track_id=_required_str(payload, "track_id", context="subject track link"),
+        pose=pose,
+        track=track,
+        start_frame=_required_int(payload, "start_frame", context="subject track assignment"),
+        end_frame=_required_int(payload, "end_frame", context="subject track assignment"),
         evidence=(
-            None
-            if raw_evidence is None
-            else IdentityProvenanceRecord.from_dict(raw_evidence)
+            None if raw_evidence is None else IdentityProvenanceRecord.from_dict(raw_evidence)
         ),
-        metadata=dict(_required_mapping(payload, "metadata", context="subject track link")),
+        metadata=dict(_required_mapping(payload, "metadata", context="subject track assignment")),
     )
+
+
+def _event_relationship_from_payload(
+    payload: Mapping[str, Any], session: RecordingSession
+) -> EventRelationship:
+    source_stream = _event_stream(
+        session,
+        _required_str(payload, "source_stream_name", context="event relationship"),
+    )
+    target_stream = _event_stream(
+        session,
+        _required_str(payload, "target_stream_name", context="event relationship"),
+    )
+    raw_kind = _required_str(payload, "kind", context="event relationship")
+    try:
+        kind = EventRelationshipKind(raw_kind)
+    except ValueError as exc:
+        raise ValueError(f"Unsupported event relationship kind: {raw_kind!r}.") from exc
+    return EventRelationship(
+        source_stream=source_stream,
+        source_event=_event(
+            source_stream,
+            _required_str(payload, "source_event_id", context="event relationship"),
+        ),
+        target_stream=target_stream,
+        target_event=_event(
+            target_stream,
+            _required_str(payload, "target_event_id", context="event relationship"),
+        ),
+        kind=kind,
+        metadata=dict(_required_mapping(payload, "metadata", context="event relationship")),
+    )
+
+
+def _event_stream(session: RecordingSession, name: str) -> SessionEventStream:
+    for stream in session.event_streams:
+        if stream.name == name:
+            return stream
+    raise ValueError(f"Event relationship references unknown stream {name!r}.")
+
+
+def _event(stream: SessionEventStream, event_id: str) -> Event:
+    for event in stream.events:
+        if event.event_id == event_id:
+            return event
+    raise ValueError(
+        f"Event relationship references unknown event {event_id!r} in stream {stream.name!r}."
+    )
+
+
 def _dataset_share_from_payload(value: object) -> DatasetShareMetadata | None:
     if value is None:
         return None
@@ -377,15 +479,12 @@ def _document_payload(document: Mapping[str, Any]) -> Mapping[str, Any]:
         raise ValueError(f"Unsupported experiment format: {document.get('format')!r}.")
     if document.get("schema_version") != EXPERIMENT_SCHEMA_VERSION:
         raise ValueError(
-            "Unsupported experiment schema_version: "
-            f"{document.get('schema_version')!r}."
+            f"Unsupported experiment schema_version: {document.get('schema_version')!r}."
         )
     return _required_mapping(document, "payload", context="experiment document")
 
 
-def _required_mapping(
-    payload: Mapping[str, Any], key: str, *, context: str
-) -> Mapping[str, Any]:
+def _required_mapping(payload: Mapping[str, Any], key: str, *, context: str) -> Mapping[str, Any]:
     value = payload.get(key)
     if not isinstance(value, Mapping):
         raise TypeError(f"{context}.{key} must be an object.")
@@ -396,6 +495,13 @@ def _required_str(payload: Mapping[str, Any], key: str, *, context: str) -> str:
     value = payload.get(key)
     if not isinstance(value, str) or not value.strip():
         raise TypeError(f"{context}.{key} must be a non-empty string.")
+    return value
+
+
+def _required_int(payload: Mapping[str, Any], key: str, *, context: str) -> int:
+    value = payload.get(key)
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise TypeError(f"{context}.{key} must be an integer.")
     return value
 
 

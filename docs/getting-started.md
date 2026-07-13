@@ -146,10 +146,11 @@ from xpkg.model import (
     EventTable,
     PhotometryRecording,
     RecordingSession,
+    SessionEventStream,
     SessionSignal,
     TimeSeries,
+    add_session_event_stream,
     add_session_signal,
-    replace_session_events,
 )
 
 series = TimeSeries.from_samples(
@@ -166,12 +167,15 @@ photometry = PhotometryRecording(
 )
 
 events = EventTable.from_events(
-    [Event(kind="trial", start_s=0.0, duration_s=1.0, label="A")]
+    [Event(event_id="trial-1", kind="trial", start_s=0.0, duration_s=1.0, label="A")]
 )
 
 session = RecordingSession(session_id="session-001")
 session = add_session_signal(session, SessionSignal("fiber", photometry))
-session = replace_session_events(session, events)
+session = add_session_event_stream(
+    session,
+    SessionEventStream("trials", events),
+)
 ```
 
 Import generic photometry CSV directly into this project state:
@@ -196,12 +200,15 @@ from xpkg.model import AlignmentModel, SynchronizationMethod, Timebase
 project.import_events(
     "events-csv",
     path="events.csv",
+    event_stream_name="task-events",
     session_id="session-001",
 )
 project.import_behavior(
     "boris-csv",
     path="observations.csv",
     behavior_name="manual-observations",
+    video_roles=("behavior-camera",),
+    pose_names=("pose-2d",),
     session_id="session-001",
 )
 project.import_synchronization(

@@ -5,7 +5,7 @@ from typing import Any
 import numpy as np
 import pytest
 
-from xpkg.model import EMGSignalData
+from xpkg.model import EMGProcessingState, EMGSide, EMGSignalData
 
 
 def _valid_emg(**overrides: object) -> EMGSignalData:
@@ -21,23 +21,25 @@ def _valid_emg(**overrides: object) -> EMGSignalData:
         ),
         "channel_names": ("Voltage.RTA", "Voltage.LBF"),
         "muscle_names": ("tibialis anterior", "biceps femoris"),
-        "sides": ("right", "left"),
+        "sides": (EMGSide.RIGHT, EMGSide.LEFT),
         "sample_rate_hz": 1000.0,
         "units": (("signal", "V"),),
-        "processing_state": "raw",
-        "provenance": (("source_path", "trial.csv"), ("reader", "test")),
+        "processing_state": EMGProcessingState.RAW,
     }
     values.update(overrides)
     return EMGSignalData(**values)
 
 
 def test_emg_signal_data_accepts_valid_raw_signal() -> None:
-    emg = _valid_emg(sides=("RIGHT", "Left"), processing_state="RAW")
+    emg = _valid_emg(
+        sides=(EMGSide.RIGHT, EMGSide.LEFT),
+        processing_state=EMGProcessingState.RAW,
+    )
 
     assert emg.sample_times_s.dtype == np.float64
     assert emg.signals.shape == (3, 2)
-    assert emg.sides == ("right", "left")
-    assert emg.processing_state == "raw"
+    assert emg.sides == (EMGSide.RIGHT, EMGSide.LEFT)
+    assert emg.processing_state is EMGProcessingState.RAW
 
 
 def test_emg_signal_data_rejects_nonfinite_sample_times() -> None:
@@ -66,12 +68,12 @@ def test_emg_signal_data_rejects_duplicate_channel_names() -> None:
 
 
 def test_emg_signal_data_rejects_invalid_side() -> None:
-    with pytest.raises(ValueError, match="left, right, unknown, or bilateral"):
-        _valid_emg(sides=("right", "ipsilateral"))
+    with pytest.raises(TypeError, match="EMGSide"):
+        _valid_emg(sides=(EMGSide.RIGHT, "ipsilateral"))
 
 
 def test_emg_signal_data_rejects_invalid_processing_state() -> None:
-    with pytest.raises(ValueError, match="processing_state"):
+    with pytest.raises(TypeError, match="processing_state"):
         _valid_emg(processing_state="normalized")
 
 
@@ -81,8 +83,3 @@ def test_emg_signal_data_rejects_nonfinite_or_nonpositive_sample_rate(
 ) -> None:
     with pytest.raises(ValueError, match="sample_rate_hz"):
         _valid_emg(sample_rate_hz=sample_rate_hz)
-
-
-def test_emg_signal_data_rejects_empty_provenance() -> None:
-    with pytest.raises(ValueError, match="provenance"):
-        _valid_emg(provenance=())

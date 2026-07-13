@@ -11,6 +11,7 @@ EXPORTS: dict[str, tuple[str, str]] = {
     "Point": (".annotations", "Point"),
     "PointArray": (".annotations", "PointArray"),
     "PoseCoordinateFrame": ("xpkg.pose.trajectory", "PoseCoordinateFrame"),
+    "PoseTrack": (".trajectory", "PoseTrack"),
     "PoseTrajectory": (".trajectory", "PoseTrajectory"),
     "PredictedInstance": (".annotations", "PredictedInstance"),
     "PredictedPoint": (".annotations", "PredictedPoint"),

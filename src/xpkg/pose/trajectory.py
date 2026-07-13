@@ -46,11 +46,26 @@ class PoseCoordinateFrame:
 
 
 @dataclass(frozen=True, slots=True)
+class PoseTrack:
+    """One stable technical identity on a pose trajectory track axis."""
+
+    track_id: str
+    name: str | None = None
+    metadata: Mapping[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "track_id", _required_text(self.track_id, name="pose track id"))
+        if self.name is not None:
+            object.__setattr__(self, "name", _required_text(self.name, name="pose track name"))
+        object.__setattr__(self, "metadata", MappingProxyType(dict(self.metadata)))
+
+
+@dataclass(frozen=True, slots=True)
 class PoseTrajectory:
     """Source-neutral multi-track 2D or 3D named-keypoint trajectory."""
 
     fps: float
-    track_ids: tuple[str, ...]
+    tracks: tuple[PoseTrack, ...]
     keypoint_names: tuple[str, ...]
     positions: np.ndarray
     valid: np.ndarray
@@ -65,9 +80,9 @@ class PoseTrajectory:
 
     def __post_init__(self) -> None:
         fps = float(self.fps)
-        track_ids = tuple(
-            _required_text(track_id, name="pose track id") for track_id in self.track_ids
-        )
+        tracks = tuple(self.tracks)
+        if any(not isinstance(track, PoseTrack) for track in tracks):
+            raise TypeError("pose trajectory tracks must contain PoseTrack objects.")
         keypoint_names = tuple(
             _required_text(name, name="pose keypoint name") for name in self.keypoint_names
         )
@@ -90,7 +105,7 @@ class PoseTrajectory:
 
         _validate_trajectory(
             fps=fps,
-            track_ids=track_ids,
+            track_ids=tuple(track.track_id for track in tracks),
             keypoint_names=keypoint_names,
             positions=positions,
             valid=valid,
@@ -100,7 +115,7 @@ class PoseTrajectory:
         )
 
         object.__setattr__(self, "fps", fps)
-        object.__setattr__(self, "track_ids", track_ids)
+        object.__setattr__(self, "tracks", tracks)
         object.__setattr__(self, "keypoint_names", keypoint_names)
         object.__setattr__(self, "positions", positions)
         object.__setattr__(self, "valid", valid)
@@ -124,6 +139,19 @@ class PoseTrajectory:
     @property
     def n_tracks(self) -> int:
         return int(self.positions.shape[1])
+
+    @property
+    def track_ids(self) -> tuple[str, ...]:
+        """Return stable track identifiers in array-axis order."""
+        return tuple(track.track_id for track in self.tracks)
+
+    def track(self, track_id: str) -> PoseTrack:
+        """Return one trajectory track by stable identifier."""
+        key = _required_text(track_id, name="pose track id")
+        for track in self.tracks:
+            if track.track_id == key:
+                return track
+        raise KeyError(f"Pose trajectory has no track {key!r}.")
 
 
 def _required_text(value: object, *, name: str) -> str:
@@ -177,4 +205,4 @@ def _validate_trajectory(
         raise ValueError("pose trajectory confidence values must be finite.")
 
 
-__all__ = ["CoordinateFrameKind", "PoseCoordinateFrame", "PoseTrajectory"]
+__all__ = ["CoordinateFrameKind", "PoseCoordinateFrame", "PoseTrack", "PoseTrajectory"]

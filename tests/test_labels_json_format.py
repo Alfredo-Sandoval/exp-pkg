@@ -5,6 +5,8 @@ from pathlib import Path
 import cv2
 import numpy as np
 
+from xpkg.io.labels import read_labels_json, write_labels_json
+
 
 def _write_test_frame(path: Path, value: int) -> None:
     frame = np.full((12, 16, 3), value, dtype=np.uint8)
@@ -60,7 +62,7 @@ def test_labels_json_roundtrip_with_image_sequence(tmp_path: Path) -> None:
     labels.provenance = {"source": "test"}
 
     json_path = tmp_path / "labels.json"
-    labels.save_file(labels, json_path.as_posix())
+    write_labels_json(json_path, labels)
 
     payload = read_labels_json_payload(json_path)
     assert payload["videos"]["image_filenames"] == [frame_paths]
@@ -70,7 +72,7 @@ def test_labels_json_roundtrip_with_image_sequence(tmp_path: Path) -> None:
     assert [lf.frame_idx for lf in loaded_from_exchange.labeled_frames] == [0, 2]
     assert loaded_from_exchange.videos[0].image_filenames == frame_paths
 
-    loaded = Labels.load_file(json_path.as_posix())
+    loaded = read_labels_json(json_path)
     assert len(loaded.videos) == 1
     assert loaded.videos[0].backend == "images"
     assert loaded.videos[0].image_filenames == frame_paths
@@ -181,9 +183,9 @@ def test_labels_json_roundtrip_preserves_tracks_and_segmentation(tmp_path: Path)
         )
     ]
     json_path = tmp_path / "labels.json"
-    labels.save_file(labels, json_path.as_posix())
+    write_labels_json(json_path, labels)
 
-    loaded = Labels.load_file(json_path.as_posix())
+    loaded = read_labels_json(json_path)
     assert [track.name for track in loaded.tracks] == ["seg-track"]
     assert loaded.identity_provenance[0].track_id == "7"
     assert loaded.identity_provenance[0].track_name == "seg-track"

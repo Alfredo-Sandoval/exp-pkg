@@ -16,6 +16,18 @@ from tests.factories import (
 )
 
 
+def _load_labels(project: str | Path):
+    from xpkg.project import load_project_labels
+
+    return load_project_labels(project)
+
+
+def _save_labels(labels: Any, project: str | Path) -> Path:
+    from xpkg.project import save_project_labels
+
+    return save_project_labels(project, labels)
+
+
 class _ForeignTrack:
     def __init__(self, track_id: int) -> None:
         self.spawned_on = int(track_id)
@@ -156,7 +168,6 @@ def _make_unconfigured_labels():
 
 
 def test_init_project_writes_project_contract(tmp_path: Path) -> None:
-    from xpkg.model import Labels
     from xpkg.project import (
         current_project_state_path,
         init_project,
@@ -176,7 +187,7 @@ def test_init_project_writes_project_contract(tmp_path: Path) -> None:
     assert load_project_descriptor(project).title == "My Project"
     assert descriptor.to_dict()["exports_root"] == "Exports"
 
-    loaded = Labels.load_file(project.as_posix())
+    loaded = _load_labels(project.as_posix())
     assert loaded.labeled_frames == []
 
 
@@ -315,7 +326,6 @@ def test_save_project_metadata_commits_state_without_labels_recommit(
 
 
 def test_empty_placeholder_project_loads(tmp_path: Path) -> None:
-    from xpkg.model import Labels
     from xpkg.project import (
         init_project,
         save_project_labels,
@@ -329,7 +339,7 @@ def test_empty_placeholder_project_loads(tmp_path: Path) -> None:
         metadata={"project_name": "Placeholder Project"},
     )
 
-    loaded = Labels.load_file(project.as_posix())
+    loaded = _load_labels(project.as_posix())
     assert loaded.labeled_frames == []
     assert len(loaded.skeletons) == 1
     assert loaded.skeletons[0].name == "unconfigured"
@@ -337,7 +347,6 @@ def test_empty_placeholder_project_loads(tmp_path: Path) -> None:
 
 
 def test_session_pose_roundtrip_preserves_predicted_instances(tmp_path: Path) -> None:
-    from xpkg.model import Labels
     from xpkg.project import init_project
 
     project = tmp_path / "Prediction Project"
@@ -349,9 +358,9 @@ def test_session_pose_roundtrip_preserves_predicted_instances(tmp_path: Path) ->
         track_id=7,
         heatmaps=np.ones((1, 2, 2), dtype=np.float32),
     )
-    Labels.save_file(labels, project.as_posix())
+    _save_labels(labels, project.as_posix())
 
-    restored = Labels.load_file(project.as_posix())
+    restored = _load_labels(project.as_posix())
 
     assert restored.user_instances == []
     assert len(restored.predicted_instances) == 1
@@ -363,18 +372,17 @@ def test_session_pose_roundtrip_preserves_predicted_instances(tmp_path: Path) ->
 def test_pose_replacement_is_exact_and_does_not_preserve_removed_predictions(
     tmp_path: Path,
 ) -> None:
-    from xpkg.model import Labels
     from xpkg.project import init_project
 
     project = tmp_path / "Prediction Label Frame Project"
     init_project(project, title="Prediction Label Frame Project")
-    Labels.save_file(
+    _save_labels(
         _make_predicted_labels(tmp_path, x=10.0, y=20.0, track_id=-1),
         project.as_posix(),
     )
-    Labels.save_file(make_labels(tmp_path, x=11.0, y=22.0), project.as_posix())
+    _save_labels(make_labels(tmp_path, x=11.0, y=22.0), project.as_posix())
 
-    restored = Labels.load_file(project.as_posix())
+    restored = _load_labels(project.as_posix())
 
     assert len(restored.user_instances) == 1
     assert restored.user_instances[0]["nose"].x == pytest.approx(11.0)
@@ -383,12 +391,11 @@ def test_pose_replacement_is_exact_and_does_not_preserve_removed_predictions(
 
 
 def test_project_session_exposes_typed_pose_state(tmp_path: Path) -> None:
-    from xpkg.model import Labels
     from xpkg.project import init_project, load_project_session
 
     project = tmp_path / "Direct Payload Project"
     init_project(project, title="Direct Payload Project")
-    Labels.save_file(make_labels(tmp_path, x=4.0, y=5.0), project.as_posix())
+    _save_labels(make_labels(tmp_path, x=4.0, y=5.0), project.as_posix())
 
     session = load_project_session(project)
     pose = session.pose()
@@ -399,7 +406,6 @@ def test_project_session_exposes_typed_pose_state(tmp_path: Path) -> None:
 
 
 def test_pack_and_unpack_roundtrip_project(tmp_path: Path) -> None:
-    from xpkg.model import Labels
     from xpkg.project import (
         current_project_state_path,
         init_project,
@@ -412,7 +418,7 @@ def test_pack_and_unpack_roundtrip_project(tmp_path: Path) -> None:
 
     project = tmp_path / "Roundtrip Project"
     init_project(project, title="Roundtrip Project")
-    Labels.save_file(labels, project.as_posix())
+    _save_labels(labels, project.as_posix())
     state_path = current_project_state_path(project)
     state_doc = json.loads(state_path.read_text(encoding="utf-8"))
     pose_payload = state_doc["payload"]["experiment"]["sessions"][0]["session"][
@@ -437,14 +443,13 @@ def test_pack_and_unpack_roundtrip_project(tmp_path: Path) -> None:
     unpacked = tmp_path / "Unpacked Project"
     unpack_project(artifact, unpacked)
 
-    loaded = Labels.load_file(unpacked.as_posix())
+    loaded = _load_labels(unpacked.as_posix())
     pts = loaded.labeled_frames[0].instances[0].point_records(copy=False)
     assert float(pts["x"][0]) == 5.0
     assert float(pts["y"][0]) == 6.0
 
 
 def test_pack_portable_and_unpack_uses_managed_media_after_source_removal(tmp_path: Path) -> None:
-    from xpkg.model import Labels
     from xpkg.project import (
         init_project,
         pack_project,
@@ -459,7 +464,7 @@ def test_pack_portable_and_unpack_uses_managed_media_after_source_removal(tmp_pa
 
     project = tmp_path / "Portable Project"
     init_project(project, title="Portable Project")
-    Labels.save_file(labels, project.as_posix())
+    _save_labels(labels, project.as_posix())
     managed_files = sorted(
         path for path in project_media_root(project).rglob("*") if path.is_file()
     )
@@ -490,7 +495,7 @@ def test_pack_portable_and_unpack_uses_managed_media_after_source_removal(tmp_pa
     unpack_project(artifact, unpacked)
     validate_artifact(unpacked)
 
-    loaded = Labels.load_file(unpacked.as_posix())
+    loaded = _load_labels(unpacked.as_posix())
     pts = loaded.labeled_frames[0].instances[0].point_records(copy=False)
     assert float(pts["x"][0]) == 7.0
     assert float(pts["y"][0]) == 8.0
@@ -505,7 +510,6 @@ def test_pack_portable_and_unpack_uses_managed_media_after_source_removal(tmp_pa
 
 
 def test_pack_manifest_media_mode_records_media_without_storing_bytes(tmp_path: Path) -> None:
-    from xpkg.model import Labels
     from xpkg.project import init_project, pack_project, unpack_project
     from xpkg.project.layout import project_media_root
 
@@ -514,7 +518,7 @@ def test_pack_manifest_media_mode_records_media_without_storing_bytes(tmp_path: 
     labels = make_labels(source_root, x=9.0, y=10.0)
     project = tmp_path / "Manifest Media Project"
     init_project(project, title="Manifest Media Project")
-    Labels.save_file(labels, project.as_posix())
+    _save_labels(labels, project.as_posix())
 
     artifact = pack_project(project, out=tmp_path / "manifest.expkg", media="manifest")
     manifest = _read_expkg_manifest(artifact)
@@ -567,13 +571,12 @@ def test_pack_package_media_mode_includes_images_and_manifests_videos(
 
 
 def test_validate_expkg_rejects_tampered_member_payload(tmp_path: Path) -> None:
-    from xpkg.model import Labels
     from xpkg.project import init_project, pack_project, validate_expkg
 
     labels = make_labels(tmp_path, x=11.0, y=12.0)
     project = tmp_path / "Tamper Project"
     init_project(project, title="Tamper Project")
-    Labels.save_file(labels, project.as_posix())
+    _save_labels(labels, project.as_posix())
 
     artifact = pack_project(project, out=tmp_path / "good.expkg")
     tampered = tmp_path / "tampered.expkg"
@@ -588,8 +591,7 @@ def test_validate_expkg_rejects_tampered_member_payload(tmp_path: Path) -> None:
         validate_expkg(tampered)
 
 
-def test_labels_save_file_to_project_creates_first_committed_state(tmp_path: Path) -> None:
-    from xpkg.model import Labels
+def test_save_project_labels_creates_first_committed_state(tmp_path: Path) -> None:
     from xpkg.project import current_project_state_path, init_project
     from xpkg.project.durable_store import ProjectDurableStore
     from xpkg.project.layout import project_store_root
@@ -601,17 +603,17 @@ def test_labels_save_file_to_project_creates_first_committed_state(tmp_path: Pat
     project = tmp_path / "Saved Project"
     init_project(project, title="Saved Project")
 
-    saved_target = Labels.save_file(labels, project.as_posix())
+    saved_target = _save_labels(labels, project.as_posix())
     current_state = current_project_state_path(project)
 
-    assert saved_target == project.as_posix()
+    assert saved_target == current_state
     assert current_state.exists()
     store = ProjectDurableStore.open(project_store_root(project))
     assert store.has_current_root("state")
     assert not store.has_current_root("archive")
     assert labels.path == project
 
-    loaded = Labels.load_file(project.as_posix())
+    loaded = _load_labels(project.as_posix())
     pts = loaded.labeled_frames[0].instances[0].point_records(copy=False)
     assert float(pts["x"][0]) == 11.0
     assert float(pts["y"][0]) == 12.0
@@ -657,7 +659,6 @@ def test_predictions_payload_from_labels_uses_frame_predicted_instances_view() -
 def test_project_load_rebuilds_tampered_state_cache_when_commit_id_matches_head(
     tmp_path: Path,
 ) -> None:
-    from xpkg.model import Labels
     from xpkg.project import current_project_state_path, init_project
 
     source_root = tmp_path / "source"
@@ -666,7 +667,7 @@ def test_project_load_rebuilds_tampered_state_cache_when_commit_id_matches_head(
     project = tmp_path / "State Preferred"
     init_project(project, title="State Preferred")
 
-    Labels.save_file(labels, project.as_posix())
+    _save_labels(labels, project.as_posix())
     state_path = current_project_state_path(project)
     state_doc = json.loads(state_path.read_text(encoding="utf-8"))
     pose_payload = state_doc["payload"]["experiment"]["sessions"][0]["session"][
@@ -677,7 +678,7 @@ def test_project_load_rebuilds_tampered_state_cache_when_commit_id_matches_head(
     keypoints[0][0][0][1] = 102.0
     state_path.write_text(json.dumps(state_doc, indent=2) + "\n", encoding="utf-8")
 
-    loaded = Labels.load_file(project.as_posix())
+    loaded = _load_labels(project.as_posix())
     pts = loaded.labeled_frames[0].instances[0].point_records(copy=False)
     repaired_state = json.loads(state_path.read_text(encoding="utf-8"))
 
@@ -691,7 +692,6 @@ def test_project_load_rebuilds_tampered_state_cache_when_commit_id_matches_head(
 
 
 def test_project_load_rebuilds_missing_state_from_committed_state(tmp_path: Path) -> None:
-    from xpkg.model import Labels
     from xpkg.project import current_project_state_path, init_project
 
     source_root = tmp_path / "source"
@@ -700,11 +700,11 @@ def test_project_load_rebuilds_missing_state_from_committed_state(tmp_path: Path
     project = tmp_path / "Rebuild Missing State"
     init_project(project, title="Rebuild Missing State")
 
-    Labels.save_file(labels, project.as_posix())
+    _save_labels(labels, project.as_posix())
     state_path = current_project_state_path(project)
     state_path.unlink()
 
-    loaded = Labels.load_file(project.as_posix())
+    loaded = _load_labels(project.as_posix())
     pts = loaded.labeled_frames[0].instances[0].point_records(copy=False)
 
     assert float(pts["x"][0]) == 21.0
@@ -713,7 +713,6 @@ def test_project_load_rebuilds_missing_state_from_committed_state(tmp_path: Path
 
 
 def test_project_load_ignores_stale_state_when_commit_id_mismatches(tmp_path: Path) -> None:
-    from xpkg.model import Labels
     from xpkg.project import current_project_state_path, init_project
 
     source_root = tmp_path / "source"
@@ -723,14 +722,14 @@ def test_project_load_ignores_stale_state_when_commit_id_mismatches(tmp_path: Pa
     project = tmp_path / "Stale State"
     init_project(project, title="Stale State")
 
-    Labels.save_file(initial_labels, project.as_posix())
+    _save_labels(initial_labels, project.as_posix())
     state_path = current_project_state_path(project)
     stale_state = json.loads(state_path.read_text(encoding="utf-8"))
 
-    Labels.save_file(updated_labels, project.as_posix())
+    _save_labels(updated_labels, project.as_posix())
     state_path.write_text(json.dumps(stale_state, indent=2) + "\n", encoding="utf-8")
 
-    loaded = Labels.load_file(project.as_posix())
+    loaded = _load_labels(project.as_posix())
     pts = loaded.labeled_frames[0].instances[0].point_records(copy=False)
     assert float(pts["x"][0]) == 31.0
     assert float(pts["y"][0]) == 32.0

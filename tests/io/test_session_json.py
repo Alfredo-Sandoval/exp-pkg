@@ -15,16 +15,23 @@ from xpkg.io.session_json import (
 from xpkg.model import (
     AlignmentModel,
     CoordinateFrameKind,
+    EMGProcessingState,
+    EMGSide,
+    EMGSignalData,
     Event,
     EventTable,
+    ForcePlateData,
     PhotometryChannel,
     PhotometryRecording,
     PoseCoordinateFrame,
+    PoseTrack,
     PoseTrajectory,
     RecordingSession,
+    SessionEventStream,
     SessionPose,
     SessionSignal,
     SessionVideo,
+    SourceProvenance,
     SyncEvent,
     SynchronizationMethod,
     Timebase,
@@ -98,6 +105,7 @@ def test_recording_session_document_roundtrips_sampled_signals(
             ),
         ),
         videos=(SessionVideo(role="behavior", path=Path("Media/behavior.mp4")),),
+        timebases=(Timebase(name="camera"), Timebase(name="daq")),
         alignments=(
             fit_timebase_alignment(
                 name="camera-to-daq",
@@ -111,11 +119,26 @@ def test_recording_session_document_roundtrips_sampled_signals(
                 ),
             ),
         ),
-        events=EventTable(
-            events=(
-                Event(kind="trial", start_s=start_s, duration_s=0.5),
-                SyncEvent(kind="pulse", start_s=start_s + 1.0, source="daq"),
-            )
+        event_streams=(
+            SessionEventStream(
+                "trials",
+                EventTable(
+                    events=(
+                        Event(
+                            event_id="trial-1",
+                            kind="trial",
+                            start_s=start_s,
+                            duration_s=0.5,
+                        ),
+                        SyncEvent(
+                            event_id="pulse-1",
+                            kind="pulse",
+                            start_s=start_s + 1.0,
+                            source="daq",
+                        ),
+                    )
+                ),
+            ),
         ),
         metadata={"subject": "mouse-1"},
     )
@@ -126,8 +149,9 @@ def test_recording_session_document_roundtrips_sampled_signals(
     assert restored.title == session.title
     assert restored.videos == session.videos
     assert dict(restored.metadata) == dict(session.metadata)
-    assert isinstance(restored.events.events[1], SyncEvent)
-    assert restored.events.events[1].source == "daq"
+    restored_events = restored.event_stream("trials")
+    assert isinstance(restored_events.events[1], SyncEvent)
+    assert restored_events.events[1].source == "daq"
     assert restored.alignment("camera-to-daq").evidence[0].correspondence_id == "pulse-1"
     assert restored.alignment("camera-to-daq").offset_s == pytest.approx(0.25)
     restored_recording = restored.signal("photometry")
@@ -186,7 +210,7 @@ def test_recording_session_document_roundtrips_pose_trajectories(
     )
     trajectory = PoseTrajectory(
         fps=29.97,
-        track_ids=tuple(f"track-{index}" for index in range(n_tracks)),
+        tracks=tuple(PoseTrack(f"track-{index}") for index in range(n_tracks)),
         keypoint_names=tuple(f"point_{index}" for index in range(n_keypoints)),
         positions=np.arange(
             n_frames * n_tracks * n_keypoints * dims, dtype=np.float64
@@ -213,6 +237,59 @@ def test_recording_session_document_roundtrips_pose_trajectories(
     np.testing.assert_array_equal(restored_trajectory.positions, trajectory.positions)
     np.testing.assert_array_equal(restored_trajectory.valid, trajectory.valid)
     np.testing.assert_array_equal(restored_trajectory.confidence, trajectory.confidence)
+
+
+def test_recording_session_document_roundtrips_emg_force_and_provenance() -> None:
+    daq = Timebase(name="daq")
+    source = SourceProvenance(
+        source_type="csv",
+        source_path="Media/signals/source.csv",
+        size_bytes=128,
+        sha256="a" * 64,
+        tool="xpkg",
+        tool_version="0.1.0",
+    )
+    emg = EMGSignalData(
+        sample_times_s=np.array([0.0, 0.001]),
+        signals=np.array([[1.0, 2.0], [3.0, 4.0]]),
+        channel_names=("left-ta", "right-ta"),
+        muscle_names=("tibialis anterior", "tibialis anterior"),
+        sides=(EMGSide.LEFT, EMGSide.RIGHT),
+        sample_rate_hz=1000.0,
+        units=(("amplitude", "mV"),),
+        processing_state=EMGProcessingState.RAW,
+        timebase=daq,
+    )
+    force = ForcePlateData(
+        sample_times_s=np.array([0.0, 0.001]),
+        force_xyz_N=np.array([[[1.0, 2.0, 3.0]], [[4.0, 5.0, 6.0]]]),
+        plate_names=("plate-1",),
+        valid_mask=np.ones((2, 1), dtype=bool),
+        sample_rate_hz=1000.0,
+        units=(("force", "N"),),
+        axis_convention=(("x", "forward"), ("y", "lateral"), ("z", "up")),
+        timebase=daq,
+    )
+    session = RecordingSession(
+        session_id="biomechanics",
+        timebases=(daq,),
+        signals=(
+            SessionSignal("emg", emg, provenance=source),
+            SessionSignal("force", force, provenance=source),
+        ),
+    )
+
+    restored = recording_session_from_document(recording_session_document(session))
+
+    restored_emg = restored.signal("emg")
+    restored_force = restored.signal("force")
+    assert isinstance(restored_emg, EMGSignalData)
+    assert isinstance(restored_force, ForcePlateData)
+    np.testing.assert_array_equal(restored_emg.signals, emg.signals)
+    np.testing.assert_array_equal(restored_force.force_xyz_N, force.force_xyz_N)
+    assert restored.signals[0].provenance == source
+    assert restored_emg.timebase == daq
+    assert restored_force.timebase == daq
 
 
 @given(document=st.dictionaries(st.text(max_size=20), _JSON_VALUE, max_size=8))

@@ -6,11 +6,11 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from xpkg.io.labels.video_types import VideoProtocol
+from xpkg.model.video_types import VideoProtocol
 from xpkg.pose.annotations import Instance, LabeledFrame, PredictedInstance
 
 if TYPE_CHECKING:
-    from xpkg.io.labels.model import Labels
+    from xpkg.model.labels import Labels
 
 
 def _instance_points_with_scores(inst: Instance) -> np.ndarray | None:

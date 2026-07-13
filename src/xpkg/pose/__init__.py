@@ -26,6 +26,7 @@ if TYPE_CHECKING:
     from .skeleton import Keypoint as Keypoint
     from .skeleton import Skeleton as Skeleton
     from .skeleton import build_keypoint_skeleton as build_keypoint_skeleton
+    from .trajectory import PoseTrack as PoseTrack
     from .trajectory import PoseTrajectory as PoseTrajectory
 
 __all__ = [
@@ -37,6 +38,7 @@ __all__ = [
     "Point",
     "PointArray",
     "PoseCoordinateFrame",
+    "PoseTrack",
     "PoseTrajectory",
     "PredictedInstance",
     "PredictedPoint",

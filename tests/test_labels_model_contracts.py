@@ -4,7 +4,6 @@ from typing import Any, cast
 
 import pytest
 
-from xpkg.io.labels.tracks import add_track, get_track_occupancy, remove_track, track_swap
 from xpkg.model import (
     Instance,
     LabeledFrame,
@@ -16,6 +15,7 @@ from xpkg.model import (
     VideoStub,
     build_keypoint_skeleton,
 )
+from xpkg.model.labels_tracks import add_track, get_track_occupancy, remove_track, track_swap
 
 
 def _labels(*, frames: int = 10) -> Labels:

@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 from tests.factories import make_labels, write_dummy_video, write_sample_dlc_csv
-from xpkg.model import AcquisitionMetadata, Labels
+from xpkg.model import AcquisitionMetadata, CameraMetadata, DatasetShareMetadata, Labels
 from xpkg.project import (
     current_project_state_path,
     load_project_summary,
@@ -221,18 +221,18 @@ def test_project_service_scoped_metadata_roundtrip_without_current_head(tmp_path
     )
 
     acquisition_path = project.save_acquisition(
-        {
-            "acquisition_id": "acq-service",
-            "cameras": [{"camera_id": "cam-top", "frame_rate_hz": 120.0}],
-        }
+        AcquisitionMetadata(
+            acquisition_id="acq-service",
+            cameras=(CameraMetadata(camera_id="cam-top", frame_rate_hz=120.0),),
+        )
     )
     dataset_share_path = project.save_dataset_share(
-        {
-            "title": "Service metadata dataset",
-            "creators": ["Sandoval Lab"],
-            "doi": "10.0000/service",
-            "license": "BSD-3-Clause",
-        }
+        DatasetShareMetadata(
+            title="Service metadata dataset",
+            creators=("Sandoval Lab",),
+            doi="10.0000/service",
+            license="BSD-3-Clause",
+        )
     )
 
     acquisition = project.load_acquisition()

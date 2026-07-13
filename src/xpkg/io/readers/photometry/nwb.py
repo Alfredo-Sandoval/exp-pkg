@@ -18,6 +18,7 @@ from xpkg.model import (
     PhotometryChannel,
     PhotometryRecording,
     RecordingSession,
+    SessionEventStream,
     SessionSignal,
     Timeline,
     TimeSeries,
@@ -426,6 +427,7 @@ def _event_channel_events(
         for onset in onsets:
             rows.append(
                 Event(
+                    event_id=f"nwb-pulse-{len(rows):06d}",
                     kind="stimulus",
                     start_s=float(onset),
                     label=series.name,
@@ -462,6 +464,7 @@ def _annotation_series_events(
             decoded_label = _nwb_annotation_label(label, path=series.path, row=index)
             rows.append(
                 Event(
+                    event_id=f"nwb-annotation-{len(rows):06d}",
                     kind="event",
                     start_s=float(stamp),
                     label=decoded_label,
@@ -503,6 +506,7 @@ def _analysis_timestamp_events(handle: h5py.File, *, source_path: Path) -> list[
         for stamp in np.sort(stamps):
             rows.append(
                 Event(
+                    event_id=f"nwb-analysis-{len(rows):06d}",
                     kind="event",
                     start_s=float(stamp),
                     label=label,
@@ -593,7 +597,7 @@ def read_nwb_photometry(
     return RecordingSession(
         session_id=session_id,
         signals=(SessionSignal("photometry", photometry),),
-        events=EventTable.from_events(rows),
+        event_streams=(SessionEventStream("events", EventTable.from_events(rows)),),
         metadata=session_metadata,
     )
 

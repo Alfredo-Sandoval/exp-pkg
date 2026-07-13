@@ -10,6 +10,8 @@ ahead.
 `exp-pkg` is a project-first IO package. It builds an sdist and wheel, installs
 the `xpkg` console script, publishes typed package metadata, and ships the
 public project schema in the wheel.
+The wheel also ships generated schema-4 experiment, recording-session, and
+ontology documents.
 
 The current focus is intentionally narrow:
 

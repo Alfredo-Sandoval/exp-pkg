@@ -11,17 +11,16 @@ from typing import TYPE_CHECKING, Any, Protocol, cast, overload, runtime_checkab
 
 import numpy as np
 
-import xpkg.io.labels.export_ops as export_ops
-import xpkg.io.labels.serialization as serialization
+import xpkg.model.labels_export as export_ops
 from xpkg._core.logging_utils import get_logger
-from xpkg.io.labels.cache import LabelsDataCache
-from xpkg.io.labels.merge import complex_merge_between as _complex_merge_between
-from xpkg.io.labels.merge import finish_complex_merge as _finish_complex_merge
-from xpkg.io.labels.merge import merge_container_dicts as _merge_container_dicts
-from xpkg.io.labels.merge import merge_matching_frames as _merge_matching_frames
-from xpkg.io.labels.query import LabelsQuery
-from xpkg.io.labels.tracks import add_track as _add_track
-from xpkg.io.labels.video_types import VideoProtocol
+from xpkg.model.labels_cache import LabelsDataCache
+from xpkg.model.labels_merge import complex_merge_between as _complex_merge_between
+from xpkg.model.labels_merge import finish_complex_merge as _finish_complex_merge
+from xpkg.model.labels_merge import merge_container_dicts as _merge_container_dicts
+from xpkg.model.labels_merge import merge_matching_frames as _merge_matching_frames
+from xpkg.model.labels_query import LabelsQuery
+from xpkg.model.labels_tracks import add_track as _add_track
+from xpkg.model.video_types import VideoProtocol
 from xpkg.pose.annotations import (
     Instance,
     LabeledFrame,
@@ -675,34 +674,6 @@ class Labels:
         self.videos.remove(video)
         self._cache.remove_video(video)
 
-    @classmethod
-    def from_payload(
-        cls,
-        payload: dict[str, Any] | None,
-        *,
-        suggestions_payload: dict[str, Any] | None = None,
-        video_builder: serialization.VideoBuilder | None = None,
-        video_finalizer: serialization.HydratedVideoFinalizer | None = None,
-    ) -> Labels:
-        """Construct `Labels` from a labels payload dictionary.
-
-        Args:
-            payload: The main labels payload dictionary.
-            suggestions_payload: Optional suggestions data dictionary.
-            video_builder: Optional video construction hook for product-specific media policy.
-            video_finalizer: Optional post-hydration hook for releasing media resources.
-
-        Returns:
-            Labels: The hydrated Labels instance.
-        """
-        return serialization.labels_from_payload(
-            cls,
-            payload,
-            suggestions_payload=suggestions_payload,
-            video_builder=video_builder,
-            video_finalizer=video_finalizer,
-        )
-
     def extend_from(self, new_frames: Labels | list[LabeledFrame], unify: bool = False):
         """Extend the labels set with new frames, optionally unifying shared objects."""
         if isinstance(new_frames, Labels):
@@ -809,43 +780,6 @@ class Labels:
     def merge_matching_frames(self, video: VideoProtocol | None = None):
         """Coalesce frames that refer to the same video into merged positions."""
         _merge_matching_frames(self, video)
-
-    @classmethod
-    def load_file(
-        cls,
-        filename: str,
-        *,
-        video_builder: serialization.VideoBuilder | None = None,
-        video_finalizer: serialization.HydratedVideoFinalizer | None = None,
-    ) -> Labels:
-        """Load labels from a project root or JSON file."""
-        return serialization.labels_load_file(
-            cls,
-            filename,
-            video_builder=video_builder,
-            video_finalizer=video_finalizer,
-        )
-
-    @classmethod
-    def save_file(
-        cls,
-        labels: Labels,
-        filename: str,
-        _default_suffix: str = "",
-        *,
-        metadata: dict[str, Any] | None = None,
-    ) -> str:
-        """Save labels to a project root or JSON file."""
-        return serialization.labels_save_file(
-            labels,
-            filename,
-            default_suffix=_default_suffix,
-            metadata=metadata,
-        )
-
-    def save(self, filename: str, *, metadata: dict[str, Any] | None = None) -> str:
-        """Save labels to a project or JSON file."""
-        return self.save_file(self, filename, metadata=metadata)
 
     def numpy(
         self,

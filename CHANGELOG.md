@@ -17,16 +17,26 @@ schemas remain pre-1.0 and use explicit breaking schema bumps.
   synchronization CSV.
 - Added `TimebaseCorrespondence` for paired clock observations and
   `fit_timebase_alignment` for fitted offset and affine mappings.
+- Added generated ontology, recording-session, and experiment schema documents
+  to the source tree and built wheel.
+- Added first-class behavior-to-subject links, bounded subject-to-track
+  assignments, and typed relationships between identified events.
+- Added EMG and force-plate data to the canonical recording-session signal
+  contract.
 
 ### Changed
 
-- Bumped `xpkg.experiment` and `xpkg.recording-session` to schema version 3.
-  The synchronization evidence change is a hard cutover; older embedded state
-  documents are rejected rather than translated through a compatibility shim.
+- Bumped `xpkg.experiment` and `xpkg.recording-session` to schema version 4.
+  Recording sessions now persist a named timebase registry, named event
+  streams, stable event identifiers, plural behavior media links, and typed
+  source provenance. Older embedded state documents are rejected.
 - Split alignment transform shape (`AlignmentModel`) from observation method
   (`SynchronizationMethod`). Alignment residuals are derived from stored
   correspondence evidence.
 - Consolidated bounded CSV loading into one internal reader boundary.
+- Moved label objects, query operations, merge operations, caches, and export
+  operations into the semantic model layer. The IO layer now contains only
+  explicit serializers and source-format adapters.
 
 ### Removed
 
@@ -45,15 +55,12 @@ schemas remain pre-1.0 and use explicit breaking schema bumps.
   annotation archives.
 - Removed the duplicate inspection `warnings` string list. Use typed
   `warning_records` in the Python API and JSON output.
-
-### Persisted boundary exceptions
-
-- The durable store still parses the older `xpkg.archive-store` discriminator,
-  and dataset-share metadata still parses the older singular `funder` key into
-  canonical `funders`.
-- Rejected deleting those persisted-data parsers because the artifact contract
-  promises that files written by 0.x releases remain readable. Interior code
-  receives only the canonical objects and field names.
+- Removed the `xpkg.archive-store` discriminator parser and the singular
+  dataset-share `funder` parser. Use `xpkg.project-durable-store` and `funders`.
+- Removed model-owned label and skeleton file methods. Use project actions or
+  explicit IO serializers at the file boundary.
+- Removed the singular recording-session event table and its replacement
+  action. Use named `SessionEventStream` objects and the event-stream actions.
 
 ## 0.1.0 - 2026-06-10
 

@@ -12,8 +12,8 @@ from typing import Any, cast
 from xpkg._core.json_utils import load_json_dict
 from xpkg._core.path_registry import ensure_dir, resolve_path
 from xpkg.io.converters.result import ConversionResult
-from xpkg.io.labels.model import Labels
 from xpkg.media.video import Video
+from xpkg.model.labels import Labels
 from xpkg.pose.annotations import Instance, LabeledFrame, Point
 from xpkg.pose.skeleton import Keypoint, Skeleton
 

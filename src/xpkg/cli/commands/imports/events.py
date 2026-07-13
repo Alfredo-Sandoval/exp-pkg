@@ -30,11 +30,15 @@ def import_events(
     format: Annotated[str, typer.Argument(help="Event format (events-csv).")],
     out: Annotated[str, typer.Option("--out", help="Output project directory.")],
     path: Annotated[str | None, typer.Option("--path", help="Event source file.")] = None,
+    event_stream_name: Annotated[
+        str,
+        typer.Option("--event-stream-name", help="Session event stream name."),
+    ] = "events",
     session_id: Annotated[
         str | None, typer.Option("--session-id", help="Canonical recording session ID.")
     ] = None,
     force: Annotated[
-        bool, typer.Option("--force", help="Replace the existing session event table.")
+        bool, typer.Option("--force", help="Replace the named session event stream.")
     ] = False,
     json_output: JsonOption = False,
 ) -> None:
@@ -51,6 +55,7 @@ def import_events(
         state_path = service.import_events(
             selected,
             path=source_path,
+            event_stream_name=event_stream_name,
             session_id=session_id,
             force=force,
         )

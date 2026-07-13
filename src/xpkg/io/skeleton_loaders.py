@@ -282,7 +282,9 @@ def load_skeleton_xpkg_json(path: str | Path, **kwargs: Any) -> Skeleton:
     Returns:
         Skeleton: Normalized skeleton instance.
     """
-    return Skeleton.load(Path(path), **kwargs)
+    from xpkg.io.skeleton_io import load_skeleton as load_json_skeleton
+
+    return load_json_skeleton(Path(path), **kwargs)
 
 
 def load_skeleton_dlc(path: str | Path) -> Skeleton:

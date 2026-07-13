@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any as _Any
 
-from xpkg.io.labels.video_types import VideoProtocol
+from xpkg.model.video_types import VideoProtocol
 from xpkg.pose.annotations import Instance, LabeledFrame, Track
 
 

@@ -12,6 +12,7 @@ from tests.factories import (
     write_sample_dlc_h5,
 )
 from xpkg.model import Labels
+from xpkg.project import load_project_labels
 
 
 def _make_dlc_project_fixture(tmp_path: Path) -> Path:
@@ -150,7 +151,7 @@ def test_import_dlc_project_directory_imports_supported_items_into_one_project(
         {"name": "session-no-data", "reason": "no data file"},
     ]
 
-    loaded = Labels.load_file(project.as_posix())
+    loaded = load_project_labels(project)
     assert len(loaded.videos) == 2
     assert len(loaded.skeletons) == 1
     assert len(loaded.labeled_frames) == 4
@@ -219,7 +220,7 @@ def test_import_lightning_pose_csv_project_uses_dlc_style_predictions(
         "sha256": sha256_file(config_path),
     }
     assert pose_metadata["prediction_provenance"] == provenance
-    loaded = Labels.load_file(project.as_posix())
+    loaded = load_project_labels(project)
     assert loaded.provenance["pose_prediction"] == provenance
     assert len(loaded.skeletons) == 1
     assert loaded.skeletons[0].keypoint_names == ["nose", "tail"]
@@ -251,7 +252,7 @@ def test_dlc_csv_import_preserves_per_keypoint_likelihood_through_project_state(
 
     import_dlc_csv_project(csv_path, video_path, project)
 
-    loaded = Labels.load_file(project.as_posix())
+    loaded = load_project_labels(project)
     assert len(loaded.labeled_frames) == 2
     expected_scores_by_frame = {
         0: {"nose": 0.95, "tail": 0.90},
@@ -293,7 +294,7 @@ def test_dlc_csv_import_preserves_scores_through_pack_unpack_roundtrip(
     restored = tmp_path / "Restored"
     unpack_project(artifact, restored)
 
-    loaded = Labels.load_file(restored.as_posix())
+    loaded = load_project_labels(restored)
     assert len(loaded.labeled_frames) == 2
     expected_scores_by_frame = {
         0: {"nose": 0.95, "tail": 0.90},

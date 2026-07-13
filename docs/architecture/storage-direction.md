@@ -87,11 +87,11 @@ The public cleanup now matches that storage model:
 - the `ArchiveStore` Python alias was removed; the canonical class is
   `ProjectDurableStore`
 
-The store reader still accepts the older `xpkg.archive-store` discriminator at
-the persisted-data boundary. Deleting that parser was rejected because the
-0.x artifact contract promises that previously written project data remains
-readable. New writes use only `xpkg.project-durable-store`, and interior code
-uses only `ProjectDurableStore`.
+The store reader accepts only the `xpkg.project-durable-store` discriminator.
+Keeping the older `xpkg.archive-store` parser was rejected because it would
+leave two persisted contracts active and hide an incomplete migration behind
+the canonical store API. Older stores must be migrated before this version is
+used.
 
 ## Removed Archive Layer
 

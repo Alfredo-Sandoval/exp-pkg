@@ -12,14 +12,17 @@ from xpkg._core.json_utils import load_json_dict, write_json
 from xpkg.io.pose_json import pose_labels_from_payload, pose_labels_payload
 from xpkg.model.behavior import BehaviorLabels
 from xpkg.model.calibration import Calibration
+from xpkg.model.emg import EMGProcessingState, EMGSide, EMGSignalData
 from xpkg.model.events import Event, EventTable, SyncEvent
-from xpkg.model.metadata import AcquisitionMetadata, CameraMetadata
+from xpkg.model.force import ForcePlateData
+from xpkg.model.metadata import AcquisitionMetadata, CameraMetadata, SourceProvenance
 from xpkg.model.session import (
     AlignmentModel,
     CalibrationCameraLink,
     RecordingSession,
     SessionBehavior,
     SessionCalibration,
+    SessionEventStream,
     SessionPose,
     SessionSignal,
     SessionVideo,
@@ -37,11 +40,12 @@ from xpkg.model.time import Timebase, Timeline
 from xpkg.pose.trajectory import (
     CoordinateFrameKind,
     PoseCoordinateFrame,
+    PoseTrack,
     PoseTrajectory,
 )
 
 RECORDING_SESSION_FORMAT = "xpkg.recording-session"
-RECORDING_SESSION_SCHEMA_VERSION = 3
+RECORDING_SESSION_SCHEMA_VERSION = 4
 
 
 def recording_session_document(
@@ -81,48 +85,53 @@ def recording_session_from_payload(
     """Parse one recording-session payload nested in a larger ontology document."""
 
     acquisition = _acquisition_from_payload(raw_session.get("acquisition"))
+    timebases = tuple(
+        _timebase_from_payload(item)
+        for item in _required_mapping_sequence(raw_session, "timebases", "recording session")
+    )
+    session_timebase_name = _required_str(
+        raw_session, "session_timebase_name", context="recording session"
+    )
+    session_timebase = _named_timebase(timebases, session_timebase_name)
+    root = None if project_root is None else Path(project_root)
+    videos = tuple(
+        _video_from_payload(item, acquisition)
+        for item in _required_mapping_sequence(raw_session, "videos", "recording session")
+    )
+    calibrations = tuple(
+        _calibration_from_payload(item, acquisition)
+        for item in _required_mapping_sequence(raw_session, "calibrations", "recording session")
+    )
+    poses = tuple(
+        _pose_from_payload(item, videos=videos, calibrations=calibrations, project_root=root)
+        for item in _required_mapping_sequence(raw_session, "poses", "recording session")
+    )
     return RecordingSession(
         session_id=_required_str(raw_session, "session_id", context="recording session"),
         title=_optional_str(raw_session.get("title"), name="recording session title"),
         acquisition=acquisition,
-        timebase=_timebase_from_payload(
-            _required_mapping(raw_session, "timebase", context="recording session")
-        ),
+        timebase=session_timebase,
+        timebases=timebases,
         signals=tuple(
             _signal_from_payload(item)
             for item in _required_mapping_sequence(raw_session, "signals", "recording session")
         ),
-        videos=tuple(
-            _video_from_payload(item, acquisition)
-            for item in _required_mapping_sequence(raw_session, "videos", "recording session")
-        ),
-        poses=tuple(
-            _pose_from_payload(
-                item,
-                project_root=None if project_root is None else Path(project_root),
-            )
-            for item in _required_mapping_sequence(raw_session, "poses", "recording session")
-        ),
+        videos=videos,
+        poses=poses,
         behaviors=tuple(
-            _behavior_from_payload(item)
-            for item in _required_mapping_sequence(
-                raw_session, "behaviors", "recording session"
-            )
+            _behavior_from_payload(item, videos=videos, poses=poses)
+            for item in _required_mapping_sequence(raw_session, "behaviors", "recording session")
         ),
-        calibrations=tuple(
-            _calibration_from_payload(item, acquisition)
-            for item in _required_mapping_sequence(
-                raw_session, "calibrations", "recording session"
-            )
-        ),
+        calibrations=calibrations,
         alignments=tuple(
             _alignment_from_payload(item)
-            for item in _required_mapping_sequence(
-                raw_session, "alignments", "recording session"
-            )
+            for item in _required_mapping_sequence(raw_session, "alignments", "recording session")
         ),
-        events=_event_table_from_payload(
-            _required_mapping(raw_session, "events", context="recording session")
+        event_streams=tuple(
+            _event_stream_from_payload(item)
+            for item in _required_mapping_sequence(
+                raw_session, "event_streams", "recording session"
+            )
         ),
         metadata=dict(_required_mapping(raw_session, "metadata", context="recording session")),
     )
@@ -187,27 +196,28 @@ def recording_session_payload(
     return {
         "session_id": session.session_id,
         "title": session.title,
-        "acquisition": (
-            None if session.acquisition is None else session.acquisition.to_dict()
-        ),
-        "timebase": _timebase_payload(session.timebase),
+        "acquisition": (None if session.acquisition is None else session.acquisition.to_dict()),
+        "session_timebase_name": session.timebase.name,
+        "timebases": [_timebase_payload(timebase) for timebase in session.timebases],
         "signals": [_signal_payload(link) for link in session.signals],
         "videos": [_video_payload(video) for video in session.videos],
         "poses": [_pose_payload(link, project_root=root) for link in session.poses],
         "behaviors": [_behavior_payload(link) for link in session.behaviors],
         "calibrations": [_calibration_payload(link) for link in session.calibrations],
         "alignments": [_alignment_payload(link) for link in session.alignments],
-        "events": _event_table_payload(session.events),
+        "event_streams": [_event_stream_payload(stream) for stream in session.event_streams],
         "metadata": dict(session.metadata),
     }
 
 
 def _signal_payload(link: SessionSignal) -> dict[str, Any]:
     recording = link.recording
+    provenance = _source_provenance_payload(link.provenance)
     if isinstance(recording, PhotometryRecording):
         return {
             "name": link.name,
             "recording_type": "photometry",
+            "provenance": provenance,
             "series": _time_series_payload(recording.series),
             "signal_channel": recording.signal_channel,
             "reference_channel": recording.reference_channel,
@@ -215,20 +225,37 @@ def _signal_payload(link: SessionSignal) -> dict[str, Any]:
         }
     return {
         "name": link.name,
-        "recording_type": "time_series",
-        "series": _time_series_payload(recording),
+        "provenance": provenance,
+        **_sampled_signal_payload(recording),
     }
+
+
+def _sampled_signal_payload(
+    recording: TimeSeries | EMGSignalData | ForcePlateData,
+) -> dict[str, Any]:
+    if isinstance(recording, TimeSeries):
+        return {"recording_type": "time_series", "series": _time_series_payload(recording)}
+    if isinstance(recording, EMGSignalData):
+        return {"recording_type": "emg", "emg": _emg_payload(recording)}
+    return {"recording_type": "force_plate", "force_plate": _force_payload(recording)}
 
 
 def _signal_from_payload(payload: Mapping[str, Any]) -> SessionSignal:
     name = _required_str(payload, "name", context="session signal")
     recording_type = _required_str(payload, "recording_type", context="session signal")
-    series = _time_series_from_payload(
-        _required_mapping(payload, "series", context="session signal")
-    )
+    provenance = _source_provenance_from_payload(payload.get("provenance"))
     if recording_type == "time_series":
-        return SessionSignal(name=name, recording=series)
+        return SessionSignal(
+            name=name,
+            recording=_time_series_from_payload(
+                _required_mapping(payload, "series", context="session signal")
+            ),
+            provenance=provenance,
+        )
     if recording_type == "photometry":
+        series = _time_series_from_payload(
+            _required_mapping(payload, "series", context="session signal")
+        )
         recording = PhotometryRecording(
             series=series,
             signal_channel=_optional_str(
@@ -239,7 +266,23 @@ def _signal_from_payload(payload: Mapping[str, Any]) -> SessionSignal:
             ),
             metadata=dict(_required_mapping(payload, "metadata", context="photometry")),
         )
-        return SessionSignal(name=name, recording=recording)
+        return SessionSignal(name=name, recording=recording, provenance=provenance)
+    if recording_type == "emg":
+        return SessionSignal(
+            name=name,
+            recording=_emg_from_payload(
+                _required_mapping(payload, "emg", context="session signal")
+            ),
+            provenance=provenance,
+        )
+    if recording_type == "force_plate":
+        return SessionSignal(
+            name=name,
+            recording=_force_from_payload(
+                _required_mapping(payload, "force_plate", context="session signal")
+            ),
+            provenance=provenance,
+        )
     raise ValueError(f"Unsupported session signal recording_type: {recording_type!r}.")
 
 
@@ -332,6 +375,24 @@ def _event_payload(event: Event) -> dict[str, Any]:
     return payload
 
 
+def _event_stream_payload(stream: SessionEventStream) -> dict[str, Any]:
+    return {
+        "name": stream.name,
+        "events": _event_table_payload(stream.events),
+        "provenance": _source_provenance_payload(stream.provenance),
+    }
+
+
+def _event_stream_from_payload(payload: Mapping[str, Any]) -> SessionEventStream:
+    return SessionEventStream(
+        name=_required_str(payload, "name", context="session event stream"),
+        events=_event_table_from_payload(
+            _required_mapping(payload, "events", context="session event stream")
+        ),
+        provenance=_source_provenance_from_payload(payload.get("provenance")),
+    )
+
+
 def _event_table_from_payload(payload: Mapping[str, Any]) -> EventTable:
     return EventTable(
         timebase=_timebase_from_payload(
@@ -360,8 +421,8 @@ def _video_payload(video: SessionVideo) -> dict[str, Any]:
 def _pose_payload(link: SessionPose, *, project_root: Path | None) -> dict[str, Any]:
     payload = {
         "name": link.name,
-        "video_roles": list(link.video_roles),
-        "calibration_name": link.calibration_name,
+        "video_roles": [video.role for video in link.videos],
+        "calibration_name": None if link.calibration is None else link.calibration.name,
         "provenance": None if link.provenance is None else link.provenance.to_dict(),
         "metadata": dict(link.metadata),
     }
@@ -375,11 +436,12 @@ def _pose_payload(link: SessionPose, *, project_root: Path | None) -> dict[str, 
 
 
 def _pose_from_payload(
-    payload: Mapping[str, Any], *, project_root: Path | None
+    payload: Mapping[str, Any],
+    *,
+    videos: tuple[SessionVideo, ...],
+    calibrations: tuple[SessionCalibration, ...],
+    project_root: Path | None,
 ) -> SessionPose:
-    raw_roles = _required_sequence(payload, "video_roles", context="session pose")
-    if any(not isinstance(role, str) for role in raw_roles):
-        raise TypeError("session pose.video_roles must contain only strings.")
     data_type = _required_str(payload, "data_type", context="session pose")
     raw_data = _required_mapping(payload, "data", context="session pose")
     if data_type == "labels":
@@ -391,9 +453,12 @@ def _pose_from_payload(
     return SessionPose(
         name=_required_str(payload, "name", context="session pose"),
         data=data,
-        video_roles=tuple(cast("Sequence[str]", raw_roles)),
-        calibration_name=_optional_str(
-            payload.get("calibration_name"), name="session pose calibration_name"
+        videos=_resolve_video_roles(
+            _required_str_tuple(payload, "video_roles", "session pose"), videos
+        ),
+        calibration=_resolve_optional_calibration(
+            _optional_str(payload.get("calibration_name"), name="session pose calibration_name"),
+            calibrations,
         ),
         provenance=_pose_provenance_from_payload(payload.get("provenance")),
         metadata=dict(_required_mapping(payload, "metadata", context="session pose")),
@@ -413,21 +478,63 @@ def _pose_provenance_from_payload(value: Any):
 def _behavior_payload(link: SessionBehavior) -> dict[str, Any]:
     return {
         "name": link.name,
-        "video_role": link.video_role,
+        "video_roles": [video.role for video in link.videos],
+        "pose_names": [pose.name for pose in link.poses],
+        "provenance": _source_provenance_payload(link.provenance),
         "labels": link.labels.to_dict(),
     }
 
 
-def _behavior_from_payload(payload: Mapping[str, Any]) -> SessionBehavior:
+def _behavior_from_payload(
+    payload: Mapping[str, Any],
+    *,
+    videos: tuple[SessionVideo, ...],
+    poses: tuple[SessionPose, ...],
+) -> SessionBehavior:
     return SessionBehavior(
         name=_required_str(payload, "name", context="session behavior"),
-        video_role=_optional_str(
-            payload.get("video_role"), name="session behavior video_role"
+        videos=_resolve_video_roles(
+            _required_str_tuple(payload, "video_roles", "session behavior"), videos
         ),
+        poses=_resolve_pose_names(
+            _required_str_tuple(payload, "pose_names", "session behavior"), poses
+        ),
+        provenance=_source_provenance_from_payload(payload.get("provenance")),
         labels=BehaviorLabels.from_dict(
             _required_mapping(payload, "labels", context="session behavior")
         ),
     )
+
+
+def _resolve_video_roles(
+    roles: tuple[str, ...], videos: tuple[SessionVideo, ...]
+) -> tuple[SessionVideo, ...]:
+    lookup = {video.role: video for video in videos}
+    missing = sorted(set(roles) - lookup.keys())
+    if missing:
+        raise ValueError(f"Session link references unknown video roles: {', '.join(missing)}.")
+    return tuple(lookup[role] for role in roles)
+
+
+def _resolve_pose_names(
+    names: tuple[str, ...], poses: tuple[SessionPose, ...]
+) -> tuple[SessionPose, ...]:
+    lookup = {pose.name: pose for pose in poses}
+    missing = sorted(set(names) - lookup.keys())
+    if missing:
+        raise ValueError(f"Session behavior references unknown poses: {', '.join(missing)}.")
+    return tuple(lookup[name] for name in names)
+
+
+def _resolve_optional_calibration(
+    name: str | None, calibrations: tuple[SessionCalibration, ...]
+) -> SessionCalibration | None:
+    if name is None:
+        return None
+    for calibration in calibrations:
+        if calibration.name == name:
+            return calibration
+    raise ValueError(f"Session pose references unknown calibration: {name!r}.")
 
 
 def _calibration_payload(link: SessionCalibration) -> dict[str, Any]:
@@ -455,9 +562,7 @@ def _calibration_from_payload(
         calibration=calibration,
         camera_links=tuple(
             _calibration_camera_link_from_payload(item, acquisition, calibration)
-            for item in _required_mapping_sequence(
-                payload, "camera_links", "session calibration"
-            )
+            for item in _required_mapping_sequence(payload, "camera_links", "session calibration")
         ),
     )
 
@@ -473,6 +578,7 @@ def _alignment_payload(link: TimebaseAlignment) -> dict[str, Any]:
         "offset_s": link.offset_s,
         "residual_s": link.residual_s,
         "evidence": [_correspondence_payload(item) for item in link.evidence],
+        "provenance": _source_provenance_payload(link.provenance),
         "metadata": dict(link.metadata),
     }
 
@@ -505,6 +611,7 @@ def _alignment_from_payload(payload: Mapping[str, Any]) -> TimebaseAlignment:
         scale=_required_float(payload, "scale", context="timebase alignment"),
         offset_s=_required_float(payload, "offset_s", context="timebase alignment"),
         evidence=evidence,
+        provenance=_source_provenance_from_payload(payload.get("provenance")),
         metadata=dict(_required_mapping(payload, "metadata", context="timebase alignment")),
     )
     stored_residual = _optional_float(
@@ -528,24 +635,19 @@ def _correspondence_payload(item: TimebaseCorrespondence) -> dict[str, Any]:
 
 def _correspondence_from_payload(payload: Mapping[str, Any]) -> TimebaseCorrespondence:
     return TimebaseCorrespondence(
-        source_time_s=_required_float(
-            payload, "source_time_s", context="timebase correspondence"
-        ),
-        target_time_s=_required_float(
-            payload, "target_time_s", context="timebase correspondence"
-        ),
+        source_time_s=_required_float(payload, "source_time_s", context="timebase correspondence"),
+        target_time_s=_required_float(payload, "target_time_s", context="timebase correspondence"),
         correspondence_id=_optional_str(
             payload.get("correspondence_id"),
             name="timebase correspondence correspondence_id",
         ),
-        metadata=dict(
-            _required_mapping(payload, "metadata", context="timebase correspondence")
-        ),
+        metadata=dict(_required_mapping(payload, "metadata", context="timebase correspondence")),
     )
 
 
 def _event_from_payload(payload: Mapping[str, Any]) -> Event:
     kwargs = {
+        "event_id": _required_str(payload, "event_id", context="event"),
         "kind": _required_str(payload, "kind", context="event"),
         "start_s": _required_float(payload, "start_s", context="event"),
         "duration_s": _required_float(payload, "duration_s", context="event"),
@@ -625,13 +727,18 @@ def _trajectory_payload(trajectory: PoseTrajectory) -> dict[str, Any]:
     frame = trajectory.coordinate_frame
     return {
         "fps": trajectory.fps,
-        "track_ids": list(trajectory.track_ids),
+        "tracks": [
+            {
+                "track_id": track.track_id,
+                "name": track.name,
+                "metadata": dict(track.metadata),
+            }
+            for track in trajectory.tracks
+        ],
         "keypoint_names": list(trajectory.keypoint_names),
         "positions": trajectory.positions.tolist(),
         "valid": trajectory.valid.tolist(),
-        "confidence": (
-            None if trajectory.confidence is None else trajectory.confidence.tolist()
-        ),
+        "confidence": (None if trajectory.confidence is None else trajectory.confidence.tolist()),
         "dims": trajectory.dims,
         "coordinate_frame": {
             "kind": frame.kind.value,
@@ -659,7 +766,16 @@ def _trajectory_from_payload(payload: Mapping[str, Any]) -> PoseTrajectory:
         raise ValueError(f"Unsupported pose coordinate-frame kind: {raw_kind!r}.") from exc
     return PoseTrajectory(
         fps=_required_float(payload, "fps", context="pose trajectory"),
-        track_ids=_required_str_tuple(payload, "track_ids", "pose trajectory"),
+        tracks=tuple(
+            PoseTrack(
+                track_id=_required_str(item, "track_id", context="pose trajectory track"),
+                name=_optional_str(item.get("name"), name="pose trajectory track name"),
+                metadata=dict(
+                    _required_mapping(item, "metadata", context="pose trajectory track")
+                ),
+            )
+            for item in _required_mapping_sequence(payload, "tracks", "pose trajectory")
+        ),
         keypoint_names=_required_str_tuple(payload, "keypoint_names", "pose trajectory"),
         positions=np.asarray(
             _required_sequence(payload, "positions", context="pose trajectory"),
@@ -680,9 +796,7 @@ def _trajectory_from_payload(payload: Mapping[str, Any]) -> PoseTrajectory:
             axis_convention=_optional_str(
                 frame.get("axis_convention"), name="pose axis_convention"
             ),
-            description=_optional_str(
-                frame.get("description"), name="pose frame description"
-            ),
+            description=_optional_str(frame.get("description"), name="pose frame description"),
         ),
         frame_offset=_required_int(payload, "frame_offset", context="pose trajectory"),
         skeleton_edges=_required_edge_tuple(payload, "skeleton_edges"),
@@ -698,6 +812,105 @@ def _trajectory_from_payload(payload: Mapping[str, Any]) -> PoseTrajectory:
     )
 
 
+def _emg_payload(recording: EMGSignalData) -> dict[str, Any]:
+    return {
+        "sample_times_s": recording.sample_times_s.tolist(),
+        "signals": recording.signals.tolist(),
+        "channel_names": list(recording.channel_names),
+        "muscle_names": list(recording.muscle_names),
+        "sides": [side.value for side in recording.sides],
+        "sample_rate_hz": recording.sample_rate_hz,
+        "units": [list(pair) for pair in recording.units],
+        "processing_state": recording.processing_state.value,
+        "timebase": _timebase_payload(recording.timebase),
+    }
+
+
+def _emg_from_payload(payload: Mapping[str, Any]) -> EMGSignalData:
+    raw_sides = _required_str_tuple(payload, "sides", "EMG signal")
+    try:
+        sides = tuple(EMGSide(value) for value in raw_sides)
+        processing_state = EMGProcessingState(
+            _required_str(payload, "processing_state", context="EMG signal")
+        )
+    except ValueError as exc:
+        raise ValueError("EMG signal contains an unsupported enum value.") from exc
+    return EMGSignalData(
+        sample_times_s=np.asarray(
+            _required_sequence(payload, "sample_times_s", context="EMG signal"),
+            dtype=np.float64,
+        ),
+        signals=np.asarray(
+            _required_sequence(payload, "signals", context="EMG signal"),
+            dtype=np.float64,
+        ),
+        channel_names=_required_str_tuple(payload, "channel_names", "EMG signal"),
+        muscle_names=_required_str_tuple(payload, "muscle_names", "EMG signal"),
+        sides=sides,
+        sample_rate_hz=_required_float(payload, "sample_rate_hz", context="EMG signal"),
+        units=_required_text_pairs(payload, "units", context="EMG signal"),
+        processing_state=processing_state,
+        timebase=_timebase_from_payload(
+            _required_mapping(payload, "timebase", context="EMG signal")
+        ),
+    )
+
+
+def _force_payload(recording: ForcePlateData) -> dict[str, Any]:
+    return {
+        "sample_times_s": recording.sample_times_s.tolist(),
+        "force_xyz_N": recording.force_xyz_N.tolist(),
+        "plate_names": list(recording.plate_names),
+        "valid_mask": recording.valid_mask.tolist(),
+        "sample_rate_hz": recording.sample_rate_hz,
+        "units": [list(pair) for pair in recording.units],
+        "axis_convention": [list(pair) for pair in recording.axis_convention],
+        "moment_xyz_Nm": (
+            None if recording.moment_xyz_Nm is None else recording.moment_xyz_Nm.tolist()
+        ),
+        "cop_xyz_m": None if recording.cop_xyz_m is None else recording.cop_xyz_m.tolist(),
+        "timebase": _timebase_payload(recording.timebase),
+    }
+
+
+def _force_from_payload(payload: Mapping[str, Any]) -> ForcePlateData:
+    return ForcePlateData(
+        sample_times_s=np.asarray(
+            _required_sequence(payload, "sample_times_s", context="force plate"),
+            dtype=np.float64,
+        ),
+        force_xyz_N=np.asarray(
+            _required_sequence(payload, "force_xyz_N", context="force plate"),
+            dtype=np.float64,
+        ),
+        plate_names=_required_str_tuple(payload, "plate_names", "force plate"),
+        valid_mask=np.asarray(
+            _required_sequence(payload, "valid_mask", context="force plate"),
+            dtype=bool,
+        ),
+        sample_rate_hz=_required_float(payload, "sample_rate_hz", context="force plate"),
+        units=_required_text_pairs(payload, "units", context="force plate"),
+        axis_convention=_required_text_pairs(payload, "axis_convention", context="force plate"),
+        moment_xyz_Nm=_optional_array(payload.get("moment_xyz_Nm"), name="force moment"),
+        cop_xyz_m=_optional_array(payload.get("cop_xyz_m"), name="force center of pressure"),
+        timebase=_timebase_from_payload(
+            _required_mapping(payload, "timebase", context="force plate")
+        ),
+    )
+
+
+def _source_provenance_payload(value: SourceProvenance | None) -> dict[str, Any] | None:
+    return None if value is None else value.to_dict()
+
+
+def _source_provenance_from_payload(value: object) -> SourceProvenance | None:
+    if value is None:
+        return None
+    if not isinstance(value, Mapping):
+        raise TypeError("modality provenance must be an object or null.")
+    return SourceProvenance.from_dict(cast("Mapping[str, Any]", value))
+
+
 def _timebase_payload(timebase: Timebase) -> dict[str, Any]:
     return {"name": timebase.name, "unit": timebase.unit, "offset_s": timebase.offset_s}
 
@@ -708,6 +921,13 @@ def _timebase_from_payload(payload: Mapping[str, Any]) -> Timebase:
         unit=_required_str(payload, "unit", context="timebase"),
         offset_s=_required_float(payload, "offset_s", context="timebase"),
     )
+
+
+def _named_timebase(timebases: tuple[Timebase, ...], name: str) -> Timebase:
+    for timebase in timebases:
+        if timebase.name == name:
+            return timebase
+    raise ValueError(f"session_timebase_name references unknown timebase {name!r}.")
 
 
 def _required_mapping(payload: Mapping[str, Any], key: str, *, context: str) -> Mapping[str, Any]:
@@ -751,18 +971,39 @@ def _required_number_sequence(
         raise TypeError(f"{context}.{key} must contain only numbers.") from exc
 
 
-def _required_str_tuple(
-    payload: Mapping[str, Any], key: str, context: str
-) -> tuple[str, ...]:
+def _required_str_tuple(payload: Mapping[str, Any], key: str, context: str) -> tuple[str, ...]:
     values = _required_sequence(payload, key, context=context)
     if any(not isinstance(value, str) for value in values):
         raise TypeError(f"{context}.{key} must contain only strings.")
     return tuple(cast("Sequence[str]", values))
 
 
-def _required_edge_tuple(
-    payload: Mapping[str, Any], key: str
+def _required_text_pairs(
+    payload: Mapping[str, Any], key: str, *, context: str
 ) -> tuple[tuple[str, str], ...]:
+    values = _required_sequence(payload, key, context=context)
+    pairs: list[tuple[str, str]] = []
+    for index, value in enumerate(values):
+        if (
+            not isinstance(value, Sequence)
+            or isinstance(value, str | bytes | bytearray)
+            or len(value) != 2
+            or any(not isinstance(item, str) for item in value)
+        ):
+            raise TypeError(f"{context}.{key}[{index}] must be a string pair.")
+        pairs.append((cast("str", value[0]), cast("str", value[1])))
+    return tuple(pairs)
+
+
+def _optional_array(value: object, *, name: str) -> np.ndarray | None:
+    if value is None:
+        return None
+    if not isinstance(value, Sequence) or isinstance(value, str | bytes | bytearray):
+        raise TypeError(f"{name} must be an array or null.")
+    return np.asarray(value, dtype=np.float64)
+
+
+def _required_edge_tuple(payload: Mapping[str, Any], key: str) -> tuple[tuple[str, str], ...]:
     values = _required_sequence(payload, key, context="pose trajectory")
     edges: list[tuple[str, str]] = []
     for index, value in enumerate(values):

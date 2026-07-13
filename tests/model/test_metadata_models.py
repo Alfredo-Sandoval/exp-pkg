@@ -3,7 +3,24 @@ from __future__ import annotations
 import pytest
 
 import xpkg.model as model
-from xpkg.model import AcquisitionMetadata, CameraMetadata, DatasetShareMetadata
+from xpkg.model import (
+    AcquisitionMetadata,
+    CameraMetadata,
+    DatasetShareMetadata,
+    SourceProvenance,
+)
+
+
+def test_source_provenance_requires_canonical_sha256() -> None:
+    provenance = SourceProvenance(
+        source_type="events_csv",
+        source_path="Media/events.csv",
+        sha256="a" * 64,
+    )
+
+    assert SourceProvenance.from_dict(provenance.to_dict()) == provenance
+    with pytest.raises(ValueError, match="64 lowercase hexadecimal"):
+        SourceProvenance(source_type="events_csv", sha256="ABC")
 
 
 def test_camera_metadata_round_trips_json_friendly_payload() -> None:
@@ -123,16 +140,15 @@ def test_dataset_share_metadata_round_trips_citation_and_access_fields() -> None
     assert DatasetShareMetadata.from_dict(payload) == share
 
 
-def test_dataset_share_metadata_parses_singular_funder_at_boundary() -> None:
-    metadata = DatasetShareMetadata.from_dict(
-        {
-            "title": "Dataset",
-            "creators": ["A. Researcher"],
-            "funder": "NSF",
-        }
-    )
-
-    assert metadata.funders == ("NSF",)
+def test_dataset_share_metadata_rejects_singular_funder() -> None:
+    with pytest.raises(ValueError, match="funders"):
+        DatasetShareMetadata.from_dict(
+            {
+                "title": "Dataset",
+                "creators": ["A. Researcher"],
+                "funder": "NSF",
+            }
+        )
 
 
 def test_dataset_share_metadata_requires_title_and_creator() -> None:

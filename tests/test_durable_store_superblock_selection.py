@@ -2,7 +2,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from xpkg.project.durable_store import (
+    IncompatibleStoreVersionError,
     ProjectDurableStore,
     StorePaths,
     Superblock,
@@ -76,7 +79,7 @@ def test_recover_breaks_generation_ties_with_updated_at(tmp_path: Path) -> None:
     assert head.superblock.current_commit_id == "c_000000000003_beta"
 
 
-def test_recover_parses_legacy_store_discriminator_at_boundary(tmp_path: Path) -> None:
+def test_recover_rejects_legacy_store_discriminator(tmp_path: Path) -> None:
     paths = StorePaths(root=tmp_path / ".xpkg")
     paths.root.mkdir(parents=True)
     legacy = _superblock(
@@ -88,6 +91,5 @@ def test_recover_parses_legacy_store_discriminator_at_boundary(tmp_path: Path) -
     legacy.with_checksum()
     atomic_write_json(paths.superblock_a, legacy.to_dict())
 
-    head = ProjectDurableStore(paths.root).recover()
-
-    assert head.superblock.format == "xpkg.archive-store"
+    with pytest.raises(IncompatibleStoreVersionError, match="Unsupported store format"):
+        ProjectDurableStore(paths.root).recover()

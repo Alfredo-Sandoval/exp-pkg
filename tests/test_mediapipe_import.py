@@ -101,8 +101,11 @@ def test_convert_mediapipe_pose_landmarks_json_rejects_video_size_mismatch(
 def test_import_mediapipe_pose_landmarks_json_project_imports_sequence_into_project(
     tmp_path: Path,
 ) -> None:
-    from xpkg.model import Labels
-    from xpkg.project import current_project_state_path, load_project_session
+    from xpkg.project import (
+        current_project_state_path,
+        load_project_labels,
+        load_project_session,
+    )
     from xpkg.project.store.imports import import_mediapipe_pose_landmarks_json_project
 
     json_path = tmp_path / "pose_landmarks.json"
@@ -126,7 +129,7 @@ def test_import_mediapipe_pose_landmarks_json_project_imports_sequence_into_proj
     assert pose_metadata["source"] == "mediapipe_pose_landmarks_json_import"
     assert pose_metadata["source_json"] == json_path.name
 
-    labels = Labels.load_file(project.as_posix())
+    labels = load_project_labels(project)
     assert len(labels.skeletons[0].keypoint_names) == 33
     assert len(labels.videos) == 1
     assert len(labels.labeled_frames) == 2

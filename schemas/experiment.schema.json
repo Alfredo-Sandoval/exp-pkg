@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "xpkg experiment",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "format": {
+      "const": "xpkg.experiment"
+    },
+    "schema_version": {
+      "const": 4
+    },
+    "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "experiment": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "experiment_id": {},
+            "title": {},
+            "subjects": {},
+            "protocols": {},
+            "conditions": {},
+            "sessions": {},
+            "dataset_share": {},
+            "metadata": {}
+          },
+          "required": [
+            "experiment_id",
+            "title",
+            "subjects",
+            "protocols",
+            "conditions",
+            "sessions",
+            "dataset_share",
+            "metadata"
+          ]
+        },
+        "metadata": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "experiment",
+        "metadata"
+      ]
+    }
+  },
+  "required": [
+    "format",
+    "schema_version",
+    "payload"
+  ]
+}

@@ -74,9 +74,10 @@ def test_read_pyphotometry_ppd_returns_session_signals_and_events(tmp_path: Path
     assert session.metadata["event_label_scheme"] == "digital_channels"
     np.testing.assert_allclose(photometry.timeline.timestamps_s[:3], [0.0, 0.02, 0.04])
     np.testing.assert_allclose(photometry.series.values[:, 0], [100, 101, 102, 103, 104, 105])
-    assert [event.label for event in session.events] == ["digital_1", "digital_1"]
-    np.testing.assert_allclose([event.start_s for event in session.events], [0.04, 0.1])
-    assert {event.metadata["source"]["type"] for event in session.events} == {"pyphotometry_ppd"}
+    events = session.event_stream("digital")
+    assert [event.label for event in events] == ["digital_1", "digital_1"]
+    np.testing.assert_allclose([event.start_s for event in events], [0.04, 0.1])
+    assert {event.metadata["source"]["type"] for event in events} == {"pyphotometry_ppd"}
 
 
 def test_read_pyphotometry_ppd_applies_volts_per_division(tmp_path: Path) -> None:
@@ -154,7 +155,7 @@ def test_read_pyphotometry_ppd_supports_v11_pulsed_baseline_layout(tmp_path: Pat
     np.testing.assert_allclose(photometry.series.values[:, 1], [0.16, 0.16])
     assert "raw_led_on" in session.signal_names
     assert "raw_baseline" in session.signal_names
-    assert [event.label for event in session.events] == ["digital_1"]
+    assert [event.label for event in session.event_stream("digital")] == ["digital_1"]
 
 
 def test_read_pyphotometry_ppd_rejects_incomplete_pulsed_layout_sample(
@@ -270,8 +271,9 @@ def test_read_pyphotometry_csv_uses_json_settings_and_digital_events(tmp_path: P
     assert photometry.metadata["event_label_scheme"] == "digital_channels"
     assert session.metadata["event_label_scheme"] == "digital_channels"
     np.testing.assert_allclose(photometry.series.values[:, 0], [0.1, 0.101])
-    assert [event.label for event in session.events] == ["digital_1"]
-    assert session.events.events[0].metadata["source"]["type"] == "pyphotometry_csv"
+    events = session.event_stream("digital")
+    assert [event.label for event in events] == ["digital_1"]
+    assert events.events[0].metadata["source"]["type"] == "pyphotometry_csv"
 
 
 def test_read_pyphotometry_csv_rejects_missing_explicit_settings_path(
@@ -328,7 +330,7 @@ def test_read_pyphotometry_csv_tolerates_real_spaced_header(tmp_path: Path) -> N
     assert isinstance(photometry, PhotometryRecording)
     assert photometry.channel_names == ("analog_1", "analog_2")
     np.testing.assert_allclose(photometry.series.values[:, 0], [100, 101])
-    assert [event.label for event in session.events] == ["digital_1"]
+    assert [event.label for event in session.event_stream("digital")] == ["digital_1"]
 
 
 def test_read_pyphotometry_csv_rejects_nonbinary_digital_values(

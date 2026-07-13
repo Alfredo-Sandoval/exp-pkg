@@ -280,7 +280,6 @@ class BehaviorLabels:
     embeddings: tuple[BehaviorEmbedding, ...] = ()
     timebase: Timebase = field(default_factory=Timebase)
     media_path: str | None = None
-    subject_id: str | None = None
     annotator: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
@@ -309,7 +308,6 @@ class BehaviorLabels:
             tuple(sorted(embeddings, key=lambda item: item.frame_index)),
         )
         object.__setattr__(self, "media_path", _path_text(self.media_path, name="media_path"))
-        object.__setattr__(self, "subject_id", optional_text(self.subject_id, name="subject_id"))
         object.__setattr__(self, "annotator", optional_text(self.annotator, name="annotator"))
         object.__setattr__(self, "metadata", metadata_dict(self.metadata, name="behavior metadata"))
 
@@ -325,11 +323,12 @@ class BehaviorLabels:
         """Project time-indexed behavior intervals into the generic event model."""
 
         events: list[Event] = []
-        for interval in self.intervals:
+        for index, interval in enumerate(self.intervals):
             if interval.start_s is None:
                 continue
             events.append(
                 Event(
+                    event_id=f"behavior-{index:06d}",
                     kind=kind,
                     start_s=interval.start_s,
                     duration_s=interval.duration_s or 0.0,
@@ -348,7 +347,6 @@ class BehaviorLabels:
                 "source_type": self.source_type,
                 "timebase": _timebase_payload(self.timebase),
                 "media_path": self.media_path,
-                "subject_id": self.subject_id,
                 "annotator": self.annotator,
                 "metadata": self.metadata or None,
                 "intervals": [item.to_dict() for item in self.intervals],
@@ -369,7 +367,6 @@ class BehaviorLabels:
             embeddings=_embeddings_from_payload(fields.get("embeddings", ())),
             timebase=_timebase_from_payload(fields.get("timebase")),
             media_path=fields.get("media_path"),
-            subject_id=fields.get("subject_id"),
             annotator=fields.get("annotator"),
             metadata=metadata_dict(fields.get("metadata"), name="behavior metadata"),
         )

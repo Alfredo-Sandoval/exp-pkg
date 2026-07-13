@@ -18,8 +18,11 @@ flowchart LR
     Experiment --> ExperimentalCondition
     Experiment --> ExperimentSessionLink
     ExperimentSessionLink --> RecordingSession
-    ExperimentSessionLink --> SubjectTrackLink
-    RecordingSession --> EventTable
+    ExperimentSessionLink --> BehaviorSubjectLink
+    ExperimentSessionLink --> SubjectTrackAssignment
+    ExperimentSessionLink --> EventRelationship
+    RecordingSession --> SessionEventStream
+    SessionEventStream --> EventTable
     BehaviorLabels --> BehaviorInterval
     BehaviorLabels --> BehaviorFrameLabel
     BehaviorLabels --> BehaviorEmbedding
@@ -87,9 +90,11 @@ model outputs.
 ### Timing, events, and signals
 
 - `Timebase`, `Timeline`, and `TimeRange` define shared time coordinates.
-- `Event`, `SyncEvent`, and `EventTable` represent markers on individual
-  timelines. `TimebaseCorrespondence` pairs observations of the same instant
-  across two clocks, and `TimebaseAlignment` stores the fitted mapping.
+- `Event`, `SyncEvent`, and `EventTable` represent identified markers on
+  individual timelines. `SessionEventStream` gives each table a stable name
+  and source provenance. `EventRelationship` records links between events.
+  `TimebaseCorrespondence` pairs observations of the same instant across two
+  clocks, and `TimebaseAlignment` stores the fitted mapping.
 - `BehaviorInterval`, `BehaviorFrameLabel`, `BehaviorEmbedding`, and
   `BehaviorLabels` represent ethogram outputs from human annotation or behavior
   analysis packages. Time-indexed intervals can be projected to `EventTable`.
@@ -102,10 +107,11 @@ from xpkg.model import (
     EventTable,
     PhotometryRecording,
     RecordingSession,
+    SessionEventStream,
     SessionSignal,
     TimeSeries,
+    add_session_event_stream,
     add_session_signal,
-    replace_session_events,
 )
 
 series = TimeSeries.from_samples(
@@ -121,12 +127,12 @@ photometry = PhotometryRecording(
     reference_channel="isosbestic",
 )
 events = EventTable.from_events(
-    [Event(kind="trial", start_s=0.0, duration_s=1.0)]
+    [Event(event_id="trial-1", kind="trial", start_s=0.0, duration_s=1.0)]
 )
 
 session = RecordingSession(session_id="session-001")
 session = add_session_signal(session, SessionSignal("fiber", photometry))
-session = replace_session_events(session, events)
+session = add_session_event_stream(session, SessionEventStream("trials", events))
 ```
 
 These objects are direct model primitives and the canonical recording-session
@@ -200,7 +206,8 @@ no explicit links yet.
 
 ## Loading a Skeleton Definition
 
-`xpkg.model` also exposes skeleton loading helpers:
+Skeleton loading is an IO boundary. Import the loaders from
+`xpkg.io.skeleton_loaders`:
 
 - `load_skeleton`
 - `load_skeleton_dlc`
@@ -211,7 +218,7 @@ no explicit links yet.
 Example:
 
 ```python
-from xpkg.model import load_skeleton
+from xpkg.io.skeleton_loaders import load_skeleton
 
 skeleton = load_skeleton("config.yaml")
 print(skeleton.name)

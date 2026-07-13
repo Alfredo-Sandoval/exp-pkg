@@ -11,6 +11,13 @@ from xpkg.adapters import (
     labels_to_dataframe,
     labels_to_json_payload,
 )
+from xpkg.io.skeleton_loaders import (
+    load_skeleton,
+    load_skeleton_dlc,
+    load_skeleton_sleap,
+    load_skeleton_ultralytics,
+    load_skeleton_xpkg_json,
+)
 from xpkg.model import (
     BEHAVIOR_LABELS_SCHEMA_VERSION,
     AcquisitionMetadata,
@@ -58,11 +65,6 @@ from xpkg.model import (
     build_prediction_stub,
     fit_timebase_alignment,
     is_predicted_instance,
-    load_skeleton,
-    load_skeleton_dlc,
-    load_skeleton_sleap,
-    load_skeleton_ultralytics,
-    load_skeleton_xpkg_json,
 )
 from xpkg.project import (
     ArtifactFile,

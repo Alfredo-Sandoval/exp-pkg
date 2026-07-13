@@ -10,13 +10,6 @@ from typing import TYPE_CHECKING, Any
 from xpkg.model._exports import EXPORTS
 
 if TYPE_CHECKING:
-    from xpkg.io.labels.model import Labels as Labels
-    from xpkg.io.labels.model import SuggestionFrame as SuggestionFrame
-    from xpkg.io.skeleton_loaders import load_skeleton as load_skeleton
-    from xpkg.io.skeleton_loaders import load_skeleton_dlc as load_skeleton_dlc
-    from xpkg.io.skeleton_loaders import load_skeleton_sleap as load_skeleton_sleap
-    from xpkg.io.skeleton_loaders import load_skeleton_ultralytics as load_skeleton_ultralytics
-    from xpkg.io.skeleton_loaders import load_skeleton_xpkg_json as load_skeleton_xpkg_json
     from xpkg.media.video import Video as Video
     from xpkg.model.behavior import BEHAVIOR_LABELS_SCHEMA_VERSION as BEHAVIOR_LABELS_SCHEMA_VERSION
     from xpkg.model.behavior import BehaviorEmbedding as BehaviorEmbedding
@@ -33,10 +26,15 @@ if TYPE_CHECKING:
     from xpkg.model.calibration import CameraIntrinsics as CameraIntrinsics
     from xpkg.model.calibration import CameraRotation as CameraRotation
     from xpkg.model.calibration import WorldFrame as WorldFrame
+    from xpkg.model.emg import EMGProcessingState as EMGProcessingState
+    from xpkg.model.emg import EMGSide as EMGSide
     from xpkg.model.emg import EMGSignalData as EMGSignalData
     from xpkg.model.events import Event as Event
     from xpkg.model.events import EventTable as EventTable
     from xpkg.model.events import SyncEvent as SyncEvent
+    from xpkg.model.experiment import BehaviorSubjectLink as BehaviorSubjectLink
+    from xpkg.model.experiment import EventRelationship as EventRelationship
+    from xpkg.model.experiment import EventRelationshipKind as EventRelationshipKind
     from xpkg.model.experiment import Experiment as Experiment
     from xpkg.model.experiment import ExperimentalCondition as ExperimentalCondition
     from xpkg.model.experiment import ExperimentSessionLink as ExperimentSessionLink
@@ -45,7 +43,7 @@ if TYPE_CHECKING:
     from xpkg.model.experiment import SessionProtocolLink as SessionProtocolLink
     from xpkg.model.experiment import SessionSubjectLink as SessionSubjectLink
     from xpkg.model.experiment import Subject as Subject
-    from xpkg.model.experiment import SubjectTrackLink as SubjectTrackLink
+    from xpkg.model.experiment import SubjectTrackAssignment as SubjectTrackAssignment
     from xpkg.model.experiment_actions import (
         InvalidExperimentTransitionError as InvalidExperimentTransitionError,
     )
@@ -74,10 +72,13 @@ if TYPE_CHECKING:
     from xpkg.model.identity import IdentityEvent as IdentityEvent
     from xpkg.model.identity import IdentityProofreadingSpan as IdentityProofreadingSpan
     from xpkg.model.identity import IdentityProvenanceRecord as IdentityProvenanceRecord
+    from xpkg.model.labels import Labels as Labels
+    from xpkg.model.labels import SuggestionFrame as SuggestionFrame
     from xpkg.model.metadata import AcquisitionMetadata as AcquisitionMetadata
     from xpkg.model.metadata import CameraMetadata as CameraMetadata
     from xpkg.model.metadata import DatasetShareMetadata as DatasetShareMetadata
     from xpkg.model.metadata import PoseModelProvenance as PoseModelProvenance
+    from xpkg.model.metadata import SourceProvenance as SourceProvenance
     from xpkg.model.reporting import DatasetDatasheet as DatasetDatasheet
     from xpkg.model.reporting import DatasheetCollection as DatasheetCollection
     from xpkg.model.reporting import DatasheetComposition as DatasheetComposition
@@ -98,6 +99,7 @@ if TYPE_CHECKING:
     from xpkg.model.session import RecordingSession as RecordingSession
     from xpkg.model.session import SessionBehavior as SessionBehavior
     from xpkg.model.session import SessionCalibration as SessionCalibration
+    from xpkg.model.session import SessionEventStream as SessionEventStream
     from xpkg.model.session import SessionPose as SessionPose
     from xpkg.model.session import SessionSignal as SessionSignal
     from xpkg.model.session import SessionVideo as SessionVideo
@@ -109,8 +111,10 @@ if TYPE_CHECKING:
     )
     from xpkg.model.session_actions import add_session_behavior as add_session_behavior
     from xpkg.model.session_actions import add_session_calibration as add_session_calibration
+    from xpkg.model.session_actions import add_session_event_stream as add_session_event_stream
     from xpkg.model.session_actions import add_session_pose as add_session_pose
     from xpkg.model.session_actions import add_session_signal as add_session_signal
+    from xpkg.model.session_actions import add_session_timebase as add_session_timebase
     from xpkg.model.session_actions import add_session_video as add_session_video
     from xpkg.model.session_actions import add_timebase_alignment as add_timebase_alignment
     from xpkg.model.session_actions import fit_timebase_alignment as fit_timebase_alignment
@@ -121,7 +125,9 @@ if TYPE_CHECKING:
     from xpkg.model.session_actions import (
         replace_session_calibration as replace_session_calibration,
     )
-    from xpkg.model.session_actions import replace_session_events as replace_session_events
+    from xpkg.model.session_actions import (
+        replace_session_event_stream as replace_session_event_stream,
+    )
     from xpkg.model.session_actions import replace_session_metadata as replace_session_metadata
     from xpkg.model.session_actions import replace_session_pose as replace_session_pose
     from xpkg.model.session_actions import replace_session_signal as replace_session_signal
@@ -151,6 +157,7 @@ if TYPE_CHECKING:
     from xpkg.pose.skeleton import build_keypoint_skeleton as build_keypoint_skeleton
     from xpkg.pose.trajectory import CoordinateFrameKind as CoordinateFrameKind
     from xpkg.pose.trajectory import PoseCoordinateFrame as PoseCoordinateFrame
+    from xpkg.pose.trajectory import PoseTrack as PoseTrack
     from xpkg.pose.trajectory import PoseTrajectory as PoseTrajectory
     from xpkg.segmentation import ROI as ROI
     from xpkg.segmentation import MaskType as MaskType
@@ -168,6 +175,7 @@ __all__ = [
     "BehaviorFrameLabel",
     "BehaviorInterval",
     "BehaviorLabels",
+    "BehaviorSubjectLink",
     "CALIBRATION_SCHEMA_VERSION",
     "Calibration",
     "CalibrationCameraLink",
@@ -189,8 +197,12 @@ __all__ = [
     "DatasheetMotivation",
     "DatasheetPreprocessing",
     "DatasheetUses",
+    "EMGProcessingState",
+    "EMGSide",
     "EMGSignalData",
     "Event",
+    "EventRelationship",
+    "EventRelationshipKind",
     "EventTable",
     "Experiment",
     "ExperimentSessionLink",
@@ -223,6 +235,7 @@ __all__ = [
     "PointArray",
     "PoseCoordinateFrame",
     "PoseModelProvenance",
+    "PoseTrack",
     "PoseTrajectory",
     "PredictedInstance",
     "PredictedPoint",
@@ -236,6 +249,7 @@ __all__ = [
     "SessionBehavior",
     "SessionCalibration",
     "SessionConditionLink",
+    "SessionEventStream",
     "SessionPose",
     "SessionProtocolLink",
     "SessionSignal",
@@ -243,8 +257,9 @@ __all__ = [
     "SessionVideo",
     "SignalChannel",
     "Skeleton",
+    "SourceProvenance",
     "Subject",
-    "SubjectTrackLink",
+    "SubjectTrackAssignment",
     "SuggestionFrame",
     "SyncEvent",
     "SynchronizationMethod",
@@ -264,19 +279,16 @@ __all__ = [
     "add_experiment_subject",
     "add_session_behavior",
     "add_session_calibration",
+    "add_session_event_stream",
     "add_session_pose",
     "add_session_signal",
+    "add_session_timebase",
     "add_session_video",
     "add_timebase_alignment",
     "build_keypoint_skeleton",
     "build_prediction_stub",
     "fit_timebase_alignment",
     "is_predicted_instance",
-    "load_skeleton",
-    "load_skeleton_dlc",
-    "load_skeleton_sleap",
-    "load_skeleton_ultralytics",
-    "load_skeleton_xpkg_json",
     "replace_experiment_dataset_share",
     "replace_experiment_metadata",
     "replace_experiment_session",
@@ -284,7 +296,7 @@ __all__ = [
     "replace_session_acquisition",
     "replace_session_behavior",
     "replace_session_calibration",
-    "replace_session_events",
+    "replace_session_event_stream",
     "replace_session_metadata",
     "replace_session_pose",
     "replace_session_signal",

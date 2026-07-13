@@ -24,8 +24,6 @@ from xpkg._core.time import now_utc_iso
 
 _SUPPORTED_STORE_VERSION = 1
 _STORE_FORMAT = "xpkg.project-durable-store"
-_LEGACY_STORE_FORMAT = "xpkg.archive-store"
-_SUPPORTED_STORE_FORMATS = {_STORE_FORMAT, _LEGACY_STORE_FORMAT}
 
 
 class ProjectDurableStoreError(Exception):
@@ -601,8 +599,10 @@ def _load_superblock(path: Path) -> Superblock | None:
         raise IncompatibleStoreVersionError(
             f"Unsupported store_version={sb.store_version}; expected {_SUPPORTED_STORE_VERSION}"
         )
-    if sb.format not in _SUPPORTED_STORE_FORMATS:
-        raise StoreCorruptionError(f"Unexpected store format: {sb.format}")
+    if sb.format != _STORE_FORMAT:
+        raise IncompatibleStoreVersionError(
+            f"Unsupported store format: {sb.format!r}; expected {_STORE_FORMAT!r}."
+        )
     return sb
 
 

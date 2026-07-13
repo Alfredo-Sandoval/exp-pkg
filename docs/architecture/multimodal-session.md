@@ -2,9 +2,8 @@
 
 <div class="page-intro">
 <p>
-The multimodal session model is the bridge between today's pose/video project
-support and the target neuroscience IO layer for pose, video, photometry,
-events, and synchronization.
+The multimodal session model is the canonical IO contract for pose, video,
+photometry, EMG, force, behavior, events, and synchronization.
 </p>
 </div>
 
@@ -53,17 +52,18 @@ frame_or_sample = timeline.nearest_index(12.4)
 
 ### Events
 
-`Event` and `SyncEvent` represent labeled intervals or pulses on a timeline.
-`EventTable` stores sorted events and supports basic kind, label, time, and
-overlap queries.
+`Event` and `SyncEvent` represent identified intervals or pulses on a timeline.
+`EventTable` stores sorted events and supports kind, label, time, and overlap
+queries. A recording session owns named `SessionEventStream` links rather than
+one anonymous table so independent event sources retain their provenance.
 
 ```python
 from xpkg.model import Event, EventTable, TimeRange
 
 events = EventTable.from_events(
     [
-        Event(kind="trial", start_s=10.0, duration_s=2.5, label="A"),
-        Event(kind="cue", start_s=10.4, duration_s=0.1, label="tone"),
+        Event(event_id="trial-1", kind="trial", start_s=10.0, duration_s=2.5, label="A"),
+        Event(event_id="cue-1", kind="cue", start_s=10.4, duration_s=0.1, label="tone"),
     ]
 )
 
@@ -152,25 +152,31 @@ photometry = PhotometryRecording(
 ### Recording Session
 
 `RecordingSession` groups acquisition, video, signal, pose, behavior,
-calibration, alignment, and event objects. `SessionPose` links either `Labels`
-or `PoseTrajectory` data to its videos, calibration, and model provenance. A
-raw pose dictionary is not part of the contract.
+calibration, alignment, named event-stream, and timebase objects. `SessionPose`
+links either `Labels` or `PoseTrajectory` data to its videos, calibration, and
+model provenance. A raw pose dictionary is not part of the contract.
 
 ```python
 from xpkg.model import (
     Event,
     EventTable,
     RecordingSession,
+    SessionEventStream,
     SessionSignal,
+    add_session_event_stream,
     add_session_signal,
-    replace_session_events,
 )
 
 session = RecordingSession(session_id="session-001")
 session = add_session_signal(session, SessionSignal("fiber", photometry))
-session = replace_session_events(
+session = add_session_event_stream(
     session,
-    EventTable.from_events([Event(kind="trial", start_s=0.0, duration_s=1.0)])
+    SessionEventStream(
+        "trials",
+        EventTable.from_events(
+            [Event(event_id="trial-1", kind="trial", start_s=0.0, duration_s=1.0)]
+        ),
+    ),
 )
 
 print(session.modality_names)
@@ -187,11 +193,15 @@ validation, and portable artifact layers.
 Implemented now:
 
 - typed timing primitives
-- event and event-table primitives
+- identified event, event-table, named event-stream, and event-relationship
+  primitives
 - behavior-label primitives for intervals, framewise motifs, and embeddings
-- source-neutral signal channels and time series
+- source-neutral signal channels, time series, EMG, and force-plate recordings
 - photometry recording wrapper
-- session container
+- session container with one complete named timebase registry
+- behavior-to-subject links and frame-bounded subject-to-track assignments
+- typed source provenance on imported session products
+- generated machine-readable ontology and document schemas
 - versioned `xpkg.recording-session` and `xpkg.experiment` JSON serialization
 - governed `save_project_session` and `load_project_session` actions
 - `project.import_signals("photometry-csv", ...)`

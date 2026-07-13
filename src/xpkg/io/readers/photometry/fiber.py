@@ -26,6 +26,7 @@ from xpkg.model import (
     PhotometryChannel,
     PhotometryRecording,
     RecordingSession,
+    SessionEventStream,
     SessionSignal,
     SessionVideo,
     SignalChannel,
@@ -194,6 +195,7 @@ def _events_from_map(
         for value in values:
             rows.append(
                 Event(
+                    event_id=f"{source_type}-{len(rows):06d}",
                     kind=kind,
                     start_s=float(value),
                     label=str(label),
@@ -316,6 +318,7 @@ def read_pmat_events_csv(
         )
         rows.append(
             Event(
+                event_id=f"pmat-{index:06d}",
                 kind="event",
                 start_s=float(start),
                 duration_s=duration,
@@ -848,6 +851,7 @@ def _rwd_event_table(events_path: Path, time_scale: float) -> tuple[EventTable, 
         suffix = "_offset" if state == 1 else ""
         rows.append(
             Event(
+                event_id=f"rwd-{index:06d}",
                 kind="behavior",
                 start_s=float(start),
                 label=f"{labels.iloc[index]}{suffix}",
@@ -966,7 +970,7 @@ def read_rwd_ofrs_session(path: str | Path) -> RecordingSession:
         session_id=session_path.name,
         signals=(SessionSignal("photometry", photometry),),
         videos=videos,
-        events=event_table,
+        event_streams=(SessionEventStream("behavior", event_table),),
         metadata={
             "source": {"type": "rwd_ofrs", "path": str(session_path)},
             "source_files": _rwd_source_files(session_path),
@@ -1416,7 +1420,16 @@ def parse_teleopto_h5_arrays(
     return RecordingSession(
         session_id=session_id,
         signals=(SessionSignal("photometry", photometry),),
-        events=_events_from_map(event_map, source_type="teleopto_h5", source_path=resolved_source),
+        event_streams=(
+            SessionEventStream(
+                "events",
+                _events_from_map(
+                    event_map,
+                    source_type="teleopto_h5",
+                    source_path=resolved_source,
+                ),
+            ),
+        ),
         metadata={
             "source": {"type": "teleopto_h5", "path": str(resolved_source)},
             "sampling_rate_hz": sample_rate,
@@ -1846,7 +1859,16 @@ def read_tdt_photometry_block(
     return RecordingSession(
         session_id=block_path.name,
         signals=(SessionSignal("photometry", photometry),),
-        events=_events_from_map(event_map, source_type="tdt_block", source_path=block_path),
+        event_streams=(
+            SessionEventStream(
+                "events",
+                _events_from_map(
+                    event_map,
+                    source_type="tdt_block",
+                    source_path=block_path,
+                ),
+            ),
+        ),
         metadata={
             "source": {"type": "tdt_block", "path": str(block_path)},
             "sampling_rate_hz": sample_rate,

@@ -50,9 +50,18 @@ def test_sdist_excludes_repo_only_planning_and_agent_files() -> None:
     assert "/plan.md" in exclude
 
 
-def test_wheel_includes_public_project_schema() -> None:
+def test_wheel_includes_public_schemas() -> None:
     force_include = _pyproject()["tool"]["hatch"]["build"]["targets"]["wheel"][
         "force-include"
     ]
 
     assert force_include["schemas/project.schema.json"] == "xpkg/schemas/project.schema.json"
+    assert force_include["schemas/ontology.json"] == "xpkg/schemas/ontology.json"
+    assert (
+        force_include["schemas/recording-session.schema.json"]
+        == "xpkg/schemas/recording-session.schema.json"
+    )
+    assert (
+        force_include["schemas/experiment.schema.json"]
+        == "xpkg/schemas/experiment.schema.json"
+    )

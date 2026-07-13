@@ -12,8 +12,8 @@ from xpkg._core.json_utils import load_json_dict, write_json
 from xpkg._core.path_registry import ensure_dir, make_path_id
 
 if TYPE_CHECKING:
-    from xpkg.io.labels.model import Labels, SuggestionFrame
-    from xpkg.io.labels.video_types import VideoProtocol
+    from xpkg.model.labels import Labels, SuggestionFrame
+    from xpkg.model.video_types import VideoProtocol
     from xpkg.pose.annotations import Instance
 
 XPKG_LABELS_JSON_FORMAT = "xpkg.labels-json"
@@ -299,7 +299,6 @@ def write_labels_json(
     ensure_dir(target.parent)
     payload = labels_to_json_payload(labels, metadata=metadata)
     write_json(target, payload, indent=2, sort_keys=False, ensure_ascii=True)
-    labels.path = target
     return str(target)
 
 
@@ -334,11 +333,10 @@ def read_labels_json_payload(path: str | Path) -> dict[str, Any]:
 
 def labels_from_json_payload(document_or_payload: dict[str, Any]) -> Labels:
     """Hydrate ``Labels`` from a JSON payload or full JSON document."""
-    from xpkg.io.labels.model import Labels
     from xpkg.io.labels.serialization import labels_from_payload
 
     payload = _coerce_labels_json_payload(document_or_payload)
-    return labels_from_payload(Labels, payload)
+    return labels_from_payload(payload)
 
 
 __all__ = [

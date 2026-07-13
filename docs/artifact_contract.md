@@ -232,8 +232,8 @@ xpkg import signals photometry-csv --path photometry.csv --out "./My Project"
 
 The private state root contains versioned `xpkg.experiment` state. It stores
 typed subjects, protocols, conditions, recording sessions, signals, videos,
-pose, events, timebases, metadata, and provenance. Labels are nested pose data
-inside a session, not a competing project-state kind.
+pose, named event streams, timebases, metadata, and provenance. Labels are
+nested pose data inside a session, not a competing project-state kind.
 
 The pre-1.0 command surface is documented in `docs/cli_command_spec_v1.md`.
 

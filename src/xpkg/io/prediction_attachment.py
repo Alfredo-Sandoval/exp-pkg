@@ -10,8 +10,8 @@ from typing import Any, cast
 
 import numpy as np
 
-from xpkg.io.labels import Labels
-from xpkg.io.labels.tracks import add_track
+from xpkg.model.labels import Labels
+from xpkg.model.labels_tracks import add_track
 from xpkg.pose.annotations import (
     Instance,
     LabeledFrame,

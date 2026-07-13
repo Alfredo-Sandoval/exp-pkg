@@ -8,18 +8,18 @@ from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
 from xpkg._core.logging_utils import get_logger
-from xpkg.io.labels.query import (
+from xpkg.model.labels_query import (
     build_frame_index_map,
     fancy_frame_indices,
     find_frames,
     group_labeled_frames_by_video,
 )
-from xpkg.io.labels.video_types import VideoProtocol
+from xpkg.model.video_types import VideoProtocol
 from xpkg.pose.annotations import Instance, LabeledFrame, Track
 
 if TYPE_CHECKING:
-    from xpkg.io.labels.model import Labels
     from xpkg.media.video import Video
+    from xpkg.model.labels import Labels
 
 
 logger = get_logger(__name__)

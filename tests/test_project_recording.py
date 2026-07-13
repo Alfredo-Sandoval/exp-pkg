@@ -9,6 +9,7 @@ from xpkg.model import (
     AlignmentModel,
     RecordingSession,
     SessionSignal,
+    SourceProvenance,
     SynchronizationMethod,
     Timebase,
     TimeSeries,
@@ -67,10 +68,12 @@ def test_photometry_csv_import_persists_typed_recording_session(tmp_path: Path) 
     assert session.session_id == "mouse-1-day-1"
     assert recording.channel_names == ("green", "reference")
     np.testing.assert_array_equal(recording.series.values, [[1.0, 3.0], [2.0, 4.0]])
-    source_provenance = recording.series.provenance["source"]
-    assert source_provenance["path"] == "Media/signals/photometry.csv"
-    assert len(source_provenance["sha256"]) == 64
-    assert (project.project_root / source_provenance["path"]).is_file()
+    source_provenance = session.signals[0].provenance
+    assert source_provenance is not None
+    assert source_provenance.source_path == "Media/signals/photometry.csv"
+    assert source_provenance.sha256 is not None
+    assert len(source_provenance.sha256) == 64
+    assert (project.project_root / source_provenance.source_path).is_file()
 
     summary = load_project_summary(project.project_root)
     assert summary.state_kind == "experiment"
@@ -88,6 +91,7 @@ def test_photometry_csv_import_persists_typed_recording_session(tmp_path: Path) 
         "sample_count": 2,
         "video_count": 0,
         "event_count": 0,
+        "event_stream_count": 0,
         "pose_count": 0,
         "label_frame_count": 0,
             "prediction_frame_count": 0,
@@ -115,8 +119,10 @@ def test_recording_session_survives_pack_unpack_roundtrip(tmp_path: Path) -> Non
 
     assert restored.session_id == "portable-session"
     assert restored.signal_names == ("photometry",)
-    assert restored.signal("photometry").series.provenance["source"]["path"] == (
-        "Media/signals/photometry.csv"
+    assert restored.signals[0].provenance is not None
+    assert (
+        restored.signals[0].provenance.source_path
+        == "Media/signals/photometry.csv"
     )
     validate_project(restored_root)
 
@@ -138,24 +144,31 @@ def test_event_and_behavior_imports_persist_typed_portable_session_state(
         session_id="session-1",
     )
 
-    events = project.load_events()
+    events = project.load_event_stream(event_stream_name="events")
     behavior = project.load_behavior(behavior_name="manual-observations")
     session = project.load_session()
     assert [(event.kind, event.label) for event in events] == [
         ("stimulus", "tone"),
         ("reward", "pellet"),
     ]
-    assert events.metadata["source"]["path"] == "Media/events/events.csv"
-    assert len(events.metadata["source"]["sha256"]) == 64
+    event_stream = next(stream for stream in session.event_streams if stream.name == "events")
+    assert event_stream.provenance is not None
+    assert event_stream.provenance.source_path == "Media/events/events.csv"
+    assert event_stream.provenance.sha256 is not None
+    assert len(event_stream.provenance.sha256) == 64
     assert behavior.label_names == ("groom", "rear")
-    assert behavior.metadata["source"]["path"] == "Media/behavior/behavior.csv"
+    behavior_link = next(
+        link for link in session.behaviors if link.name == "manual-observations"
+    )
+    assert behavior_link.provenance is not None
+    assert behavior_link.provenance.source_path == "Media/behavior/behavior.csv"
     assert behavior.media_path is None
     assert session.modality_names == ("behavior", "events")
     validate_project(project.project_root)
 
     artifact = project.pack()
     restored = ProjectService.unpack(artifact, tmp_path / "Restored Multimodal")
-    assert len(restored.load_events()) == 2
+    assert len(restored.load_event_stream(event_stream_name="events")) == 2
     assert restored.load_behavior(behavior_name="manual-observations").label_names == (
         "groom",
         "rear",
@@ -172,7 +185,7 @@ def test_event_and_behavior_imports_require_force_to_replace(tmp_path: Path) -> 
     project.import_events("events-csv", path=event_source, session_id="session-1")
     project.import_behavior("behavior-csv", path=behavior_source, session_id="session-1")
 
-    with pytest.raises(FileExistsError, match="already has events"):
+    with pytest.raises(FileExistsError, match="already has event stream"):
         project.import_events("events-csv", path=event_source, session_id="session-1")
     with pytest.raises(FileExistsError, match="already has behavior"):
         project.import_behavior("behavior-csv", path=behavior_source, session_id="session-1")
@@ -189,7 +202,7 @@ def test_event_and_behavior_imports_require_force_to_replace(tmp_path: Path) -> 
         session_id="session-1",
         force=True,
     )
-    assert len(project.load_events()) == 2
+    assert len(project.load_event_stream(event_stream_name="events")) == 2
     assert project.load_behavior().label_names == ("groom", "rear")
     assert [path.name for path in (project.project_root / "Media/events").iterdir()] == [
         "events.csv"
@@ -220,10 +233,10 @@ def test_synchronization_import_persists_paired_evidence_and_survives_pack(
     assert alignment.scale == pytest.approx(1.01)
     assert alignment.offset_s == pytest.approx(0.25)
     assert alignment.evidence[0].correspondence_id == "p1"
-    assert alignment.metadata["source"]["path"] == (
-        "Media/synchronization/sync.csv"
-    )
-    assert len(alignment.metadata["source"]["sha256"]) == 64
+    assert alignment.provenance is not None
+    assert alignment.provenance.source_path == "Media/synchronization/sync.csv"
+    assert alignment.provenance.sha256 is not None
+    assert len(alignment.provenance.sha256) == 64
     assert project.load_session().modality_names == ("synchronization",)
 
     restored = ProjectService.unpack(project.pack(), tmp_path / "Restored Sync")
@@ -299,8 +312,12 @@ def test_project_behavior_import_dispatches_every_specialized_reader(
 
     labels = project.load_behavior()
     assert labels.source_type == expected_source_type
-    assert labels.metadata["source"]["path"].startswith("Media/behavior/")
-    assert len(labels.metadata["source"]["sha256"]) == 64
+    link = project.load_session().behaviors[0]
+    assert link.provenance is not None
+    assert link.provenance.source_path is not None
+    assert link.provenance.source_path.startswith("Media/behavior/")
+    assert link.provenance.sha256 is not None
+    assert len(link.provenance.sha256) == 64
 
 
 def test_recording_state_cache_rebuilds_from_durable_head(tmp_path: Path) -> None:
@@ -375,7 +392,10 @@ def test_session_save_rejects_absolute_signal_provenance_path(tmp_path: Path) ->
                     [1.0, 2.0],
                     sample_rate_hz=10.0,
                     channel_names=["signal"],
-                    provenance={"source": {"path": str(source.resolve())}},
+                ),
+                provenance=SourceProvenance(
+                    source_type="test",
+                    source_path=str(source.resolve()),
                 ),
             ),
         ),
@@ -450,7 +470,7 @@ def test_cli_imports_events_and_behavior_through_project_service(tmp_path: Path,
     session = load_project_session(project)
     assert event_code == 0
     assert behavior_code == 0
-    assert len(session.events) == 2
+    assert len(session.event_stream("events")) == 2
     assert session.behavior("behavior").label_names == ("groom", "rear")
     output = capsys.readouterr().out
     assert "Imported event CSV" in output

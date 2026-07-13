@@ -18,6 +18,7 @@ from xpkg.model import (
     PhotometryChannel,
     PhotometryRecording,
     RecordingSession,
+    SessionEventStream,
     SessionSignal,
     SignalChannel,
     Timeline,
@@ -209,6 +210,7 @@ def _digital_events(
         for time_s in _rising_edges(digital[:, index], sample_rate_hz):
             events.append(
                 Event(
+                    event_id=f"{source_type}-{len(events):06d}",
                     kind="ttl",
                     start_s=float(time_s),
                     label=label,
@@ -297,11 +299,16 @@ def read_pyphotometry_ppd(path: str | Path) -> RecordingSession:
             SessionSignal("digital", digital_series),
             *(SessionSignal(name, signal) for name, signal in extra_signals.items()),
         ),
-        events=_digital_events(
-            digital,
-            sample_rate_hz,
-            source_path,
-            source_type="pyphotometry_ppd",
+        event_streams=(
+            SessionEventStream(
+                "digital",
+                _digital_events(
+                    digital,
+                    sample_rate_hz,
+                    source_path,
+                    source_type="pyphotometry_ppd",
+                ),
+            ),
         ),
         metadata={
             "source": {"type": "pyphotometry_ppd", "path": str(source_path)},
@@ -445,7 +452,7 @@ def read_pyphotometry_csv(
     return RecordingSession(
         session_id=source_path.stem,
         signals=tuple(SessionSignal(name, signal) for name, signal in signals.items()),
-        events=events,
+        event_streams=(SessionEventStream("digital", events),),
         metadata={
             "source": {"type": "pyphotometry_csv", "path": str(source_path)},
             "settings_path": str(sidecar_path) if sidecar_path.is_file() else None,

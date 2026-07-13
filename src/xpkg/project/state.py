@@ -26,9 +26,9 @@ def project_state_payload_from_document(
     """Return the normalized payload object from a project state document."""
 
     payload = document.get("payload")
-    if isinstance(payload, Mapping):
-        return cast("dict[str, object]", dict(payload))
-    return document
+    if not isinstance(payload, Mapping):
+        raise TypeError("project state document.payload must be an object.")
+    return cast("dict[str, object]", dict(payload))
 
 
 def project_state_kind_from_document(document: Mapping[str, object]) -> ProjectStateKind:

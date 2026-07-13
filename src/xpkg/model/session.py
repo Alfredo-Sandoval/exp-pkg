@@ -10,7 +10,6 @@ from pathlib import Path
 from types import MappingProxyType
 from typing import Any, Protocol, cast
 
-from xpkg.io.labels.model import Labels
 from xpkg.model._metadata_validation import (
     finite_float,
     metadata_dict,
@@ -20,13 +19,21 @@ from xpkg.model._metadata_validation import (
 )
 from xpkg.model.behavior import BehaviorLabels
 from xpkg.model.calibration import Calibration, Camera
+from xpkg.model.emg import EMGSignalData
 from xpkg.model.events import EventTable
-from xpkg.model.metadata import AcquisitionMetadata, CameraMetadata, PoseModelProvenance
+from xpkg.model.force import ForcePlateData
+from xpkg.model.labels import Labels
+from xpkg.model.metadata import (
+    AcquisitionMetadata,
+    CameraMetadata,
+    PoseModelProvenance,
+    SourceProvenance,
+)
 from xpkg.model.signals import PhotometryRecording, TimeSeries
 from xpkg.model.time import Timebase, TimeRange
 from xpkg.pose.trajectory import CoordinateFrameKind, PoseTrajectory
 
-SessionSignalValue = TimeSeries | PhotometryRecording
+SessionSignalValue = TimeSeries | PhotometryRecording | EMGSignalData | ForcePlateData
 SessionPoseData = Labels | PoseTrajectory
 
 
@@ -56,14 +63,21 @@ class SessionSignal:
 
     name: str
     recording: SessionSignalValue
+    provenance: SourceProvenance | None = None
 
     def __post_init__(self) -> None:
         name = _required_text(self.name, name="session signal name")
-        if not isinstance(self.recording, TimeSeries | PhotometryRecording):
+        if not isinstance(
+            self.recording,
+            TimeSeries | PhotometryRecording | EMGSignalData | ForcePlateData,
+        ):
             raise TypeError(
-                "session signal recording must be a TimeSeries or PhotometryRecording; "
+                "session signal recording must be a TimeSeries, PhotometryRecording, "
+                "EMGSignalData, or ForcePlateData; "
                 f"got {self.recording!r}."
             )
+        if self.provenance is not None and not isinstance(self.provenance, SourceProvenance):
+            raise TypeError("session signal provenance must be SourceProvenance or None.")
         object.__setattr__(self, "name", name)
 
 
@@ -116,8 +130,8 @@ class SessionPose:
 
     name: str
     data: SessionPoseData
-    video_roles: tuple[str, ...] = ()
-    calibration_name: str | None = None
+    videos: tuple[SessionVideo, ...] = ()
+    calibration: SessionCalibration | None = None
     provenance: PoseModelProvenance | None = None
     metadata: Mapping[str, Any] = field(default_factory=dict)
 
@@ -125,34 +139,32 @@ class SessionPose:
         name = _required_text(self.name, name="session pose name")
         if not isinstance(self.data, Labels | PoseTrajectory):
             raise TypeError(
-                "session pose data must be Labels or PoseTrajectory; "
-                f"got {self.data!r}."
+                f"session pose data must be Labels or PoseTrajectory; got {self.data!r}."
             )
         if isinstance(self.data, Labels):
             self.data.validate()
-        video_roles = _unique_text_tuple(self.video_roles, name="session pose video_roles")
-        calibration_name = (
-            None
-            if self.calibration_name is None
-            else _required_text(self.calibration_name, name="session pose calibration_name")
-        )
-        if self.provenance is not None and not isinstance(
-            self.provenance, PoseModelProvenance
+        videos = tuple(self.videos)
+        if any(not isinstance(video, SessionVideo) for video in videos):
+            raise TypeError("session pose videos must contain SessionVideo objects.")
+        if len({video.role for video in videos}) != len(videos):
+            raise ValueError("session pose videos must be unique by role.")
+        if self.calibration is not None and not isinstance(
+            self.calibration, SessionCalibration
         ):
+            raise TypeError("session pose calibration must be SessionCalibration or None.")
+        if self.provenance is not None and not isinstance(self.provenance, PoseModelProvenance):
             raise TypeError("session pose provenance must be PoseModelProvenance or None.")
         if isinstance(self.data, PoseTrajectory):
             needs_calibration = self.data.coordinate_frame.kind in {
                 CoordinateFrameKind.CAMERA,
                 CoordinateFrameKind.CALIBRATION_WORLD,
             }
-            if needs_calibration and calibration_name is None:
+            if needs_calibration and self.calibration is None:
                 raise ValueError(
-                    "camera-frame and calibration-world pose trajectories require "
-                    "calibration_name."
+                    "camera-frame and calibration-world pose trajectories require calibration."
                 )
         object.__setattr__(self, "name", name)
-        object.__setattr__(self, "video_roles", video_roles)
-        object.__setattr__(self, "calibration_name", calibration_name)
+        object.__setattr__(self, "videos", videos)
         object.__setattr__(
             self,
             "metadata",
@@ -166,21 +178,49 @@ class SessionBehavior:
 
     name: str
     labels: BehaviorLabels
-    video_role: str | None = None
+    videos: tuple[SessionVideo, ...] = ()
+    poses: tuple[SessionPose, ...] = ()
+    provenance: SourceProvenance | None = None
 
     def __post_init__(self) -> None:
         name = _required_text(self.name, name="session behavior name")
         if not isinstance(self.labels, BehaviorLabels):
-            raise TypeError(
-                f"session behavior labels must be BehaviorLabels, got {self.labels!r}."
-            )
-        video_role = (
-            None
-            if self.video_role is None
-            else _required_text(self.video_role, name="session behavior video_role")
-        )
+            raise TypeError(f"session behavior labels must be BehaviorLabels, got {self.labels!r}.")
+        videos = tuple(self.videos)
+        poses = tuple(self.poses)
+        if any(not isinstance(video, SessionVideo) for video in videos):
+            raise TypeError("session behavior videos must contain SessionVideo objects.")
+        if any(not isinstance(pose, SessionPose) for pose in poses):
+            raise TypeError("session behavior poses must contain SessionPose objects.")
+        if len({video.role for video in videos}) != len(videos):
+            raise ValueError("session behavior videos must be unique by role.")
+        if len({pose.name for pose in poses}) != len(poses):
+            raise ValueError("session behavior poses must be unique by name.")
+        if self.provenance is not None and not isinstance(self.provenance, SourceProvenance):
+            raise TypeError("session behavior provenance must be SourceProvenance or None.")
         object.__setattr__(self, "name", name)
-        object.__setattr__(self, "video_role", video_role)
+        object.__setattr__(self, "videos", videos)
+        object.__setattr__(self, "poses", poses)
+
+
+@dataclass(frozen=True, slots=True)
+class SessionEventStream:
+    """Named link from a session to one event stream and its origin."""
+
+    name: str
+    events: EventTable
+    provenance: SourceProvenance | None = None
+
+    def __post_init__(self) -> None:
+        object.__setattr__(
+            self,
+            "name",
+            _required_text(self.name, name="session event stream name"),
+        )
+        if not isinstance(self.events, EventTable):
+            raise TypeError("session event stream events must be an EventTable.")
+        if self.provenance is not None and not isinstance(self.provenance, SourceProvenance):
+            raise TypeError("session event stream provenance must be SourceProvenance or None.")
 
 
 @dataclass(frozen=True, slots=True)
@@ -208,15 +248,11 @@ class SessionCalibration:
     def __post_init__(self) -> None:
         name = _required_text(self.name, name="session calibration name")
         if not isinstance(self.calibration, Calibration):
-            raise TypeError(
-                f"session calibration must be a Calibration, got {self.calibration!r}."
-            )
+            raise TypeError(f"session calibration must be a Calibration, got {self.calibration!r}.")
         object.__setattr__(self, "name", name)
         links = tuple(self.camera_links)
         _require_unique_calibration_camera_links(links)
-        if any(
-            link.calibrated_camera not in self.calibration.cameras for link in links
-        ):
+        if any(link.calibrated_camera not in self.calibration.cameras for link in links):
             raise ValueError("calibration camera link references a camera outside its calibration.")
         object.__setattr__(self, "camera_links", links)
 
@@ -251,9 +287,7 @@ class TimebaseCorrespondence:
         object.__setattr__(
             self,
             "metadata",
-            MappingProxyType(
-                metadata_dict(self.metadata, name="timebase correspondence metadata")
-            ),
+            MappingProxyType(metadata_dict(self.metadata, name="timebase correspondence metadata")),
         )
 
 
@@ -269,6 +303,7 @@ class TimebaseAlignment:
     scale: float = 1.0
     offset_s: float = 0.0
     evidence: tuple[TimebaseCorrespondence, ...] = ()
+    provenance: SourceProvenance | None = None
     metadata: Mapping[str, Any] = field(default_factory=dict)
     residual_s: float | None = field(default=None, init=False)
 
@@ -306,6 +341,8 @@ class TimebaseAlignment:
                     "affine timebase alignment requires at least two distinct source times."
                 )
         residual_s = _alignment_residual(evidence, scale=scale, offset_s=offset_s)
+        if self.provenance is not None and not isinstance(self.provenance, SourceProvenance):
+            raise TypeError("timebase alignment provenance must be SourceProvenance or None.")
         object.__setattr__(self, "name", name)
         object.__setattr__(self, "scale", scale)
         object.__setattr__(self, "offset_s", offset_s)
@@ -332,8 +369,7 @@ def _alignment_residual(
     if not evidence:
         return None
     squared_errors = [
-        ((item.source_time_s * scale) + offset_s - item.target_time_s) ** 2
-        for item in evidence
+        ((item.source_time_s * scale) + offset_s - item.target_time_s) ** 2 for item in evidence
     ]
     return float(sqrt(sum(squared_errors) / len(squared_errors)))
 
@@ -346,13 +382,14 @@ class RecordingSession:
     title: str | None = None
     acquisition: AcquisitionMetadata | None = None
     timebase: Timebase = field(default_factory=Timebase)
+    timebases: tuple[Timebase, ...] = ()
     signals: tuple[SessionSignal, ...] = ()
     videos: tuple[SessionVideo, ...] = ()
     poses: tuple[SessionPose, ...] = ()
     behaviors: tuple[SessionBehavior, ...] = ()
     calibrations: tuple[SessionCalibration, ...] = ()
     alignments: tuple[TimebaseAlignment, ...] = ()
-    events: EventTable = field(default_factory=EventTable)
+    event_streams: tuple[SessionEventStream, ...] = ()
     metadata: Mapping[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
@@ -360,9 +397,7 @@ class RecordingSession:
         title = None if self.title is None else _required_text(self.title, name="session title")
         if not isinstance(self.timebase, Timebase):
             raise TypeError(f"session timebase must be a Timebase, got {self.timebase!r}.")
-        if self.acquisition is not None and not isinstance(
-            self.acquisition, AcquisitionMetadata
-        ):
+        if self.acquisition is not None and not isinstance(self.acquisition, AcquisitionMetadata):
             raise TypeError("session acquisition must be AcquisitionMetadata or None.")
         signals = tuple(self.signals)
         videos = tuple(self.videos)
@@ -370,17 +405,25 @@ class RecordingSession:
         behaviors = tuple(self.behaviors)
         calibrations = tuple(self.calibrations)
         alignments = tuple(self.alignments)
+        event_streams = tuple(self.event_streams)
+        timebases = _timebase_registry(self.timebase, self.timebases)
         _require_unique_signals(signals)
         _require_unique_videos(videos)
         _require_unique_links(poses, SessionPose, name="pose")
         _require_unique_links(behaviors, SessionBehavior, name="behavior")
         _require_unique_links(calibrations, SessionCalibration, name="calibration")
         _require_unique_links(alignments, TimebaseAlignment, name="alignment")
-        _require_video_links(videos, poses, behaviors)
+        _require_unique_links(event_streams, SessionEventStream, name="event stream")
+        _require_modality_links(videos, poses, behaviors, calibrations)
         _require_acquisition_links(self.acquisition, videos, calibrations)
-        _require_pose_calibrations(poses, calibrations)
-        if not isinstance(self.events, EventTable):
-            raise TypeError(f"session events must be an EventTable, got {self.events!r}.")
+        _require_registered_timebases(
+            timebases,
+            signals=signals,
+            videos=videos,
+            behaviors=behaviors,
+            alignments=alignments,
+            event_streams=event_streams,
+        )
         metadata = MappingProxyType(metadata_dict(self.metadata, name="session metadata"))
         object.__setattr__(self, "session_id", session_id)
         object.__setattr__(self, "title", title)
@@ -390,6 +433,8 @@ class RecordingSession:
         object.__setattr__(self, "behaviors", behaviors)
         object.__setattr__(self, "calibrations", calibrations)
         object.__setattr__(self, "alignments", alignments)
+        object.__setattr__(self, "event_streams", event_streams)
+        object.__setattr__(self, "timebases", timebases)
         object.__setattr__(self, "metadata", metadata)
 
     @property
@@ -408,7 +453,7 @@ class RecordingSession:
             names.append("behavior")
         if self.calibrations:
             names.append("calibration")
-        if len(self.events) > 0:
+        if any(len(stream.events) > 0 for stream in self.event_streams):
             names.append("events")
         if self.alignments:
             names.append("synchronization")
@@ -418,7 +463,8 @@ class RecordingSession:
     def time_range(self) -> TimeRange | None:
         """Return the broadest available time range across timed modalities."""
         ranges = [link.recording.timeline.time_range for link in self.signals]
-        ranges.extend(event.time_range for event in self.events)
+        for stream in self.event_streams:
+            ranges.extend(event.time_range for event in stream.events)
         if not ranges:
             return None
         return TimeRange(
@@ -467,9 +513,25 @@ class RecordingSession:
         for alignment in self.alignments:
             if alignment.name == key:
                 return alignment
-        raise KeyError(
-            f"Recording session {self.session_id!r} has no alignment named {key!r}."
+        raise KeyError(f"Recording session {self.session_id!r} has no alignment named {key!r}.")
+
+    def event_stream(self, name: str) -> EventTable:
+        """Return the event table linked under ``name``."""
+        return _named_link_value(
+            self.session_id,
+            self.event_streams,
+            name,
+            "event stream",
+            "events",
         )
+
+    def named_timebase(self, name: str) -> Timebase:
+        """Return one timebase from the canonical session registry."""
+        key = _required_text(name, name="timebase name")
+        for timebase in self.timebases:
+            if timebase.name == key:
+                return timebase
+        raise KeyError(f"Recording session {self.session_id!r} has no timebase named {key!r}.")
 
 
 def _require_unique_signals(links: tuple[object, ...]) -> None:
@@ -492,13 +554,6 @@ def _require_unique_videos(links: tuple[object, ...]) -> None:
         values.append(link.role)
 
 
-def _unique_text_tuple(values: tuple[str, ...], *, name: str) -> tuple[str, ...]:
-    result = tuple(_required_text(value, name=name) for value in values)
-    if len(set(result)) != len(result):
-        raise ValueError(f"{name} must be unique.")
-    return result
-
-
 def _require_unique_links(links: tuple[object, ...], cls: type, *, name: str) -> None:
     names: list[str] = []
     for link in links:
@@ -510,19 +565,67 @@ def _require_unique_links(links: tuple[object, ...], cls: type, *, name: str) ->
         names.append(link_name)
 
 
-def _require_video_links(
+def _require_modality_links(
     videos: tuple[SessionVideo, ...],
     poses: tuple[SessionPose, ...],
     behaviors: tuple[SessionBehavior, ...],
+    calibrations: tuple[SessionCalibration, ...],
 ) -> None:
-    roles = {video.role for video in videos}
-    referenced = [role for pose in poses for role in pose.video_roles]
+    for pose in poses:
+        if any(not _contains_identity(videos, video) for video in pose.videos):
+            raise ValueError("Session pose references a video outside its session.")
+        if pose.calibration is not None and not _contains_identity(
+            calibrations, pose.calibration
+        ):
+            raise ValueError("Session pose references a calibration outside its session.")
+    for behavior in behaviors:
+        if any(not _contains_identity(videos, video) for video in behavior.videos):
+            raise ValueError("Session behavior references a video outside its session.")
+        if any(not _contains_identity(poses, pose) for pose in behavior.poses):
+            raise ValueError("Session behavior references a pose outside its session.")
+
+
+def _contains_identity(values: Sequence[object], target: object) -> bool:
+    return any(value is target for value in values)
+
+
+def _timebase_registry(
+    session_timebase: Timebase, declared: tuple[Timebase, ...]
+) -> tuple[Timebase, ...]:
+    values = (session_timebase, *tuple(declared))
+    by_name: dict[str, Timebase] = {}
+    for value in values:
+        if not isinstance(value, Timebase):
+            raise TypeError("session timebases must contain Timebase objects.")
+        existing = by_name.get(value.name)
+        if existing is not None and existing != value:
+            raise ValueError(f"Conflicting session timebase definition: {value.name!r}.")
+        by_name[value.name] = value
+    return tuple(by_name.values())
+
+
+def _require_registered_timebases(
+    registry: tuple[Timebase, ...],
+    *,
+    signals: tuple[SessionSignal, ...],
+    videos: tuple[SessionVideo, ...],
+    behaviors: tuple[SessionBehavior, ...],
+    alignments: tuple[TimebaseAlignment, ...],
+    event_streams: tuple[SessionEventStream, ...],
+) -> None:
+    registered = {timebase.name: timebase for timebase in registry}
+    referenced = [link.recording.timeline.timebase for link in signals]
+    referenced.extend(video.timebase for video in videos)
+    referenced.extend(behavior.labels.timebase for behavior in behaviors)
+    referenced.extend(stream.events.timebase for stream in event_streams)
     referenced.extend(
-        behavior.video_role for behavior in behaviors if behavior.video_role is not None
+        endpoint for alignment in alignments for endpoint in (alignment.source, alignment.target)
     )
-    missing = sorted(set(referenced) - roles)
-    if missing:
-        raise ValueError(f"Session links reference unknown video roles: {', '.join(missing)}.")
+    for timebase in referenced:
+        if registered.get(timebase.name) != timebase:
+            raise ValueError(
+                f"Session modality references unregistered timebase {timebase.name!r}."
+            )
 
 
 def _require_unique_calibration_camera_links(
@@ -538,9 +641,7 @@ def _require_unique_calibration_camera_links(
         if link.camera.camera_id in camera_ids:
             raise ValueError(f"Duplicate calibration camera_id: {link.camera.camera_id!r}.")
         if link.calibrated_camera.name in calibration_names:
-            raise ValueError(
-                f"Duplicate calibrated camera name: {link.calibrated_camera.name!r}."
-            )
+            raise ValueError(f"Duplicate calibrated camera name: {link.calibrated_camera.name!r}.")
         camera_ids.add(link.camera.camera_id)
         calibration_names.add(link.calibrated_camera.name)
 
@@ -562,23 +663,6 @@ def _require_acquisition_links(
             raise ValueError(
                 f"Session references unregistered acquisition camera {camera.camera_id!r}."
             )
-
-
-def _require_pose_calibrations(
-    poses: tuple[SessionPose, ...], calibrations: tuple[SessionCalibration, ...]
-) -> None:
-    names = {link.name for link in calibrations}
-    missing = sorted(
-        {
-            pose.calibration_name
-            for pose in poses
-            if pose.calibration_name is not None and pose.calibration_name not in names
-        }
-    )
-    if missing:
-        raise ValueError(
-            f"Session poses reference unknown calibrations: {', '.join(missing)}."
-        )
 
 
 def _named_link_value(
@@ -603,6 +687,7 @@ __all__ = [
     "SessionCalibration",
     "SessionPose",
     "SessionPoseData",
+    "SessionEventStream",
     "SessionSignal",
     "SessionSignalValue",
     "SessionVideo",

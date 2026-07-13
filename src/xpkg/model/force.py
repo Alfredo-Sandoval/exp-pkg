@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import numpy as np
+
+from xpkg.model.time import Timebase, Timeline
 
 
 def _metadata_pairs(
@@ -57,9 +59,9 @@ class ForcePlateData:
     sample_rate_hz: float
     units: tuple[tuple[str, str], ...]
     axis_convention: tuple[tuple[str, str], ...]
-    provenance: tuple[tuple[str, str], ...]
     moment_xyz_Nm: np.ndarray | None = None  # noqa: N815
     cop_xyz_m: np.ndarray | None = None
+    timebase: Timebase = field(default_factory=Timebase)
 
     def __post_init__(self) -> None:
         sample_times_s = np.asarray(self.sample_times_s, dtype=np.float64)
@@ -69,13 +71,14 @@ class ForcePlateData:
         sample_rate_hz = float(self.sample_rate_hz)
         units = _metadata_pairs(self.units, field_name="force.units")
         axis_convention = _force_axis_convention(self.axis_convention)
-        provenance = _metadata_pairs(self.provenance, field_name="force.provenance")
 
         if sample_times_s.ndim != 1:
             raise ValueError(
                 "ForcePlateData.sample_times_s must have shape (samples,), "
                 f"got {sample_times_s.shape}."
             )
+        if sample_times_s.size == 0:
+            raise ValueError("ForcePlateData.sample_times_s must contain at least one sample.")
         if not np.isfinite(sample_times_s).all():
             raise ValueError("ForcePlateData.sample_times_s must be finite.")
         if not np.all(np.diff(sample_times_s) > 0.0):
@@ -106,6 +109,8 @@ class ForcePlateData:
             raise ValueError(
                 f"ForcePlateData.sample_rate_hz must be positive, got {sample_rate_hz}."
             )
+        if not isinstance(self.timebase, Timebase):
+            raise TypeError("ForcePlateData.timebase must be a Timebase.")
 
         vector_shape: tuple[int, int, int] = (
             int(force_xyz_n.shape[0]),
@@ -134,7 +139,6 @@ class ForcePlateData:
         object.__setattr__(self, "sample_rate_hz", sample_rate_hz)
         object.__setattr__(self, "units", units)
         object.__setattr__(self, "axis_convention", axis_convention)
-        object.__setattr__(self, "provenance", provenance)
         object.__setattr__(self, "moment_xyz_Nm", moment_xyz_nm)
         object.__setattr__(self, "cop_xyz_m", cop_xyz_m)
 
@@ -145,6 +149,19 @@ class ForcePlateData:
     @property
     def n_plates(self) -> int:
         return int(self.force_xyz_N.shape[1])
+
+    @property
+    def n_channels(self) -> int:
+        return self.n_plates * 3
+
+    @property
+    def timeline(self) -> Timeline:
+        """Return the canonical sampled timeline for this force recording."""
+        return Timeline(
+            timestamps_s=self.sample_times_s,
+            timebase=self.timebase,
+            sample_rate_hz=self.sample_rate_hz,
+        )
 
 
 __all__ = ["ForcePlateData"]

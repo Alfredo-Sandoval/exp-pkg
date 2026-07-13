@@ -6,23 +6,37 @@ from hypothesis import given
 from hypothesis import strategies as st
 
 from xpkg.io.experiment_json import experiment_document, experiment_from_document
+from xpkg.io.session_json import (
+    recording_session_document,
+    recording_session_from_document,
+)
 from xpkg.model import (
+    BehaviorInterval,
+    BehaviorLabels,
+    BehaviorSubjectLink,
     CoordinateFrameKind,
     DatasetShareMetadata,
+    Event,
+    EventRelationship,
+    EventRelationshipKind,
+    EventTable,
     Experiment,
     ExperimentalCondition,
     ExperimentSessionLink,
     PoseCoordinateFrame,
+    PoseTrack,
     PoseTrajectory,
     Protocol,
     RecordingSession,
+    SessionBehavior,
     SessionConditionLink,
+    SessionEventStream,
     SessionPose,
     SessionProtocolLink,
     SessionSignal,
     SessionSubjectLink,
     Subject,
-    SubjectTrackLink,
+    SubjectTrackAssignment,
     TimeSeries,
     add_experiment_session,
     replace_experiment_session,
@@ -99,7 +113,7 @@ def test_experiment_roundtrips_subject_to_multi_animal_pose_tracks() -> None:
     second = Subject(subject_id="mouse-2")
     trajectory = PoseTrajectory(
         fps=30.0,
-        track_ids=("track-a", "track-b"),
+        tracks=(PoseTrack("track-a"), PoseTrack("track-b")),
         keypoint_names=("nose", "tail"),
         positions=np.zeros((3, 2, 2, 3), dtype=np.float64),
         valid=np.ones((3, 2, 2), dtype=bool),
@@ -113,6 +127,7 @@ def test_experiment_roundtrips_subject_to_multi_animal_pose_tracks() -> None:
         session_id="social-interaction",
         poses=(SessionPose(name="pose-3d", data=trajectory),),
     )
+    pose = session.poses[0]
     experiment = Experiment(
         experiment_id="experiment-1",
         title="Social interaction",
@@ -121,9 +136,21 @@ def test_experiment_roundtrips_subject_to_multi_animal_pose_tracks() -> None:
             ExperimentSessionLink(
                 session=session,
                 subjects=(SessionSubjectLink(first), SessionSubjectLink(second)),
-                subject_tracks=(
-                    SubjectTrackLink(first, pose_name="pose-3d", track_id="track-a"),
-                    SubjectTrackLink(second, pose_name="pose-3d", track_id="track-b"),
+                subject_track_assignments=(
+                    SubjectTrackAssignment(
+                        first,
+                        pose=pose,
+                        track=trajectory.track("track-a"),
+                        start_frame=0,
+                        end_frame=2,
+                    ),
+                    SubjectTrackAssignment(
+                        second,
+                        pose=pose,
+                        track=trajectory.track("track-b"),
+                        start_frame=0,
+                        end_frame=2,
+                    ),
                 ),
             ),
         ),
@@ -131,19 +158,127 @@ def test_experiment_roundtrips_subject_to_multi_animal_pose_tracks() -> None:
 
     restored = experiment_from_document(experiment_document(experiment))
 
-    links = restored.session_links[0].subject_tracks
+    links = restored.session_links[0].subject_track_assignments
     assert [(link.subject_id, link.track_id) for link in links] == [
         ("mouse-1", "track-a"),
         ("mouse-2", "track-b"),
     ]
     assert links[0].subject is restored.subjects[0]
 
+    replacement = recording_session_from_document(recording_session_document(session))
+    replaced = replace_experiment_session(experiment, replacement)
+    replaced_assignment = replaced.session_links[0].subject_track_assignments[0]
+    assert replaced_assignment.pose is replacement.poses[0]
+    assert replaced_assignment.track is replacement.poses[0].data.tracks[0]
+
+
+def test_experiment_roundtrips_behavior_attribution_and_event_relationships() -> None:
+    subject = Subject(subject_id="mouse-1")
+    behavior = SessionBehavior(
+        name="ethogram",
+        labels=BehaviorLabels(
+            source_type="manual",
+            intervals=(BehaviorInterval(label="approach", start_s=1.0, end_s=2.0),),
+        ),
+    )
+    stimulus = Event(event_id="stimulus-1", kind="stimulus", start_s=0.5)
+    response = Event(event_id="response-1", kind="response", start_s=1.0)
+    stimuli = SessionEventStream("stimuli", EventTable(events=(stimulus,)))
+    responses = SessionEventStream("responses", EventTable(events=(response,)))
+    session = RecordingSession(
+        session_id="session-1",
+        behaviors=(behavior,),
+        event_streams=(stimuli, responses),
+    )
+    experiment = Experiment(
+        experiment_id="experiment-1",
+        title="Stimulus response",
+        subjects=(subject,),
+        session_links=(
+            ExperimentSessionLink(
+                session=session,
+                subjects=(SessionSubjectLink(subject),),
+                behavior_subjects=(BehaviorSubjectLink(behavior, subject),),
+                event_relationships=(
+                    EventRelationship(
+                        source_stream=stimuli,
+                        source_event=stimulus,
+                        target_stream=responses,
+                        target_event=response,
+                        kind=EventRelationshipKind.TRIGGERS,
+                    ),
+                ),
+            ),
+        ),
+    )
+
+    restored = experiment_from_document(experiment_document(experiment))
+
+    restored_link = restored.session_links[0]
+    assert restored_link.behavior_subjects[0].subject is restored.subjects[0]
+    assert restored_link.behavior_subjects[0].behavior is restored_link.session.behaviors[0]
+    relationship = restored_link.event_relationships[0]
+    assert relationship.kind is EventRelationshipKind.TRIGGERS
+    assert relationship.source_event.event_id == "stimulus-1"
+    assert relationship.target_event.event_id == "response-1"
+
+    replacement = recording_session_from_document(recording_session_document(session))
+    replaced = replace_experiment_session(experiment, replacement)
+    replaced_link = replaced.session_links[0]
+    assert replaced_link.behavior_subjects[0].behavior is replacement.behaviors[0]
+    assert replaced_link.event_relationships[0].source_stream is replacement.event_streams[0]
+    replaced_relationship = replaced_link.event_relationships[0]
+    assert replaced_relationship.source_event is replacement.event_streams[0].events.events[0]
+
+
+def test_subject_track_reassignment_requires_nonoverlapping_frame_ranges() -> None:
+    first = Subject(subject_id="mouse-1")
+    second = Subject(subject_id="mouse-2")
+    trajectory = PoseTrajectory(
+        fps=30.0,
+        tracks=(PoseTrack("track-a"),),
+        keypoint_names=("nose",),
+        positions=np.zeros((10, 1, 1, 2), dtype=np.float64),
+        valid=np.ones((10, 1, 1), dtype=bool),
+        dims=2,
+        coordinate_frame=PoseCoordinateFrame(
+            kind=CoordinateFrameKind.IMAGE_PIXEL,
+            units="px",
+        ),
+    )
+    session = RecordingSession(
+        session_id="session-1",
+        poses=(SessionPose(name="pose", data=trajectory),),
+    )
+    pose = session.poses[0]
+    assignments = (
+        SubjectTrackAssignment(first, pose, trajectory.track("track-a"), 0, 4),
+        SubjectTrackAssignment(second, pose, trajectory.track("track-a"), 5, 9),
+    )
+
+    link = ExperimentSessionLink(
+        session=session,
+        subjects=(SessionSubjectLink(first), SessionSubjectLink(second)),
+        subject_track_assignments=assignments,
+    )
+    assert link.subject_track_assignments == assignments
+
+    with pytest.raises(ValueError, match="cannot overlap"):
+        ExperimentSessionLink(
+            session=session,
+            subjects=(SessionSubjectLink(first), SessionSubjectLink(second)),
+            subject_track_assignments=(
+                assignments[0],
+                SubjectTrackAssignment(second, pose, trajectory.track("track-a"), 4, 9),
+            ),
+        )
+
 
 def test_experiment_rejects_subject_link_to_unknown_pose_track() -> None:
     subject = Subject(subject_id="mouse-1")
     trajectory = PoseTrajectory(
         fps=30.0,
-        track_ids=("track-a",),
+        tracks=(PoseTrack("track-a"),),
         keypoint_names=("nose",),
         positions=np.zeros((3, 1, 1, 2), dtype=np.float64),
         valid=np.ones((3, 1, 1), dtype=bool),
@@ -154,15 +289,22 @@ def test_experiment_rejects_subject_link_to_unknown_pose_track() -> None:
         ),
     )
 
-    with pytest.raises(ValueError, match="unknown track 'track-b'"):
+    pose = SessionPose(name="pose", data=trajectory)
+    with pytest.raises(ValueError, match="track outside its pose"):
         ExperimentSessionLink(
             session=RecordingSession(
                 session_id="session-1",
-                poses=(SessionPose(name="pose", data=trajectory),),
+                poses=(pose,),
             ),
             subjects=(SessionSubjectLink(subject),),
-            subject_tracks=(
-                SubjectTrackLink(subject, pose_name="pose", track_id="track-b"),
+            subject_track_assignments=(
+                SubjectTrackAssignment(
+                    subject,
+                    pose=pose,
+                    track=PoseTrack("track-b"),
+                    start_frame=0,
+                    end_frame=2,
+                ),
             ),
         )
 

@@ -1,9 +1,7 @@
-"""Skeleton schema, normalization, validation, and analytics adapters.
+"""Skeleton schema, normalization, validation, and analytics operations.
 
  - Link field is ``links`` (pairs of keypoint names; undirected).
- - Accept aliases on load: {edges, segments, bones, skeleton}; normalize to ``links``.
- - Accept keypoint container aliases:
-   {keypoints, bodyparts, markers, nodes, landmarks}; normalize to ``keypoints``.
+ - Keypoint field is ``keypoints``.
  - Do NOT store symmetry pairs; derive L<->R from per-keypoint ``side``
    + *_left/_right naming.
  - Optionally normalize names to snake_case and expand L/R tokens.
@@ -19,10 +17,8 @@ import re
 import warnings
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
-from pathlib import Path
 from typing import Any
 
-from xpkg._core.json_utils import parse_json_dict
 from xpkg._core.logging_utils import get_logger
 
 logger = get_logger(__name__)
@@ -840,83 +836,6 @@ class Skeleton:
             "description": self.description,
             "extras": self.extras or {},
         }
-
-    def dump(self, path: Path, *, fmt: str | None = None, keep_names: bool = True) -> None:
-        """Save to JSON.
-
-        Args:
-            path: The file path to save to.
-            fmt: The format to use (currently only 'json' is supported).
-            keep_names: Whether to use keypoint names for links.
-
-        Raises:
-            ValueError: If an unknown format is specified.
-        """
-        from xpkg.io.skeleton_io import dump_skeleton
-
-        dump_skeleton(self, path, fmt=fmt, keep_names=keep_names)
-
-    @classmethod
-    def load(cls, src: Path, **kwargs) -> Skeleton:
-        """Load a skeleton from JSON file.
-
-        Args:
-            src: The path to the JSON file.
-            **kwargs: Additional arguments passed to `from_dict`.
-
-        Returns:
-            A Skeleton instance.
-
-        Raises:
-            ValueError: If the file is not a JSON file.
-        """
-        from xpkg.io.skeleton_io import load_skeleton
-
-        return load_skeleton(src, **kwargs)
-
-    @classmethod
-    def load_any(
-        cls,
-        path: str | Path,
-        *,
-        format: str | None = None,
-        **kwargs,
-    ) -> Skeleton:
-        """Load skeleton from any supported external format.
-
-        Auto-detects format by file extension. Supports:
-        - .json: xpkg skeleton JSON format
-        - .pkg.slp: SLEAP package files
-        - .yaml/.yml: DLC, SLEAP, or Ultralytics format (auto-detected)
-
-        Args:
-            path: Path to skeleton file.
-            format: Optional format override ('dlc', 'sleap', 'ultralytics').
-            **kwargs: Additional arguments (reserved for future use).
-
-        Returns:
-            Skeleton: Loaded and normalized skeleton.
-
-        Raises:
-            ValueError: If file format is unsupported or parsing fails.
-            ImportError: If optional dependency is required but missing.
-        """
-        from xpkg.io.skeleton_io import load_any_skeleton
-
-        return load_any_skeleton(path, format=format, **kwargs)
-
-    @classmethod
-    def from_json(cls, text: str, **kwargs) -> Skeleton:
-        """Load a skeleton from JSON text.
-
-        Args:
-            text: The JSON string.
-            **kwargs: Additional arguments passed to `from_dict`.
-
-        Returns:
-            A Skeleton instance.
-        """
-        return cls.from_dict(parse_json_dict(text), **kwargs)
 
     def resolve_pairs(self, pairs: Sequence[Sequence[Any]]) -> list[tuple[int, int]]:
         """Resolve keypoint names/ids into integer index pairs.

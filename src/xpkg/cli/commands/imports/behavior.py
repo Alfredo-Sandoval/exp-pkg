@@ -36,8 +36,13 @@ def import_behavior(
     session_id: Annotated[
         str | None, typer.Option("--session-id", help="Canonical recording session ID.")
     ] = None,
-    video_role: Annotated[
-        str | None, typer.Option("--video-role", help="Existing session video role.")
+    video_roles: Annotated[
+        list[str] | None,
+        typer.Option("--video-role", help="Related session video role. Repeat as needed."),
+    ] = None,
+    pose_names: Annotated[
+        list[str] | None,
+        typer.Option("--pose-name", help="Related session pose name. Repeat as needed."),
     ] = None,
     force: Annotated[
         bool, typer.Option("--force", help="Replace the named behavior link.")
@@ -59,7 +64,8 @@ def import_behavior(
             path=source_path,
             behavior_name=behavior_name,
             session_id=session_id,
-            video_role=video_role,
+            video_roles=tuple(video_roles or ()),
+            pose_names=tuple(pose_names or ()),
             force=force,
         )
         return import_payload(selected, project_path, state_path)

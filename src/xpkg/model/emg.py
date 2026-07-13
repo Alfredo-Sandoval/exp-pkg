@@ -4,11 +4,29 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
+from enum import StrEnum
 
 import numpy as np
 
-_VALID_SIDES = {"left", "right", "unknown", "bilateral"}
-_VALID_PROCESSING_STATES = {"raw", "filtered", "rectified", "envelope"}
+from xpkg.model.time import Timebase, Timeline
+
+
+class EMGSide(StrEnum):
+    """Anatomical side associated with one EMG channel."""
+
+    LEFT = "left"
+    RIGHT = "right"
+    UNKNOWN = "unknown"
+    BILATERAL = "bilateral"
+
+
+class EMGProcessingState(StrEnum):
+    """Declared processing state of an EMG signal."""
+
+    RAW = "raw"
+    FILTERED = "filtered"
+    RECTIFIED = "rectified"
+    ENVELOPE = "envelope"
 
 
 def _tuple_str(items: Sequence[str], *, name: str) -> tuple[str, ...]:
@@ -36,16 +54,10 @@ def _metadata_pairs(
     return pairs
 
 
-def _normalize_sides(items: Sequence[str]) -> tuple[str, ...]:
-    if any(not isinstance(item, str) for item in items):
-        raise TypeError("EMG sides entries must be strings.")
-    sides = tuple(item.strip().lower() for item in items)
-    invalid = tuple(side for side in sides if side not in _VALID_SIDES)
-    if invalid:
-        raise ValueError(
-            "EMG sides must be one of left, right, unknown, or bilateral; "
-            f"got {invalid}."
-        )
+def _normalize_sides(items: Sequence[EMGSide]) -> tuple[EMGSide, ...]:
+    sides = tuple(items)
+    if any(not isinstance(side, EMGSide) for side in sides):
+        raise TypeError("EMG sides entries must be EMGSide values.")
     return sides
 
 
@@ -57,11 +69,11 @@ class EMGSignalData:
     signals: np.ndarray
     channel_names: tuple[str, ...]
     muscle_names: tuple[str, ...]
-    sides: tuple[str, ...]
+    sides: tuple[EMGSide, ...]
     sample_rate_hz: float
     units: tuple[tuple[str, str], ...]
-    processing_state: str
-    provenance: tuple[tuple[str, str], ...]
+    processing_state: EMGProcessingState
+    timebase: Timebase = Timebase()
 
     def __post_init__(self) -> None:
         sample_times_s = np.asarray(self.sample_times_s, dtype=np.float64)
@@ -71,22 +83,19 @@ class EMGSignalData:
         sides = _normalize_sides(self.sides)
         sample_rate_hz = float(self.sample_rate_hz)
         units = _metadata_pairs(self.units, name="EMG units")
-        provenance = _metadata_pairs(self.provenance, name="EMG provenance")
-        processing_state = str(self.processing_state).strip().lower()
+        processing_state = self.processing_state
 
         if sample_times_s.ndim != 1:
-            raise ValueError(
-                "EMG sample_times_s must be 1D, "
-                f"got shape {sample_times_s.shape}."
-            )
+            raise ValueError(f"EMG sample_times_s must be 1D, got shape {sample_times_s.shape}.")
+        if sample_times_s.size == 0:
+            raise ValueError("EMG sample_times_s must contain at least one sample.")
         if not np.isfinite(sample_times_s).all():
             raise ValueError("EMG sample_times_s must contain only finite values.")
         if sample_times_s.size > 1 and not np.all(np.diff(sample_times_s) > 0):
             raise ValueError("EMG sample_times_s must be strictly increasing.")
         if signals.ndim != 2:
             raise ValueError(
-                "EMG signals must have shape (samples, channels), "
-                f"got {signals.shape}."
+                f"EMG signals must have shape (samples, channels), got {signals.shape}."
             )
         if signals.shape[0] != sample_times_s.shape[0]:
             raise ValueError(
@@ -113,14 +122,12 @@ class EMGSignalData:
             )
         if not np.isfinite(sample_rate_hz) or sample_rate_hz <= 0:
             raise ValueError(
-                "EMG sample_rate_hz must be finite and positive, "
-                f"got {sample_rate_hz}."
+                f"EMG sample_rate_hz must be finite and positive, got {sample_rate_hz}."
             )
-        if processing_state not in _VALID_PROCESSING_STATES:
-            raise ValueError(
-                "EMG processing_state must be one of raw, filtered, rectified, "
-                f"or envelope; got {processing_state!r}."
-            )
+        if not isinstance(processing_state, EMGProcessingState):
+            raise TypeError("EMG processing_state must be an EMGProcessingState.")
+        if not isinstance(self.timebase, Timebase):
+            raise TypeError("EMG timebase must be a Timebase.")
 
         object.__setattr__(self, "sample_times_s", sample_times_s)
         object.__setattr__(self, "signals", signals)
@@ -130,7 +137,23 @@ class EMGSignalData:
         object.__setattr__(self, "sample_rate_hz", sample_rate_hz)
         object.__setattr__(self, "units", units)
         object.__setattr__(self, "processing_state", processing_state)
-        object.__setattr__(self, "provenance", provenance)
+
+    @property
+    def timeline(self) -> Timeline:
+        """Return the canonical sampled timeline for this EMG recording."""
+        return Timeline(
+            timestamps_s=self.sample_times_s,
+            timebase=self.timebase,
+            sample_rate_hz=self.sample_rate_hz,
+        )
+
+    @property
+    def n_samples(self) -> int:
+        return int(self.signals.shape[0])
+
+    @property
+    def n_channels(self) -> int:
+        return int(self.signals.shape[1])
 
 
-__all__ = ["EMGSignalData"]
+__all__ = ["EMGProcessingState", "EMGSide", "EMGSignalData"]

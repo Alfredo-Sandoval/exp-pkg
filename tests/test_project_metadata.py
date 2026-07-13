@@ -165,22 +165,22 @@ def test_semantic_metadata_packs_only_in_canonical_experiment_state(tmp_path: Pa
     init_project(project, title="Scoped Metadata Pack Project")
     save_project_acquisition(
         project,
-        {
-            "acquisition_id": "acq-pack",
-            "system": "multi-camera rig",
-            "cameras": [{"camera_id": "cam-top", "frame_rate_hz": 120.0}],
-        },
+        AcquisitionMetadata(
+            acquisition_id="acq-pack",
+            system="multi-camera rig",
+            cameras=(CameraMetadata(camera_id="cam-top", frame_rate_hz=120.0),),
+        ),
     )
     save_project_dataset_share(
         project,
-        {
-            "title": "Packable behavior dataset",
-            "creators": ["Sandoval Lab"],
-            "license": "BSD-3-Clause",
-            "doi": "10.0000/packable",
-            "funders": ["NIH"],
-            "related_publications": ["Example et al. 2024"],
-        },
+        DatasetShareMetadata(
+            title="Packable behavior dataset",
+            creators=("Sandoval Lab",),
+            license="BSD-3-Clause",
+            doi="10.0000/packable",
+            funders=("NIH",),
+            related_publications=("Example et al. 2024",),
+        ),
     )
 
     artifact = pack_project(project, out=tmp_path / "scoped-metadata.expkg")

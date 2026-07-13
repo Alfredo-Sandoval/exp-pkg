@@ -94,7 +94,7 @@ metadata.
 <div class="card" markdown>
 ### Signals + events
 Photometry (Doric, Neurophotometrics, pyPhotometry, RWD OFRS, Teleopto, TDT,
-pMAT, generic CSV), behavior outputs, and event tables, all through
+pMAT, generic CSV), behavior outputs, and named event streams, all through
 `xpkg.readers`. Generic photometry CSV also has service and CLI project
 integration through canonical experiment state.
 </div>

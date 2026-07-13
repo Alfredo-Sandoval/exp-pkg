@@ -62,8 +62,11 @@ def test_convert_mmpose_topdown_json_supports_instance_slots(tmp_path: Path) -> 
 def test_import_mmpose_topdown_json_project_imports_sequence_into_project(
     tmp_path: Path,
 ) -> None:
-    from xpkg.model import Labels
-    from xpkg.project import current_project_state_path, load_project_session
+    from xpkg.project import (
+        current_project_state_path,
+        load_project_labels,
+        load_project_session,
+    )
     from xpkg.project.store.imports import import_mmpose_topdown_json_project
 
     json_path = write_mmpose_topdown_json(tmp_path / "results_session.json")
@@ -83,7 +86,7 @@ def test_import_mmpose_topdown_json_project_imports_sequence_into_project(
     assert pose_metadata["source"] == "mmpose_topdown_json_import"
     assert pose_metadata["source_json"] == json_path.name
 
-    labels = Labels.load_file(project.as_posix())
+    labels = load_project_labels(project)
     assert len(labels.skeletons[0].keypoint_names) == 3
     assert labels.skeletons[0].links_ids == [(0, 1), (1, 2)]
     assert len(labels.videos) == 1

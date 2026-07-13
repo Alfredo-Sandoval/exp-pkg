@@ -27,7 +27,7 @@ from xpkg.project import (
     load_project_dataset_share,
     load_project_datasheet,
     load_project_descriptor,
-    load_project_events,
+    load_project_event_stream,
     load_project_experiment,
     load_project_metadata,
     load_project_metadata_field,
@@ -40,7 +40,7 @@ from xpkg.project import (
     save_project_behavior,
     save_project_dataset_share,
     save_project_datasheet,
-    save_project_events,
+    save_project_event_stream,
     save_project_experiment,
     save_project_labels,
     save_project_metadata,
@@ -88,6 +88,8 @@ if TYPE_CHECKING:
         ModelCard,
         PoseModelProvenance,
         RecordingSession,
+        SessionBehavior,
+        SessionEventStream,
         TimebaseAlignment,
     )
     from xpkg.model.session import AlignmentModel, SynchronizationMethod
@@ -504,6 +506,7 @@ class ProjectService:
         format: EventFormat,
         *,
         path: str | Path,
+        event_stream_name: str = "events",
         session_id: str | None = None,
         force: bool = False,
     ) -> Path:
@@ -513,6 +516,7 @@ class ProjectService:
         return import_events_csv_project(
             path,
             project=self.project_root,
+            event_stream_name=event_stream_name,
             session_id=session_id,
             force=force,
         )
@@ -524,7 +528,8 @@ class ProjectService:
         path: str | Path,
         behavior_name: str = "behavior",
         session_id: str | None = None,
-        video_role: str | None = None,
+        video_roles: tuple[str, ...] = (),
+        pose_names: tuple[str, ...] = (),
         force: bool = False,
     ) -> Path:
         """Import behavior labels into a named recording-session link."""
@@ -534,7 +539,8 @@ class ProjectService:
             project=self.project_root,
             behavior_name=behavior_name,
             session_id=session_id,
-            video_role=video_role,
+            video_roles=video_roles,
+            pose_names=pose_names,
             force=force,
         )
 
@@ -619,18 +625,33 @@ class ProjectService:
         """Load a named session, or the sole session when unambiguous."""
         return load_project_session(self.project_root, session_id=session_id)
 
-    def load_events(self, *, session_id: str | None = None) -> EventTable:
-        """Load the canonical event table for one recording session."""
-        return load_project_events(self.project_root, session_id=session_id)
-
-    def save_events(
+    def load_event_stream(
         self,
-        events: EventTable,
+        *,
+        event_stream_name: str,
+        session_id: str | None = None,
+    ) -> EventTable:
+        """Load one named event table from a recording session."""
+        return load_project_event_stream(
+            self.project_root,
+            event_stream_name=event_stream_name,
+            session_id=session_id,
+        )
+
+    def save_event_stream(
+        self,
+        stream: SessionEventStream,
         *,
         session_id: str | None = None,
+        replace_existing: bool = True,
     ) -> Path:
-        """Commit a typed event table to one recording session."""
-        return save_project_events(self.project_root, events, session_id=session_id)
+        """Add or replace one named event stream."""
+        return save_project_event_stream(
+            self.project_root,
+            stream,
+            session_id=session_id,
+            replace_existing=replace_existing,
+        )
 
     def load_behavior(
         self,
@@ -647,20 +668,16 @@ class ProjectService:
 
     def save_behavior(
         self,
-        labels: BehaviorLabels,
+        behavior: SessionBehavior,
         *,
-        behavior_name: str = "behavior",
         session_id: str | None = None,
-        video_role: str | None = None,
         replace_existing: bool = True,
     ) -> Path:
         """Add or replace one typed behavior-label link."""
         return save_project_behavior(
             self.project_root,
-            labels,
-            behavior_name=behavior_name,
+            behavior,
             session_id=session_id,
-            video_role=video_role,
             replace_existing=replace_existing,
         )
 
@@ -692,30 +709,24 @@ class ProjectService:
             replace_existing=replace_existing,
         )
 
-    def load_acquisition(
-        self, *, session_id: str | None = None
-    ) -> AcquisitionMetadata | None:
+    def load_acquisition(self, *, session_id: str | None = None) -> AcquisitionMetadata | None:
         """Load acquisition context owned by one recording session."""
         return load_project_acquisition(self.project_root, session_id=session_id)
 
     def save_acquisition(
         self,
-        acquisition: AcquisitionMetadata | Mapping[str, object],
+        acquisition: AcquisitionMetadata,
         *,
         session_id: str | None = None,
     ) -> Path:
         """Commit acquisition context to one recording session."""
-        return save_project_acquisition(
-            self.project_root, acquisition, session_id=session_id
-        )
+        return save_project_acquisition(self.project_root, acquisition, session_id=session_id)
 
     def load_dataset_share(self) -> DatasetShareMetadata | None:
         """Load dataset-sharing metadata owned by the experiment."""
         return load_project_dataset_share(self.project_root)
 
-    def save_dataset_share(
-        self, dataset_share: DatasetShareMetadata | Mapping[str, object]
-    ) -> Path:
+    def save_dataset_share(self, dataset_share: DatasetShareMetadata) -> Path:
         """Commit dataset-sharing metadata to the experiment."""
         return save_project_dataset_share(self.project_root, dataset_share)
 

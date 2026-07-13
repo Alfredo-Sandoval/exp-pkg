@@ -16,8 +16,8 @@ from xpkg._core.json_utils import load_json_dict, write_json
 from xpkg._core.path_registry import ensure_dir
 from xpkg._core.time import now_utc_iso
 from xpkg.io.experiment_json import EXPERIMENT_FORMAT
-from xpkg.io.labels.model import Labels
 from xpkg.model.experiment import Experiment
+from xpkg.model.labels import Labels
 from xpkg.model.signals import PhotometryRecording
 from xpkg.project.durable_store import ProjectDurableStore, ProjectDurableStoreError
 from xpkg.project.layout import (
@@ -33,7 +33,7 @@ if TYPE_CHECKING:
     from xpkg.model import RecordingSession
 
 
-PROJECT_SUMMARY_SCHEMA_VERSION = 2
+PROJECT_SUMMARY_SCHEMA_VERSION = 3
 _STATE_PREFIX_BYTES = 8192
 _ARTIFACT_INDEX_FILENAME = "index.json"
 _METADATA_SLOT_FILES = {
@@ -143,15 +143,14 @@ def _recording_state_summary(session: RecordingSession) -> dict[str, JsonScalar]
     ]
     time_range = session.time_range
     pose_labels = [link.data for link in session.poses if isinstance(link.data, Labels)]
-    trajectories = [
-        link.data for link in session.poses if not isinstance(link.data, Labels)
-    ]
+    trajectories = [link.data for link in session.poses if not isinstance(link.data, Labels)]
     return {
         "signal_count": len(session.signals),
         "channel_count": sum(item.n_channels for item in series),
         "sample_count": sum(item.n_samples for item in series),
         "video_count": len(session.videos),
-        "event_count": len(session.events),
+        "event_count": sum(len(stream.events) for stream in session.event_streams),
+        "event_stream_count": len(session.event_streams),
         "pose_count": len(session.poses),
         "label_frame_count": sum(len(labels.user_labeled_frames) for labels in pose_labels),
         "prediction_frame_count": sum(
@@ -160,9 +159,7 @@ def _recording_state_summary(session: RecordingSession) -> dict[str, JsonScalar]
         ),
         "trajectory_frame_count": sum(item.n_frames for item in trajectories),
         "behavior_count": len(session.behaviors),
-        "behavior_interval_count": sum(
-            len(link.labels.intervals) for link in session.behaviors
-        ),
+        "behavior_interval_count": sum(len(link.labels.intervals) for link in session.behaviors),
         "calibration_count": len(session.calibrations),
         "alignment_count": len(session.alignments),
         "start_s": None if time_range is None else time_range.start_s,
@@ -179,6 +176,7 @@ def experiment_state_summary(experiment: Experiment) -> dict[str, JsonScalar]:
         "sample_count",
         "video_count",
         "event_count",
+        "event_stream_count",
         "pose_count",
         "label_frame_count",
         "prediction_frame_count",
@@ -240,12 +238,8 @@ def _recording_media_summary(
                 "image_count": int(video.metadata.get("image_count", 0)),
                 "label_frame_count": int(video.metadata.get("label_frame_count", 0)),
                 "max_label_frame_index": video.metadata.get("max_label_frame_index"),
-                "prediction_frame_count": int(
-                    video.metadata.get("prediction_frame_count", 0)
-                ),
-                "max_prediction_frame_index": video.metadata.get(
-                    "max_prediction_frame_index"
-                ),
+                "prediction_frame_count": int(video.metadata.get("prediction_frame_count", 0)),
+                "max_prediction_frame_index": video.metadata.get("max_prediction_frame_index"),
                 "exists": resolved.exists(),
                 "size_bytes": resolved.stat().st_size if resolved.is_file() else None,
             }
@@ -579,8 +573,6 @@ def _duration_seconds(frame_count: int, fps: float) -> float | None:
     if frame_count <= 0 or fps <= 0.0:
         return None
     return float(frame_count / fps)
-
-
 
 
 __all__ = [

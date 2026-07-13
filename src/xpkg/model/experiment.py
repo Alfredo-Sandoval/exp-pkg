@@ -4,19 +4,27 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
+from enum import StrEnum
 from types import MappingProxyType
 from typing import Any
 
-from xpkg.io.labels.model import Labels
 from xpkg.model._metadata_validation import (
     metadata_dict,
     optional_text,
     strict_required_text,
 )
+from xpkg.model.events import Event
 from xpkg.model.identity import IdentityProvenanceRecord
+from xpkg.model.labels import Labels
 from xpkg.model.metadata import DatasetShareMetadata
-from xpkg.model.session import RecordingSession
-from xpkg.pose.trajectory import PoseTrajectory
+from xpkg.model.session import (
+    RecordingSession,
+    SessionBehavior,
+    SessionEventStream,
+    SessionPose,
+)
+from xpkg.pose.annotations import Track
+from xpkg.pose.trajectory import PoseTrack, PoseTrajectory
 
 
 @dataclass(frozen=True, slots=True)
@@ -174,24 +182,32 @@ class SessionConditionLink:
 
 
 @dataclass(frozen=True, slots=True)
-class SubjectTrackLink:
-    """Biological-identity assignment from one subject to one pose track."""
+class SubjectTrackAssignment:
+    """Time-bounded biological-identity assignment to one pose track."""
 
     subject: Subject
-    pose_name: str
-    track_id: str
+    pose: SessionPose
+    track: Track | PoseTrack
+    start_frame: int
+    end_frame: int
     evidence: IdentityProvenanceRecord | None = None
     metadata: Mapping[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         if not isinstance(self.subject, Subject):
             raise TypeError("subject track link must contain a Subject.")
-        object.__setattr__(
-            self, "pose_name", strict_required_text(self.pose_name, name="pose name")
-        )
-        object.__setattr__(
-            self, "track_id", strict_required_text(self.track_id, name="pose track id")
-        )
+        if not isinstance(self.pose, SessionPose):
+            raise TypeError("subject track assignment must contain a SessionPose.")
+        if not isinstance(self.track, Track | PoseTrack):
+            raise TypeError("subject track assignment must contain a Track or PoseTrack.")
+        for field_name in ("start_frame", "end_frame"):
+            value = getattr(self, field_name)
+            if isinstance(value, bool) or not isinstance(value, int):
+                raise TypeError(f"subject track {field_name} must be an integer.")
+            if value < 0:
+                raise ValueError(f"subject track {field_name} must be non-negative.")
+        if self.end_frame < self.start_frame:
+            raise ValueError("subject track end_frame must be >= start_frame.")
         if self.evidence is not None:
             if not isinstance(self.evidence, IdentityProvenanceRecord):
                 raise TypeError(
@@ -209,6 +225,85 @@ class SubjectTrackLink:
     def subject_id(self) -> str:
         return self.subject.subject_id
 
+    @property
+    def pose_name(self) -> str:
+        return self.pose.name
+
+    @property
+    def track_id(self) -> str:
+        if isinstance(self.track, PoseTrack):
+            return self.track.track_id
+        return str(self.track.id)
+
+
+@dataclass(frozen=True, slots=True)
+class BehaviorSubjectLink:
+    """Attribution of one behavior stream to one participating subject."""
+
+    behavior: SessionBehavior
+    subject: Subject
+    role: str = "actor"
+    metadata: Mapping[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.behavior, SessionBehavior):
+            raise TypeError("behavior subject link must contain a SessionBehavior.")
+        if not isinstance(self.subject, Subject):
+            raise TypeError("behavior subject link must contain a Subject.")
+        object.__setattr__(
+            self, "role", strict_required_text(self.role, name="behavior subject role")
+        )
+        object.__setattr__(
+            self,
+            "metadata",
+            MappingProxyType(metadata_dict(self.metadata, name="behavior subject metadata")),
+        )
+
+    @property
+    def subject_id(self) -> str:
+        return self.subject.subject_id
+
+
+class EventRelationshipKind(StrEnum):
+    """Supported semantic relationships between session events."""
+
+    PRECEDES = "precedes"
+    TRIGGERS = "triggers"
+    RESPONSE_TO = "response_to"
+    OUTCOME_OF = "outcome_of"
+    PART_OF = "part_of"
+
+
+@dataclass(frozen=True, slots=True)
+class EventRelationship:
+    """Typed relationship between two events in named session streams."""
+
+    source_stream: SessionEventStream
+    source_event: Event
+    target_stream: SessionEventStream
+    target_event: Event
+    kind: EventRelationshipKind
+    metadata: Mapping[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.source_stream, SessionEventStream) or not isinstance(
+            self.target_stream, SessionEventStream
+        ):
+            raise TypeError("event relationship streams must be SessionEventStream objects.")
+        if not isinstance(self.source_event, Event) or not isinstance(self.target_event, Event):
+            raise TypeError("event relationship endpoints must be Event objects.")
+        if not _contains_identity(self.source_stream.events.events, self.source_event):
+            raise ValueError("event relationship source event is outside its stream.")
+        if not _contains_identity(self.target_stream.events.events, self.target_event):
+            raise ValueError("event relationship target event is outside its stream.")
+        if not isinstance(self.kind, EventRelationshipKind):
+            raise TypeError("event relationship kind must be EventRelationshipKind.")
+        object.__setattr__(
+            self,
+            "metadata",
+            MappingProxyType(metadata_dict(self.metadata, name="event relationship metadata")),
+        )
+
 
 @dataclass(frozen=True, slots=True)
 class ExperimentSessionLink:
@@ -218,7 +313,9 @@ class ExperimentSessionLink:
     subjects: tuple[SessionSubjectLink, ...] = ()
     protocols: tuple[SessionProtocolLink, ...] = ()
     conditions: tuple[SessionConditionLink, ...] = ()
-    subject_tracks: tuple[SubjectTrackLink, ...] = ()
+    behavior_subjects: tuple[BehaviorSubjectLink, ...] = ()
+    subject_track_assignments: tuple[SubjectTrackAssignment, ...] = ()
+    event_relationships: tuple[EventRelationship, ...] = ()
     metadata: Mapping[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
@@ -227,13 +324,17 @@ class ExperimentSessionLink:
         subjects = tuple(self.subjects)
         protocols = tuple(self.protocols)
         conditions = tuple(self.conditions)
-        subject_tracks = tuple(self.subject_tracks)
+        behavior_subjects = tuple(self.behavior_subjects)
+        assignments = tuple(self.subject_track_assignments)
+        event_relationships = tuple(self.event_relationships)
         _require_unique_objects(subjects, SessionSubjectLink, "subject_id", "session subject")
         _require_unique_objects(protocols, SessionProtocolLink, "role", "session protocol role")
         _require_unique_objects(
             conditions, SessionConditionLink, "condition_id", "session condition"
         )
-        _require_unique_subject_tracks(subject_tracks)
+        _require_unique_behavior_subjects(behavior_subjects)
+        _require_subject_track_assignments(assignments)
+        _require_unique_event_relationships(event_relationships)
         participant_ids = {link.subject_id for link in subjects}
         for condition in conditions:
             unknown = {subject.subject_id for subject in condition.subjects} - participant_ids
@@ -242,12 +343,15 @@ class ExperimentSessionLink:
                     "Session condition references non-participating subjects: "
                     f"{', '.join(sorted(unknown))}."
                 )
-        _require_behavior_subjects(self.session, participant_ids)
-        _require_subject_tracks(self.session, subject_tracks, participant_ids)
+        _require_behavior_subjects(self.session, behavior_subjects, participant_ids)
+        _require_subject_track_targets(self.session, assignments, participant_ids)
+        _require_event_relationships(self.session, event_relationships)
         object.__setattr__(self, "subjects", subjects)
         object.__setattr__(self, "protocols", protocols)
         object.__setattr__(self, "conditions", conditions)
-        object.__setattr__(self, "subject_tracks", subject_tracks)
+        object.__setattr__(self, "behavior_subjects", behavior_subjects)
+        object.__setattr__(self, "subject_track_assignments", assignments)
+        object.__setattr__(self, "event_relationships", event_relationships)
         object.__setattr__(
             self,
             "metadata",
@@ -318,9 +422,7 @@ class Experiment:
         raise KeyError(f"Experiment {self.experiment_id!r} has no session {key!r}.")
 
 
-def _require_unique_objects(
-    values: Sequence[object], cls: type, identity: str, name: str
-) -> None:
+def _require_unique_objects(values: Sequence[object], cls: type, identity: str, name: str) -> None:
     identities: set[str] = set()
     for value in values:
         if not isinstance(value, cls):
@@ -359,35 +461,53 @@ def _require_registered(
     for link in links:
         value = getattr(link, attribute)
         identity = getattr(value, f"{name}_id")
-        if registered.get(identity) != value:
+        if registered.get(identity) is not value:
             raise ValueError(f"Session references unregistered experiment {name} {identity!r}.")
 
 
-def _require_behavior_subjects(session: RecordingSession, subject_ids: set[str]) -> None:
-    referenced = {
-        behavior.labels.subject_id
-        for behavior in session.behaviors
-        if behavior.labels.subject_id is not None
-    }
-    unknown = referenced - subject_ids
-    if unknown:
-        raise ValueError(
-            "Session behavior labels reference non-participating subjects: "
-            f"{', '.join(sorted(unknown))}."
-        )
-
-
-def _require_unique_subject_tracks(links: tuple[SubjectTrackLink, ...]) -> None:
-    if any(not isinstance(link, SubjectTrackLink) for link in links):
-        raise TypeError("session subject_tracks entries must be SubjectTrackLink objects.")
-    identities = [(link.pose_name, link.track_id) for link in links]
-    if len(set(identities)) != len(identities):
-        raise ValueError("Each session pose track can be assigned to at most one subject.")
-
-
-def _require_subject_tracks(
+def _require_behavior_subjects(
     session: RecordingSession,
-    links: tuple[SubjectTrackLink, ...],
+    links: tuple[BehaviorSubjectLink, ...],
+    subject_ids: set[str],
+) -> None:
+    for link in links:
+        if not _contains_identity(session.behaviors, link.behavior):
+            raise ValueError("Behavior subject link references behavior outside its session.")
+        if link.subject_id not in subject_ids:
+            raise ValueError(
+                f"Behavior subject link references non-participating subject {link.subject_id!r}."
+            )
+
+
+def _require_unique_behavior_subjects(links: tuple[BehaviorSubjectLink, ...]) -> None:
+    if any(not isinstance(link, BehaviorSubjectLink) for link in links):
+        raise TypeError("session behavior_subjects entries must be BehaviorSubjectLink objects.")
+    identities = [(link.behavior.name, link.subject_id, link.role) for link in links]
+    if len(set(identities)) != len(identities):
+        raise ValueError("Duplicate session behavior-subject relationship.")
+
+
+def _require_subject_track_assignments(
+    links: tuple[SubjectTrackAssignment, ...],
+) -> None:
+    if any(not isinstance(link, SubjectTrackAssignment) for link in links):
+        raise TypeError(
+            "session subject_track_assignments entries must be SubjectTrackAssignment objects."
+        )
+    for index, link in enumerate(links):
+        for other in links[index + 1 :]:
+            same_track = (link.pose_name, link.track_id) == (
+                other.pose_name,
+                other.track_id,
+            )
+            overlaps = link.start_frame <= other.end_frame and other.start_frame <= link.end_frame
+            if same_track and overlaps:
+                raise ValueError("Subject track assignments cannot overlap on one pose track.")
+
+
+def _require_subject_track_targets(
+    session: RecordingSession,
+    links: tuple[SubjectTrackAssignment, ...],
     participant_ids: set[str],
 ) -> None:
     for link in links:
@@ -395,25 +515,71 @@ def _require_subject_tracks(
             raise ValueError(
                 f"Subject track link references non-participating subject {link.subject_id!r}."
             )
-        pose = next((item for item in session.poses if item.name == link.pose_name), None)
-        if pose is None:
-            raise ValueError(f"Subject track link references unknown pose {link.pose_name!r}.")
-        track_ids = _pose_track_ids(pose.data)
-        if link.track_id not in track_ids:
+        if not _contains_identity(session.poses, link.pose):
+            raise ValueError("Subject track assignment references a pose outside its session.")
+        if not _pose_owns_track(link.pose.data, link.track):
+            raise ValueError("Subject track assignment references a track outside its pose.")
+        frame_count = _pose_frame_count(link.pose.data)
+        if link.end_frame >= frame_count:
             raise ValueError(
-                f"Subject track link references unknown track {link.track_id!r} "
-                f"on pose {link.pose_name!r}."
+                f"Subject track assignment end_frame {link.end_frame} exceeds pose "
+                f"{link.pose_name!r} frame range 0..{frame_count - 1}."
             )
 
 
-def _pose_track_ids(data: Labels | PoseTrajectory) -> set[str]:
+def _require_unique_event_relationships(
+    links: tuple[EventRelationship, ...],
+) -> None:
+    if any(not isinstance(link, EventRelationship) for link in links):
+        raise TypeError("session event_relationships entries must be EventRelationship objects.")
+    identities = [
+        (
+            link.source_stream.name,
+            link.source_event.event_id,
+            link.target_stream.name,
+            link.target_event.event_id,
+            link.kind,
+        )
+        for link in links
+    ]
+    if len(set(identities)) != len(identities):
+        raise ValueError("Duplicate session event relationship.")
+
+
+def _require_event_relationships(
+    session: RecordingSession, links: tuple[EventRelationship, ...]
+) -> None:
+    for link in links:
+        if not _contains_identity(session.event_streams, link.source_stream):
+            raise ValueError("Event relationship source stream is outside its session.")
+        if not _contains_identity(session.event_streams, link.target_stream):
+            raise ValueError("Event relationship target stream is outside its session.")
+
+
+def _pose_owns_track(data: Labels | PoseTrajectory, track: Track | PoseTrack) -> bool:
     if isinstance(data, PoseTrajectory):
-        return set(data.track_ids)
-    return {str(track.id) for track in data.tracks}
+        return isinstance(track, PoseTrack) and _contains_identity(data.tracks, track)
+    return isinstance(track, Track) and _contains_identity(data.tracks, track)
+
+
+def _contains_identity(values: Sequence[object], target: object) -> bool:
+    return any(value is target for value in values)
+
+
+def _pose_frame_count(data: Labels | PoseTrajectory) -> int:
+    if isinstance(data, PoseTrajectory):
+        return data.n_frames
+    indexes = [frame.frame_idx for frame in data.labeled_frames]
+    if not indexes:
+        raise ValueError("Subject track assignments require pose frames.")
+    return max(indexes) + 1
 
 
 __all__ = [
     "Experiment",
+    "BehaviorSubjectLink",
+    "EventRelationship",
+    "EventRelationshipKind",
     "ExperimentalCondition",
     "ExperimentSessionLink",
     "Protocol",
@@ -421,5 +587,5 @@ __all__ = [
     "SessionProtocolLink",
     "SessionSubjectLink",
     "Subject",
-    "SubjectTrackLink",
+    "SubjectTrackAssignment",
 ]

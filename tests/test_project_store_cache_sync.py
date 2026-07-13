@@ -4,10 +4,10 @@ import json
 from pathlib import Path
 
 from tests.factories import make_labels
-from xpkg.model import Labels
 from xpkg.project import (
     current_project_state_path,
     init_project,
+    load_project_labels,
     save_project_labels,
 )
 from xpkg.project.durable_store import ProjectDurableStore
@@ -49,7 +49,7 @@ def test_project_load_ignores_state_when_commit_id_mismatches_head(tmp_path: Pat
     ]["poses"][0]["data"]["data"]["keypoints"][0][0][0][0] = 99.0
     state_path.write_text(json.dumps(document, indent=2), encoding="utf-8")
 
-    loaded = Labels.load_file(project.as_posix())
+    loaded = load_project_labels(project)
     pts = loaded.labeled_frames[0].instances[0].point_records(copy=False)
 
     assert float(pts["x"][0]) == 3.0

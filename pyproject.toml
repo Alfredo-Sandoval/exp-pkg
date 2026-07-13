@@ -20,11 +20,9 @@ maintainers = [
 ]
 keywords = [
   "behavior",
-  "electrophysiology",
   "fiber-photometry",
   "io",
   "neuroscience",
-  "patch-clamp",
   "pose-estimation",
   "sleap",
   "video",
@@ -177,6 +175,9 @@ packages = ["src/xpkg"]
 
 [tool.hatch.build.targets.wheel.force-include]
 "schemas/project.schema.json" = "xpkg/schemas/project.schema.json"
+"schemas/ontology.json" = "xpkg/schemas/ontology.json"
+"schemas/recording-session.schema.json" = "xpkg/schemas/recording-session.schema.json"
+"schemas/experiment.schema.json" = "xpkg/schemas/experiment.schema.json"
 
 [tool.ruff]
 line-length = 100

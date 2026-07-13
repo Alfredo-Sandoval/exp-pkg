@@ -607,8 +607,9 @@ def test_read_rwd_ofrs_session_parses_multicolor_bundle_and_events(tmp_path) -> 
         "unique_labels": ["brush"],
         "time_monotonic": True,
     }
-    assert [event.label for event in session.events] == ["brush", "brush_offset"]
-    np.testing.assert_allclose([event.start_s for event in session.events], [0.033333, 0.066666])
+    events = session.event_stream("behavior")
+    assert [event.label for event in events] == ["brush", "brush_offset"]
+    np.testing.assert_allclose([event.start_s for event in events], [0.033333, 0.066666])
 
 
 def test_read_rwd_ofrs_session_records_source_event_order_metadata(tmp_path) -> None:
@@ -634,9 +635,10 @@ def test_read_rwd_ofrs_session_records_source_event_order_metadata(tmp_path) -> 
     session = read_rwd_ofrs_session(session_dir)
 
     assert session.metadata["events_csv"]["time_monotonic"] is False
-    assert [event.label for event in session.events] == ["brush", "brush_offset"]
+    events = session.event_stream("behavior")
+    assert [event.label for event in events] == ["brush", "brush_offset"]
     np.testing.assert_allclose(
-        [event.start_s for event in session.events],
+        [event.start_s for event in events],
         [0.033333, 0.066666],
     )
 
@@ -1098,24 +1100,25 @@ def test_read_nwb_photometry_prefers_dff_and_extracts_events(tmp_path) -> None:
         "FiberPhotometryResponseSeriesIsosbestic_fiber1",
     )
     np.testing.assert_allclose(photometry.timeline.timestamps_s[:3], [0.0, 0.01, 0.02])
-    assert [event.label for event in session.events].count("Reward") == 4
+    events = session.event_stream("events")
+    assert [event.label for event in events].count("Reward") == 4
     np.testing.assert_allclose(
-        [event.start_s for event in session.events if event.label == "Reward"],
+        [event.start_s for event in events if event.label == "Reward"],
         [2.0, 5.0, 9.0, 14.0],
     )
     np.testing.assert_allclose(
-        [event.start_s for event in session.events if event.label == "PeakFluorescenceEvents"],
+        [event.start_s for event in events if event.label == "PeakFluorescenceEvents"],
         [1.5, 7.2, 13.0],
     )
     np.testing.assert_allclose(
-        [event.start_s for event in session.events if event.label == "lick"],
+        [event.start_s for event in events if event.label == "lick"],
         [0.75],
     )
     np.testing.assert_allclose(
-        [event.start_s for event in session.events if event.label == "cue"],
+        [event.start_s for event in events if event.label == "cue"],
         [6.5],
     )
-    assert "TtlsTable" not in {event.label for event in session.events}
+    assert "TtlsTable" not in {event.label for event in events}
     assert session.metadata["subject"]["genotype"] == "Anxa1-iCre"
     assert session.metadata["sampling_rate_hz"] == pytest.approx(100.0)
     assert (
@@ -1360,7 +1363,7 @@ def test_read_teleopto_h5_extracts_channels_and_ttl(tmp_path) -> None:
     assert session.metadata["sampling_rate_hz"] == pytest.approx(10.0)
     assert session.metadata["sampling_rate_source"] == "num[1]"
     assert session.metadata["event_label_scheme"] == "teleopto_native"
-    by_label = {event.label: event.start_s for event in session.events}
+    by_label = {event.label: event.start_s for event in session.event_stream("events")}
     assert {"ct1", "TTL_ttl", "press_on_times", "press_off_times"} <= set(by_label)
     assert by_label["ct1"] == pytest.approx(0.15)
     assert by_label["TTL_ttl"] == pytest.approx(0.2)
@@ -1419,7 +1422,7 @@ def test_parse_teleopto_h5_arrays_matches_file_semantics() -> None:
     assert photometry.metadata["sampling_rate_hz"] == pytest.approx(10.0)
     assert photometry.metadata["sampling_rate_source"] == "num[1]"
     assert photometry.metadata["event_label_scheme"] == "teleopto_native"
-    by_label = {event.label: event.start_s for event in session.events}
+    by_label = {event.label: event.start_s for event in session.event_stream("events")}
     assert by_label["ct1"] == pytest.approx(0.15)
     assert by_label["TTL_ttl"] == pytest.approx(0.2)
 
@@ -1604,7 +1607,7 @@ def test_read_tdt_photometry_block_uses_optional_module() -> None:
     assert session.metadata["sampling_rate_hz"] == pytest.approx(100.0)
     assert session.metadata["sampling_rate_source"] == "streams.x465A.fs"
     assert session.metadata["stream_start_source"] == "streams.x465A.start_time"
-    assert session.events.events[0].label == "Cue"
+    assert session.event_stream("events").events[0].label == "Cue"
     assert calls == [
         (
             ("tank/block",),
@@ -1666,7 +1669,7 @@ def test_read_tdt_photometry_block_filters_explicit_streams_and_all_epocs() -> N
 
     assert photometry.signal_channel == "x465A"
     assert photometry.reference_channel == "x405A"
-    assert [event.label for event in session.events] == ["Cue", "Press"]
+    assert [event.label for event in session.event_stream("events")] == ["Cue", "Press"]
     assert calls == [
         {"evtype": ["streams"], "store": ["x465A", "x405A"]},
         {"evtype": ["epocs"]},
@@ -1731,7 +1734,7 @@ def test_read_tdt_photometry_block_filters_explicit_epocs_with_auto_reference() 
 
     assert photometry.signal_channel == "x465A"
     assert photometry.reference_channel == "x405A"
-    assert [event.label for event in session.events] == ["Cue"]
+    assert [event.label for event in session.event_stream("events")] == ["Cue"]
     assert calls == [
         {"evtype": ["streams"]},
         {"evtype": ["epocs"], "store": ["Cue"]},
@@ -1880,7 +1883,7 @@ def test_read_tdt_photometry_block_accepts_sev_only_stream_shape() -> None:
     assert photometry.metadata["stream_start_s"] == pytest.approx(0.0)
     assert photometry.metadata["stream_start_source"] == "tdt.read_sev.t1_default"
     assert session.metadata["stream_start_source"] == "tdt.read_sev.t1_default"
-    assert len(session.events.events) == 0
+    assert len(session.event_stream("events")) == 0
     np.testing.assert_allclose(photometry.series.values[:, 0], [1.0, 1.1, 1.2])
     np.testing.assert_allclose(photometry.series.values[:, 1], [0.5, 0.4, 0.3])
 
@@ -1917,8 +1920,9 @@ def test_read_tdt_photometry_block_prefers_official_wavelength_stores() -> None:
     assert photometry.series.sample_rate_hz == pytest.approx(100.0)
     np.testing.assert_allclose(photometry.series.values[:, 0], [1.0, 1.1, 1.2])
     np.testing.assert_allclose(photometry.series.values[:, 1], [0.5, 0.4, 0.3])
-    assert [event.label for event in session.events] == ["Cam1", "Cam1"]
-    np.testing.assert_allclose([event.start_s for event in session.events], [0.05, 0.15])
+    events = session.event_stream("events")
+    assert [event.label for event in events] == ["Cam1", "Cam1"]
+    np.testing.assert_allclose([event.start_s for event in events], [0.05, 0.15])
 
 
 def test_read_tdt_photometry_block_flags_storage_order_signal() -> None:

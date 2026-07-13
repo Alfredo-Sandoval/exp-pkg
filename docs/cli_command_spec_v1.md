@@ -220,8 +220,8 @@ xpkg import calibration anipose --path rig.toml --out "./My Project"
 xpkg import calibration opencv-stereo-yaml --path stereo.yml --out "./My Project"
 
 xpkg import signals photometry-csv --path photometry.csv --out "./My Project" --session-id session-001
-xpkg import events events-csv --path events.csv --out "./My Project" --session-id session-001
-xpkg import behavior behavior-csv --path behavior.csv --out "./My Project" --session-id session-001
+xpkg import events events-csv --path events.csv --out "./My Project" --session-id session-001 --event-stream-name task-events
+xpkg import behavior behavior-csv --path behavior.csv --out "./My Project" --session-id session-001 --video-role behavior-camera --pose-name pose-2d
 xpkg import behavior behavior-json --path behavior.json --out "./My Project" --session-id session-001
 xpkg import behavior boris-csv --path boris.csv --out "./My Project" --session-id session-001
 xpkg import behavior bsoid-csv --path bsoid.csv --out "./My Project" --session-id session-001

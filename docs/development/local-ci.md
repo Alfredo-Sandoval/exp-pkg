@@ -37,6 +37,17 @@ Run the standard local quality gate:
 make qa
 ```
 
+## Documentation Toolchain
+
+This repository remains on MkDocs 1.x. MkDocs 2 is not a compatible upgrade
+for this site because it removes the plugin system and changes the theme and
+configuration contracts used by Material for MkDocs and `mkdocstrings`.
+
+The `docs-build` and `docs-serve` targets set `NO_MKDOCS_2_WARNING=1` to suppress
+Material's advisory after this decision. Reconsider MkDocs 2 only when the
+Material theme and API-documentation plugins have a supported migration path.
+See the [Material for MkDocs compatibility assessment](https://squidfunk.github.io/mkdocs-material/blog/2026/02/18/mkdocs-2.0/).
+
 Run the broader local quality pass:
 
 ```bash

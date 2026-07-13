@@ -8,11 +8,15 @@ import pytest
 
 from xpkg.model import (
     AlignmentModel,
+    BehaviorInterval,
+    BehaviorLabels,
     Event,
     EventTable,
     PhotometryChannel,
     PhotometryRecording,
     RecordingSession,
+    SessionBehavior,
+    SessionEventStream,
     SessionSignal,
     SessionVideo,
     SignalChannel,
@@ -24,10 +28,11 @@ from xpkg.model import (
     Timeline,
     TimeRange,
     TimeSeries,
+    add_session_event_stream,
     add_session_signal,
     add_session_video,
     fit_timebase_alignment,
-    replace_session_events,
+    replace_session_video,
 )
 from xpkg.model.session_actions import InvalidSessionTransitionError
 
@@ -78,8 +83,8 @@ def test_timebase_rejects_unclean_text(
 def test_event_table_queries_and_round_trips() -> None:
     events = EventTable.from_events(
         [
-            Event(kind="cue", start_s=1.5, duration_s=0.25, label="tone"),
-            Event(kind="trial", start_s=1.0, duration_s=2.0, label="A"),
+            Event(event_id="cue-1", kind="cue", start_s=1.5, duration_s=0.25, label="tone"),
+            Event(event_id="trial-1", kind="trial", start_s=1.0, duration_s=2.0, label="A"),
         ]
     )
     events = EventTable(events=events.events, metadata={"source": "unit-test"})
@@ -88,7 +93,8 @@ def test_event_table_queries_and_round_trips() -> None:
     assert events.query(kind="trial") == (events.events[0],)
     assert events.query(time_s=1.6) == events.events
     assert events.query(overlaps=TimeRange(1.4, 1.55)) == events.events
-    assert events.append(Event(kind="cue", start_s=3.0)).metadata == events.metadata
+    appended = events.append(Event(event_id="cue-2", kind="cue", start_s=3.0))
+    assert appended.metadata == events.metadata
 
     hydrated = EventTable.from_dict(events.to_dict())
     assert hydrated.to_dict() == events.to_dict()
@@ -133,12 +139,12 @@ def test_event_rejects_unclean_text(
     message: str,
 ) -> None:
     with pytest.raises(exc_type, match=message):
-        Event(**kwargs)
+        Event(event_id="event-1", **kwargs)
 
 
 def test_event_from_dict_rejects_coerced_text() -> None:
     with pytest.raises(TypeError, match="event kind must be a string"):
-        Event.from_dict({"kind": 1, "start_s": 0.0})
+        Event.from_dict({"event_id": "event-1", "kind": 1, "start_s": 0.0})
 
 
 @pytest.mark.parametrize(
@@ -163,14 +169,16 @@ def test_event_table_query_rejects_unclean_filters(
     exc_type: type[Exception],
     message: str,
 ) -> None:
-    events = EventTable.from_events([Event(kind="cue", start_s=0.0, label="tone")])
+    events = EventTable.from_events(
+        [Event(event_id="cue-1", kind="cue", start_s=0.0, label="tone")]
+    )
 
     with pytest.raises(exc_type, match=message):
         events.query(**query_kwargs)
 
 
 def test_sync_event_payload_preserves_source() -> None:
-    event = SyncEvent(kind="sync", start_s=1.0, source="ttl")
+    event = SyncEvent(event_id="sync-1", kind="sync", start_s=1.0, source="ttl")
 
     assert event.to_dict()["source"] == "ttl"
 
@@ -189,7 +197,7 @@ def test_sync_event_rejects_unclean_source(
     message: str,
 ) -> None:
     with pytest.raises(exc_type, match=message):
-        SyncEvent(kind="sync", start_s=1.0, source=source)
+        SyncEvent(event_id="sync-1", kind="sync", start_s=1.0, source=source)
 
 
 def test_timebase_alignment_fits_paired_affine_correspondences() -> None:
@@ -241,7 +249,11 @@ def test_recording_session_alignment_accessor_returns_typed_link() -> None:
         method=SynchronizationMethod.MANUAL,
         offset_s=0.25,
     )
-    session = RecordingSession(session_id="session-1", alignments=(alignment,))
+    session = RecordingSession(
+        session_id="session-1",
+        timebases=(alignment.source, alignment.target),
+        alignments=(alignment,),
+    )
 
     assert session.alignment("camera-to-daq") is alignment
     with pytest.raises(KeyError, match="has no alignment"):
@@ -392,13 +404,18 @@ def test_recording_session_collects_signal_and_event_time_range() -> None:
         channel_names=["gcamp"],
     )
     recording = PhotometryRecording(series=series, signal_channel="gcamp")
-    events = EventTable.from_events([Event(kind="trial", start_s=0.0, duration_s=1.0)])
+    events = EventTable.from_events(
+        [Event(event_id="trial-1", kind="trial", start_s=0.0, duration_s=1.0)]
+    )
 
     session = add_session_signal(
         RecordingSession(session_id="session-001"),
         SessionSignal("fiber", recording),
     )
-    session = replace_session_events(session, events)
+    session = add_session_event_stream(
+        session,
+        SessionEventStream("trials", events),
+    )
 
     assert session.modality_names == ("signals", "events")
     assert session.signal("fiber") is recording
@@ -476,6 +493,31 @@ def test_add_session_video_creates_typed_role_link() -> None:
 
     assert session.modality_names == ("videos",)
     assert session.video("behavior").path == Path("recordings/session.mp4")
+
+
+def test_replace_session_video_rebinds_dependent_behavior() -> None:
+    video = SessionVideo(role="behavior", path=Path("recordings/old.mp4"))
+    behavior = SessionBehavior(
+        name="ethogram",
+        labels=BehaviorLabels(
+            source_type="manual",
+            intervals=(BehaviorInterval(label="rear", start_s=0.0),),
+        ),
+        videos=(video,),
+    )
+    session = RecordingSession(
+        session_id="session-001",
+        videos=(video,),
+        behaviors=(behavior,),
+    )
+
+    replaced = replace_session_video(
+        session,
+        SessionVideo(role="behavior", path=Path("recordings/new.mp4")),
+    )
+
+    assert replaced.behaviors[0].videos[0] is replaced.videos[0]
+    assert replaced.videos[0].path == Path("recordings/new.mp4")
 
 
 def test_recording_session_rejects_crossed_link_types() -> None:

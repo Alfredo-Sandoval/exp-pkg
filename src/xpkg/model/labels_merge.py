@@ -5,13 +5,13 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
-from xpkg.io.labels.video_types import VideoProtocol
 from xpkg.media.video import Video
+from xpkg.model.video_types import VideoProtocol
 from xpkg.pose.annotations import LabeledFrame, Track
 from xpkg.pose.skeleton import Skeleton
 
 if TYPE_CHECKING:
-    from xpkg.io.labels.model import Labels
+    from xpkg.model.labels import Labels
 
 
 def unify_video_references(labels: Labels) -> None:

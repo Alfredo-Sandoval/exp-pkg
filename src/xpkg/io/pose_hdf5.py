@@ -14,7 +14,7 @@ from xpkg.pose.annotations.instances import Instance, PredictedInstance
 from xpkg.pose.annotations.points import PredictedPoint
 
 if TYPE_CHECKING:
-    from xpkg.io.labels.model import Labels
+    from xpkg.model.labels import Labels
 
 logger = get_logger(__name__)
 

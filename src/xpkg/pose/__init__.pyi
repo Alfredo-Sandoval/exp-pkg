@@ -18,6 +18,7 @@ from .annotations import is_predicted_instance as is_predicted_instance
 from .skeleton import Keypoint as Keypoint
 from .skeleton import Skeleton as Skeleton
 from .skeleton import build_keypoint_skeleton as build_keypoint_skeleton
+from .trajectory import PoseTrack as PoseTrack
 from .trajectory import PoseTrajectory as PoseTrajectory
 
 __all__: list[str]

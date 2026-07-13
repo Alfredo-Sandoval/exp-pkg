@@ -7,12 +7,12 @@ from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
 
-from xpkg.io.labels.video_types import VideoProtocol
 from xpkg.media.video import Video
+from xpkg.model.video_types import VideoProtocol
 from xpkg.pose.annotations import LabeledFrame
 
 if TYPE_CHECKING:
-    from xpkg.io.labels.model import Labels
+    from xpkg.model.labels import Labels
 
 
 def group_labeled_frames_by_video(

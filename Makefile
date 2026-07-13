@@ -1,4 +1,4 @@
-.PHONY: env setup bootstrap loc conflict-check export-stubs export-stubs-check lint typecheck test coverage performance-check require-vendor-data test-vendor require-real-data test-real qa ci-local release-check build package-check docs-build docs-serve clean
+.PHONY: env setup bootstrap loc conflict-check export-stubs export-stubs-check ontology-schemas ontology-schemas-check lint typecheck test coverage performance-check require-vendor-data test-vendor require-real-data test-real qa ci-local release-check build package-check docs-build docs-serve clean
 
 ENV_ARGS ?=
 PYTHON ?= python
@@ -40,6 +40,12 @@ export-stubs:
 
 export-stubs-check:
 	$(RUN_IN_ENV) python scripts/generate_export_stubs.py --check
+
+ontology-schemas:
+	$(RUN_IN_ENV) python scripts/generate_ontology_schemas.py
+
+ontology-schemas-check:
+	$(RUN_IN_ENV) python scripts/generate_ontology_schemas.py --check
 
 lint:
 	$(RUN_IN_ENV) ruff check .
@@ -92,7 +98,7 @@ test-real: require-real-data
 	XPKG_REAL_DATA_MANIFEST="$${XPKG_REAL_DATA_MANIFEST:-$(REAL_DATA_MANIFEST)}" \
 	PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 $(RUN_IN_ENV) python -m pytest -m realdata tests/real_data
 
-qa: conflict-check export-stubs-check lint typecheck test
+qa: conflict-check export-stubs-check ontology-schemas-check lint typecheck test
 
 ci-local: qa performance-check package-check docs-build
 
@@ -113,13 +119,13 @@ package-check:
 	$(RUN_IN_ENV) python -m venv "$$venv"; \
 	"$$venv/bin/python" -m pip install --upgrade pip; \
 	"$$venv/bin/python" -m pip install "$$wheel"; \
-	XPKG_PACKAGE_CHECK_TMPDIR="$$tmpdir" "$$venv/bin/python" -c 'import json, os, subprocess, sys; from pathlib import Path; from xpkg.services import ProjectService; describe = subprocess.run([sys.executable, "-m", "xpkg", "describe", "--json"], check=True, capture_output=True, text=True); envelope = json.loads(describe.stdout); assert envelope["ok"] is True; contract = envelope["data"]; assert contract["profile"] == "built-for-agents"; assert contract["resources"]["project"] == ["describe", "init", "metadata set", "metadata show", "pack", "unpack", "validate"]; assert "import pose dlc-h5" in contract["commands"]; assert "import signals photometry-csv" in contract["commands"]; root = Path(os.environ["XPKG_PACKAGE_CHECK_TMPDIR"]); project = ProjectService.create(root / "Installed Wheel Project", title="Installed Wheel Project"); descriptor = json.loads((project.project_root / "PROJECT.json").read_text(encoding="utf-8")); assert descriptor["format"] == "xpkg-project"; assert descriptor["title"] == "Installed Wheel Project"; assert descriptor["store_path"] == ".xpkg"; source = root / "photometry.csv"; source.write_text("time,signal\n0.0,1.0\n0.1,2.0\n", encoding="utf-8"); project.import_signals("photometry-csv", path=source, session_id="wheel-session"); assert project.load_session().session_id == "wheel-session"; assert (project.project_root / ".xpkg" / "indexes" / "project_summary.json").is_file()'
+	XPKG_PACKAGE_CHECK_TMPDIR="$$tmpdir" "$$venv/bin/python" -c 'import json, os, subprocess, sys; from importlib.resources import files; from pathlib import Path; from xpkg.services import ProjectService; describe = subprocess.run([sys.executable, "-m", "xpkg", "describe", "--json"], check=True, capture_output=True, text=True); envelope = json.loads(describe.stdout); assert envelope["ok"] is True; contract = envelope["data"]; assert contract["profile"] == "built-for-agents"; assert contract["resources"]["project"] == ["describe", "init", "metadata set", "metadata show", "pack", "unpack", "validate"]; assert "import pose dlc-h5" in contract["commands"]; assert "import signals photometry-csv" in contract["commands"]; schema_root = files("xpkg").joinpath("schemas"); assert json.loads(schema_root.joinpath("ontology.json").read_text(encoding="utf-8"))["schema_version"] == 4; assert schema_root.joinpath("recording-session.schema.json").is_file(); assert schema_root.joinpath("experiment.schema.json").is_file(); root = Path(os.environ["XPKG_PACKAGE_CHECK_TMPDIR"]); project = ProjectService.create(root / "Installed Wheel Project", title="Installed Wheel Project"); descriptor = json.loads((project.project_root / "PROJECT.json").read_text(encoding="utf-8")); assert descriptor["format"] == "xpkg-project"; assert descriptor["title"] == "Installed Wheel Project"; assert descriptor["store_path"] == ".xpkg"; source = root / "photometry.csv"; source.write_text("time,signal\n0.0,1.0\n0.1,2.0\n", encoding="utf-8"); project.import_signals("photometry-csv", path=source, session_id="wheel-session"); assert project.load_session().session_id == "wheel-session"; assert (project.project_root / ".xpkg" / "indexes" / "project_summary.json").is_file()'
 
 docs-build:
-	$(RUN_IN_ENV) python -m mkdocs build --strict
+	NO_MKDOCS_2_WARNING=1 $(RUN_IN_ENV) python -m mkdocs build --strict
 
 docs-serve:
-	$(RUN_IN_ENV) python -m mkdocs serve -a $(DOCS_ADDR)
+	NO_MKDOCS_2_WARNING=1 $(RUN_IN_ENV) python -m mkdocs serve -a $(DOCS_ADDR)
 
 # LOC summary: module breakdown (by depth) + language breakdown + file count.
 loc:

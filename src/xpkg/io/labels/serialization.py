@@ -9,9 +9,9 @@ from typing import TYPE_CHECKING, Any, Protocol, cast
 import numpy as np
 
 from xpkg._core.logging_utils import get_logger
-from xpkg.io.labels.json_format import read_labels_json_payload, write_labels_json
-from xpkg.io.labels.video_types import VideoProtocol
+from xpkg.io.labels.json_format import read_labels_json_payload
 from xpkg.media.video import Video
+from xpkg.model.video_types import VideoProtocol
 from xpkg.pose.annotations import (
     Instance,
     LabeledFrame,
@@ -25,7 +25,7 @@ from xpkg.pose.skeleton import Keypoint, Skeleton
 from xpkg.segmentation.model import ROI, SegmentationMask
 
 if TYPE_CHECKING:
-    from xpkg.io.labels.model import Labels, SuggestionFrame
+    from xpkg.model.labels import Labels, SuggestionFrame
 
 logger = get_logger(__name__)
 
@@ -47,7 +47,7 @@ LABEL_VISIBILITY_DATASET = "visibility"
 
 
 def _materialize(value: Any) -> Any:
-    from xpkg.io.labels.model import Materializable
+    from xpkg.model.labels import Materializable
 
     if isinstance(value, Materializable):
         return value.materialize()
@@ -141,7 +141,7 @@ def load_suggestions(
     video_list: list[VideoProtocol],
 ) -> list[SuggestionFrame]:
     """Hydrate suggestions rows into `SuggestionFrame` objects."""
-    from xpkg.io.labels.model import SuggestionFrame
+    from xpkg.model.labels import SuggestionFrame
 
     if not suggestions:
         return []
@@ -933,7 +933,6 @@ def _attach_segmentation_payload(
 
 
 def labels_from_payload(
-    cls: type[Labels],
     payload: dict[str, Any] | None,
     *,
     suggestions_payload: dict[str, Any] | None = None,
@@ -941,6 +940,8 @@ def labels_from_payload(
     video_finalizer: HydratedVideoFinalizer | None = None,
 ) -> Labels:
     """Construct `Labels` from a labels payload dictionary."""
+    from xpkg.model.labels import Labels
+
     if not payload:
         raise ValueError("Empty labels payload; cannot hydrate Labels")
 
@@ -1043,7 +1044,7 @@ def labels_from_payload(
     suggestions = load_suggestions(suggestions_payload, videos)
     has_explicit_skeleton = bool(skeleton_info)
 
-    labels_obj = cls(
+    labels_obj = Labels(
         labeled_frames=labeled_frames,
         videos=videos,
         skeletons=[skeleton] if keypoints or has_explicit_skeleton else [],
@@ -1061,83 +1062,32 @@ def labels_from_payload(
     return labels_obj
 
 
-def labels_load_file(
-    cls: type[Labels],
-    filename: str,
-    *args: Any,
+def read_labels_json(
+    path: str | Path,
+    *,
     video_builder: VideoBuilder | None = None,
     video_finalizer: HydratedVideoFinalizer | None = None,
-    **kwargs: Any,
 ) -> Labels:
-    """Load labels from disk."""
-    del args, kwargs
-    path = Path(filename)
-    if path.suffix.lower() == ".expkg":
-        raise ValueError("Packed .expkg artifacts must be unpacked before loading labels")
-
-    from xpkg.project.layout import resolve_project_root
-    from xpkg.project.recording import load_project_labels
-
-    project_root = resolve_project_root(path)
-    if project_root is not None:
-        if video_builder is not None or video_finalizer is not None:
-            raise ValueError(
-                "Project pose loading does not accept custom video hydration callbacks."
-            )
-        return load_project_labels(project_root)
-
-    ext = path.suffix.lower()
-    if ext == ".json":
-        payload = read_labels_json_payload(path)
-        obj = labels_from_payload(
-            cls,
-            payload,
-            suggestions_payload=payload.get("suggestions") if isinstance(payload, dict) else None,
-            video_builder=video_builder,
-            video_finalizer=video_finalizer,
-        )
-        obj.validate()
-        obj.path = path
-        return obj
-    raise ValueError(f"No serializer for extension: {ext or '<none>'}")
-
-
-def labels_save_file(
-    labels: Labels,
-    filename: str,
-    *,
-    default_suffix: str = "",
-    metadata: dict[str, Any] | None = None,
-    **_: Any,
-) -> str:
-    """Save labels to disk."""
-    path = Path(filename)
-    from xpkg.project.layout import resolve_project_root
-    from xpkg.project.store import save_project_labels
-
-    project_root = resolve_project_root(path)
-    if project_root is not None:
-        save_project_labels(
-            project_root,
-            labels,
-            metadata=metadata,
-        )
-        labels.path = project_root
-        return project_root.as_posix()
-
-    ext = path.suffix.lower() or default_suffix or ".json"
-    if ext == ".json":
-        if not path.suffix:
-            path = path.with_suffix(".json")
-        return write_labels_json(path, labels, metadata=metadata)
-    raise ValueError(f"No serializer for extension: {ext}")
+    """Load labels from one canonical JSON exchange document."""
+    source = Path(path)
+    if source.suffix.lower() != ".json":
+        raise ValueError("read_labels_json requires a .json exchange document.")
+    payload = read_labels_json_payload(source)
+    obj = labels_from_payload(
+        payload,
+        suggestions_payload=payload.get("suggestions") if isinstance(payload, dict) else None,
+        video_builder=video_builder,
+        video_finalizer=video_finalizer,
+    )
+    obj.validate()
+    obj.path = source
+    return obj
 
 
 __all__ = [
     "build_video_object",
     "finalize_hydrated_video",
     "labels_from_payload",
-    "labels_load_file",
-    "labels_save_file",
     "load_suggestions",
+    "read_labels_json",
 ]

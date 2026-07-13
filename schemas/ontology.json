@@ -1,0 +1,452 @@
+{
+  "format": "xpkg.ontology",
+  "schema_version": 4,
+  "object_types": [
+    {
+      "name": "Subject",
+      "properties": [
+        "subject_id",
+        "species",
+        "strain",
+        "sex",
+        "genotype",
+        "date_of_birth",
+        "metadata"
+      ]
+    },
+    {
+      "name": "Protocol",
+      "properties": [
+        "protocol_id",
+        "name",
+        "version",
+        "uri",
+        "metadata"
+      ]
+    },
+    {
+      "name": "ExperimentalCondition",
+      "properties": [
+        "condition_id",
+        "name",
+        "description",
+        "metadata"
+      ]
+    },
+    {
+      "name": "Experiment",
+      "properties": [
+        "experiment_id",
+        "title",
+        "subjects",
+        "protocols",
+        "conditions",
+        "session_links",
+        "dataset_share",
+        "metadata"
+      ]
+    },
+    {
+      "name": "RecordingSession",
+      "properties": [
+        "session_id",
+        "title",
+        "acquisition",
+        "timebase",
+        "timebases",
+        "signals",
+        "videos",
+        "poses",
+        "behaviors",
+        "calibrations",
+        "alignments",
+        "event_streams",
+        "metadata"
+      ]
+    },
+    {
+      "name": "SessionSignal",
+      "properties": [
+        "name",
+        "recording",
+        "provenance"
+      ]
+    },
+    {
+      "name": "SessionVideo",
+      "properties": [
+        "role",
+        "path",
+        "camera",
+        "timebase",
+        "frame_rate_hz",
+        "frame_count",
+        "metadata"
+      ]
+    },
+    {
+      "name": "SessionPose",
+      "properties": [
+        "name",
+        "data",
+        "videos",
+        "calibration",
+        "provenance",
+        "metadata"
+      ]
+    },
+    {
+      "name": "SessionBehavior",
+      "properties": [
+        "name",
+        "labels",
+        "videos",
+        "poses",
+        "provenance"
+      ]
+    },
+    {
+      "name": "SessionCalibration",
+      "properties": [
+        "name",
+        "calibration",
+        "camera_links"
+      ]
+    },
+    {
+      "name": "SessionEventStream",
+      "properties": [
+        "name",
+        "events",
+        "provenance"
+      ]
+    },
+    {
+      "name": "EventTable",
+      "properties": [
+        "events",
+        "timebase",
+        "metadata"
+      ]
+    },
+    {
+      "name": "Event",
+      "properties": [
+        "event_id",
+        "kind",
+        "start_s",
+        "duration_s",
+        "label",
+        "metadata"
+      ]
+    },
+    {
+      "name": "BehaviorLabels",
+      "properties": [
+        "source_type",
+        "intervals",
+        "frame_labels",
+        "embeddings",
+        "timebase",
+        "media_path",
+        "annotator",
+        "metadata"
+      ]
+    },
+    {
+      "name": "PoseTrack",
+      "properties": [
+        "track_id",
+        "name",
+        "metadata"
+      ]
+    },
+    {
+      "name": "PoseTrajectory",
+      "properties": [
+        "fps",
+        "tracks",
+        "keypoint_names",
+        "positions",
+        "valid",
+        "dims",
+        "coordinate_frame",
+        "confidence",
+        "frame_offset",
+        "skeleton_edges",
+        "source_kind",
+        "source_path",
+        "metadata"
+      ]
+    },
+    {
+      "name": "Timebase",
+      "properties": [
+        "name",
+        "unit",
+        "offset_s"
+      ]
+    },
+    {
+      "name": "TimebaseAlignment",
+      "properties": [
+        "name",
+        "source",
+        "target",
+        "model",
+        "method",
+        "scale",
+        "offset_s",
+        "evidence",
+        "provenance",
+        "metadata",
+        "residual_s"
+      ]
+    },
+    {
+      "name": "SourceProvenance",
+      "properties": [
+        "source_type",
+        "source_path",
+        "size_bytes",
+        "sha256",
+        "tool",
+        "tool_version",
+        "imported_at",
+        "metadata"
+      ]
+    },
+    {
+      "name": "ExperimentSessionLink",
+      "properties": [
+        "session",
+        "subjects",
+        "protocols",
+        "conditions",
+        "behavior_subjects",
+        "subject_track_assignments",
+        "event_relationships",
+        "metadata"
+      ]
+    },
+    {
+      "name": "SessionSubjectLink",
+      "properties": [
+        "subject",
+        "role",
+        "metadata"
+      ]
+    },
+    {
+      "name": "SessionProtocolLink",
+      "properties": [
+        "protocol",
+        "role",
+        "metadata"
+      ]
+    },
+    {
+      "name": "SessionConditionLink",
+      "properties": [
+        "condition",
+        "subjects",
+        "metadata"
+      ]
+    },
+    {
+      "name": "BehaviorSubjectLink",
+      "properties": [
+        "behavior",
+        "subject",
+        "role",
+        "metadata"
+      ]
+    },
+    {
+      "name": "SubjectTrackAssignment",
+      "properties": [
+        "subject",
+        "pose",
+        "track",
+        "start_frame",
+        "end_frame",
+        "evidence",
+        "metadata"
+      ]
+    },
+    {
+      "name": "EventRelationship",
+      "properties": [
+        "source_stream",
+        "source_event",
+        "target_stream",
+        "target_event",
+        "kind",
+        "metadata"
+      ]
+    }
+  ],
+  "link_types": [
+    {
+      "name": "ExperimentSessionLink",
+      "source_type": "Experiment",
+      "target_type": "RecordingSession",
+      "properties": [
+        "session",
+        "subjects",
+        "protocols",
+        "conditions",
+        "behavior_subjects",
+        "subject_track_assignments",
+        "event_relationships",
+        "metadata"
+      ]
+    },
+    {
+      "name": "SessionSubjectLink",
+      "source_type": "RecordingSession",
+      "target_type": "Subject",
+      "properties": [
+        "subject",
+        "role",
+        "metadata"
+      ]
+    },
+    {
+      "name": "SessionProtocolLink",
+      "source_type": "RecordingSession",
+      "target_type": "Protocol",
+      "properties": [
+        "protocol",
+        "role",
+        "metadata"
+      ]
+    },
+    {
+      "name": "SessionConditionLink",
+      "source_type": "RecordingSession",
+      "target_type": "ExperimentalCondition",
+      "properties": [
+        "condition",
+        "subjects",
+        "metadata"
+      ]
+    },
+    {
+      "name": "RecordingSessionSignal",
+      "source_type": "RecordingSession",
+      "target_type": "SessionSignal",
+      "properties": []
+    },
+    {
+      "name": "RecordingSessionVideo",
+      "source_type": "RecordingSession",
+      "target_type": "SessionVideo",
+      "properties": []
+    },
+    {
+      "name": "RecordingSessionPose",
+      "source_type": "RecordingSession",
+      "target_type": "SessionPose",
+      "properties": []
+    },
+    {
+      "name": "RecordingSessionBehavior",
+      "source_type": "RecordingSession",
+      "target_type": "SessionBehavior",
+      "properties": []
+    },
+    {
+      "name": "RecordingSessionCalibration",
+      "source_type": "RecordingSession",
+      "target_type": "SessionCalibration",
+      "properties": []
+    },
+    {
+      "name": "RecordingSessionEventStream",
+      "source_type": "RecordingSession",
+      "target_type": "SessionEventStream",
+      "properties": []
+    },
+    {
+      "name": "SessionPoseVideo",
+      "source_type": "SessionPose",
+      "target_type": "SessionVideo",
+      "properties": []
+    },
+    {
+      "name": "SessionPoseCalibration",
+      "source_type": "SessionPose",
+      "target_type": "SessionCalibration",
+      "properties": []
+    },
+    {
+      "name": "SessionBehaviorVideo",
+      "source_type": "SessionBehavior",
+      "target_type": "SessionVideo",
+      "properties": []
+    },
+    {
+      "name": "SessionBehaviorPose",
+      "source_type": "SessionBehavior",
+      "target_type": "SessionPose",
+      "properties": []
+    },
+    {
+      "name": "BehaviorSubjectLink",
+      "source_type": "SessionBehavior",
+      "target_type": "Subject",
+      "properties": [
+        "behavior",
+        "subject",
+        "role",
+        "metadata"
+      ]
+    },
+    {
+      "name": "SubjectTrackAssignment",
+      "source_type": "Subject",
+      "target_type": "PoseTrack",
+      "properties": [
+        "subject",
+        "pose",
+        "track",
+        "start_frame",
+        "end_frame",
+        "evidence",
+        "metadata"
+      ]
+    },
+    {
+      "name": "EventRelationship",
+      "source_type": "Event",
+      "target_type": "Event",
+      "properties": [
+        "source_stream",
+        "source_event",
+        "target_stream",
+        "target_event",
+        "kind",
+        "metadata"
+      ]
+    },
+    {
+      "name": "TimebaseAlignment",
+      "source_type": "Timebase",
+      "target_type": "Timebase",
+      "properties": [
+        "name",
+        "source",
+        "target",
+        "model",
+        "method",
+        "scale",
+        "offset_s",
+        "evidence",
+        "provenance",
+        "metadata",
+        "residual_s"
+      ]
+    }
+  ]
+}

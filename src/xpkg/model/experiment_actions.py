@@ -6,15 +6,19 @@ from collections.abc import Mapping
 from dataclasses import replace
 from typing import Any
 
+from xpkg.model.events import Event
 from xpkg.model.experiment import (
+    EventRelationship,
     Experiment,
     ExperimentalCondition,
     ExperimentSessionLink,
     Protocol,
     Subject,
+    SubjectTrackAssignment,
 )
 from xpkg.model.metadata import DatasetShareMetadata
-from xpkg.model.session import RecordingSession
+from xpkg.model.session import RecordingSession, SessionEventStream, SessionPose
+from xpkg.pose.trajectory import PoseTrajectory
 
 
 class InvalidExperimentTransitionError(ValueError):
@@ -48,10 +52,84 @@ def replace_experiment_session(
             f"{session.session_id!r}."
         )
     links = tuple(
-        replace(link, session=session) if link.session_id == session.session_id else link
+        _rebind_session_link(link, session)
+        if link.session_id == session.session_id
+        else link
         for link in experiment.session_links
     )
     return replace(experiment, session_links=links)
+
+
+def _rebind_session_link(
+    link: ExperimentSessionLink, session: RecordingSession
+) -> ExperimentSessionLink:
+    behaviors = {behavior.name: behavior for behavior in session.behaviors}
+    poses = {pose.name: pose for pose in session.poses}
+    streams = {stream.name: stream for stream in session.event_streams}
+    try:
+        behavior_subjects = tuple(
+            replace(item, behavior=behaviors[item.behavior.name])
+            for item in link.behavior_subjects
+        )
+        assignments = tuple(
+            _rebind_track_assignment(item, poses) for item in link.subject_track_assignments
+        )
+        event_relationships = tuple(
+            _rebind_event_relationship(item, streams) for item in link.event_relationships
+        )
+    except KeyError as exc:
+        raise InvalidExperimentTransitionError(
+            f"Replacement session {session.session_id!r} removed relationship target "
+            f"{exc.args[0]!r}."
+        ) from exc
+    return replace(
+        link,
+        session=session,
+        behavior_subjects=behavior_subjects,
+        subject_track_assignments=assignments,
+        event_relationships=event_relationships,
+    )
+
+
+def _rebind_track_assignment(
+    assignment: SubjectTrackAssignment, poses: Mapping[str, SessionPose]
+) -> SubjectTrackAssignment:
+    pose = poses[assignment.pose.name]
+    if isinstance(pose.data, PoseTrajectory):
+        try:
+            track = pose.data.track(assignment.track_id)
+        except KeyError as exc:
+            raise KeyError(f"{pose.name}:{assignment.track_id}") from exc
+    else:
+        track = next(
+            (item for item in pose.data.tracks if str(item.id) == assignment.track_id), None
+        )
+        if track is None:
+            raise KeyError(f"{pose.name}:{assignment.track_id}")
+    return replace(assignment, pose=pose, track=track)
+
+
+def _rebind_event_relationship(
+    relationship: EventRelationship, streams: Mapping[str, SessionEventStream]
+) -> EventRelationship:
+    source_stream = streams[relationship.source_stream.name]
+    target_stream = streams[relationship.target_stream.name]
+    source_event = _event_by_id(source_stream, relationship.source_event.event_id)
+    target_event = _event_by_id(target_stream, relationship.target_event.event_id)
+    return replace(
+        relationship,
+        source_stream=source_stream,
+        source_event=source_event,
+        target_stream=target_stream,
+        target_event=target_event,
+    )
+
+
+def _event_by_id(stream: SessionEventStream, event_id: str) -> Event:
+    for event in stream.events:
+        if event.event_id == event_id:
+            return event
+    raise KeyError(f"{stream.name}:{event_id}")
 
 
 def replace_experiment_session_link(

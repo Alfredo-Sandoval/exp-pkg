@@ -12,13 +12,13 @@ to project storage internals.
 
 from __future__ import annotations
 
-from xpkg.io.labels.export_ops import (
-    labels_numpy,
-    labels_to_dataframe,
-)
 from xpkg.io.labels.json_format import (
     labels_from_json_payload,
     labels_to_json_payload,
+)
+from xpkg.model.labels_export import (
+    labels_numpy,
+    labels_to_dataframe,
 )
 
 __all__ = [

@@ -10,8 +10,9 @@ image-space representation.
 `PoseTrajectory.positions` has shape
 `(frames, tracks, keypoints, dimensions)`. `dimensions` is 2 or 3.
 `valid` and optional `confidence` have shape
-`(frames, tracks, keypoints)`. `track_ids` and `keypoint_names` name the two
-semantic axes.
+`(frames, tracks, keypoints)`. Typed `PoseTrack` objects and
+`keypoint_names` name the two semantic axes. `PoseTrajectory.track_ids`
+provides their stable identifiers in axis order.
 
 The track axis is present even for single-animal data. Omitting it was rejected
 because it makes multi-animal 3D results impossible to represent without a
@@ -44,10 +45,14 @@ sidecars.
 ## Identity relationship
 
 Trajectory track IDs are technical identities. They are not biological subject
-IDs. `SubjectTrackLink` assigns a participating `Subject` to a named pose and
-track. Optional `IdentityProvenanceRecord` evidence records source, confidence
-spans, swaps, and proofreading. The experiment rejects assignments to unknown
-subjects, poses, or tracks.
+IDs. `SubjectTrackAssignment` assigns a participating `Subject` to a named pose
+and track over an inclusive frame range. Nonoverlapping assignments can record
+an identity change after a track swap. Optional `IdentityProvenanceRecord`
+evidence records source, confidence spans, swaps, and proofreading. The
+experiment rejects assignments to unknown subjects, poses, or tracks, ranges
+outside the pose product, and overlapping assignments on one track.
+The in-memory assignment holds direct `SessionPose` and `PoseTrack` objects.
+Only the schema-4 JSON boundary reduces those links to identifiers.
 
 ## Quality and provenance
 

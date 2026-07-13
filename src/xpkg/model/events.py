@@ -20,6 +20,7 @@ from xpkg.model.time import Timebase, TimeRange
 class Event:
     """One labeled event on a session timeline."""
 
+    event_id: str
     kind: str
     start_s: float
     duration_s: float = 0.0
@@ -27,6 +28,7 @@ class Event:
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
+        event_id = _required_text(self.event_id, name="event_id")
         kind = _required_text(self.kind, name="event kind")
         start_s = finite_float(self.start_s, name="event start_s")
         duration_s = finite_float(self.duration_s, name="event duration_s")
@@ -35,6 +37,7 @@ class Event:
         label = None if self.label is None else _required_text(self.label, name="event label")
         metadata = metadata_dict(self.metadata, name="event metadata")
 
+        object.__setattr__(self, "event_id", event_id)
         object.__setattr__(self, "kind", kind)
         object.__setattr__(self, "start_s", start_s)
         object.__setattr__(self, "duration_s", duration_s)
@@ -59,6 +62,7 @@ class Event:
     def to_dict(self) -> dict[str, Any]:
         """Return a JSON-friendly event payload."""
         payload: dict[str, Any] = {
+            "event_id": self.event_id,
             "kind": self.kind,
             "start_s": self.start_s,
             "duration_s": self.duration_s,
@@ -78,6 +82,7 @@ class Event:
         if raw_metadata is not None and not isinstance(raw_metadata, Mapping):
             raise TypeError("event metadata must be a mapping when present.")
         return cls(
+            event_id=payload.get("event_id", ""),
             kind=payload.get("kind", ""),
             start_s=payload.get("start_s", 0.0),
             duration_s=payload.get("duration_s", 0.0),
@@ -99,6 +104,9 @@ class EventTable:
         for event in events:
             if not isinstance(event, Event):
                 raise TypeError(f"event table entries must be Event objects, got {event!r}.")
+        event_ids = [event.event_id for event in events]
+        if len(set(event_ids)) != len(event_ids):
+            raise ValueError("event table event_id values must be unique.")
         if not isinstance(self.timebase, Timebase):
             raise TypeError(f"event table timebase must be a Timebase, got {self.timebase!r}.")
         metadata = metadata_dict(self.metadata, name="event table metadata")

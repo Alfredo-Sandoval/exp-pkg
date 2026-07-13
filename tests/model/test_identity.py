@@ -83,7 +83,7 @@ def test_labels_model_imports_without_identity_cycle() -> None:
             sys.executable,
             "-c",
             (
-                "from xpkg.io.labels.model import Labels; "
+                "from xpkg.model.labels import Labels; "
                 "from xpkg.model.identity import IdentityProvenanceRecord; "
                 "assert Labels and IdentityProvenanceRecord"
             ),

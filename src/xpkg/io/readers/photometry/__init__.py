@@ -398,6 +398,7 @@ def read_events_csv(
         (
             index,
             Event(
+                event_id=f"event-{index:06d}",
                 kind=(
                     _required_event_text(frame, resolved_kind, index, role="kind")
                     if resolved_kind is not None

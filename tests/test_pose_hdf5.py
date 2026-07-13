@@ -8,9 +8,9 @@ import h5py
 import numpy as np
 import pytest
 
-from xpkg.io.labels.model import Labels
 from xpkg.io.pose_hdf5 import export_pose_h5
 from xpkg.media.video import Video
+from xpkg.model.labels import Labels
 from xpkg.pose.annotations.frames import LabeledFrame
 from xpkg.pose.annotations.instances import Instance, PredictedInstance
 from xpkg.pose.annotations.points import Point, PredictedPoint

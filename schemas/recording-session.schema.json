@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "xpkg recording session",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "format": {
+      "const": "xpkg.recording-session"
+    },
+    "schema_version": {
+      "const": 4
+    },
+    "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "session": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "session_id": {},
+            "title": {},
+            "acquisition": {},
+            "session_timebase_name": {},
+            "timebases": {},
+            "signals": {},
+            "videos": {},
+            "poses": {},
+            "behaviors": {},
+            "calibrations": {},
+            "alignments": {},
+            "event_streams": {},
+            "metadata": {}
+          },
+          "required": [
+            "session_id",
+            "session_timebase_name",
+            "timebases",
+            "signals",
+            "videos",
+            "poses",
+            "behaviors",
+            "calibrations",
+            "alignments",
+            "event_streams",
+            "metadata"
+          ]
+        },
+        "metadata": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "session",
+        "metadata"
+      ]
+    }
+  },
+  "required": [
+    "format",
+    "schema_version",
+    "payload"
+  ]
+}

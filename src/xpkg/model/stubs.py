@@ -7,8 +7,8 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
-from xpkg.io.labels.model import Labels
-from xpkg.io.labels.video_types import VideoProtocol
+from xpkg.model.labels import Labels
+from xpkg.model.video_types import VideoProtocol
 from xpkg.pose.skeleton import Keypoint, Skeleton
 
 

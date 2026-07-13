@@ -10,7 +10,9 @@ Import from `xpkg` in Python and use `xpkg` for the CLI.
 exp-pkg gives neuroscience repositories one stable boundary for experiment-data
 IO. One project stores one typed `Experiment` containing subjects, protocols,
 conditions, multiple recording sessions, sampled signals, pose outputs,
-synchronized video, events, behavior labels, calibration, and sharing metadata.
+synchronized video, named event streams, behavior labels, calibration, and
+sharing metadata. The signal contract includes generic time series,
+photometry, EMG, and force-plate data.
 
 It imports external formats, normalizes them into canonical `xpkg` objects,
 stores them in a project-first contract, and emits portable `.expkg`
@@ -173,9 +175,11 @@ Mission direction:
 - keep project storage centered on projects and portable `.expkg` exports
 
 The canonical experiment state supports multiple sessions with acquisition,
-signals, videos, pose, behavior, calibration, events, timebases, and
-provenance. Generic photometry CSV is the first complete signal importer for
-this state.
+signals, videos, pose, behavior, calibration, named event streams, timebases,
+and provenance. It also supports direct behavior-to-subject links, bounded
+subject-to-track assignments, typed event relationships, EMG, and force-plate
+signals. Generic photometry CSV is the first complete signal importer for this
+state.
 
 ## Supported Project Imports
 
@@ -190,7 +194,7 @@ this state.
 | MMPose | Top-down demo JSON (`--save-predictions`) | Supported |
 | MediaPipe | Pose landmarks JSON | Supported |
 | Generic photometry | CSV | Supported as a session signal in experiment state |
-| Generic events | CSV | Supported as the session event table |
+| Generic events | CSV | Supported as a named session event stream |
 | Generic behavior events | CSV / JSON | Supported as named session behavior links |
 | BORIS | Event CSV | Supported as a named session behavior link |
 | B-SOiD | Label or bout CSV | Supported as a named session behavior link |
@@ -441,8 +445,8 @@ xpkg import pose dlc-csv --path tracking.csv --video video.mp4 --out "./My Proje
 xpkg import pose lightning-pose-csv --path predictions.csv --video video.mp4 --out "./My Project"
 xpkg import pose sleap-package --path labels.pkg.slp --out "./My Project"
 xpkg import signals photometry-csv --path photometry.csv --out "./My Project" --session-id session-001
-xpkg import events events-csv --path events.csv --out "./My Project" --session-id session-001
-xpkg import behavior boris-csv --path observations.csv --out "./My Project" --session-id session-001
+xpkg import events events-csv --path events.csv --out "./My Project" --session-id session-001 --event-stream-name task-events
+xpkg import behavior boris-csv --path observations.csv --out "./My Project" --session-id session-001 --video-role behavior-camera --pose-name pose-2d
 xpkg import synchronization synchronization-csv --path sync.csv --out "./My Project" --source-timebase camera --target-timebase daq --session-id session-001
 xpkg inspect tracking.csv --json
 xpkg project pack "./My Project"

@@ -17,13 +17,11 @@ from xpkg.io.skeleton_io import (
 from xpkg.io.skeleton_loaders import (
     detect_skeleton_format,
     detect_yaml_skeleton_format,
-)
-from xpkg.model import (
-    Skeleton,
     load_skeleton,
     load_skeleton_dlc,
     load_skeleton_xpkg_json,
 )
+from xpkg.model import Skeleton
 
 
 def _write_json_skeleton(

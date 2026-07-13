@@ -1,14 +1,14 @@
 from __future__ import annotations
 
-from xpkg.io.labels.query import (
+from xpkg.media.video import Video
+from xpkg.model import LabeledFrame
+from xpkg.model.labels_query import (
     build_frame_index_map,
     fancy_frame_indices,
     find_frames,
     group_labeled_frames_by_video,
 )
-from xpkg.io.labels.video_types import VideoProtocol
-from xpkg.media.video import Video
-from xpkg.model import LabeledFrame
+from xpkg.model.video_types import VideoProtocol
 
 
 def _video(filename: str) -> Video:

@@ -110,7 +110,17 @@ def test_behavior_labels_project_time_intervals_to_event_table() -> None:
 
 
 def test_behavior_labels_can_hydrate_from_generic_event_table() -> None:
-    events = EventTable.from_events([Event(kind="cue", start_s=1.0, duration_s=0.25, label="tone")])
+    events = EventTable.from_events(
+        [
+            Event(
+                event_id="cue-1",
+                kind="cue",
+                start_s=1.0,
+                duration_s=0.25,
+                label="tone",
+            )
+        ]
+    )
 
     labels = BehaviorLabels.from_event_table(events, source_type="events_csv")
 

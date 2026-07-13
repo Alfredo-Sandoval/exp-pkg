@@ -44,6 +44,85 @@ def _non_negative_float(value: Any | None, *, name: str) -> float | None:
     return coerced
 
 
+@dataclass(frozen=True, slots=True)
+class SourceProvenance:
+    """Typed origin and producer record for one imported modality."""
+
+    source_type: str
+    source_path: str | None = None
+    size_bytes: int | None = None
+    sha256: str | None = None
+    tool: str | None = None
+    tool_version: str | None = None
+    imported_at: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        object.__setattr__(
+            self,
+            "source_type",
+            _required_text(self.source_type, name="source provenance source_type"),
+        )
+        for field_name in ("source_path", "sha256", "tool", "tool_version", "imported_at"):
+            object.__setattr__(
+                self,
+                field_name,
+                _optional_text(
+                    getattr(self, field_name),
+                    name=f"source provenance {field_name}",
+                ),
+            )
+        if self.sha256 is not None and (
+            len(self.sha256) != 64
+            or any(character not in "0123456789abcdef" for character in self.sha256)
+        ):
+            raise ValueError("source provenance sha256 must be 64 lowercase hexadecimal digits.")
+        if self.size_bytes is not None:
+            if isinstance(self.size_bytes, bool) or not isinstance(self.size_bytes, int):
+                raise TypeError("source provenance size_bytes must be an integer or null.")
+            if self.size_bytes < 0:
+                raise ValueError("source provenance size_bytes must be non-negative.")
+        object.__setattr__(
+            self,
+            "metadata",
+            _metadata(self.metadata, name="source provenance metadata"),
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        """Return a JSON-friendly provenance payload."""
+        payload: dict[str, Any] = {"source_type": self.source_type}
+        for key in (
+            "source_path",
+            "size_bytes",
+            "sha256",
+            "tool",
+            "tool_version",
+            "imported_at",
+        ):
+            value = getattr(self, key)
+            if value is not None:
+                payload[key] = value
+        if self.metadata:
+            payload["metadata"] = dict(self.metadata)
+        return payload
+
+    @classmethod
+    def from_dict(cls, payload: Mapping[str, Any]) -> SourceProvenance:
+        """Parse one provenance payload."""
+        if not isinstance(payload, Mapping):
+            raise TypeError("source provenance payload must be a mapping.")
+        return cls(
+            source_type=payload.get("source_type", ""),
+            source_path=payload.get("source_path"),
+            size_bytes=payload.get("size_bytes"),
+            sha256=payload.get("sha256"),
+            tool=payload.get("tool"),
+            tool_version=payload.get("tool_version"),
+            imported_at=payload.get("imported_at"),
+            metadata=_metadata(payload.get("metadata"), name="source provenance metadata"),
+        )
+
+
 def _resolution(value: Iterable[Any] | None) -> tuple[int, int] | None:
     if value is None:
         return None
@@ -71,9 +150,7 @@ def _camera_tuple(
         elif isinstance(item, Mapping):
             cameras.append(CameraMetadata.from_dict(item))
         else:
-            raise TypeError(
-                "acquisition cameras must contain CameraMetadata objects or mappings."
-            )
+            raise TypeError("acquisition cameras must contain CameraMetadata objects or mappings.")
     camera_ids = [camera.camera_id for camera in cameras]
     if len(set(camera_ids)) != len(camera_ids):
         raise ValueError("acquisition camera_id values must be unique.")
@@ -396,12 +473,11 @@ class DatasetShareMetadata:
         """Hydrate dataset sharing metadata from a JSON-friendly payload."""
         if not isinstance(payload, Mapping):
             raise TypeError("dataset share metadata payload must be a mapping.")
+        if "funder" in payload:
+            raise ValueError("dataset share metadata uses 'funders'; 'funder' is unsupported.")
         raw_metadata = payload.get("metadata")
         if raw_metadata is not None and not isinstance(raw_metadata, Mapping):
             raise TypeError("dataset share metadata must be a mapping when present.")
-        raw_funders = payload.get("funders")
-        if raw_funders is None and payload.get("funder") is not None:
-            raw_funders = (payload["funder"],)
         return cls(
             title=payload.get("title", ""),
             creators=_text_tuple(payload.get("creators"), name="creators"),
@@ -411,7 +487,7 @@ class DatasetShareMetadata:
             doi=payload.get("doi"),
             repository_url=payload.get("repository_url"),
             version=payload.get("version"),
-            funders=_text_tuple(raw_funders, name="funders"),
+            funders=_text_tuple(payload.get("funders"), name="funders"),
             keywords=_text_tuple(payload.get("keywords"), name="keywords"),
             access=payload.get("access"),
             related_publications=_text_tuple(
@@ -518,4 +594,5 @@ __all__ = [
     "CameraMetadata",
     "DatasetShareMetadata",
     "PoseModelProvenance",
+    "SourceProvenance",
 ]
