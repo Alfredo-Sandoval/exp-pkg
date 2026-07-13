@@ -13,6 +13,7 @@ from xpkg.services.project import (
     ProjectMetadata,
     ProjectSegmentation,
     ProjectService,
+    SignalFormat,
 )
 
 __all__ = [
@@ -26,4 +27,5 @@ __all__ = [
     "ProjectSegmentation",
     "PoseFormat",
     "CalibrationFormat",
+    "SignalFormat",
 ]

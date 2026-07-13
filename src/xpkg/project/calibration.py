@@ -1,4 +1,4 @@
-"""Project-scoped calibration storage helpers."""
+"""Project actions for session-owned camera calibrations."""
 
 from __future__ import annotations
 
@@ -9,24 +9,14 @@ from pathlib import Path
 from typing import Any
 
 from xpkg._core.path_registry import ensure_dir, resolve_path, slugify_path_component
-from xpkg.io.calibration import read_calibration_json, write_calibration_json
 from xpkg.model.calibration import Calibration, CalibrationSource, WorldFrame
-from xpkg.project.layout import (
-    project_store_root,
-)
-from xpkg.project.layout import (
-    require_project_root as _require_project_root,
-)
-
-CALIBRATIONS_DIRNAME = "calibrations"
-CALIBRATION_FILENAME = "calibration.json"
-CALIBRATION_SOURCE_DIRNAME = "source"
+from xpkg.model.session import SessionCalibration
+from xpkg.model.session_actions import add_session_calibration, replace_session_calibration
+from xpkg.project.layout import project_media_root, require_project_root
 
 
 def _calibration_id(value: str | None, *, fallback: str) -> str:
-    raw = fallback if value is None else str(value).strip()
-    if value is None:
-        raw = slugify_path_component(raw)
+    raw = slugify_path_component(fallback) if value is None else str(value).strip()
     if not raw:
         raise ValueError("calibration_id must be a non-empty string.")
     if raw in {".", ".."} or "/" in raw or "\\" in raw:
@@ -34,65 +24,60 @@ def _calibration_id(value: str | None, *, fallback: str) -> str:
     return raw
 
 
-def project_calibrations_root(project: str | Path) -> Path:
-    """Return the project-managed calibration directory under ``.xpkg/``."""
-
-    return project_store_root(_require_project_root(project)) / CALIBRATIONS_DIRNAME
-
-
-def project_calibration_root(project: str | Path, calibration_id: str) -> Path:
-    """Return the managed directory for one project calibration."""
-
-    root = project_calibrations_root(project)
-    return root / _calibration_id(calibration_id, fallback=calibration_id)
-
-
-def project_calibration_path(project: str | Path, calibration_id: str) -> Path:
-    """Return the canonical JSON path for one project calibration."""
-
-    return project_calibration_root(project, calibration_id) / CALIBRATION_FILENAME
-
-
-def project_calibration_source_root(project: str | Path, calibration_id: str) -> Path:
-    """Return the optional source-sidecar directory for one project calibration."""
-
-    return project_calibration_root(project, calibration_id) / CALIBRATION_SOURCE_DIRNAME
-
-
 def save_project_calibration(
     project: str | Path,
     calibration: Calibration,
     *,
     calibration_id: str | None = None,
+    session_id: str | None = None,
     force: bool = False,
 ) -> Path:
-    """Write a calibration into ``.xpkg/calibrations/<id>/calibration.json``."""
-
+    """Commit one camera calibration as a typed session relationship."""
     if not isinstance(calibration, Calibration):
         raise TypeError(f"calibration must be a Calibration, got {calibration!r}.")
+    from xpkg.project.recording import (
+        _load_or_create_experiment,
+        _select_or_create_session,
+        save_project_session,
+    )
+
     target_id = _calibration_id(calibration_id, fallback=calibration.name)
-    target_root = project_calibration_root(project, target_id)
-    target_path = target_root / CALIBRATION_FILENAME
-    if target_root.exists() and not force:
-        raise FileExistsError(f"Project calibration already exists: {target_root}")
-    ensure_dir(target_path.parent)
-    write_calibration_json(calibration, target_path)
-    return target_path
+    experiment = _load_or_create_experiment(project)
+    session = _select_or_create_session(experiment, requested_session_id=session_id)
+    link = SessionCalibration(name=target_id, calibration=calibration)
+    existing = {item.name for item in session.calibrations}
+    if target_id in existing:
+        if not force:
+            raise FileExistsError(
+                f"Recording session {session.session_id!r} already has calibration "
+                f"{target_id!r}."
+            )
+        session = replace_session_calibration(session, link)
+    else:
+        session = add_session_calibration(session, link)
+    return save_project_session(project, session, reason="project.save.calibration")
 
 
-def load_project_calibration(project: str | Path, calibration_id: str) -> Calibration:
-    """Load one project-managed calibration by ID."""
+def load_project_calibration(
+    project: str | Path,
+    calibration_id: str,
+    *,
+    session_id: str | None = None,
+) -> Calibration:
+    """Load one named calibration from a selected recording session."""
+    from xpkg.project.recording import load_project_session
 
-    return read_calibration_json(project_calibration_path(project, calibration_id))
+    session = load_project_session(project, session_id=session_id)
+    return session.calibration(calibration_id)
 
 
-def list_project_calibrations(project: str | Path) -> list[Path]:
-    """Return project-managed calibration JSON files in stable order."""
+def list_project_calibrations(
+    project: str | Path, *, session_id: str | None = None
+) -> tuple[SessionCalibration, ...]:
+    """Return calibration relationships from a selected recording session."""
+    from xpkg.project.recording import load_project_session
 
-    root = project_calibrations_root(project)
-    if not root.exists():
-        return []
-    return sorted(path for path in root.glob(f"*/{CALIBRATION_FILENAME}") if path.is_file())
+    return load_project_session(project, session_id=session_id).calibrations
 
 
 def _calibration_with_imported_source_path(
@@ -103,6 +88,18 @@ def _calibration_with_imported_source_path(
     return replace(calibration, source=replace(source, imported_from=imported_from))
 
 
+def _copy_calibration_source(
+    source: Path, project: str | Path, calibration_id: str
+) -> tuple[Path, str]:
+    root = require_project_root(project)
+    target = project_media_root(root) / "calibrations" / calibration_id / source.name
+    ensure_dir(target.parent)
+    if source.resolve() != target.resolve():
+        shutil.copy2(source, target)
+    relative = target.resolve().relative_to(root.resolve()).as_posix()
+    return target, relative
+
+
 def _import_calibration_source_project(
     source: str | Path,
     project: str | Path,
@@ -110,6 +107,7 @@ def _import_calibration_source_project(
     reader: Callable[..., Calibration],
     source_label: str,
     calibration_id: str | None = None,
+    session_id: str | None = None,
     name: str | None = None,
     units: str = "unknown",
     captured_at: str | None = None,
@@ -121,7 +119,6 @@ def _import_calibration_source_project(
     if not source_path.is_file():
         raise FileNotFoundError(f"{source_label} not found: {source_path}")
     target_id = _calibration_id(calibration_id, fallback=name or source_path.stem)
-    source_relative_path = f"{CALIBRATION_SOURCE_DIRNAME}/{source_path.name}"
     calibration = reader(
         source_path,
         name=name,
@@ -130,20 +127,15 @@ def _import_calibration_source_project(
         tool_version=tool_version,
         **dict(reader_kwargs or {}),
     )
-    calibration = _calibration_with_imported_source_path(
-        calibration,
-        imported_from=source_relative_path,
-    )
-    calibration_path = save_project_calibration(
+    _target, relative_source = _copy_calibration_source(source_path, project, target_id)
+    calibration = _calibration_with_imported_source_path(calibration, relative_source)
+    return save_project_calibration(
         project,
         calibration,
         calibration_id=target_id,
+        session_id=session_id,
         force=force,
     )
-    source_target = project_calibration_source_root(project, target_id) / source_path.name
-    ensure_dir(source_target.parent)
-    shutil.copy2(source_path, source_target)
-    return calibration_path
 
 
 def import_anipose_calibration_project(
@@ -151,6 +143,7 @@ def import_anipose_calibration_project(
     project: str | Path,
     *,
     calibration_id: str | None = None,
+    session_id: str | None = None,
     name: str | None = None,
     units: str = "unknown",
     captured_at: str | None = None,
@@ -158,7 +151,7 @@ def import_anipose_calibration_project(
     tool_version: str | None = None,
     force: bool = False,
 ) -> Path:
-    """Import an Anipose ``calibration.toml`` into the project calibration store."""
+    """Import Anipose calibration into a recording session."""
     from xpkg.io.readers.anipose import read_anipose_calibration
 
     return _import_calibration_source_project(
@@ -167,6 +160,7 @@ def import_anipose_calibration_project(
         reader=read_anipose_calibration,
         source_label="Anipose calibration TOML",
         calibration_id=calibration_id,
+        session_id=session_id,
         name=name,
         units=units,
         captured_at=captured_at,
@@ -181,6 +175,7 @@ def import_opencv_stereo_calibration_project(
     project: str | Path,
     *,
     calibration_id: str | None = None,
+    session_id: str | None = None,
     name: str | None = None,
     camera_names: tuple[str, str] = ("camera_1", "camera_2"),
     units: str = "unknown",
@@ -188,7 +183,7 @@ def import_opencv_stereo_calibration_project(
     tool_version: str | None = None,
     force: bool = False,
 ) -> Path:
-    """Import an OpenCV stereo-calibration YAML into the project store."""
+    """Import OpenCV stereo calibration into a recording session."""
     from xpkg.io.readers.opencv_stereo import read_opencv_stereo_calibration
 
     return _import_calibration_source_project(
@@ -197,6 +192,7 @@ def import_opencv_stereo_calibration_project(
         reader=read_opencv_stereo_calibration,
         source_label="OpenCV stereo calibration YAML",
         calibration_id=calibration_id,
+        session_id=session_id,
         name=name,
         units=units,
         captured_at=captured_at,
@@ -207,16 +203,9 @@ def import_opencv_stereo_calibration_project(
 
 
 __all__ = [
-    "CALIBRATIONS_DIRNAME",
-    "CALIBRATION_FILENAME",
-    "CALIBRATION_SOURCE_DIRNAME",
     "import_anipose_calibration_project",
     "import_opencv_stereo_calibration_project",
     "list_project_calibrations",
     "load_project_calibration",
-    "project_calibration_path",
-    "project_calibration_root",
-    "project_calibration_source_root",
-    "project_calibrations_root",
     "save_project_calibration",
 ]

@@ -11,6 +11,7 @@ from tests.factories import (
     write_sample_dlc_csv,
     write_sample_dlc_h5,
 )
+from xpkg.model import Labels
 
 
 def _make_dlc_project_fixture(tmp_path: Path) -> Path:
@@ -109,10 +110,8 @@ def test_convert_dlc_project_skips_incomplete_entries(tmp_path: Path) -> None:
 def test_import_dlc_project_directory_imports_supported_items_into_one_project(
     tmp_path: Path,
 ) -> None:
-    from xpkg.model import Labels
-    from xpkg.project import current_project_state_path
+    from xpkg.project import current_project_state_path, load_project_session
     from xpkg.project.layout import project_media_root
-    from xpkg.project.state_io import read_project_state
     from xpkg.project.store.imports import import_dlc_project_directory
 
     project_root = _make_dlc_project_fixture(tmp_path)
@@ -129,10 +128,10 @@ def test_import_dlc_project_directory_imports_supported_items_into_one_project(
     assert "IMPORT: Skipping session-missing-video (no video found)" in progress
     assert "IMPORT: Skipping session-no-data (no data file)" in progress
 
-    payload = read_project_state(state_path)
-    assert payload["metadata"]["source"] == "dlc_project_import"
-    assert payload["metadata"]["project_name"] == "dlc-project"
-    assert payload["metadata"]["source_items"] == [
+    pose_metadata = load_project_session(project).poses[0].metadata
+    assert pose_metadata["source"] == "dlc_project_import"
+    assert pose_metadata["project_name"] == "dlc-project"
+    assert pose_metadata["source_items"] == [
         {
             "name": "session-csv",
             "source": "dlc_csv_import",
@@ -146,7 +145,7 @@ def test_import_dlc_project_directory_imports_supported_items_into_one_project(
             "source_video": "videos/session-h5.avi",
         },
     ]
-    assert payload["metadata"]["skipped_items"] == [
+    assert pose_metadata["skipped_items"] == [
         {"name": "session-missing-video", "reason": "no video found"},
         {"name": "session-no-data", "reason": "no data file"},
     ]
@@ -170,9 +169,7 @@ def test_import_lightning_pose_csv_project_uses_dlc_style_predictions(
     tmp_path: Path,
 ) -> None:
     from xpkg._core.hashing import sha256_file
-    from xpkg.model import Labels
-    from xpkg.project import current_project_state_path
-    from xpkg.project.state_io import read_project_state
+    from xpkg.project import current_project_state_path, load_project_session
     from xpkg.project.store.imports import import_lightning_pose_csv_project
 
     csv_path = tmp_path / "video_preds" / "session0.csv"
@@ -202,10 +199,13 @@ def test_import_lightning_pose_csv_project_uses_dlc_style_predictions(
 
     assert state_path == current_project_state_path(project)
     assert "IMPORT: Reading Lightning Pose CSV session0.csv" in progress
-    payload = read_project_state(state_path)
-    assert payload["metadata"]["source"] == "lightning_pose_csv_import"
-    assert payload["metadata"]["source_csv"] == csv_path.name
-    provenance = payload["provenance"]["pose_prediction"]
+    session = load_project_session(project)
+    pose_metadata = session.poses[0].metadata
+    assert pose_metadata["source"] == "lightning_pose_csv_import"
+    assert pose_metadata["source_csv"] == csv_path.name
+    pose_data = session.poses[0].data
+    assert isinstance(pose_data, Labels)
+    provenance = pose_data.provenance["pose_prediction"]
     assert provenance["tool"]["name"] == "Lightning Pose"
     assert provenance["source_format"] == "csv"
     assert provenance["inputs"]["source_csv"] == csv_path.name
@@ -218,7 +218,7 @@ def test_import_lightning_pose_csv_project_uses_dlc_style_predictions(
         "path": config_path.as_posix(),
         "sha256": sha256_file(config_path),
     }
-    assert payload["metadata"]["prediction_provenance"] == provenance
+    assert pose_metadata["prediction_provenance"] == provenance
     loaded = Labels.load_file(project.as_posix())
     assert loaded.provenance["pose_prediction"] == provenance
     assert len(loaded.skeletons) == 1
@@ -240,7 +240,6 @@ def test_import_dlc_project_directory_requires_supported_items(tmp_path: Path) -
 def test_dlc_csv_import_preserves_per_keypoint_likelihood_through_project_state(
     tmp_path: Path,
 ) -> None:
-    from xpkg.model import Labels
     from xpkg.pose.annotations import PredictedInstance
     from xpkg.project.store.imports import import_dlc_csv_project
 
@@ -279,7 +278,6 @@ def test_dlc_csv_import_preserves_per_keypoint_likelihood_through_project_state(
 def test_dlc_csv_import_preserves_scores_through_pack_unpack_roundtrip(
     tmp_path: Path,
 ) -> None:
-    from xpkg.model import Labels
     from xpkg.pose.annotations import PredictedInstance
     from xpkg.project import pack_project, unpack_project
     from xpkg.project.store.imports import import_dlc_csv_project

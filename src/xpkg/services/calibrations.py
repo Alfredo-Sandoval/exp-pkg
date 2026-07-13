@@ -2,22 +2,18 @@
 
 from __future__ import annotations
 
-import builtins
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 from xpkg.model.calibration import Calibration, WorldFrame
+from xpkg.model.session import SessionCalibration
 from xpkg.project.calibration import (
     import_anipose_calibration_project,
     import_opencv_stereo_calibration_project,
     list_project_calibrations,
     load_project_calibration,
-    project_calibration_path,
-    project_calibration_root,
-    project_calibration_source_root,
-    project_calibrations_root,
     save_project_calibration,
 )
 
@@ -33,6 +29,7 @@ class ProjectCalibrations:
         calibration: Calibration,
         *,
         calibration_id: str | None = None,
+        session_id: str | None = None,
         force: bool = False,
     ) -> Path:
         """Persist a calibration as ``.xpkg/calibrations/<id>/calibration.json``."""
@@ -41,44 +38,32 @@ class ProjectCalibrations:
             self.project_root,
             calibration,
             calibration_id=calibration_id,
+            session_id=session_id,
             force=force,
         )
 
-    def load(self, calibration_id: str) -> Calibration:
-        """Load one stored calibration by ID."""
+    def load(
+        self, calibration_id: str, *, session_id: str | None = None
+    ) -> Calibration:
+        """Load one session-owned calibration by ID."""
 
-        return load_project_calibration(self.project_root, calibration_id)
+        return load_project_calibration(
+            self.project_root, calibration_id, session_id=session_id
+        )
 
-    def list(self) -> builtins.list[Path]:
-        """Return stored calibration JSON paths in stable order."""
+    def list(
+        self, *, session_id: str | None = None
+    ) -> tuple[SessionCalibration, ...]:
+        """Return calibration relationships for one selected session."""
 
-        return list_project_calibrations(self.project_root)
-
-    def path(self, calibration_id: str) -> Path:
-        """Return the canonical JSON path for one stored calibration."""
-
-        return project_calibration_path(self.project_root, calibration_id)
-
-    def calibration_root(self, calibration_id: str) -> Path:
-        """Return the managed directory for one stored calibration."""
-
-        return project_calibration_root(self.project_root, calibration_id)
-
-    def source_root(self, calibration_id: str) -> Path:
-        """Return the optional source-sidecar directory for one stored calibration."""
-
-        return project_calibration_source_root(self.project_root, calibration_id)
-
-    def root(self) -> Path:
-        """Return the project-managed calibration directory under ``.xpkg/``."""
-
-        return project_calibrations_root(self.project_root)
+        return list_project_calibrations(self.project_root, session_id=session_id)
 
     def import_anipose(
         self,
         toml_path: str | Path,
         *,
         calibration_id: str | None = None,
+        session_id: str | None = None,
         name: str | None = None,
         units: str = "unknown",
         captured_at: str | None = None,
@@ -92,6 +77,7 @@ class ProjectCalibrations:
             toml_path,
             self.project_root,
             calibration_id=calibration_id,
+            session_id=session_id,
             name=name,
             units=units,
             captured_at=captured_at,
@@ -105,6 +91,7 @@ class ProjectCalibrations:
         yaml_path: str | Path,
         *,
         calibration_id: str | None = None,
+        session_id: str | None = None,
         name: str | None = None,
         camera_names: tuple[str, str] = ("camera_1", "camera_2"),
         units: str = "unknown",
@@ -118,6 +105,7 @@ class ProjectCalibrations:
             yaml_path,
             self.project_root,
             calibration_id=calibration_id,
+            session_id=session_id,
             name=name,
             camera_names=camera_names,
             units=units,

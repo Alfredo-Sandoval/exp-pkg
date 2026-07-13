@@ -207,23 +207,10 @@ def test_inspect_path_project_json_shape_is_stable(tmp_path: Path) -> None:
 
     slots = summary["metadata_slots"]
     assert list(slots) == [
-        "acquisition",
-        "dataset_share",
         "datasheet",
         "model_card",
-        "pose_provenance",
     ]
     assert slots == {
-        "acquisition": {
-            "path": str(project.project_root / ".xpkg" / "metadata" / "acquisition.json"),
-            "present": False,
-            "valid": None,
-        },
-        "dataset_share": {
-            "path": str(project.project_root / ".xpkg" / "metadata" / "dataset_share.json"),
-            "present": False,
-            "valid": None,
-        },
         "datasheet": {
             "path": str(project.project_root / ".xpkg" / "metadata" / "datasheet.json"),
             "present": False,
@@ -231,11 +218,6 @@ def test_inspect_path_project_json_shape_is_stable(tmp_path: Path) -> None:
         },
         "model_card": {
             "path": str(project.project_root / ".xpkg" / "metadata" / "model_card.json"),
-            "present": False,
-            "valid": None,
-        },
-        "pose_provenance": {
-            "path": str(project.project_root / ".xpkg" / "metadata" / "pose_provenance.json"),
             "present": False,
             "valid": None,
         },
@@ -266,7 +248,7 @@ def test_inspect_path_summarizes_project_state_without_payload_load(tmp_path: Pa
     state_path = current_project_state_path(project.project_root)
     state_path.parent.mkdir(parents=True, exist_ok=True)
     state_path.write_text(
-        '{"format":"xpkg.labels-json","version":1,"payload":{"metadata":{},"predictions":'
+        '{"format":"xpkg.experiment","schema_version":1,"payload":{"metadata":{},"experiment":'
         + ("0" * 16_384),
         encoding="utf-8",
     )
@@ -275,7 +257,7 @@ def test_inspect_path_summarizes_project_state_without_payload_load(tmp_path: Pa
 
     assert report.kind is InspectionKind.XPKG_PROJECT
     assert report.summary["title"] == "Large Project"
-    assert report.summary["state_kind"] == "labels"
+    assert report.summary["state_kind"] == "experiment"
     assert report.summary["has_current_state"] is True
     assert report.summary["state_bytes"] == state_path.stat().st_size
 
@@ -293,7 +275,7 @@ def test_inspect_path_reports_project_metadata_slots_without_payload_load(tmp_pa
     state_path = current_project_state_path(project.project_root)
     state_path.parent.mkdir(parents=True, exist_ok=True)
     state_path.write_text(
-        '{"format":"xpkg.labels-json","version":1,"payload":{"metadata":{},"predictions":'
+        '{"format":"xpkg.experiment","schema_version":1,"payload":{"metadata":{},"experiment":'
         + ("0" * 16_384),
         encoding="utf-8",
     )
@@ -313,11 +295,8 @@ def test_inspect_path_reports_project_metadata_slots_without_payload_load(tmp_pa
     assert not summary_path.exists()
     slots = report.summary["metadata_slots"]
     assert list(slots) == [
-        "acquisition",
-        "dataset_share",
         "datasheet",
         "model_card",
-        "pose_provenance",
     ]
     assert slots["datasheet"] == {
         "path": str(datasheet_path),
@@ -328,13 +307,6 @@ def test_inspect_path_reports_project_metadata_slots_without_payload_load(tmp_pa
     assert slots["model_card"]["present"] is True
     assert slots["model_card"]["valid"] is False
     assert "details" in slots["model_card"]["error"]
-    assert slots["acquisition"] == {
-        "path": str(project.project_root / ".xpkg" / "metadata" / "acquisition.json"),
-        "present": False,
-        "valid": None,
-    }
-    assert slots["dataset_share"]["present"] is False
-    assert slots["pose_provenance"]["present"] is False
     assert any(
         record.code == "project_metadata_invalid"
         and "metadata slot 'model_card' is invalid" in record.message
@@ -358,12 +330,13 @@ def test_inspect_path_reports_project_media_from_summary_without_payload_load(
     project.save_labels(make_media_labels(source_video, x=3.0, y=4.0))
     summary = load_project_summary(project.project_root)
     managed_media = project.project_root / str(summary.media[0]["path"])
+    managed_size = managed_media.stat().st_size
     managed_media.unlink()
     for superblock in (project.project_root / ".xpkg").glob("superblock.*.json"):
         superblock.unlink()
     state_path = current_project_state_path(project.project_root)
     state_path.write_text(
-        '{"format":"xpkg.labels-json","version":1,"payload":{"metadata":{},"predictions":'
+        '{"format":"xpkg.experiment","schema_version":1,"payload":{"metadata":{},"experiment":'
         + ("0" * 16_384),
         encoding="utf-8",
     )
@@ -371,13 +344,14 @@ def test_inspect_path_reports_project_media_from_summary_without_payload_load(
     report = inspect_path(project.project_root)
 
     assert report.kind is InspectionKind.XPKG_PROJECT
-    assert report.summary["state_kind"] == "labels"
+    assert report.summary["state_kind"] == "experiment"
     assert report.summary["state_bytes"] == state_path.stat().st_size
     assert report.summary["media"] == [
         {
             "index": 0,
-            "kind": "video_file",
-            "path": "Media/source.avi",
+                "kind": "video_file",
+                "path": "Media/source.avi",
+                "role": "pose-video-0",
             "backend": "opencv",
             "video_id": "video_0",
             "label": "source.avi",
@@ -393,7 +367,9 @@ def test_inspect_path_reports_project_media_from_summary_without_payload_load(
             "max_label_frame_index": 0,
             "prediction_frame_count": 0,
             "max_prediction_frame_index": None,
-            "exists": False,
+                "exists": False,
+                "size_bytes": managed_size,
+                "session_id": project.descriptor().project_id,
         }
     ]
     assert any(
@@ -435,7 +411,6 @@ def test_inspect_path_project_image_sequence_media_reports_current_count(
 
 def test_inspect_path_warns_when_project_media_inventory_unavailable(
     tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     from tests.factories import make_media_labels, write_test_video
     from xpkg.project.layout import project_summary_path
@@ -453,23 +428,19 @@ def test_inspect_path_warns_when_project_media_inventory_unavailable(
     summary_payload["media"]["items"] = []
     summary_path.write_text(json.dumps(summary_payload), encoding="utf-8")
 
-    def fail_load_payload(*_args: object, **_kwargs: object) -> object:
-        raise AssertionError("inspect must not materialize project payload")
-
-    monkeypatch.setattr("xpkg.project.store.load_project_payload", fail_load_payload)
-
     report = inspect_path(project.project_root)
 
     assert report.kind is InspectionKind.XPKG_PROJECT
     assert report.summary["media"] == []
     assert any(
         record.message
-        == "Project media inventory is unavailable for labels state with 1 recorded video(s)."
+        == "Project media inventory is unavailable for experiment with "
+        "1 recorded video(s)."
         for record in report.warning_records
     )
     assert {
         "code": "project_media_inventory_unavailable",
-        "message": "Project media inventory is unavailable for labels state with "
+            "message": "Project media inventory is unavailable for experiment with "
         "1 recorded video(s).",
         "path": str(summary_path),
         "severity": "warning",
@@ -505,11 +476,8 @@ def test_inspect_path_reports_expkg_metadata_slots_without_unpacking(tmp_path: P
     assert report.kind is InspectionKind.EXPKG_ARTIFACT
     slots = report.summary["metadata_slots"]
     assert list(slots) == [
-        "acquisition",
-        "dataset_share",
         "datasheet",
         "model_card",
-        "pose_provenance",
     ]
     assert slots["datasheet"] == {
         "path": ".xpkg/metadata/datasheet.json",
@@ -520,13 +488,6 @@ def test_inspect_path_reports_expkg_metadata_slots_without_unpacking(tmp_path: P
     assert slots["model_card"]["present"] is True
     assert slots["model_card"]["valid"] is False
     assert "details" in slots["model_card"]["error"]
-    assert slots["acquisition"] == {
-        "path": ".xpkg/metadata/acquisition.json",
-        "present": False,
-        "valid": None,
-    }
-    assert slots["dataset_share"]["present"] is False
-    assert slots["pose_provenance"]["present"] is False
     assert any(
         "Packed project metadata slot 'model_card' is invalid" in record.message
         and "details" in record.message

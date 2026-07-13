@@ -7,6 +7,7 @@ from typing import Any, cast
 
 from tests.calibration_helpers import write_anipose_toml, write_opencv_stereo_yaml
 from xpkg.project import (
+    current_project_state_path,
     init_project,
     list_project_calibrations,
     load_project_calibration,
@@ -15,10 +16,6 @@ from xpkg.project import (
 )
 from xpkg.project.calibration import (
     import_anipose_calibration_project,
-    project_calibration_path,
-    project_calibration_root,
-    project_calibration_source_root,
-    project_calibrations_root,
 )
 from xpkg.services import ProjectService
 
@@ -44,24 +41,14 @@ def test_project_calibration_store_round_trips_and_packs(tmp_path: Path) -> None
         units="mm",
     )
 
-    assert (
-        calibration_path
-        == project / ".xpkg" / "calibrations" / "rig-2024-03-15" / "calibration.json"
-    )
-    assert project_calibrations_root(project) == project / ".xpkg" / "calibrations"
-    assert (
-        project_calibration_root(project, "rig-2024-03-15")
-        == project / ".xpkg" / "calibrations" / "rig-2024-03-15"
-    )
-    assert project_calibration_path(project, "rig-2024-03-15") == calibration_path
-    source_root = project_calibration_source_root(project, "rig-2024-03-15")
-    assert source_root == project / ".xpkg" / "calibrations" / "rig-2024-03-15" / "source"
-    assert (source_root / "calibration.toml").is_file()
-    assert list_project_calibrations(project) == [calibration_path]
+    assert calibration_path == current_project_state_path(project)
+    source_path = project / "Media" / "calibrations" / "rig-2024-03-15" / "calibration.toml"
+    assert source_path.is_file()
+    assert [link.name for link in list_project_calibrations(project)] == ["rig-2024-03-15"]
     loaded = load_project_calibration(project, "rig-2024-03-15")
     assert loaded.name == "rig-2024-03-15"
     assert loaded.source is not None
-    assert loaded.source.imported_from == "source/calibration.toml"
+    assert loaded.source.imported_from == "Media/calibrations/rig-2024-03-15/calibration.toml"
     assert loaded.camera_by_name("cam_top").extrinsics.translation == (1.0, 2.0, 3.0)
 
     artifact = pack_project(project, out=tmp_path / "Calibration Project.expkg")
@@ -69,8 +56,8 @@ def test_project_calibration_store_round_trips_and_packs(tmp_path: Path) -> None
     manifest = _read_expkg_manifest(artifact)
     members = cast("list[dict[str, Any]]", manifest["members"])
     member_paths = {entry["path"] for entry in members}
-    assert ".xpkg/calibrations/rig-2024-03-15/calibration.json" in member_paths
-    assert ".xpkg/calibrations/rig-2024-03-15/source/calibration.toml" in member_paths
+    assert ".xpkg/calibrations/rig-2024-03-15/calibration.json" not in member_paths
+    assert "Media/calibrations/rig-2024-03-15/calibration.toml" in member_paths
 
 
 def test_project_service_imports_anipose_calibration(tmp_path: Path) -> None:
@@ -84,14 +71,7 @@ def test_project_service_imports_anipose_calibration(tmp_path: Path) -> None:
         units="mm",
     )
 
-    assert (
-        calibration_path
-        == project.project_root / ".xpkg" / "calibrations" / "rig" / "calibration.json"
-    )
-    assert project.calibrations.path("rig") == calibration_path
-    assert project.calibrations.source_root("rig") == (
-        project.project_root / ".xpkg" / "calibrations" / "rig" / "source"
-    )
+    assert calibration_path == current_project_state_path(project.project_root)
     assert load_project_calibration(project.project_root, "rig").name == "service-rig"
 
     imported_via_dispatch = project.import_calibration(
@@ -101,13 +81,7 @@ def test_project_service_imports_anipose_calibration(tmp_path: Path) -> None:
         name="service-rig-from-imports",
         units="mm",
     )
-    assert imported_via_dispatch == (
-        project.project_root
-        / ".xpkg"
-        / "calibrations"
-        / "rig-from-imports"
-        / "calibration.json"
-    )
+    assert imported_via_dispatch == current_project_state_path(project.project_root)
 
 
 def test_project_service_imports_opencv_stereo_calibration(tmp_path: Path) -> None:
@@ -123,11 +97,13 @@ def test_project_service_imports_opencv_stereo_calibration(tmp_path: Path) -> No
         captured_at="2026-05-20T15:00:00Z",
     )
 
-    assert calibration_path == (
-        project.project_root / ".xpkg" / "calibrations" / "stereo-rig" / "calibration.json"
-    )
+    assert calibration_path == current_project_state_path(project.project_root)
     assert (
-        project.project_root / ".xpkg" / "calibrations" / "stereo-rig" / "source" / "stereo.yml"
+        project.project_root
+        / "Media"
+        / "calibrations"
+        / "stereo-rig"
+        / "stereo.yml"
     ).is_file()
     loaded = load_project_calibration(project.project_root, "stereo-rig")
     assert loaded.name == "arena-stereo"
@@ -135,7 +111,7 @@ def test_project_service_imports_opencv_stereo_calibration(tmp_path: Path) -> No
     assert loaded.units == "mm"
     assert loaded.source is not None
     assert loaded.source.tool == "opencv"
-    assert loaded.source.imported_from == "source/stereo.yml"
+    assert loaded.source.imported_from == "Media/calibrations/stereo-rig/stereo.yml"
     assert loaded.source.metadata["format"] == "opencv-stereo-yaml"
     assert loaded.world_frame is not None
     assert loaded.world_frame.anchor == "left"
@@ -153,10 +129,4 @@ def test_project_service_imports_opencv_stereo_calibration(tmp_path: Path) -> No
         camera_names=("left", "right"),
         units="mm",
     )
-    assert imported_via_dispatch == (
-        project.project_root
-        / ".xpkg"
-        / "calibrations"
-        / "stereo-rig-from-imports"
-        / "calibration.json"
-    )
+    assert imported_via_dispatch == current_project_state_path(project.project_root)

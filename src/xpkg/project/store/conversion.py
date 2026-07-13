@@ -7,19 +7,14 @@ from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from xpkg.project.layout import (
-    resolve_project_root,
-)
-from xpkg.project.state_io import predictions_payload_from_labels
+from xpkg.project.recording import save_project_labels
 from xpkg.project.store._helpers import (
     _ensure_project_for_import,
     _stage_project_parent,
-    _touch_descriptor,
 )
-from xpkg.project.store.cache import _commit_labels_to_project
 from xpkg.project.store.provenance import (
     _attach_prediction_provenance,
-    _persist_pose_provenance,
+    _pose_provenance_record,
 )
 
 if TYPE_CHECKING:
@@ -33,6 +28,8 @@ def _import_project_from_conversion(
     reason: str,
     convert: Callable[[Path], Any],
     prediction_provenance: Mapping[str, Any] | None = None,
+    provenance: PoseModelProvenance | None = None,
+    session_id: str | None = None,
 ) -> Path:
     root = _ensure_project_for_import(
         project,
@@ -50,20 +47,15 @@ def _import_project_from_conversion(
             result.metadata,
             prediction_provenance,
         )
-        state_path = _commit_labels_to_project(
+        state_path = save_project_labels(
             root,
             labels=result.labels,
-            metadata=result.metadata,
+            pose_metadata=result.metadata,
+            provenance=provenance,
+            session_id=session_id,
             reason=reason,
+            replace_existing=force,
         )
-    from xpkg.project.summary import labels_media_summary, labels_state_summary
-
-    predictions = predictions_payload_from_labels(result.labels)
-    _touch_descriptor(
-        root,
-        state_summary=labels_state_summary(result.labels, predictions),
-        media_summary=labels_media_summary(result.labels, predictions, project_root=root),
-    )
     return state_path
 
 
@@ -122,23 +114,19 @@ def _import_pose_project(
     provenance: PoseModelProvenance | Mapping[str, Any] | None,
     default_tool: str,
     source_path: str | Path,
+    session_id: str | None = None,
 ) -> Path:
-    state_path = _import_project_from_conversion(
+    record = _pose_provenance_record(
+        provenance,
+        default_tool=default_tool,
+        source_path=source_path,
+    )
+    return _import_project_from_conversion(
         project,
         force=force,
         reason=reason,
         convert=convert,
         prediction_provenance=prediction_provenance,
+        provenance=record,
+        session_id=session_id,
     )
-    if provenance is not None:
-        root = resolve_project_root(project)
-        if root is None:
-            root = state_path.parents[2]
-        _persist_pose_provenance(
-            root,
-            provenance,
-            default_tool=default_tool,
-            source_path=source_path,
-        )
-    return state_path
-

@@ -80,6 +80,7 @@ def _describe_payload() -> dict[str, object]:
                 "pose mmpose-topdown-json",
                 "pose sleap-h5",
                 "pose sleap-package",
+                "signals photometry-csv",
             ],
             "project": [
                 "describe",
@@ -112,6 +113,7 @@ def _describe_payload() -> dict[str, object]:
             "import pose mmpose-topdown-json",
             "import pose sleap-h5",
             "import pose sleap-package",
+            "import signals photometry-csv",
             "project describe",
             "project init",
             "project metadata set",

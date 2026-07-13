@@ -92,11 +92,11 @@ metadata.
 </div>
 
 <div class="card" markdown>
-### Direct signals + events (experimental)
+### Signals + events
 Photometry (Doric, Neurophotometrics, pyPhotometry, RWD OFRS, Teleopto, TDT,
 pMAT, generic CSV), behavior outputs, and event tables, all through
-`xpkg.readers`. These are experimental direct readers with no project
-integration yet.
+`xpkg.readers`. Generic photometry CSV also has service and CLI project
+integration through canonical experiment state.
 </div>
 
 </div>
@@ -107,6 +107,7 @@ integration yet.
 | --- | --- |
 | Create / open / pack / unpack a project | `xpkg.services.ProjectService` |
 | Import an external pose or calibration file | `project.import_pose / import_calibration` |
+| Import generic photometry CSV | `project.import_signals("photometry-csv", ...)` |
 | Attach durable typed metadata to a project | `project.metadata` / `project.metadata.update(...)` |
 | Populate a GUI/project-picker row | `xpkg project describe --json` / `ProjectService.describe()` |
 | Read a single file into typed objects | `xpkg.readers.read_*` |
@@ -137,7 +138,7 @@ flowchart LR
 `.expkg` is the only portable export. xpkg never edits a `.expkg` file in
 place — pack to publish, unpack to keep working.
 
-[Read the artifact contract →](artifact_contract_v1.md){ .md-button }
+[Read the artifact contract →](artifact_contract.md){ .md-button }
 [Read the CLI spec →](cli_command_spec_v1.md){ .md-button }
 [Read the performance guide →](performance.md){ .md-button }
 
@@ -159,8 +160,8 @@ sequenceDiagram
     Svc->>Store: normalize + write state head
     Svc->>FS: copy media into Media/
 
-    User->>Svc: project.metadata.update(acquisition=...)
-    Svc->>Store: write .xpkg/metadata/acquisition.json
+    User->>Svc: project.save_acquisition(..., session_id=...)
+    Svc->>Store: commit acquisition on recording session
 
     User->>Svc: project.validate()
     Svc-->>User: ProjectLayout (paths + descriptor + summary index)
@@ -193,9 +194,8 @@ sequenceDiagram
 - `xpkg.project` — free functions (`init_project`, `pack_project`,
   `validate_project`, path helpers)
 
-`ProjectService` is the public import path for pose, calibration, and motion
-formats. Photometry, event, and behavior sources are direct readers today, not
-service-bound project imports.
+`ProjectService` is the public import path for pose, calibration, and generic
+photometry CSV. Event and behavior sources remain direct readers today.
 </div>
 
 </div>

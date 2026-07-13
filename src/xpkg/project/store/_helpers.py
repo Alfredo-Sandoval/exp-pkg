@@ -205,6 +205,7 @@ def _touch_descriptor(
     *,
     state_summary: dict[str, Any] | None = None,
     media_summary: list[dict[str, Any]] | tuple[dict[str, Any], ...] | None = None,
+    session_ids: tuple[str, ...] | None = None,
 ) -> None:
     descriptor = load_project_descriptor(root)
     descriptor.updated_at = now_utc_iso(drop_microseconds=True)
@@ -215,4 +216,5 @@ def _touch_descriptor(
         root,
         state_summary=state_summary,
         media_summary=media_summary,
+        session_ids=session_ids,
     )

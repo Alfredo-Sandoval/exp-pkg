@@ -50,14 +50,7 @@ from xpkg.project.layout import (
     write_project_descriptor,
 )
 
-# Path-level metadata helpers for callers that need a function-level seam.
-# ``ProjectService.metadata`` remains the normal service-bound path.
-from xpkg.project.metadata import (
-    load_project_acquisition_metadata as load_project_acquisition_metadata,
-)
-from xpkg.project.metadata import (
-    load_project_dataset_share_metadata as load_project_dataset_share_metadata,
-)
+# Path-level documentation metadata helpers for callers that need a function-level seam.
 from xpkg.project.metadata import (
     load_project_datasheet as load_project_datasheet,
 )
@@ -68,15 +61,6 @@ from xpkg.project.metadata import (
     load_project_model_card as load_project_model_card,
 )
 from xpkg.project.metadata import (
-    load_project_pose_provenance as load_project_pose_provenance,
-)
-from xpkg.project.metadata import (
-    save_project_acquisition_metadata as save_project_acquisition_metadata,
-)
-from xpkg.project.metadata import (
-    save_project_dataset_share_metadata as save_project_dataset_share_metadata,
-)
-from xpkg.project.metadata import (
     save_project_datasheet as save_project_datasheet,
 )
 from xpkg.project.metadata import (
@@ -85,8 +69,17 @@ from xpkg.project.metadata import (
 from xpkg.project.metadata import (
     save_project_model_card as save_project_model_card,
 )
-from xpkg.project.metadata import (
-    save_project_pose_provenance as save_project_pose_provenance,
+from xpkg.project.recording import (
+    load_project_acquisition,
+    load_project_dataset_share,
+    load_project_experiment,
+    load_project_labels,
+    load_project_session,
+    save_project_acquisition,
+    save_project_dataset_share,
+    save_project_experiment,
+    save_project_labels,
+    save_project_session,
 )
 from xpkg.project.segmentation import (
     SegmentationFrame,
@@ -99,8 +92,6 @@ from xpkg.project.store import (
     current_project_state_path,
     ensure_project,
     init_project,
-    load_project_payload,
-    save_project_labels,
 )
 
 # State-metadata helpers for callers that need a function-level seam.
@@ -114,7 +105,7 @@ from xpkg.project.store import (
 )
 from xpkg.project.summary import (
     ProjectSummaryIndex,
-    labels_state_summary,
+    experiment_state_summary,
     load_project_summary,
     refresh_project_summary,
 )
@@ -177,25 +168,27 @@ __all__ = [
     # Labels and payload
     "current_project_state_path",
     "save_project_labels",
-    "load_project_payload",
+    "load_project_labels",
     "load_project_summary",
     "refresh_project_summary",
-    "labels_state_summary",
+    "experiment_state_summary",
+    "load_project_experiment",
+    "load_project_session",
+    "save_project_session",
+    "save_project_experiment",
     # Metadata storage
-    "load_project_acquisition_metadata",
-    "load_project_dataset_share_metadata",
+    "load_project_acquisition",
+    "load_project_dataset_share",
     "load_project_datasheet",
     "load_project_metadata",
     "load_project_metadata_field",
     "load_project_model_card",
-    "load_project_pose_provenance",
-    "save_project_acquisition_metadata",
-    "save_project_dataset_share_metadata",
+    "save_project_acquisition",
+    "save_project_dataset_share",
     "save_project_datasheet",
     "save_project_metadata",
     "save_project_metadata_field",
     "save_project_model_card",
-    "save_project_pose_provenance",
     # Calibration storage
     "list_project_calibrations",
     "load_project_calibration",

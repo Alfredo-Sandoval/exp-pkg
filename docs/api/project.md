@@ -19,7 +19,7 @@ for lower-level project layout, artifact, validation, and payload operations.
 ## Start Here
 
 - Use <code>xpkg.services.ProjectService</code> for the normal create/open/import/validate/pack/unpack lifecycle.
-- Use <code>ProjectService.import_pose</code> / <code>import_calibration</code> for the preferred service-bound import flow.
+- Use <code>ProjectService.import_pose</code>, <code>import_calibration</code>, or <code>import_signals</code> for the preferred service-bound import flow.
 
 ## Project Contract
 
@@ -139,10 +139,28 @@ Validate either a project or a packed artifact, dispatching by path type.
 
 ## Save Current Project State
 
+### `save_project_session(project, session, *, reason="project.save.recording")`
+
+Add or replace one typed `RecordingSession` in the project's canonical
+`Experiment` aggregate.
+
+### `load_project_session(project)`
+
+Load one recording session from the canonical experiment.
+
+### `save_project_experiment(project, experiment, *, reason=...)`
+
+Commit the complete canonical `Experiment` aggregate.
+
+### `load_project_experiment(project)`
+
+Load the complete experiment with subjects, protocols, conditions, and all
+recording sessions.
+
 ### `save_project_labels(...)`
 
-Persist the current `Labels` state into a project and refresh the managed
-project state. The committed durable state head remains authoritative;
+Add or replace a `SessionPose` containing `Labels` in a recording session and
+refresh managed experiment state. The committed durable state head remains authoritative;
 `.xpkg/state/current.json` is refreshed as a rebuildable cache.
 
 ## Generic Artifact Registry

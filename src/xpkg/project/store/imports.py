@@ -25,6 +25,7 @@ def import_dlc_csv_project(
     likelihood_threshold: float = 0.0,
     prediction_provenance: Mapping[str, Any] | None = None,
     provenance: PoseModelProvenance | Mapping[str, Any] | None = None,
+    session_id: str | None = None,
     force: bool = False,
     progress_callback: Callable[[str], None] | None = None,
 ) -> Path:
@@ -39,6 +40,7 @@ def import_dlc_csv_project(
         provenance=provenance,
         default_tool="deeplabcut",
         source_path=csv_path,
+        session_id=session_id,
         convert=lambda _tmp_dir: convert_dlc_csv(
             csv_path,
             video_path,
@@ -58,6 +60,7 @@ def import_lightning_pose_csv_project(
     likelihood_threshold: float = 0.0,
     prediction_provenance: Mapping[str, Any] | None = None,
     provenance: PoseModelProvenance | Mapping[str, Any] | None = None,
+    session_id: str | None = None,
     force: bool = False,
     progress_callback: Callable[[str], None] | None = None,
 ) -> Path:
@@ -72,6 +75,7 @@ def import_lightning_pose_csv_project(
         provenance=provenance,
         default_tool="lightning-pose",
         source_path=csv_path,
+        session_id=session_id,
         convert=lambda _tmp_dir: convert_lightning_pose_csv(
             csv_path,
             video_path,
@@ -91,6 +95,7 @@ def import_dlc_h5_project(
     likelihood_threshold: float = 0.0,
     prediction_provenance: Mapping[str, Any] | None = None,
     provenance: PoseModelProvenance | Mapping[str, Any] | None = None,
+    session_id: str | None = None,
     force: bool = False,
     progress_callback: Callable[[str], None] | None = None,
 ) -> Path:
@@ -105,6 +110,7 @@ def import_dlc_h5_project(
         provenance=provenance,
         default_tool="deeplabcut",
         source_path=h5_path,
+        session_id=session_id,
         convert=lambda _tmp_dir: convert_dlc_h5(
             h5_path,
             video_path,
@@ -123,6 +129,7 @@ def import_dlc_project_directory(
     likelihood_threshold: float = 0.0,
     prediction_provenance: Mapping[str, Any] | None = None,
     provenance: PoseModelProvenance | Mapping[str, Any] | None = None,
+    session_id: str | None = None,
     force: bool = False,
     progress_callback: Callable[[str], None] | None = None,
 ) -> Path:
@@ -212,6 +219,7 @@ def import_dlc_project_directory(
         provenance=provenance,
         default_tool="deeplabcut",
         source_path=resolved_project_dir,
+        session_id=session_id,
         convert=_convert_project,
     )
 
@@ -224,6 +232,7 @@ def import_sleap_package_project(
     encode_videos: bool | None = None,
     prediction_provenance: Mapping[str, Any] | None = None,
     provenance: PoseModelProvenance | Mapping[str, Any] | None = None,
+    session_id: str | None = None,
     force: bool = False,
     progress_callback: Callable[[str], None] | None = None,
 ) -> Path:
@@ -238,6 +247,7 @@ def import_sleap_package_project(
         provenance=provenance,
         default_tool="sleap",
         source_path=slp,
+        session_id=session_id,
         convert=lambda tmp_dir: convert_sleap_package(
             slp,
             tmp_dir,
@@ -257,6 +267,7 @@ def import_sleap_h5_project(
     likelihood_threshold: float = 0.0,
     prediction_provenance: Mapping[str, Any] | None = None,
     provenance: PoseModelProvenance | Mapping[str, Any] | None = None,
+    session_id: str | None = None,
     force: bool = False,
     progress_callback: Callable[[str], None] | None = None,
 ) -> Path:
@@ -271,6 +282,7 @@ def import_sleap_h5_project(
         provenance=provenance,
         default_tool="sleap",
         source_path=h5_path,
+        session_id=session_id,
         convert=lambda _tmp_dir: convert_sleap_h5(
             h5_path,
             video_path,
@@ -291,6 +303,7 @@ def import_mmpose_topdown_json_project(
     likelihood_threshold: float = 0.0,
     prediction_provenance: Mapping[str, Any] | None = None,
     provenance: PoseModelProvenance | Mapping[str, Any] | None = None,
+    session_id: str | None = None,
     force: bool = False,
     progress_callback: Callable[[str], None] | None = None,
 ) -> Path:
@@ -305,6 +318,7 @@ def import_mmpose_topdown_json_project(
         provenance=provenance,
         default_tool="mmpose",
         source_path=json_path,
+        session_id=session_id,
         convert=lambda _tmp_dir: convert_mmpose_topdown_json(
             json_path,
             video_path,
@@ -325,6 +339,7 @@ def import_mediapipe_pose_landmarks_json_project(
     likelihood_threshold: float = 0.0,
     prediction_provenance: Mapping[str, Any] | None = None,
     provenance: PoseModelProvenance | Mapping[str, Any] | None = None,
+    session_id: str | None = None,
     force: bool = False,
     progress_callback: Callable[[str], None] | None = None,
 ) -> Path:
@@ -339,6 +354,7 @@ def import_mediapipe_pose_landmarks_json_project(
         provenance=provenance,
         default_tool="mediapipe",
         source_path=json_path,
+        session_id=session_id,
         convert=lambda _tmp_dir: convert_mediapipe_pose_landmarks_json(
             json_path,
             video_path,

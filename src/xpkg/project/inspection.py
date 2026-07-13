@@ -4,24 +4,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
 
 from xpkg.project.layout import (
     ProjectDescriptor,
     load_project_descriptor,
     resolve_project_root,
 )
-from xpkg.project.store import (
-    current_project_commit_id,
-    current_project_state_path,
-    load_project_metadata,
-    load_project_payload,
-)
-from xpkg.project.validation import (
-    ProjectSummary,
-    summarize_loaded_project,
-    validate_loaded_project,
-)
+from xpkg.project.store import current_project_state_path
+from xpkg.project.summary import ProjectSummaryIndex, snapshot_project_summary
 
 
 @dataclass(frozen=True, slots=True)
@@ -33,8 +23,7 @@ class ProjectInspection:
     current_state_path: Path
     state_kind: str
     commit_id: str | None
-    summary: ProjectSummary | None
-    metadata: dict[str, Any]
+    summary: ProjectSummaryIndex
     is_valid: bool
     invalid_reason: str
 
@@ -47,37 +36,17 @@ def inspect_project(path: str | Path) -> ProjectInspection:
 
     descriptor = load_project_descriptor(project_root)
     state_path = current_project_state_path(project_root)
-    metadata = dict(load_project_metadata(project_root) or {})
-    payload = load_project_payload(project_root)
-
-    if "recording" in payload:
-        state_kind = "recording"
-    elif set(payload).issubset({"metadata"}):
-        state_kind = "empty"
-    else:
-        state_kind = "labels"
-
-    summary: ProjectSummary | None = None
-    invalid_reason = ""
-    if state_kind == "labels":
-        try:
-            summary = summarize_loaded_project(payload, path=state_path)
-            validate_loaded_project(payload)
-        except (RuntimeError, TypeError, ValueError) as exc:
-            invalid_reason = str(exc)
-
-    if summary is not None:
-        metadata.setdefault("n_predictions_committed", int(summary.prediction_frames))
+    summary = snapshot_project_summary(project_root)
+    invalid_reason = "; ".join(summary.warnings)
 
     return ProjectInspection(
         project_root=project_root,
         descriptor=descriptor,
         current_state_path=state_path,
-        state_kind=state_kind,
-        commit_id=current_project_commit_id(project_root),
+        state_kind=summary.state_kind,
+        commit_id=summary.commit_id,
         summary=summary,
-        metadata=metadata,
-        is_valid=invalid_reason == "",
+        is_valid=summary.state_kind != "unreadable" and invalid_reason == "",
         invalid_reason=invalid_reason,
     )
 

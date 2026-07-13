@@ -23,7 +23,7 @@ flowchart TB
         direction TB
         store["state journal<br/><span style='font-size:0.75em;opacity:0.7'>commit-addressed roots</span>"]
         cache["state/current.json<br/><span style='font-size:0.75em;opacity:0.7'>rebuildable cache, keyed by HEAD</span>"]
-        meta[".xpkg/metadata/<br/><span style='font-size:0.75em;opacity:0.7'>typed durable slots</span>"]
+        meta[".xpkg/metadata/<br/><span style='font-size:0.75em;opacity:0.7'>dataset and model documentation</span>"]
         artif[".xpkg/artifacts/<br/><span style='font-size:0.75em;opacity:0.7'>output registry + index.json</span>"]
         store -->|materialize| cache
     end
@@ -78,7 +78,8 @@ The public cleanup now matches that storage model:
 
 - `ProjectService` with `import_pose`/`import_calibration` is the primary downstream path
 - `xpkg.project` keeps project lifecycle/import helpers
-- package-level `xpkg.adapters` and the CLI `xpkg convert` surface were removed
+- `xpkg.adapters` remains the canonical in-memory adapter surface; the CLI
+  `xpkg convert` surface was removed
 - compatibility alias maps for direct `.xpkg` archive files were removed from
   the public facades
 - unused single-file `.xpkg` discovery helpers were removed from the private

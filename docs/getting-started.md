@@ -88,7 +88,7 @@ This matters because the project is the place where media, segmentation,
 labels, and future experiment-side modalities can live together under one
 contract.
 
-Read [Artifact Contract v1](artifact_contract_v1.md) for the frozen `.expkg`
+Read the [Artifact Contract](artifact_contract.md) for the versioned `.expkg`
 artifact format and [CLI Command Spec v1](cli_command_spec_v1.md) for the
 project command surface, which is still pre-1.0 and may change.
 
@@ -126,9 +126,10 @@ Project pickers, startup scans, and agents should not hydrate full project
 state just to show a row. Use `xpkg project describe PATH --json`,
 `ProjectService.open(PATH).describe()`, `xpkg inspect PATH --json`, or
 `load_project_summary(PATH)` for list and catalog work. Reserve
-`ProjectService.load_labels()`, `load_project_payload(PATH)`,
-`ProjectService.inspect()`, and `project.validate()` for explicit open,
-analysis, validation, or publish actions.
+`ProjectService.load_labels()`, `ProjectService.load_session()`,
+`load_project_payload(PATH)`, and `project.validate()` for explicit open,
+analysis, validation, or publish actions. `ProjectService.inspect()` uses the
+same shallow summary index.
 
 Read [Performance Guidance](performance.md) before wiring xpkg into a GUI or
 batch cataloger.
@@ -136,8 +137,8 @@ batch cataloger.
 ## Work With The Session Model
 
 Use `xpkg.model` when you want in-memory multimodal objects without creating a
-project yet. The timing, event, signal, photometry, and session classes are
-the foundation for the next direct-reader and project-import work.
+project. The same timing, event, signal, photometry, and session classes back
+recording-session project state.
 
 ```python
 from xpkg.model import (
@@ -173,9 +174,23 @@ session = add_session_signal(session, SessionSignal("fiber", photometry))
 session = replace_session_events(session, events)
 ```
 
+Import generic photometry CSV directly into this project state:
+
+```python
+from xpkg.services import ProjectService
+
+project = ProjectService.create("./My Project")
+project.import_signals(
+    "photometry-csv",
+    path="photometry.csv",
+    session_id="session-001",
+)
+session = project.load_session()
+```
+
 Read [Multimodal Session Model](architecture/multimodal-session.md) for the
-current object contract and [Roadmap](roadmap.md) for the direct-reader and
-project-import work still ahead.
+current object and storage contract and [Roadmap](roadmap.md) for the remaining
+event, synchronization, and behavior project-import work.
 
 ## Save figure artifacts
 
@@ -310,14 +325,15 @@ The same project-first pattern is available for:
 - `project.import_pose("sleap-h5", ...)` and `project.import_pose("sleap-package", ...)`
 - `project.import_pose("mmpose-topdown-json", ...)`
 - `project.import_pose("mediapipe-pose-landmarks-json", ...)`
+- `project.import_signals("photometry-csv", ...)`
 
 Use the `ProjectService` dispatch methods as the primary integration surface
 for new code.
 
 Photometry and event-table CSV readers are available as direct reader APIs.
-They are not project imports yet. Sync CSV and the project import methods
-are the next planned modality work on top of the timing/events/signals model
-layer.
+Generic photometry CSV is also a project import. Sync CSV and project actions
+for event tables are the next planned modality work on top of the
+timing/events/signals model layer.
 
 ## In-memory Adapters API
 

@@ -2,9 +2,8 @@
 
 ``ProjectService`` is the stable consumer-facing boundary for downstream
 integrations that need to create, open, import into, validate, pack, or unpack
-an xpkg project. The ``import_pose`` / ``import_calibration`` dispatch methods
-select package-owned importer
-implementations by kebab-case ``format`` string.
+an xpkg project. Import methods select package-owned implementations by a
+kebab-case ``format`` string.
 """
 
 from __future__ import annotations
@@ -22,25 +21,26 @@ from xpkg.project import (
     ensure_project,
     init_project,
     inspect_project,
-    load_project_acquisition_metadata,
-    load_project_dataset_share_metadata,
+    load_project_acquisition,
+    load_project_dataset_share,
     load_project_datasheet,
     load_project_descriptor,
+    load_project_experiment,
     load_project_metadata,
     load_project_metadata_field,
     load_project_model_card,
-    load_project_payload,
-    load_project_pose_provenance,
+    load_project_session,
     pack_project,
     refresh_project_summary,
-    save_project_acquisition_metadata,
-    save_project_dataset_share_metadata,
+    save_project_acquisition,
+    save_project_dataset_share,
     save_project_datasheet,
+    save_project_experiment,
     save_project_labels,
     save_project_metadata,
     save_project_metadata_field,
     save_project_model_card,
-    save_project_pose_provenance,
+    save_project_session,
     unpack_project,
     validate_project,
 )
@@ -58,18 +58,7 @@ from xpkg.project.layout import (
     resolve_project_root,
 )
 from xpkg.project.metadata import project_metadata_root
-from xpkg.project.state import project_state_kind
-from xpkg.project.store import current_project_state_path, ensure_current_project_state_cache
-from xpkg.project.store.imports import (
-    import_dlc_csv_project,
-    import_dlc_h5_project,
-    import_dlc_project_directory,
-    import_lightning_pose_csv_project,
-    import_mediapipe_pose_landmarks_json_project,
-    import_mmpose_topdown_json_project,
-    import_sleap_h5_project,
-    import_sleap_package_project,
-)
+from xpkg.project.recording import import_photometry_csv_project, load_project_labels
 from xpkg.services.artifacts import ProjectArtifacts
 from xpkg.services.calibrations import ProjectCalibrations
 from xpkg.services.figures import ProjectFigures
@@ -80,9 +69,11 @@ if TYPE_CHECKING:
         AcquisitionMetadata,
         DatasetDatasheet,
         DatasetShareMetadata,
+        Experiment,
         Labels,
         ModelCard,
         PoseModelProvenance,
+        RecordingSession,
     )
 
 
@@ -103,11 +94,15 @@ CalibrationFormat = Literal["anipose", "opencv-stereo-yaml"]
 """Supported `format` values for ``ProjectService.import_calibration``."""
 
 
+SignalFormat = Literal["photometry-csv"]
+"""Supported `format` values for ``ProjectService.import_signals``."""
+
+
 @dataclass(frozen=True, slots=True)
 class _PoseImporter:
     """Per-format dispatch entry for ``ProjectService.import_pose``."""
 
-    fn: Callable[..., Path]
+    fn_name: str
     requires_video: bool
     accepts_skeleton_name: bool = True
     default_skeleton_name: str | None = None
@@ -119,42 +114,42 @@ class _PoseImporter:
 
 _POSE_IMPORTERS: dict[str, _PoseImporter] = {
     "dlc-csv": _PoseImporter(
-        fn=import_dlc_csv_project,
+        fn_name="import_dlc_csv_project",
         requires_video=True,
         default_skeleton_name="imported",
     ),
     "dlc-h5": _PoseImporter(
-        fn=import_dlc_h5_project,
+        fn_name="import_dlc_h5_project",
         requires_video=True,
         default_skeleton_name="imported",
     ),
     "dlc-project": _PoseImporter(
-        fn=import_dlc_project_directory,
+        fn_name="import_dlc_project_directory",
         requires_video=False,
     ),
     "lightning-pose-csv": _PoseImporter(
-        fn=import_lightning_pose_csv_project,
+        fn_name="import_lightning_pose_csv_project",
         requires_video=True,
         default_skeleton_name="imported",
     ),
     "mediapipe-pose-landmarks-json": _PoseImporter(
-        fn=import_mediapipe_pose_landmarks_json_project,
+        fn_name="import_mediapipe_pose_landmarks_json_project",
         requires_video=True,
         default_skeleton_name="mediapipe_pose",
     ),
     "mmpose-topdown-json": _PoseImporter(
-        fn=import_mmpose_topdown_json_project,
+        fn_name="import_mmpose_topdown_json_project",
         requires_video=True,
         default_skeleton_name="imported",
         accepts_instance_index=True,
     ),
     "sleap-h5": _PoseImporter(
-        fn=import_sleap_h5_project,
+        fn_name="import_sleap_h5_project",
         requires_video=True,
         default_skeleton_name="imported",
     ),
     "sleap-package": _PoseImporter(
-        fn=import_sleap_package_project,
+        fn_name="import_sleap_package_project",
         requires_video=False,
         accepts_skeleton_name=False,
         accepts_likelihood_threshold=False,
@@ -192,7 +187,7 @@ def _cached_summary_for_descriptor(
 
 @dataclass(frozen=True, slots=True)
 class ProjectMetadata:
-    """Accessor for the durable typed metadata slots under ``.xpkg/metadata/``.
+    """Accessor for dataset and model documentation under ``.xpkg/metadata/``.
 
     Read each slot as an attribute (returns ``None`` when unset) and write one
     or more slots in a single call via :meth:`update`. The state-bound free-form
@@ -209,18 +204,6 @@ class ProjectMetadata:
         return project_metadata_root(self.project_root)
 
     @property
-    def acquisition(self) -> AcquisitionMetadata | None:
-        return load_project_acquisition_metadata(self.project_root)
-
-    @property
-    def dataset_share(self) -> DatasetShareMetadata | None:
-        return load_project_dataset_share_metadata(self.project_root)
-
-    @property
-    def pose_provenance(self) -> PoseModelProvenance | None:
-        return load_project_pose_provenance(self.project_root)
-
-    @property
     def datasheet(self) -> DatasetDatasheet | None:
         return load_project_datasheet(self.project_root)
 
@@ -231,26 +214,11 @@ class ProjectMetadata:
     def update(
         self,
         *,
-        acquisition: AcquisitionMetadata | Mapping[str, Any] | None = None,
-        dataset_share: DatasetShareMetadata | Mapping[str, Any] | None = None,
-        pose_provenance: PoseModelProvenance | Mapping[str, Any] | None = None,
         datasheet: DatasetDatasheet | Mapping[str, Any] | None = None,
         model_card: ModelCard | Mapping[str, Any] | None = None,
     ) -> dict[str, Path]:
-        """Write one or more typed metadata slots and return the paths written."""
+        """Write one or more documentation records and return their paths."""
         written: dict[str, Path] = {}
-        if acquisition is not None:
-            written["acquisition"] = save_project_acquisition_metadata(
-                self.project_root, acquisition
-            )
-        if dataset_share is not None:
-            written["dataset_share"] = save_project_dataset_share_metadata(
-                self.project_root, dataset_share
-            )
-        if pose_provenance is not None:
-            written["pose_provenance"] = save_project_pose_provenance(
-                self.project_root, pose_provenance
-            )
         if datasheet is not None:
             written["datasheet"] = save_project_datasheet(self.project_root, datasheet)
         if model_card is not None:
@@ -386,6 +354,7 @@ class ProjectService:
         encode_videos: bool | None = None,
         prediction_provenance: Mapping[str, Any] | None = None,
         provenance: PoseModelProvenance | Mapping[str, Any] | None = None,
+        session_id: str | None = None,
         force: bool = False,
         progress_callback: Callable[[str], None] | None = None,
     ) -> Path:
@@ -414,6 +383,7 @@ class ProjectService:
             "project": self.project_root,
             "prediction_provenance": prediction_provenance,
             "provenance": provenance,
+            "session_id": session_id,
             "force": force,
             "progress_callback": progress_callback,
         }
@@ -431,9 +401,15 @@ class ProjectService:
             kwargs["encode_videos"] = encode_videos
 
         if importer.requires_video:
+            import xpkg.project.store.imports as project_imports
+
             assert video is not None
-            return importer.fn(path, video, **kwargs)
-        return importer.fn(path, **kwargs)
+            fn = getattr(project_imports, importer.fn_name)
+            return fn(path, video, **kwargs)
+        import xpkg.project.store.imports as project_imports
+
+        fn = getattr(project_imports, importer.fn_name)
+        return fn(path, **kwargs)
 
     def import_calibration(
         self,
@@ -441,6 +417,7 @@ class ProjectService:
         *,
         path: str | Path,
         calibration_id: str | None = None,
+        session_id: str | None = None,
         name: str | None = None,
         camera_names: tuple[str, str] | None = None,
         units: str = "unknown",
@@ -455,6 +432,7 @@ class ProjectService:
         kwargs: dict[str, Any] = {
             "project": self.project_root,
             "calibration_id": calibration_id,
+            "session_id": session_id,
             "name": name,
             "units": units,
             "captured_at": captured_at,
@@ -464,6 +442,26 @@ class ProjectService:
         if camera_names is not None:
             kwargs["camera_names"] = camera_names
         return importer(path, **kwargs)
+
+    def import_signals(
+        self,
+        format: SignalFormat,
+        *,
+        path: str | Path,
+        session_id: str | None = None,
+        signal_name: str = "photometry",
+        force: bool = False,
+    ) -> Path:
+        """Import sampled signals into canonical recording-session state."""
+        if format != "photometry-csv":
+            raise ValueError(f"Unknown signal format: {format!r}")
+        return import_photometry_csv_project(
+            path,
+            project=self.project_root,
+            session_id=session_id,
+            signal_name=signal_name,
+            force=force,
+        )
 
     def describe(self) -> ProjectLayout:
         """Return the normalized managed paths for this project.
@@ -506,16 +504,44 @@ class ProjectService:
         """Inspect the current project using canonical package-owned summary APIs."""
         return inspect_project(self.project_root)
 
-    def load_labels(self) -> Labels:
-        """Load the current project labels through the public project root."""
-        from xpkg.model import Labels
+    def load_labels(self, *, session_id: str | None = None) -> Labels:
+        """Load the canonical pose link from the project session."""
+        return load_project_labels(self.project_root, session_id=session_id)
 
-        state_path = ensure_current_project_state_cache(self.project_root)
-        if state_path is None:
-            state_path = current_project_state_path(self.project_root)
-        if state_path.exists() and state_path.suffix.lower() == ".json":
-            project_state_kind(state_path)
-        return Labels.load_file(self.project_root.as_posix())
+    def load_experiment(self) -> Experiment:
+        """Load the canonical experiment aggregate."""
+        return load_project_experiment(self.project_root)
+
+    def load_session(self, *, session_id: str | None = None) -> RecordingSession:
+        """Load a named session, or the sole session when unambiguous."""
+        return load_project_session(self.project_root, session_id=session_id)
+
+    def load_acquisition(
+        self, *, session_id: str | None = None
+    ) -> AcquisitionMetadata | None:
+        """Load acquisition context owned by one recording session."""
+        return load_project_acquisition(self.project_root, session_id=session_id)
+
+    def save_acquisition(
+        self,
+        acquisition: AcquisitionMetadata | Mapping[str, object],
+        *,
+        session_id: str | None = None,
+    ) -> Path:
+        """Commit acquisition context to one recording session."""
+        return save_project_acquisition(
+            self.project_root, acquisition, session_id=session_id
+        )
+
+    def load_dataset_share(self) -> DatasetShareMetadata | None:
+        """Load dataset-sharing metadata owned by the experiment."""
+        return load_project_dataset_share(self.project_root)
+
+    def save_dataset_share(
+        self, dataset_share: DatasetShareMetadata | Mapping[str, object]
+    ) -> Path:
+        """Commit dataset-sharing metadata to the experiment."""
+        return save_project_dataset_share(self.project_root, dataset_share)
 
     def load_state_metadata(self) -> dict[str, Any] | None:
         """Load the current project state's free-form metadata dict."""
@@ -524,10 +550,6 @@ class ProjectService:
     def load_state_metadata_field(self, field: str) -> dict[str, Any] | None:
         """Load one mapping-valued field from the current project state metadata."""
         return load_project_metadata_field(self.project_root, field)
-
-    def load_payload(self) -> dict[str, Any]:
-        """Load the current project payload with project-relative media rebased."""
-        return load_project_payload(self.project_root)
 
     def save_state_metadata(
         self,
@@ -562,17 +584,35 @@ class ProjectService:
         labels: Labels,
         *,
         metadata: dict[str, Any] | None = None,
-        journal: bool = True,
-        regenerate_predictions: bool = False,
+        provenance: PoseModelProvenance | None = None,
+        session_id: str | None = None,
     ) -> Path:
-        """Commit labels into the project-managed durable state."""
+        """Replace the canonical pose link on the project session."""
         return save_project_labels(
             self.project_root,
             labels,
             metadata=metadata,
-            journal=journal,
-            regenerate_predictions=regenerate_predictions,
+            provenance=provenance,
+            session_id=session_id,
         )
+
+    def save_experiment(
+        self,
+        experiment: Experiment,
+        *,
+        reason: str = "project.save.experiment",
+    ) -> Path:
+        """Commit the canonical experiment aggregate."""
+        return save_project_experiment(self.project_root, experiment, reason=reason)
+
+    def save_session(
+        self,
+        session: RecordingSession,
+        *,
+        reason: str = "project.save.session",
+    ) -> Path:
+        """Add or replace one recording session in the experiment."""
+        return save_project_session(self.project_root, session, reason=reason)
 
     def pack(
         self,
@@ -601,4 +641,5 @@ __all__ = [
     "ProjectSegmentation",
     "PoseFormat",
     "CalibrationFormat",
+    "SignalFormat",
 ]

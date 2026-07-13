@@ -1,78 +1,67 @@
-# 3D Pose Design
+# 2D and 3D Pose Contract
 
-`xpkg` should treat 3D pose as a coordinate-frame and provenance contract, not
-as `z` added to every 2D label point.
+`xpkg` represents skeletal 2D and 3D results with one `PoseTrajectory` type.
+Dimensionality, units, coordinate frame, tracks, validity, confidence, and
+provenance are explicit properties. `Labels` remains the annotation-rich 2D
+image-space representation.
 
-## Design Decisions
+## Array contract
 
-- Use the existing `PoseTrajectory` view for skeletal or named-marker
-  trajectories in either 2D or 3D. Do not add a separate `PoseTrajectory3D`
-  unless runtime storage needs diverge from the current `(frames, keypoints,
-  dims)` contract.
-- Reserve a future `SpatialPointSeries` for non-skeletal point streams that are
-  not naturally keypoint trajectories, such as unlabeled point clouds, force
-  platform corners, or reconstructed landmarks without a stable skeleton.
-- Keep `Labels`, `Point`, and `PredictedPoint` image-space and 2D. 3D importers
-  should produce or adapt to trajectory/project-level records rather than
-  widening every annotation point with `z`.
+`PoseTrajectory.positions` has shape
+`(frames, tracks, keypoints, dimensions)`. `dimensions` is 2 or 3.
+`valid` and optional `confidence` have shape
+`(frames, tracks, keypoints)`. `track_ids` and `keypoint_names` name the two
+semantic axes.
 
-## Coordinate Frames
+The track axis is present even for single-animal data. Omitting it was rejected
+because it makes multi-animal 3D results impossible to represent without a
+second type or an untyped metadata convention.
 
-Every 3D trajectory needs an explicit coordinate-frame declaration. The minimum
-frame vocabulary should distinguish:
+## Coordinate frames
 
-- `image_pixel`: 2D image coordinates tied to one source video or camera.
-- `camera`: 3D coordinates in one calibrated camera frame.
-- `calibration_world`: triangulated or reconstructed coordinates in a recorded
-  calibration world frame.
-- `marker_world`: marker-based coordinates in the source tracking
-  lab frame.
-- `lifted_model`: model-lifted 3D predictions whose frame is learned or
-  source-defined rather than directly calibrated.
+Every trajectory carries one `PoseCoordinateFrame`:
 
-Frame metadata should record the frame name, handedness/axis convention when
-known, and a short description when the source format provides one. Unknown
-axis conventions should stay unknown instead of being inferred.
+- `image_pixel` for 2D image coordinates
+- `camera` for 3D coordinates in a calibrated camera frame
+- `calibration_world` for triangulated coordinates in a calibration world
+- `marker_world` for a source marker or laboratory frame
+- `lifted_model` for learned or source-defined 3D coordinates
 
-## Units
+Two-dimensional trajectories must use `image_pixel`. Three-dimensional
+trajectories cannot use `image_pixel`. Units belong to the coordinate frame,
+not individual points. Axis convention and frame description remain unknown
+when the source does not provide them.
 
-Units belong at trajectory or coordinate-frame scope, not on individual point
-fields. A trajectory should use one coordinate unit such as `px`, `mm`, or `m`.
-If a source file mixes units, import should either split the data into separate
-series or fail with a clear validation error.
+## Calibration relationship
 
-## Calibration Provenance
+A camera-frame or calibration-world pose link names the `SessionCalibration`
+that defines its geometry. The calibration object stores camera intrinsics,
+extrinsics, world frame, source, and quality. `CalibrationCameraLink` connects
+each calibrated camera to the corresponding acquisition `CameraMetadata`
+object. Calibration payloads are not copied into pose points or project
+sidecars.
 
-3D coordinates that depend on camera calibration should reference calibration
-provenance by project metadata identity, not duplicate calibration payloads on
-each point. The reference should include:
+## Identity relationship
 
-- calibration artifact or metadata slot name
-- camera names or camera group used
-- calibration source tool and version when known
-- imported source path/checksum when available
+Trajectory track IDs are technical identities. They are not biological subject
+IDs. `SubjectTrackLink` assigns a participating `Subject` to a named pose and
+track. Optional `IdentityProvenanceRecord` evidence records source, confidence
+spans, swaps, and proofreading. The experiment rejects assignments to unknown
+subjects, poses, or tracks.
 
-The existing `Calibration`, `CalibrationSource`, `WorldFrame`, and
-`CalibrationQuality` models already cover the calibration side of this contract.
+## Quality and provenance
 
-## Quality And Scores
+- `valid` indicates whether a coordinate is usable.
+- `confidence` stores source-tool confidence when supplied.
+- calibration reprojection error belongs to `CalibrationQuality`.
+- pose-model details belong to `SessionPose.provenance`.
+- source-specific row metadata belongs at row scope only when it is genuinely
+  row-specific.
 
-Keep quality fields separate from coordinates:
+## Importer rule
 
-- `valid` or `visibility` remains a boolean mask at frame/keypoint scope.
-- `confidence` remains numeric source-tool confidence when provided.
-- `reprojection_error_px` belongs in calibration quality summaries and, when a
-  tool provides dense values, in a per-frame/keypoint/camera quality sidecar.
-- source-tool metadata belongs in trajectory/project provenance, mirroring
-  `PoseModelProvenance` and `CalibrationSource`, with row-level metadata only
-  for source columns that are actually row-specific.
-
-This keeps downstream consumers from mistaking a coordinate value for a quality
-or provenance value.
-
-## Importer Implication
-
-Anipose, DANNCE, DeepFly3D, and other 3D importers should wait until this
-contract has concrete runtime storage. They should preserve source-tool
-metadata and calibration references, but they should not force 3D data through
-the 2D `Labels` point schema.
+Anipose, DANNCE, DeepFly3D, and other 3D importers must parse source arrays into
+this contract at the boundary. They must preserve track IDs, keypoint names,
+coordinate frame, units, calibration relationship, confidence, and model
+provenance. They must fail when required spatial semantics cannot be
+established.

@@ -6,6 +6,13 @@ from pathlib import Path
 import pytest
 
 
+@pytest.fixture(autouse=True)
+def _isolate_cli_working_directory(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+
+
 def _project_state_path(project: str) -> Path:
     return Path(project) / ".xpkg" / "state" / "current.json"
 
@@ -203,6 +210,7 @@ def test_cli_routes_import_dlc_csv_project(monkeypatch, capsys) -> None:
         likelihood_threshold: float,
         prediction_provenance=None,
         provenance=None,
+        session_id=None,
         force: bool = False,
         progress_callback,
     ) -> Path:
@@ -212,6 +220,7 @@ def test_cli_routes_import_dlc_csv_project(monkeypatch, capsys) -> None:
         captured["skeleton_name"] = skeleton_name
         captured["likelihood_threshold"] = likelihood_threshold
         captured["force"] = force
+        captured["session_id"] = session_id
         progress_callback("import-progress")
         return _project_state_path(project)
 
@@ -235,6 +244,8 @@ def test_cli_routes_import_dlc_csv_project(monkeypatch, capsys) -> None:
             "subject",
             "--threshold",
             "0.25",
+            "--session-id",
+            "session-a",
         ]
     )
 
@@ -242,10 +253,11 @@ def test_cli_routes_import_dlc_csv_project(monkeypatch, capsys) -> None:
     assert captured == {
         "csv_path": "tracking.csv",
         "video_path": "clip.mp4",
-        "project": "My Project",
+        "project": Path("My Project").resolve(),
         "skeleton_name": "subject",
         "likelihood_threshold": 0.25,
         "force": False,
+        "session_id": "session-a",
     }
     stdout = capsys.readouterr().out
     assert "import-progress" in stdout
@@ -267,10 +279,11 @@ def test_cli_routes_import_dlc_h5_project_json(monkeypatch, capsys) -> None:
         likelihood_threshold: float,
         prediction_provenance=None,
         provenance=None,
+        session_id=None,
         force: bool = False,
         progress_callback,
     ) -> Path:
-        del prediction_provenance, provenance
+        del prediction_provenance, provenance, session_id
         captured["h5_path"] = h5_path
         captured["video_path"] = video_path
         captured["project"] = project
@@ -307,7 +320,7 @@ def test_cli_routes_import_dlc_h5_project_json(monkeypatch, capsys) -> None:
     assert captured == {
         "h5_path": "tracking.h5",
         "video_path": "clip.mp4",
-        "project": "My Project",
+        "project": Path("My Project").resolve(),
         "skeleton_name": "imported",
         "likelihood_threshold": 0.45,
         "force": True,
@@ -322,7 +335,7 @@ def test_cli_routes_import_dlc_h5_project_json(monkeypatch, capsys) -> None:
             "status": "imported",
             "source": "dlc-h5",
             "project": "My Project",
-            "state_path": "My Project/.xpkg/state/current.json",
+            "state_path": str(Path("My Project").resolve() / ".xpkg/state/current.json"),
         },
     }
 
@@ -353,10 +366,11 @@ def test_cli_routes_pose_prediction_provenance_json(monkeypatch, tmp_path: Path)
         likelihood_threshold: float,
         prediction_provenance,
         provenance=None,
+        session_id=None,
         force: bool = False,
         progress_callback,
     ) -> Path:
-        del csv_path, video_path, skeleton_name, likelihood_threshold, force, provenance
+        del csv_path, video_path, skeleton_name, likelihood_threshold, force, provenance, session_id
         captured["project"] = project
         captured["prediction_provenance"] = prediction_provenance
         progress_callback("import-progress")
@@ -384,7 +398,7 @@ def test_cli_routes_pose_prediction_provenance_json(monkeypatch, tmp_path: Path)
     )
 
     assert code == 0
-    assert captured["project"] == "My Project"
+    assert captured["project"] == Path("My Project").resolve()
     assert captured["prediction_provenance"] == {
         "model_name": "dlc-model",
         "model_version": "2.0",
@@ -404,6 +418,7 @@ def test_cli_import_json_mode_suppresses_progress(monkeypatch, capsys) -> None:
         likelihood_threshold: float,
         prediction_provenance=None,
         provenance=None,
+        session_id=None,
         force: bool = False,
         progress_callback,
     ) -> Path:
@@ -441,7 +456,7 @@ def test_cli_import_json_mode_suppresses_progress(monkeypatch, capsys) -> None:
             "status": "imported",
             "source": "dlc-csv",
             "project": "My Project",
-            "state_path": "My Project/.xpkg/state/current.json",
+            "state_path": str(Path("My Project").resolve() / ".xpkg/state/current.json"),
         },
     }
 
@@ -459,6 +474,7 @@ def test_cli_routes_import_dlc_project_directory(monkeypatch, capsys) -> None:
         likelihood_threshold: float,
         prediction_provenance=None,
         provenance=None,
+        session_id=None,
         force: bool = False,
         progress_callback,
     ) -> Path:
@@ -492,7 +508,7 @@ def test_cli_routes_import_dlc_project_directory(monkeypatch, capsys) -> None:
     assert code == 0
     assert captured == {
         "project_dir": "dlc-project",
-        "project": "My Project",
+        "project": Path("My Project").resolve(),
         "skeleton_name": None,
         "likelihood_threshold": 0.5,
         "force": False,
@@ -516,6 +532,7 @@ def test_cli_routes_import_sleap_package_project(monkeypatch, capsys) -> None:
         encode_videos: bool | None,
         prediction_provenance=None,
         provenance=None,
+        session_id=None,
         force: bool = False,
         progress_callback,
     ) -> Path:
@@ -550,7 +567,7 @@ def test_cli_routes_import_sleap_package_project(monkeypatch, capsys) -> None:
     assert code == 0
     assert captured == {
         "slp": "labels.pkg.slp",
-        "project": "My Project",
+        "project": Path("My Project").resolve(),
         "fps": 24,
         "encode_videos": False,
         "force": False,
@@ -575,6 +592,7 @@ def test_cli_routes_import_sleap_h5_project(monkeypatch, capsys) -> None:
         likelihood_threshold: float,
         prediction_provenance=None,
         provenance=None,
+        session_id=None,
         force: bool = False,
         progress_callback,
     ) -> Path:
@@ -614,7 +632,7 @@ def test_cli_routes_import_sleap_h5_project(monkeypatch, capsys) -> None:
     assert captured == {
         "h5_path": "analysis.h5",
         "video_path": "clip.mp4",
-        "project": "My Project",
+        "project": Path("My Project").resolve(),
         "skeleton_name": "subject",
         "likelihood_threshold": 0.25,
         "force": False,
@@ -640,6 +658,7 @@ def test_cli_routes_import_mmpose_project(monkeypatch, capsys) -> None:
         likelihood_threshold: float,
         prediction_provenance=None,
         provenance=None,
+        session_id=None,
         force: bool = False,
         progress_callback,
     ) -> Path:
@@ -680,7 +699,7 @@ def test_cli_routes_import_mmpose_project(monkeypatch, capsys) -> None:
     assert captured == {
         "json_path": "results.json",
         "video_path": "clip.mp4",
-        "project": "My Project",
+        "project": Path("My Project").resolve(),
         "skeleton_name": "imported",
         "instance_index": 1,
         "likelihood_threshold": 0.4,
@@ -706,6 +725,7 @@ def test_cli_routes_import_mediapipe_project(monkeypatch, capsys) -> None:
         likelihood_threshold: float,
         prediction_provenance=None,
         provenance=None,
+        session_id=None,
         force: bool = False,
         progress_callback,
     ) -> Path:
@@ -743,7 +763,7 @@ def test_cli_routes_import_mediapipe_project(monkeypatch, capsys) -> None:
     assert captured == {
         "json_path": "pose_landmarks.json",
         "video_path": "clip.mp4",
-        "project": "My Project",
+        "project": Path("My Project").resolve(),
         "skeleton_name": "mediapipe_pose",
         "likelihood_threshold": 0.3,
         "force": False,
@@ -768,6 +788,7 @@ def test_cli_routes_import_lightning_pose_project(monkeypatch, capsys) -> None:
         likelihood_threshold: float,
         prediction_provenance=None,
         provenance=None,
+        session_id=None,
         force: bool = False,
         progress_callback,
     ) -> Path:
@@ -805,7 +826,7 @@ def test_cli_routes_import_lightning_pose_project(monkeypatch, capsys) -> None:
     assert captured == {
         "csv_path": "video_preds/session0.csv",
         "video_path": "clip.mp4",
-        "project": "My Project",
+        "project": Path("My Project").resolve(),
         "skeleton_name": "imported",
         "likelihood_threshold": 0.4,
         "force": False,
@@ -1008,6 +1029,7 @@ def test_cli_describe_json_pins_machine_contract(capsys) -> None:
             "pose mmpose-topdown-json",
             "pose sleap-h5",
             "pose sleap-package",
+            "signals photometry-csv",
         ],
         "project": [
             "describe",
@@ -1040,6 +1062,7 @@ def test_cli_describe_json_pins_machine_contract(capsys) -> None:
         "import pose mmpose-topdown-json",
         "import pose sleap-h5",
         "import pose sleap-package",
+        "import signals photometry-csv",
         "project describe",
         "project init",
         "project metadata set",

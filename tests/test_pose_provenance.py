@@ -14,14 +14,11 @@ import pytest
 from xpkg.model import PoseModelProvenance
 from xpkg.project import (
     init_project,
-    load_project_pose_provenance,
+    load_project_session,
     pack_project,
-    save_project_pose_provenance,
     unpack_project,
 )
-from xpkg.project.metadata import project_pose_provenance_path
 from xpkg.project.store.imports import import_dlc_csv_project
-from xpkg.services import ProjectService
 
 
 def _capture_json(capsys: pytest.CaptureFixture[str]) -> dict:
@@ -51,6 +48,12 @@ def _write_video(path: Path, frames: int = 10) -> Path:
     return path
 
 
+def _load_pose_provenance(project: Path, *, session_id: str | None = None):
+    session = load_project_session(project, session_id=session_id)
+    assert len(session.poses) == 1
+    return session.poses[0].provenance
+
+
 def test_pose_model_provenance_round_trips_json_friendly_payload() -> None:
     record = PoseModelProvenance(
         tool="deeplabcut",
@@ -70,29 +73,7 @@ def test_pose_model_provenance_rejects_empty_tool() -> None:
         PoseModelProvenance(tool="")
 
 
-def test_save_and_load_project_pose_provenance(tmp_path: Path) -> None:
-    project = tmp_path / "Provenance Project"
-    init_project(project, title="Provenance Project")
-
-    record = PoseModelProvenance(
-        tool="sleap",
-        tool_version="1.4",
-        model_name="topdown_id",
-        checkpoint_id="abc123",
-    )
-    saved = save_project_pose_provenance(project, record)
-    assert saved == project_pose_provenance_path(project)
-    assert saved.is_file()
-    assert load_project_pose_provenance(project) == record
-
-
-def test_load_project_pose_provenance_returns_none_when_unset(tmp_path: Path) -> None:
-    project = tmp_path / "No Provenance Project"
-    init_project(project, title="No Provenance Project")
-    assert load_project_pose_provenance(project) is None
-
-
-def test_dlc_import_persists_and_auto_fills_provenance(tmp_path: Path) -> None:
+def test_dlc_import_attaches_and_auto_fills_pose_provenance(tmp_path: Path) -> None:
     project = tmp_path / "DLC Provenance Project"
     init_project(project, title="DLC Provenance Project")
     csv = _write_dlc_csv(tmp_path / "tracking.csv")
@@ -108,7 +89,7 @@ def test_dlc_import_persists_and_auto_fills_provenance(tmp_path: Path) -> None:
             model_name="ResNet50",
         ),
     )
-    record = load_project_pose_provenance(project)
+    record = _load_pose_provenance(project)
     assert record is not None
     assert record.tool == "deeplabcut"
     assert record.tool_version == "2.3.4"
@@ -131,7 +112,7 @@ def test_dlc_import_uses_default_tool_when_mapping_omits_tool(tmp_path: Path) ->
         project,
         provenance={"tool_version": "2.4", "checkpoint_id": "snap-100000"},
     )
-    record = load_project_pose_provenance(project)
+    record = _load_pose_provenance(project)
     assert record is not None
     assert record.tool == "deeplabcut"
     assert record.tool_version == "2.4"
@@ -141,9 +122,13 @@ def test_dlc_import_uses_default_tool_when_mapping_omits_tool(tmp_path: Path) ->
 def test_pose_provenance_round_trips_through_pack_unpack(tmp_path: Path) -> None:
     project = tmp_path / "Pack Provenance Project"
     init_project(project, title="Pack Provenance Project")
-    save_project_pose_provenance(
+    csv = _write_dlc_csv(tmp_path / "pack-tracking.csv")
+    video = _write_video(tmp_path / "pack-video.mp4")
+    import_dlc_csv_project(
+        csv,
+        video,
         project,
-        PoseModelProvenance(
+        provenance=PoseModelProvenance(
             tool="deeplabcut",
             tool_version="2.3.4",
             checkpoint_id="snapshot-200000",
@@ -153,29 +138,42 @@ def test_pose_provenance_round_trips_through_pack_unpack(tmp_path: Path) -> None
 
     with zipfile.ZipFile(expkg) as zf:
         manifest = json.loads(zf.read("EXPKG.json"))
-    assert manifest["pose_provenance"]["tool"] == "deeplabcut"
-    assert manifest["pose_provenance"]["checkpoint_id"] == "snapshot-200000"
+    assert "pose_provenance" not in manifest
 
     restored = unpack_project(expkg, tmp_path / "Restored")
-    record = load_project_pose_provenance(restored)
+    record = _load_pose_provenance(restored)
     assert record is not None
     assert record.tool == "deeplabcut"
     assert record.tool_version == "2.3.4"
 
 
-def test_project_service_save_and_load_pose_provenance(tmp_path: Path) -> None:
-    project = ProjectService.create(tmp_path / "Service Provenance Project")
-    project.metadata.update(
-        pose_provenance=PoseModelProvenance(
-            tool="mmpose",
-            tool_version="1.3",
-            model_name="rtmpose-l",
-        )
+def test_distinct_sessions_own_distinct_pose_provenance(tmp_path: Path) -> None:
+    project = tmp_path / "Multi Session Provenance"
+    init_project(project, title="Multi Session Provenance")
+    first_csv = _write_dlc_csv(tmp_path / "first.csv")
+    first_video = _write_video(tmp_path / "first.mp4")
+    second_csv = _write_dlc_csv(tmp_path / "second.csv")
+    second_video = _write_video(tmp_path / "second.mp4")
+
+    import_dlc_csv_project(
+        first_csv,
+        first_video,
+        project,
+        session_id="baseline",
+        provenance=PoseModelProvenance(tool="deeplabcut", checkpoint_id="baseline-model"),
     )
-    record = project.metadata.pose_provenance
-    assert record is not None
-    assert record.tool == "mmpose"
-    assert record.model_name == "rtmpose-l"
+    import_dlc_csv_project(
+        second_csv,
+        second_video,
+        project,
+        session_id="post-treatment",
+        provenance=PoseModelProvenance(tool="deeplabcut", checkpoint_id="post-model"),
+    )
+
+    baseline = _load_pose_provenance(project, session_id="baseline")
+    post = _load_pose_provenance(project, session_id="post-treatment")
+    assert baseline is not None and baseline.checkpoint_id == "baseline-model"
+    assert post is not None and post.checkpoint_id == "post-model"
 
 
 def test_cli_dlc_csv_with_model_provenance_json(
@@ -219,7 +217,7 @@ def test_cli_dlc_csv_with_model_provenance_json(
     payload = _capture_json(capsys)
     assert payload["status"] == "imported"
 
-    record = load_project_pose_provenance(project)
+    record = _load_pose_provenance(project)
     assert record is not None
     assert record.tool == "deeplabcut"
     assert record.tool_version == "2.3.4"
@@ -341,22 +339,18 @@ def test_normalized_prediction_provenance_rejects_missing_config_snapshot(
         )
 
 
-def test_persist_pose_provenance_fills_tool_and_import_fields(tmp_path: Path) -> None:
-    from xpkg.project.store.provenance import _persist_pose_provenance
+def test_pose_provenance_record_fills_tool_and_import_fields(tmp_path: Path) -> None:
+    from xpkg.project.store.provenance import _pose_provenance_record
 
-    project = tmp_path / "Persist Defaults"
-    init_project(project, title="Persist Defaults")
     source = tmp_path / "predictions.csv"
     source.write_text("frame,x\n", encoding="utf-8")
 
-    _persist_pose_provenance(
-        project,
+    record = _pose_provenance_record(
         {"model_name": "resnet50"},
         default_tool="deeplabcut",
         source_path=source,
     )
 
-    record = load_project_pose_provenance(project)
     assert record is not None
     assert record.tool == "deeplabcut"
     assert record.model_name == "resnet50"
@@ -365,53 +359,41 @@ def test_persist_pose_provenance_fills_tool_and_import_fields(tmp_path: Path) ->
     assert record.imported_at.endswith("Z")
 
 
-def test_persist_pose_provenance_keeps_existing_import_fields(tmp_path: Path) -> None:
-    from xpkg.project.store.provenance import _persist_pose_provenance
+def test_pose_provenance_record_keeps_existing_import_fields(tmp_path: Path) -> None:
+    from xpkg.project.store.provenance import _pose_provenance_record
 
-    project = tmp_path / "Persist Existing"
-    init_project(project, title="Persist Existing")
     record = PoseModelProvenance(
         tool="sleap",
         imported_from="original.h5",
         imported_at="2026-01-01T00:00:00Z",
     )
 
-    _persist_pose_provenance(
-        project,
+    loaded = _pose_provenance_record(
         record,
         default_tool="ignored",
         source_path=tmp_path / "other.h5",
     )
 
-    loaded = load_project_pose_provenance(project)
     assert loaded == record
 
 
-def test_persist_pose_provenance_none_is_a_no_op(tmp_path: Path) -> None:
-    from xpkg.project.store.provenance import _persist_pose_provenance
+def test_pose_provenance_record_preserves_none(tmp_path: Path) -> None:
+    from xpkg.project.store.provenance import _pose_provenance_record
 
-    project = tmp_path / "Persist None"
-    init_project(project, title="Persist None")
-
-    _persist_pose_provenance(
-        project,
+    record = _pose_provenance_record(
         None,
         default_tool="deeplabcut",
         source_path=tmp_path / "predictions.csv",
     )
 
-    assert load_project_pose_provenance(project) is None
+    assert record is None
 
 
-def test_persist_pose_provenance_rejects_unsupported_payload_type(tmp_path: Path) -> None:
-    from xpkg.project.store.provenance import _persist_pose_provenance
-
-    project = tmp_path / "Persist Bad Type"
-    init_project(project, title="Persist Bad Type")
+def test_pose_provenance_record_rejects_unsupported_payload_type(tmp_path: Path) -> None:
+    from xpkg.project.store.provenance import _pose_provenance_record
 
     with pytest.raises(TypeError, match="must be PoseModelProvenance or mapping"):
-        _persist_pose_provenance(
-            project,
+        _pose_provenance_record(
             42,
             default_tool="deeplabcut",
             source_path=tmp_path / "predictions.csv",

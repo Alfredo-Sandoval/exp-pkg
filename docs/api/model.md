@@ -3,8 +3,9 @@
 <div class="page-intro">
 <p>
 <code>xpkg.model</code> holds the canonical in-memory objects used across the
-library: pose labels, media, sampled signals, events, and the
-behavior/session/time primitives that keep modalities aligned.
+library: experiments, subjects, protocols, recording sessions, pose, media,
+sampled signals, events, and the timing relationships that keep modalities
+aligned.
 </p>
 </div>
 
@@ -12,6 +13,12 @@ behavior/session/time primitives that keep modalities aligned.
 
 ```mermaid
 flowchart LR
+    Experiment --> Subject
+    Experiment --> Protocol
+    Experiment --> ExperimentalCondition
+    Experiment --> ExperimentSessionLink
+    ExperimentSessionLink --> RecordingSession
+    ExperimentSessionLink --> SubjectTrackLink
     RecordingSession --> EventTable
     BehaviorLabels --> BehaviorInterval
     BehaviorLabels --> BehaviorFrameLabel
@@ -19,6 +26,9 @@ flowchart LR
     BehaviorLabels --> EventTable
     RecordingSession --> TimeSeries
     RecordingSession --> PhotometryRecording
+    RecordingSession --> SessionPose
+    SessionPose --> Labels
+    SessionPose --> PoseTrajectory
     Labels --> Skeleton
     Labels --> Video
     Labels --> LabeledFrame
@@ -64,13 +74,15 @@ model outputs.
 
 ## Core Types
 
-### Top-level container
+### Top-level aggregate
 
-- `Labels` is the main dataset container. It owns labeled frames, videos,
-  skeletons, tracks, suggestions, preferences, and session metadata.
-- `RecordingSession` is the multimodal session container. It groups typed video
-  and signal links with events. Pose data remains in `Labels` until the model
-  defines a typed session-to-pose link.
+- `Experiment` is the scientific aggregate. It owns subjects, protocols,
+  conditions, dataset-sharing metadata, and session context links.
+- `RecordingSession` is one multimodal acquisition episode. It groups typed
+  acquisition, video, signal, pose, behavior, calibration, alignment, and event
+  objects.
+- `Labels` is the annotation-rich 2D pose container.
+- `PoseTrajectory` is the numeric multi-track 2D or 3D pose container.
 
 ### Timing, events, and signals
 
@@ -116,7 +128,8 @@ session = add_session_signal(session, SessionSignal("fiber", photometry))
 session = replace_session_events(session, events)
 ```
 
-These objects are direct model primitives today. `xpkg.readers.read_photometry_csv`,
+These objects are direct model primitives and the canonical recording-session
+project ontology. `xpkg.readers.read_photometry_csv`,
 `xpkg.readers.read_events_csv`, `xpkg.readers.read_pyphotometry_ppd`,
 `xpkg.readers.read_pyphotometry_csv`, `xpkg.readers.read_rwd_ofrs_session`,
 `xpkg.readers.read_neurophotometrics_csv`, `xpkg.readers.read_doric_photometry`,
@@ -124,7 +137,9 @@ These objects are direct model primitives today. `xpkg.readers.read_photometry_c
 the pMAT CSV readers, and the behavior CSV readers including
 `xpkg.readers.read_bsoid_csv`, `xpkg.readers.read_simba_csv`, and
 `xpkg.readers.read_keypoint_moseq_syllables_csv` are direct APIs on top of this
-model. Sync readers and project imports are planned next; see
+model. Generic photometry CSV also imports through
+`ProjectService.import_signals`. Sync and event project imports are planned
+next; see
 [Multimodal Session Model](../architecture/multimodal-session.md).
 
 ### Geometry and identity

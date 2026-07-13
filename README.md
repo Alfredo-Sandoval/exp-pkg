@@ -7,19 +7,20 @@
 
 Import from `xpkg` in Python and use `xpkg` for the CLI.
 
-exp-pkg exists to give neuroscience repos one stable boundary for
-experiment-data IO. Its current focus is pose estimation, synchronized video,
-segmentation masks, calibration metadata, and portable project packaging.
+exp-pkg gives neuroscience repositories one stable boundary for experiment-data
+IO. One project stores one typed `Experiment` containing subjects, protocols,
+conditions, multiple recording sessions, sampled signals, pose outputs,
+synchronized video, events, behavior labels, calibration, and sharing metadata.
 
 It imports external formats, normalizes them into canonical `xpkg` objects,
-stores them in a project-first project contract, and emits portable `.expkg`
-artifacts. The project import surface today covers pose and calibration
-formats. Signal and behavior readers stay direct-reader only; the package keeps
-to a project IO layer rather than turning into an analysis platform.
+stores them in a project-first contract, and emits portable `.expkg`
+artifacts. The project import surface covers pose, calibration, and generic
+photometry CSV. Other signal and behavior formats remain direct readers until
+they have an explicit project-storage and portability contract.
 
 This repo is not an analysis platform. It is the IO layer that analysis tools,
-GUIs, and automation can build on when they need a coherent project/project
-surface instead of a pile of ad hoc CSV, H5, JSON, and project sidecars.
+GUIs, and automation can build on when they need a coherent project surface
+instead of a pile of ad hoc CSV, H5, JSON, and sidecars.
 
 The public product contract is now intentionally narrow:
 
@@ -38,7 +39,7 @@ the `.expkg`.
 The intended stack is:
 
 - external neuroscience formats at the edge
-- canonical in-memory session objects in the middle
+- one canonical in-memory experiment aggregate in the middle
 - shared timing, event, and signal contracts across modalities
 - in-memory exchange helpers for arrays / tables / JSON payloads
 - editable project + private store + portable artifact at the boundary
@@ -75,6 +76,9 @@ Choose the public surface by job:
 | --- | --- |
 | Create, open, import into, validate, pack, or unpack a project | `xpkg.services.ProjectService` |
 | Import foreign pose or calibration data into a project you already manage through the service | `project.import_pose(format, ...)` / `import_calibration(format, ...)` |
+| Import generic photometry CSV into typed recording-session state | `project.import_signals("photometry-csv", path=...)` |
+| Save or load typed recording-session state | `project.save_session(...)` / `project.load_session()` |
+| Save or load the complete experiment aggregate | `project.save_experiment(...)` / `project.load_experiment()` |
 | Register figures, tables, analyses, reports, or other output artifacts | `project.artifacts.*` from `xpkg.services.ProjectService` |
 | Save figure outputs and their lineage manifests | `project.figures.*` from `xpkg.services.ProjectService` |
 | Save or load frame-level segmentation masks | `project.segmentation.*` from `xpkg.services.ProjectService` |
@@ -94,20 +98,20 @@ kind directories such as `figures`, `tables`, `analyses`, `reports`, and
 treats namespaces as caller-owned strings; it does not reserve or hard-code
 downstream package names.
 
-The shipped service/CLI project import surface currently covers:
+The shipped service and CLI project import surface currently covers:
 
 - DeepLabCut CSV, H5, and project imports
 - Lightning Pose prediction CSV (DLC-style MultiIndex)
 - SLEAP analysis H5 and `.pkg.slp`
 - MMPose top-down demo JSON (`--save-predictions`)
 - MediaPipe pose-landmarks JSON
+- Generic photometry CSV
 
-There are two tiers here. Project imports (pose and calibration) go
+There are two tiers here. Project imports (pose, calibration, and generic
+photometry CSV) go
 through `ProjectService` and the CLI, write project state, and produce portable
-`.expkg` artifacts. Direct readers parse a file into typed in-memory objects
-and stop there. They have no project integration: there is no `ProjectService`
-method and no CLI command that imports a photometry, behavior, or event file
-into a project today.
+`.expkg` artifacts. Other direct readers parse a file into typed in-memory
+objects and stop there.
 
 The direct reader surface includes typed, project-free, experimental readers
 for:
@@ -122,9 +126,8 @@ for:
 - Doric `.doric` photometry containers
 - Teleopto H5 exports
 - TDT tank/block photometry streams through the optional `tdt` package
-These signal and behavior readers are experimental and are not the current
-product focus. The reader functions exist in `xpkg.readers`, but none of them
-is reachable through `ProjectService` or the CLI yet.
+These signal and behavior readers are experimental. Generic photometry CSV is
+the first signal format reachable through `ProjectService` and the CLI.
 
 ## What It Does
 
@@ -145,7 +148,7 @@ Implemented today:
 
 - canonical annotation and media data objects
 - canonical behavior-label objects for intervals, framewise motifs, and embeddings
-- service/CLI project importers for pose and calibration formats
+- service/CLI project importers for pose, calibration, and generic photometry CSV
 - direct readers for signal, event, behavior, pose, and calibration files
 - project/store/artifact lifecycle operations
 - media-aware packaging and portable exports
@@ -155,17 +158,16 @@ Mission direction:
 
 - keep xpkg narrow as the stable multimodal neuroscience IO and artifact boundary
 - support more external ecosystems through project importers
-- add first-class timing, event, and signal models for pose, video, behavior,
-  and synchronization data
+- extend importer coverage across pose, video, behavior, events, and
+  synchronization data without adding parallel ontologies
 - make downstream analysis and GUI repos depend on xpkg instead of inventing
   their own project formats
 - keep project storage centered on projects and portable `.expkg` exports
 
-Planned, not current capability:
-
-- fiber-photometry project imports through `ProjectService` and the CLI
-- a shared session/timeline layer that carries photometry alongside pose,
-  video, and events
+The canonical experiment state supports multiple sessions with acquisition,
+signals, videos, pose, behavior, calibration, events, timebases, and
+provenance. Generic photometry CSV is the first complete signal importer for
+this state.
 
 ## Supported Project Imports
 
@@ -179,18 +181,17 @@ Planned, not current capability:
 | SLEAP | `.pkg.slp` | Supported |
 | MMPose | Top-down demo JSON (`--save-predictions`) | Supported |
 | MediaPipe | Pose landmarks JSON | Supported |
+| Generic photometry | CSV | Supported as a session signal in experiment state |
 
 ## Supported Direct Readers (experimental)
 
-These readers are experimental and are not the current product focus. They read
-a file into typed in-memory objects through `xpkg.readers` and stop there. They
-are not project-importable: there is no `ProjectService` method or CLI command
-that brings a photometry, event, or behavior file into a project, and no
-`.expkg` packaging for these formats yet.
+These readers parse files into typed in-memory objects through `xpkg.readers`.
+Generic photometry CSV also has a project importer. The remaining entries do
+not yet have project actions or `.expkg` integration.
 
 | Source | Format | Status |
 |--------|--------|--------|
-| Generic photometry | CSV | Direct reader (experimental) |
+| Generic photometry | CSV | Direct reader and project importer |
 | Generic events | CSV | Direct reader (experimental) |
 | Generic behavior events | CSV / JSON | Direct reader (experimental) |
 | BORIS | Tabular event CSV | Direct reader (experimental) |
@@ -370,7 +371,7 @@ make docs-serve    # live preview at localhost:8123
 
 ## Public Artifact Contract
 
-The `.expkg` on-disk artifact format is the frozen v1 durability contract. The
+The `.expkg` on-disk artifact format is the versioned durability contract. The
 format is the zip container, the root `EXPKG.json` manifest, and the three-class
 layout below: the editable project folder, the private `.xpkg/` store, and the
 portable `.expkg` export. Files written by 0.x releases should remain readable
@@ -378,7 +379,7 @@ by later 0.x and 1.0 releases.
 
 The Python API and CLI command surface are a separate concern. They are 0.x and
 pre-1.0, and may still change before 1.0. The documents in
-`docs/artifact_contract_v1.md` and `docs/cli_command_spec_v1.md` describe the
+`docs/artifact_contract.md` and `docs/cli_command_spec_v1.md` describe the
 intended v1 surface; the artifact format is frozen, the command and Python
 surfaces are not yet.
 
@@ -400,14 +401,14 @@ My Project/
 The artifact model is project-first so experiment state, managed media, and
 future aligned modalities have a clear home in one project layout.
 
-The frozen artifact-format spec lives in `docs/artifact_contract_v1.md`. The
+The artifact-format specification lives in `docs/artifact_contract.md`. The
 command surface, which is still pre-1.0 and may change, is in
 `docs/cli_command_spec_v1.md`.
 
 ### Stability
 
 - `.expkg` on-disk format (zip container, `EXPKG.json` manifest, and the
-  project / `.xpkg/` / `.expkg` three-class layout) = frozen v1. Files written
+  project / `.xpkg/` / `.expkg` three-class layout) = versioned contract. Files written
   by 0.x should stay readable.
 - Python API and CLI command surface = 0.x, pre-1.0, may change before 1.0.
 
@@ -420,6 +421,7 @@ xpkg project init "./My Project"
 xpkg import pose dlc-csv --path tracking.csv --video video.mp4 --out "./My Project"
 xpkg import pose lightning-pose-csv --path predictions.csv --video video.mp4 --out "./My Project"
 xpkg import pose sleap-package --path labels.pkg.slp --out "./My Project"
+xpkg import signals photometry-csv --path photometry.csv --out "./My Project" --session-id session-001
 xpkg inspect tracking.csv --json
 xpkg project pack "./My Project"
 xpkg project pack "./My Project" --media package

@@ -10,7 +10,7 @@ validate, pack, or unpack a project-first project.
 flowchart TD
     svc["ProjectService"]:::accent
 
-    svc -->|.metadata| meta["ProjectMetadata<br/><span style='font-size:0.75em;opacity:0.7'>typed durable slots</span>"]
+    svc -->|.metadata| meta["ProjectMetadata<br/><span style='font-size:0.75em;opacity:0.7'>dataset and model documentation</span>"]
     svc -->|.artifacts| arts["ProjectArtifacts<br/><span style='font-size:0.75em;opacity:0.7'>generic registry</span>"]
     svc -->|.figures| figs["ProjectFigures<br/><span style='font-size:0.75em;opacity:0.7'>figure convenience</span>"]
     svc -->|.calibrations| cals["ProjectCalibrations<br/><span style='font-size:0.75em;opacity:0.7'>camera calibrations</span>"]
@@ -32,20 +32,19 @@ kebab-case ``format`` string typed as `PoseFormat` or `CalibrationFormat`.
 ```mermaid
 flowchart LR
     pm["project.metadata"]:::accent
-    pm --> acq["acquisition<br/><span style='font-size:0.75em;opacity:0.7'>AcquisitionMetadata</span>"]
-    pm --> ds["dataset_share<br/><span style='font-size:0.75em;opacity:0.7'>DatasetShareMetadata</span>"]
     pm --> dh["datasheet<br/><span style='font-size:0.75em;opacity:0.7'>DatasetDatasheet</span>"]
     pm --> mc["model_card<br/><span style='font-size:0.75em;opacity:0.7'>ModelCard</span>"]
-    pm --> pp["pose_provenance<br/><span style='font-size:0.75em;opacity:0.7'>PoseModelProvenance</span>"]
 
     pm -->|.update **slots| upd[[".xpkg/metadata/&lt;slot&gt;.json"]]
 
     classDef accent stroke-width:1.5px;
 ```
 
-Each slot is read as a property and written via `project.metadata.update(...)`.
-Slots provided as `None` are not touched; the call returns a `dict[str, Path]`
-of slots actually written.
+Datasheets and model cards are read as properties and written through
+`project.metadata.update(...)`. Acquisition belongs to a recording session,
+dataset-sharing metadata belongs to the experiment, and pose-model provenance
+belongs to a session pose link. They are loaded and saved through their typed
+service methods rather than the documentation accessor.
 
 ## Start here
 
@@ -106,8 +105,12 @@ object:
 - `project.describe()`
 - `project.validate()`
 - `project.load_labels()`
-- `project.metadata.acquisition` / `dataset_share` / `pose_provenance` / `datasheet` / `model_card` (typed durable slots)
-- `project.metadata.update(...)` (write one or more typed slots)
+- `project.load_experiment()` / `save_experiment(...)`
+- `project.load_session(...)` / `save_session(...)`
+- `project.load_acquisition(...)` / `save_acquisition(...)`
+- `project.load_dataset_share()` / `save_dataset_share(...)`
+- `project.metadata.datasheet` / `model_card`
+- `project.metadata.update(...)` (write datasheet or model-card documentation)
 - `project.load_state_metadata()` (free-form dict on the current state head)
 - `project.load_state_metadata_field(...)`
 - `project.save_labels(...)`
@@ -129,13 +132,13 @@ object:
 `project.describe()` and `project.validate()` return a `ProjectLayout` with
 the normalized managed paths, descriptor, and generated project summary index.
 The summary index is shallow: it reports state kind, state bytes, modalities,
-typed metadata slots, and artifact counts without loading labels, predictions,
+documentation records, and artifact counts without loading labels, predictions,
 or media payloads.
 
 For mapping-valued metadata blobs that callers update independently, prefer the
 service-bound field helpers instead of rewriting the whole metadata payload.
 These read and write the free-form ``metadata`` dict carried on the project
-state head — distinct from the durable typed slots accessed via
+state head, distinct from the documentation records accessed through
 ``project.metadata``:
 
 ```python
@@ -153,7 +156,7 @@ session_state = project.load_state_metadata_field("session_json")
 
 ## Service-Bound Import Surface
 
-Two dispatch methods on `ProjectService` cover all supported importers,
+Three dispatch methods on `ProjectService` cover all supported importers,
 selecting a package-owned implementation by kebab-case ``format`` string:
 
 | Service call | Format implementation |
@@ -168,6 +171,7 @@ selecting a package-owned implementation by kebab-case ``format`` string:
 | `project.import_pose("mediapipe-pose-landmarks-json", path=..., video=...)` | MediaPipe pose landmarks JSON |
 | `project.import_calibration("anipose", path=...)` | Anipose calibration TOML |
 | `project.import_calibration("opencv-stereo-yaml", path=...)` | OpenCV stereo calibration YAML |
+| `project.import_signals("photometry-csv", path=...)` | Generic photometry CSV |
 The service dispatch is the public path for new project-facing code.
 
 ## Multimodal Reader And Import Plan
@@ -197,12 +201,17 @@ readers.read_simba_csv(...)
 readers.read_keypoint_moseq_syllables_csv(...)
 ```
 
-Service-bound dispatch for these signal kinds is not implemented yet (planned
-under a future ``project.import_signals(format, ...)``):
+Generic photometry CSV has service-bound dispatch and persists a typed,
+versioned `RecordingSession`:
 
 ```python
-# planned
 project.import_signals("photometry-csv", path=...)
+session = project.load_session()
+```
+
+Event and synchronization project imports remain planned:
+
+```python
 project.import_signals("events-csv", path=...)
 project.import_signals("sync-csv", path=...)
 ```

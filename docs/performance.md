@@ -39,7 +39,7 @@ is the generated inventory for "what is in this project".
 | Job | Use | Avoid in hot list paths |
 | --- | --- | --- |
 | Show a project row | `xpkg project describe PATH --json`, `ProjectService.open(PATH).describe()`, `load_project_summary(PATH)` | `validate_project(PATH)` |
-| Detect whether a path is an xpkg project | `xpkg inspect PATH --json`, `xpkg.inspection.inspect_path(PATH)` | `ProjectService.inspect()` when you do not need a validated state summary |
+| Detect whether a path is an xpkg project | `xpkg inspect PATH --json`, `xpkg.inspection.inspect_path(PATH)`, `ProjectService.inspect()` | `validate_project(PATH)` |
 | Show current-state presence or size | `current_project_state_path(PATH).exists()` and `stat().st_size` | `load_project_payload(PATH)` |
 | Read durable typed metadata | `ProjectService.open(PATH).metadata` | loading labels, media, or predictions |
 | Open a selected project for editing | `ProjectService.open(PATH).load_labels()` or the relevant domain loader | doing this for every project in the catalog |
@@ -107,9 +107,9 @@ project-list path.
   `MaskTableReader` for dense instance-mask outputs.
 - Prefer window reads over full-table materialization in GPU or batch
   pipelines.
-- Save model cards, acquisition metadata, dataset-share metadata, and
-  datasheets in typed metadata slots when that information belongs in catalog
-  views.
+- Keep acquisition metadata on its recording session and dataset-sharing
+  metadata on the experiment. Keep model cards and datasheets as compact
+  documentation records when they belong in catalog views.
 - Persist compact associated-media inventory during save/import, when labels
   and media descriptors are already in memory. Inspect can then re-check path
   presence and known frame-index ranges without decoding media or hydrating the
@@ -123,10 +123,8 @@ New xpkg APIs should make their cost visible:
 
 - `describe`, `list`, and `summary` surfaces should be shallow unless their
   docstring explicitly says otherwise.
-- `xpkg inspect PATH --json` and `xpkg.inspection.inspect_path(PATH)` are shallow
-  for project directories. `ProjectService.inspect()` is a full-state service
-  inspection and should be reserved for explicit open, validation, analysis, or
-  publish paths.
+- `xpkg inspect PATH --json`, `xpkg.inspection.inspect_path(PATH)`, and
+  `ProjectService.inspect()` are shallow for project directories.
 - `load`, `hydrate`, `validate`, `pack`, and `unpack` surfaces may read full
   state, media, and artifacts.
 - If a summary API must parse state payloads, document the reason and add a

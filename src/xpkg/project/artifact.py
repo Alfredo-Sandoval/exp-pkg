@@ -33,7 +33,7 @@ from xpkg.project.layout import (
 
 EXPKG_MANIFEST_FILENAME = "EXPKG.json"
 EXPKG_FORMAT = "xpkg-packed-project"
-EXPKG_SCHEMA_VERSION = 1
+EXPKG_SCHEMA_VERSION = 2
 PackMediaMode = Literal["full", "package", "manifest"]
 PACK_MEDIA_MODES: tuple[str, ...] = ("full", "package", "manifest")
 
@@ -169,9 +169,6 @@ def _expkg_manifest_payload(
     media_mode: PackMediaMode,
     member_entries: list[dict[str, Any]],
     media_entries: list[dict[str, Any]],
-    acquisition: dict[str, Any] | None = None,
-    dataset_share: dict[str, Any] | None = None,
-    pose_provenance: dict[str, Any] | None = None,
     datasheet: dict[str, Any] | None = None,
     model_card: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
@@ -201,12 +198,6 @@ def _expkg_manifest_payload(
         },
         "members": member_entries,
     }
-    if dataset_share is not None:
-        payload["dataset_share"] = dataset_share
-    if acquisition is not None:
-        payload["acquisition"] = acquisition
-    if pose_provenance is not None:
-        payload["pose_provenance"] = pose_provenance
     if datasheet is not None:
         payload["datasheet"] = datasheet
     if model_card is not None:
@@ -219,27 +210,15 @@ def _project_manifest_metadata(
 ) -> tuple[
     dict[str, Any] | None,
     dict[str, Any] | None,
-    dict[str, Any] | None,
-    dict[str, Any] | None,
-    dict[str, Any] | None,
 ]:
     from xpkg.project.metadata import (
-        load_project_acquisition_metadata,
-        load_project_dataset_share_metadata,
         load_project_datasheet,
         load_project_model_card,
-        load_project_pose_provenance,
     )
 
-    acquisition = load_project_acquisition_metadata(project_root)
-    dataset_share = load_project_dataset_share_metadata(project_root)
-    pose_provenance = load_project_pose_provenance(project_root)
     datasheet = load_project_datasheet(project_root)
     model_card = load_project_model_card(project_root)
     return (
-        None if acquisition is None else acquisition.to_dict(),
-        None if dataset_share is None else dataset_share.to_dict(),
-        None if pose_provenance is None else pose_provenance.to_dict(),
         None if datasheet is None else datasheet.to_dict(),
         None if model_card is None else model_card.to_dict(),
     )
@@ -254,27 +233,24 @@ def _is_within(path: Path, parent: Path) -> bool:
 
 
 def _project_media_violations(project_root: Path) -> list[str]:
-    from xpkg.model import Labels
+    from xpkg.project.recording import _session_source_paths, load_project_experiment
     from xpkg.project.store import current_project_state_path
 
     state_path = current_project_state_path(project_root)
     if not state_path.exists():
         return []
-    labels = Labels.load_file(project_root.as_posix())
     media_root = project_media_root(project_root).resolve()
     violations: list[str] = []
-
-    for video in labels.videos:
-        filename = getattr(video, "filename", None)
-        if filename:
-            resolved = resolve_path(filename)
+    experiment = load_project_experiment(project_root)
+    for session in experiment.sessions:
+        for video in session.videos:
+            resolved = (project_root / video.path).resolve()
             if not _is_within(resolved, media_root):
-                violations.append(str(filename))
-        for frame_path in getattr(video, "image_filenames", []) or []:
-            resolved = resolve_path(frame_path)
+                violations.append(video.path.as_posix())
+        for path in _session_source_paths(session):
+            resolved = path.resolve() if path.is_absolute() else (project_root / path).resolve()
             if not _is_within(resolved, media_root):
-                violations.append(str(frame_path))
-
+                violations.append(path.as_posix())
     return list(dict.fromkeys(violations))
 
 
@@ -311,7 +287,6 @@ def pack_project(
     media_mode = _normalize_pack_media_mode(media)
     validate_project(root)
 
-    descriptor = load_project_descriptor(root)
     violations = _project_media_violations(root)
     if violations:
         joined = ", ".join(violations[:5])
@@ -329,6 +304,18 @@ def pack_project(
         raise FileExistsError(f"Output artifact already exists: {out_path}")
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
+    members, manifest = _pack_inventory(
+        root,
+        load_project_descriptor(root),
+        media_mode,
+    )
+    _write_packed_zip(out_path, root, members, manifest)
+    return out_path
+
+
+def _pack_inventory(
+    root: Path, descriptor: ProjectDescriptor, media_mode: PackMediaMode
+) -> tuple[list[Path], dict[str, Any]]:
     project_media_files = _iter_project_media_files(root)
     included_media_paths = {
         source_path
@@ -340,8 +327,7 @@ def pack_project(
         *[path for path in project_media_files if path in included_media_paths],
     ]
     member_entries = [
-        _file_manifest_entry(source_path, project_root=root)
-        for source_path in members
+        _file_manifest_entry(source_path, project_root=root) for source_path in members
     ]
     media_entries = [
         _media_manifest_entry(
@@ -352,23 +338,25 @@ def pack_project(
         for source_path in project_media_files
     ]
     (
-        acquisition,
-        dataset_share,
-        pose_provenance,
         datasheet,
         model_card,
     ) = _project_manifest_metadata(root)
-    manifest = _expkg_manifest_payload(
+    return members, _expkg_manifest_payload(
         descriptor=descriptor,
         media_mode=media_mode,
         member_entries=member_entries,
         media_entries=media_entries,
-        pose_provenance=pose_provenance,
-        acquisition=acquisition,
-        dataset_share=dataset_share,
         datasheet=datasheet,
         model_card=model_card,
     )
+
+
+def _write_packed_zip(
+    out_path: Path,
+    root: Path,
+    members: list[Path],
+    manifest: dict[str, Any],
+) -> None:
     with tempfile.NamedTemporaryFile(
         prefix=f".{out_path.stem}_",
         suffix=".tmp",
@@ -394,7 +382,6 @@ def pack_project(
     finally:
         if tmp_path.exists():
             tmp_path.unlink()
-    return out_path
 
 
 def _validated_zip_member(name: str) -> PurePosixPath:
@@ -526,9 +513,7 @@ def _media_entries(manifest: dict[str, Any]) -> tuple[dict[str, Any], list[dict[
                     f"Package media mode cannot include video container media: {path!r}"
                 )
         elif compression != "none":
-            raise ValueError(
-                f"Packed external media compression must be 'none' for {path!r}"
-            )
+            raise ValueError(f"Packed external media compression must be 'none' for {path!r}")
         if mode == "full" and not included:
             raise ValueError("Full media mode cannot declare external media")
         seen.add(path)
@@ -538,28 +523,10 @@ def _media_entries(manifest: dict[str, Any]) -> tuple[dict[str, Any], list[dict[
 
 def _validate_expkg_metadata(manifest: dict[str, Any]) -> None:
     from xpkg.model import (
-        AcquisitionMetadata,
         DatasetDatasheet,
-        DatasetShareMetadata,
         ModelCard,
-        PoseModelProvenance,
     )
 
-    dataset_share = manifest.get("dataset_share")
-    if dataset_share is not None:
-        if not isinstance(dataset_share, dict):
-            raise TypeError(f"Packed {EXPKG_MANIFEST_FILENAME} dataset_share must be an object")
-        DatasetShareMetadata.from_dict(dataset_share)
-    acquisition = manifest.get("acquisition")
-    if acquisition is not None:
-        if not isinstance(acquisition, dict):
-            raise TypeError(f"Packed {EXPKG_MANIFEST_FILENAME} acquisition must be an object")
-        AcquisitionMetadata.from_dict(acquisition)
-    pose_provenance = manifest.get("pose_provenance")
-    if pose_provenance is not None:
-        if not isinstance(pose_provenance, dict):
-            raise TypeError(f"Packed {EXPKG_MANIFEST_FILENAME} pose_provenance must be an object")
-        PoseModelProvenance.from_dict(pose_provenance)
     datasheet = manifest.get("datasheet")
     if datasheet is not None:
         if not isinstance(datasheet, dict):
@@ -627,108 +594,105 @@ def _validate_expkg_artifact(artifact_path: Path) -> dict[str, Any]:
                 raise ValueError(f"Packed artifact has a corrupt zip member: {bad_member!r}")
             infos = _validated_zip_infos(archive)
             manifest = _load_expkg_manifest(archive)
-            if manifest.get("format") != EXPKG_FORMAT:
-                raise ValueError(f"Packed artifact format must be {EXPKG_FORMAT!r}")
-            if manifest.get("artifact_schema_version") != EXPKG_SCHEMA_VERSION:
-                raise ValueError(
-                    "Packed artifact schema version must be "
-                    f"{EXPKG_SCHEMA_VERSION}, got {manifest.get('artifact_schema_version')!r}"
-                )
-            if manifest.get("container") != "zip":
-                raise ValueError("Packed artifact container must be 'zip'")
-            _validate_expkg_metadata(manifest)
-
-            entries = _member_entries(manifest)
-            member_paths = {str(entry["path"]) for entry in entries}
-            if PROJECT_DESCRIPTOR_FILENAME not in member_paths:
-                raise FileNotFoundError("Packed project artifact is missing PROJECT.json")
-            expected_names = {EXPKG_MANIFEST_FILENAME, *member_paths}
-            actual_names = set(infos)
-            if actual_names != expected_names:
-                missing = sorted(expected_names.difference(actual_names))
-                extra = sorted(actual_names.difference(expected_names))
-                parts: list[str] = []
-                if missing:
-                    parts.append(f"missing={missing}")
-                if extra:
-                    parts.append(f"extra={extra}")
-                raise ValueError(
-                    "Packed artifact members do not match manifest: " + ", ".join(parts)
-                )
-
-            media, media_files = _media_entries(manifest)
-            included_media_files = [
-                entry
-                for entry in media_files
-                if _bool_manifest_field(entry, "included", path=str(entry.get("path", "")))
-            ]
-            external_media_files = [
-                entry
-                for entry in media_files
-                if not _bool_manifest_field(entry, "included", path=str(entry.get("path", "")))
-            ]
-            if media.get("included_files") != len(included_media_files):
-                raise ValueError("Packed media included_files count does not match media.files")
-            included_media_bytes = sum(
-                _int_manifest_field(entry, "size", path=str(entry["path"]))
-                for entry in included_media_files
-            )
-            if media.get("included_bytes") != included_media_bytes:
-                raise ValueError("Packed media included_bytes does not match media.files")
-            if media.get("external_files") != len(external_media_files):
-                raise ValueError("Packed media external_files count does not match media.files")
-            external_media_bytes = sum(
-                _int_manifest_field(entry, "size", path=str(entry["path"]))
-                for entry in external_media_files
-            )
-            if media.get("external_bytes") != external_media_bytes:
-                raise ValueError("Packed media external_bytes does not match media.files")
-            included_media_paths = {
-                _str_manifest_field(entry, "path", path="<unknown>") for entry in media_files
-                if _bool_manifest_field(entry, "included", path=str(entry.get("path", "")))
-            }
-            archived_media = {
-                path for path in member_paths if path.startswith(f"{MEDIA_DIRNAME}/")
-            }
-            if archived_media != included_media_paths:
-                raise ValueError("Packed archived media does not match media manifest")
-
-            entry_by_path = {str(entry["path"]): entry for entry in entries}
-            for media_entry in media_files:
-                media_path = _str_manifest_field(media_entry, "path", path="<unknown>")
-                included = _bool_manifest_field(media_entry, "included", path=media_path)
-                member_entry = entry_by_path.get(media_path)
-                if not included:
-                    if member_entry is not None:
-                        raise ValueError(
-                            "Packed external media entry is present in artifact "
-                            f"members: {media_path!r}"
-                        )
-                    continue
-                if member_entry is None:
-                    raise ValueError(
-                        f"Packed media entry is absent from artifact members: {media_path!r}"
-                    )
-                if media_entry.get("sha256") != member_entry.get("sha256"):
-                    raise ValueError(
-                        f"Packed media checksum mismatch between manifests: {media_path!r}"
-                    )
-                if media_entry.get("size") != member_entry.get("size"):
-                    raise ValueError(
-                        f"Packed media size mismatch between manifests: {media_path!r}"
-                    )
-
+            entries, member_paths = _validate_manifest_contract(manifest, infos)
+            _validate_media_contract(manifest, member_paths, entries)
             _validate_member_payloads(archive, infos, entries)
-
-            descriptor_raw = archive.read(PROJECT_DESCRIPTOR_FILENAME).decode("utf-8")
-            try:
-                descriptor_data = parse_json_dict(descriptor_raw)
-            except TypeError as exc:
-                raise TypeError("Packed PROJECT.json must contain a JSON object") from exc
-            ProjectDescriptor.from_dict(descriptor_data)
+            _validate_packed_descriptor(archive)
             return manifest
     except zipfile.BadZipFile as exc:
         raise ValueError(f"Packed artifact is not a valid zip container: {artifact_path}") from exc
+
+
+def _validate_manifest_contract(
+    manifest: dict[str, Any], infos: dict[str, zipfile.ZipInfo]
+) -> tuple[list[dict[str, Any]], set[str]]:
+    if manifest.get("format") != EXPKG_FORMAT:
+        raise ValueError(f"Packed artifact format must be {EXPKG_FORMAT!r}")
+    if manifest.get("artifact_schema_version") != EXPKG_SCHEMA_VERSION:
+        raise ValueError(
+            "Packed artifact schema version must be "
+            f"{EXPKG_SCHEMA_VERSION}, got {manifest.get('artifact_schema_version')!r}"
+        )
+    if manifest.get("container") != "zip":
+        raise ValueError("Packed artifact container must be 'zip'")
+    _validate_expkg_metadata(manifest)
+    entries = _member_entries(manifest)
+    member_paths = {str(entry["path"]) for entry in entries}
+    if PROJECT_DESCRIPTOR_FILENAME not in member_paths:
+        raise FileNotFoundError("Packed project artifact is missing PROJECT.json")
+    expected = {EXPKG_MANIFEST_FILENAME, *member_paths}
+    actual = set(infos)
+    if actual != expected:
+        missing = sorted(expected - actual)
+        extra = sorted(actual - expected)
+        raise ValueError(
+            "Packed artifact members do not match manifest: "
+            f"missing={missing}, extra={extra}"
+        )
+    return entries, member_paths
+
+
+def _validate_media_contract(
+    manifest: dict[str, Any],
+    member_paths: set[str],
+    entries: list[dict[str, Any]],
+) -> None:
+    media, media_files = _media_entries(manifest)
+    included = [
+        item
+        for item in media_files
+        if _bool_manifest_field(item, "included", path=str(item.get("path", "")))
+    ]
+    external = [item for item in media_files if item not in included]
+    _validate_media_counts(media, included, external)
+    included_paths = {_str_manifest_field(item, "path", path="<unknown>") for item in included}
+    archived = {path for path in member_paths if path.startswith(f"{MEDIA_DIRNAME}/")}
+    if archived != included_paths:
+        raise ValueError("Packed archived media does not match media manifest")
+    entry_by_path = {str(entry["path"]): entry for entry in entries}
+    for media_entry in media_files:
+        _validate_media_entry(media_entry, entry_by_path)
+
+
+def _validate_media_counts(
+    media: dict[str, Any],
+    included: list[dict[str, Any]],
+    external: list[dict[str, Any]],
+) -> None:
+    for name, items in (("included", included), ("external", external)):
+        if media.get(f"{name}_files") != len(items):
+            raise ValueError(f"Packed media {name}_files count does not match media.files")
+        total = sum(
+            _int_manifest_field(item, "size", path=str(item["path"])) for item in items
+        )
+        if media.get(f"{name}_bytes") != total:
+            raise ValueError(f"Packed media {name}_bytes does not match media.files")
+
+
+def _validate_media_entry(
+    media_entry: dict[str, Any], entry_by_path: dict[str, dict[str, Any]]
+) -> None:
+    path = _str_manifest_field(media_entry, "path", path="<unknown>")
+    included = _bool_manifest_field(media_entry, "included", path=path)
+    member_entry = entry_by_path.get(path)
+    if not included:
+        if member_entry is not None:
+            raise ValueError(f"Packed external media is present in members: {path!r}")
+        return
+    if member_entry is None:
+        raise ValueError(f"Packed media entry is absent from artifact members: {path!r}")
+    for field in ("sha256", "size"):
+        if media_entry.get(field) != member_entry.get(field):
+            raise ValueError(f"Packed media {field} mismatch between manifests: {path!r}")
+
+
+def _validate_packed_descriptor(archive: zipfile.ZipFile) -> None:
+    raw = archive.read(PROJECT_DESCRIPTOR_FILENAME).decode("utf-8")
+    try:
+        descriptor_data = parse_json_dict(raw)
+    except TypeError as exc:
+        raise TypeError("Packed PROJECT.json must contain a JSON object") from exc
+    ProjectDescriptor.from_dict(descriptor_data)
 
 
 def unpack_project(
@@ -816,7 +780,6 @@ def _validate_project_layout(project: str | Path) -> tuple[Path, ProjectDescript
 def validate_project(project: str | Path) -> None:
     root, _descriptor = _validate_project_layout(project)
 
-    from xpkg.model import Labels
     from xpkg.project.artifacts import validate_project_artifacts
     from xpkg.project.store import (
         current_project_state_path,
@@ -829,8 +792,14 @@ def validate_project(project: str | Path) -> None:
     state_path = state_path if state_path is not None else current_project_state_path(root)
     if not state_path.exists():
         return
-    labels = Labels.load_file(root.as_posix())
-    labels.validate()
+    from xpkg.io.experiment_json import read_experiment_json
+
+    experiment = read_experiment_json(state_path, project_root=root)
+    if experiment.experiment_id != _descriptor.project_id:
+        raise ValueError(
+            f"Stored experiment id {experiment.experiment_id!r} does not match project id "
+            f"{_descriptor.project_id!r}."
+        )
 
 
 def validate_expkg(artifact: str | Path) -> None:

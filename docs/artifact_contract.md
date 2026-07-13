@@ -1,19 +1,19 @@
-# xpkg v1 Artifact Contract
+# xpkg Artifact Contract
 
-This document defines the frozen v1 on-disk artifact contract for xpkg.
+This document defines the versioned on-disk artifact contract for xpkg.
 
 The scope of this freeze is the on-disk durability contract only: the `.expkg`
 zip container, its root `EXPKG.json` manifest, and the three-class layout
 (editable project folder / private `.xpkg/` store / portable `.expkg` export).
-Files written by 0.x releases should remain readable by later 0.x and 1.0
-releases.
+Current writes use artifact schema version 2. Readers reject unsupported schema
+versions instead of guessing or silently applying compatibility conventions.
 
 The Python API and CLI command surface are a separate, pre-1.0 concern and may
 still change before 1.0. The package itself is at 0.x (alpha). This document
 freezes the artifact format, not the code surface.
 
-The contract is project-first because xpkg is aimed at whole experiment
-sessions. The public artifact needs to hold more context than a single archive
+The contract is project-first because xpkg is aimed at whole experiments with
+one or many recording sessions. The public artifact holds more context than a single archive
 blob, so the contract is defined around a project, a private store, and a
 portable export.
 
@@ -227,7 +227,13 @@ Examples:
 ```bash
 xpkg import pose dlc-csv --path tracking.csv --video video.mp4 --out "./My Project"
 xpkg import pose sleap-package --path labels.pkg.slp --out "./My Project"
+xpkg import signals photometry-csv --path photometry.csv --out "./My Project"
 ```
+
+The private state root contains versioned `xpkg.experiment` state. It stores
+typed subjects, protocols, conditions, recording sessions, signals, videos,
+pose, events, timebases, metadata, and provenance. Labels are nested pose data
+inside a session, not a competing project-state kind.
 
 The pre-1.0 command surface is documented in `docs/cli_command_spec_v1.md`.
 

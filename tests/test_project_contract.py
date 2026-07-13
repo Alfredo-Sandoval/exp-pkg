@@ -12,9 +12,7 @@ import pytest
 
 from tests.factories import (
     make_labels,
-    make_media_labels,
     make_single_frame_video,
-    write_test_video,
 )
 
 
@@ -243,7 +241,6 @@ def test_project_metadata_helpers_roundtrip_without_existing_labels(tmp_path: Pa
     from xpkg.project import (
         init_project,
         load_project_metadata,
-        load_project_payload,
         save_project_labels,
         save_project_metadata,
     )
@@ -251,7 +248,6 @@ def test_project_metadata_helpers_roundtrip_without_existing_labels(tmp_path: Pa
     project = tmp_path / "Metadata Project"
     init_project(project, title="Metadata Project")
 
-    assert load_project_payload(project) == {"metadata": {}}
     assert load_project_metadata(project) == {}
 
     labels = make_labels(tmp_path, x=1.5, y=2.5)
@@ -280,28 +276,24 @@ def test_project_metadata_helpers_roundtrip_without_existing_labels(tmp_path: Pa
     assert saved_path.is_file()
     assert load_project_metadata(project) == {
         "manifest_json": manifest_payload,
-        "preferences": {},
         "session_json": {"active_frame_idx": 7},
     }
-    payload = load_project_payload(project)
-    assert "labels" in payload
-    assert payload["labels"]["frames"]["frame_index"] == [0]
-    assert payload["metadata"]["manifest_json"] == manifest_payload
-    assert payload["metadata"]["session_json"]["active_frame_idx"] == 7
-    assert payload["labels"]["metadata"]["preferences"] == {}
-    assert payload["predictions"]["attrs"]["committed_length"] == 0
-    resolved_path = Path(payload["labels"]["videos"]["resolved_paths"][0])
+    from xpkg.project import load_project_experiment
+
+    experiment = load_project_experiment(project)
+    assert experiment.metadata["manifest_json"] == manifest_payload
+    assert experiment.metadata["session_json"]["active_frame_idx"] == 7
+    resolved_path = Path(experiment.sessions[0].pose().videos[0].filename)
     assert resolved_path.is_absolute()
     assert resolved_path.exists()
 
 
 def test_save_project_metadata_commits_state_without_labels_recommit(
     tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    import xpkg.project.store as project_store
     from xpkg.project import (
         init_project,
+        load_project_labels,
         load_project_metadata,
         save_project_labels,
         save_project_metadata,
@@ -311,11 +303,6 @@ def test_save_project_metadata_commits_state_without_labels_recommit(
     init_project(project, title="Metadata Fast Path")
     save_project_labels(project, make_labels(tmp_path, x=1.0, y=2.0))
 
-    def fail_commit(*_args, **_kwargs):
-        raise AssertionError("metadata-only save should not recommit Labels")
-
-    monkeypatch.setattr(project_store, "_commit_labels_to_project", fail_commit)
-
     saved_path = save_project_metadata(
         project,
         {"session_json": {"active_frame_idx": 12}},
@@ -324,13 +311,13 @@ def test_save_project_metadata_commits_state_without_labels_recommit(
 
     assert saved_path.is_file()
     assert load_project_metadata(project)["session_json"] == {"active_frame_idx": 12}
+    assert load_project_labels(project).user_instances[0]["nose"].x == pytest.approx(1.0)
 
 
 def test_empty_placeholder_project_loads(tmp_path: Path) -> None:
     from xpkg.model import Labels
     from xpkg.project import (
         init_project,
-        load_project_payload,
         save_project_labels,
     )
 
@@ -347,15 +334,11 @@ def test_empty_placeholder_project_loads(tmp_path: Path) -> None:
     assert len(loaded.skeletons) == 1
     assert loaded.skeletons[0].name == "unconfigured"
 
-    payload = load_project_payload(project)
-    assert "labels" in payload
-    assert np.asarray(payload["labels"]["data"]["keypoints"], dtype=np.float32).size == 0
-    assert payload["predictions"]["attrs"]["committed_length"] == 0
 
 
-def test_load_project_payload_keeps_predictions_out_of_labels_bundle(tmp_path: Path) -> None:
+def test_session_pose_roundtrip_preserves_predicted_instances(tmp_path: Path) -> None:
     from xpkg.model import Labels
-    from xpkg.project import init_project, load_project_payload
+    from xpkg.project import init_project
 
     project = tmp_path / "Prediction Project"
     init_project(project, title="Prediction Project")
@@ -368,22 +351,20 @@ def test_load_project_payload_keeps_predictions_out_of_labels_bundle(tmp_path: P
     )
     Labels.save_file(labels, project.as_posix())
 
-    payload = load_project_payload(project)
-    label_frames = np.asarray(payload["labels"]["frames"]["frame_index"], dtype=np.int32)
-    label_track_ids = np.asarray(payload["labels"]["data"]["track_id"], dtype=np.int32)
-    prediction_track_ids = np.asarray(payload["predictions"]["data"]["track_id"], dtype=np.int32)
+    restored = Labels.load_file(project.as_posix())
 
-    assert label_frames.size == 0
-    assert label_track_ids.size == 0
-    assert int(payload["predictions"]["attrs"]["committed_length"]) == 1
-    assert int(prediction_track_ids[0, 0]) == 7
+    assert restored.user_instances == []
+    assert len(restored.predicted_instances) == 1
+    assert restored.predicted_instances[0].track is not None
+    assert restored.predicted_instances[0].track.id == 7
+    assert restored.predicted_instances[0]["nose"].score == pytest.approx(0.9)
 
 
-def test_load_project_payload_keeps_distinct_labels_when_predictions_share_frame(
+def test_pose_replacement_is_exact_and_does_not_preserve_removed_predictions(
     tmp_path: Path,
 ) -> None:
     from xpkg.model import Labels
-    from xpkg.project import init_project, load_project_payload
+    from xpkg.project import init_project
 
     project = tmp_path / "Prediction Label Frame Project"
     init_project(project, title="Prediction Label Frame Project")
@@ -393,84 +374,28 @@ def test_load_project_payload_keeps_distinct_labels_when_predictions_share_frame
     )
     Labels.save_file(make_labels(tmp_path, x=11.0, y=22.0), project.as_posix())
 
-    payload = load_project_payload(project)
-    label_keypoints = np.asarray(payload["labels"]["data"]["keypoints"], dtype=np.float32)
-    prediction_keypoints = np.asarray(payload["predictions"]["data"]["keypoints"], dtype=np.float32)
+    restored = Labels.load_file(project.as_posix())
 
-    assert payload["labels"]["frames"]["frame_index"].tolist() == [0]
-    assert float(label_keypoints[0, 0, 0, 0]) == pytest.approx(11.0)
-    assert float(label_keypoints[0, 0, 0, 1]) == pytest.approx(22.0)
-    assert int(payload["predictions"]["attrs"]["committed_length"]) == 1
-    assert float(prediction_keypoints[0, 0, 0, 0]) == pytest.approx(10.0)
-    assert float(prediction_keypoints[0, 0, 0, 1]) == pytest.approx(20.0)
+    assert len(restored.user_instances) == 1
+    assert restored.user_instances[0]["nose"].x == pytest.approx(11.0)
+    assert restored.user_instances[0]["nose"].y == pytest.approx(22.0)
+    assert restored.predicted_instances == []
 
 
-def test_load_project_payload_can_skip_prediction_materialization(tmp_path: Path) -> None:
+def test_project_session_exposes_typed_pose_state(tmp_path: Path) -> None:
     from xpkg.model import Labels
-    from xpkg.project import current_project_state_path, init_project, load_project_payload
-
-    project = tmp_path / "Shallow Prediction Project"
-    init_project(project, title="Shallow Prediction Project")
-    Labels.save_file(
-        _make_predicted_labels(
-            tmp_path,
-            x=10.0,
-            y=20.0,
-            track_id=7,
-            heatmaps=np.ones((1, 2, 2), dtype=np.float32),
-        ),
-        project.as_posix(),
-    )
-    state_path = current_project_state_path(project)
-    original_state = state_path.read_text(encoding="utf-8")
-    state_path.write_text(
-        original_state.replace('"predictions":{', '"predictions":{"invalid_json":', 1),
-        encoding="utf-8",
-    )
-
-    payload = load_project_payload(project, include_predictions=False)
-
-    assert payload["labels"]["frames"]["frame_index"].size == 0
-    assert payload["predictions"]["attrs"]["committed_length"] == 0
-
-
-def test_public_labels_payload_skips_prediction_scan_for_empty_labels(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    from xpkg.project.store import payloads
-
-    state_payload = {
-        "frames": {"video_index": [], "frame_index": [], "num_instances": []},
-        "data": {"keypoints": [], "flags": [], "track_ids": []},
-        "videos": {},
-        "skeleton": {"names": ["nose"]},
-        "predictions": {"attrs": {"committed_length": 1000}},
-    }
-
-    def _fail_prediction_scan(*_args: object, **_kwargs: object) -> object:
-        raise AssertionError("empty label payload should not scan predictions")
-
-    monkeypatch.setattr(payloads, "_prediction_instance_signatures", _fail_prediction_scan)
-
-    public = payloads._public_labels_payload_from_state(state_payload, metadata={})
-
-    assert public["frames"]["frame_index"].size == 0
-    assert public["metadata"]["num_frames"] == 0
-
-
-def test_load_project_payload_uses_state_payload(tmp_path: Path) -> None:
-    from xpkg.model import Labels
-    from xpkg.project import init_project, load_project_payload
+    from xpkg.project import init_project, load_project_session
 
     project = tmp_path / "Direct Payload Project"
     init_project(project, title="Direct Payload Project")
     Labels.save_file(make_labels(tmp_path, x=4.0, y=5.0), project.as_posix())
 
-    payload = load_project_payload(project)
+    session = load_project_session(project)
+    pose = session.pose()
 
-    assert payload["labels"]["frames"]["frame_index"].tolist() == [0]
-    assert payload["labels"]["data"]["track_id"].shape == (1, 1)
-    assert payload["predictions"]["attrs"]["committed_length"] == 0
+    assert pose.labeled_frames[0].frame_idx == 0
+    assert pose.user_instances[0]["nose"].x == pytest.approx(4.0)
+    assert session.modality_names == ("videos", "pose")
 
 
 def test_pack_and_unpack_roundtrip_project(tmp_path: Path) -> None:
@@ -490,8 +415,11 @@ def test_pack_and_unpack_roundtrip_project(tmp_path: Path) -> None:
     Labels.save_file(labels, project.as_posix())
     state_path = current_project_state_path(project)
     state_doc = json.loads(state_path.read_text(encoding="utf-8"))
-    state_doc["payload"]["data"]["keypoints"][0][0][0][0] = 51.0
-    state_doc["payload"]["data"]["keypoints"][0][0][0][1] = 61.0
+    pose_payload = state_doc["payload"]["experiment"]["sessions"][0]["session"][
+        "payload"
+        ]["session"]["poses"][0]["data"]
+    pose_payload["data"]["keypoints"][0][0][0][0] = 51.0
+    pose_payload["data"]["keypoints"][0][0][0][1] = 61.0
     state_path.write_text(json.dumps(state_doc, indent=2) + "\n", encoding="utf-8")
 
     artifact = pack_project(project)
@@ -689,77 +617,8 @@ def test_labels_save_file_to_project_creates_first_committed_state(tmp_path: Pat
     assert float(pts["y"][0]) == 12.0
 
 
-def test_labels_save_file_to_project_preserves_predictions(tmp_path: Path) -> None:
-    from xpkg.model import Labels
-    from xpkg.project import (
-        current_project_state_path,
-        init_project,
-    )
-    from xpkg.project.state_io import read_project_state
-
-    source_root = tmp_path / "source"
-    source_root.mkdir()
-    initial_labels = _make_predicted_labels(
-        source_root,
-        x=13.0,
-        y=14.0,
-        point_score=0.9,
-        instance_score=0.97,
-        track_id=4,
-    )
-    updated_labels = make_labels(source_root, x=21.0, y=22.0)
-    project = tmp_path / "Project Save"
-
-    init_project(project, title="Project Save")
-    Labels.save_file(initial_labels, project.as_posix())
-
-    saved_target = Labels.save_file(updated_labels, project.as_posix())
-    payload = read_project_state(current_project_state_path(project))
-
-    assert saved_target == project.as_posix()
-    label_keypoints = np.asarray(payload["data"]["keypoints"], dtype=np.float32)
-    prediction_scores = np.asarray(
-        payload["predictions"]["data"]["keypoint_score"],
-        dtype=np.float32,
-    )
-    prediction_track_ids = np.asarray(payload["predictions"]["data"]["track_id"], dtype=np.int32)
-
-    assert float(label_keypoints[0, 0, 0, 0]) == 21.0
-    assert float(label_keypoints[0, 0, 0, 1]) == 22.0
-    assert float(prediction_scores[0, 0, 0]) == pytest.approx(0.9)
-    assert int(prediction_track_ids[0, 0]) == 4
-
-
-def test_labels_save_file_to_project_seeds_predictions_from_labels_when_current_is_empty(
-    tmp_path: Path,
-) -> None:
-    from xpkg.model import Labels
-    from xpkg.project import current_project_state_path, init_project
-    from xpkg.project.state_io import read_project_state
-
-    source_root = tmp_path / "source"
-    source_root.mkdir()
-    labels_without_predictions = make_labels(source_root, x=1.0, y=2.0)
-    labels_with_predictions = _make_predicted_labels(
-        source_root,
-        x=13.0,
-        y=14.0,
-        track_id=7,
-    )
-    project = tmp_path / "Project Save"
-
-    init_project(project, title="Project Save")
-    Labels.save_file(labels_without_predictions, project.as_posix())
-    Labels.save_file(labels_with_predictions, project.as_posix())
-    payload = read_project_state(current_project_state_path(project))
-
-    assert int(payload["predictions"]["attrs"]["committed_length"]) == 1
-    prediction_track_ids = np.asarray(payload["predictions"]["data"]["track_id"], dtype=np.int32)
-    assert int(prediction_track_ids[0, 0]) == 7
-
-
 def test_predictions_payload_from_labels_uses_frame_predicted_instances_view() -> None:
-    from xpkg.project.state_io import predictions_payload_from_labels
+    from xpkg.io.pose_json import predictions_payload_from_labels
 
     video = object()
     predicted = _ForeignPredictedInstance(
@@ -810,7 +669,10 @@ def test_project_load_rebuilds_tampered_state_cache_when_commit_id_matches_head(
     Labels.save_file(labels, project.as_posix())
     state_path = current_project_state_path(project)
     state_doc = json.loads(state_path.read_text(encoding="utf-8"))
-    keypoints = state_doc["payload"]["data"]["keypoints"]
+    pose_payload = state_doc["payload"]["experiment"]["sessions"][0]["session"][
+        "payload"
+        ]["session"]["poses"][0]["data"]
+    keypoints = pose_payload["data"]["keypoints"]
     keypoints[0][0][0][0] = 101.0
     keypoints[0][0][0][1] = 102.0
     state_path.write_text(json.dumps(state_doc, indent=2) + "\n", encoding="utf-8")
@@ -821,8 +683,11 @@ def test_project_load_rebuilds_tampered_state_cache_when_commit_id_matches_head(
 
     assert float(pts["x"][0]) == 11.0
     assert float(pts["y"][0]) == 12.0
-    assert float(repaired_state["payload"]["data"]["keypoints"][0][0][0][0]) == 11.0
-    assert float(repaired_state["payload"]["data"]["keypoints"][0][0][0][1]) == 12.0
+    repaired_pose = repaired_state["payload"]["experiment"]["sessions"][0]["session"][
+        "payload"
+    ]["session"]["poses"][0]["data"]["data"]
+    assert float(repaired_pose["keypoints"][0][0][0][0]) == 11.0
+    assert float(repaired_pose["keypoints"][0][0][0][1]) == 12.0
 
 
 def test_project_load_rebuilds_missing_state_from_committed_state(tmp_path: Path) -> None:
@@ -871,35 +736,6 @@ def test_project_load_ignores_stale_state_when_commit_id_mismatches(tmp_path: Pa
     assert float(pts["y"][0]) == 32.0
 
 
-def test_summarize_loaded_project_and_validate_loaded_project_read_labels_video_group(
-    tmp_path: Path,
-) -> None:
-    from xpkg.model import Labels
-    from xpkg.project import current_project_state_path, init_project, load_project_payload
-    from xpkg.project.validation import summarize_loaded_project, validate_loaded_project
-
-    source_video = tmp_path / "source.avi"
-    write_test_video(source_video)
-    labels = make_media_labels(source_video, x=4.0, y=5.0)
-    project = tmp_path / "Summary Project"
-    init_project(project, title="Summary Project")
-
-    saved_target = Labels.save_file(labels, project.as_posix())
-    state = current_project_state_path(project)
-    payload = load_project_payload(project)
-    summary = summarize_loaded_project(payload, path=state)
-
-    assert saved_target == project.as_posix()
-    assert state.exists()
-    validate_loaded_project(payload)
-    assert summary.n_videos == 1
-    assert len(summary.video_filenames) == 1
-    assert Path(summary.video_filenames[0]).name == source_video.name
-    assert summary.video_shapes == (1, 4)
-    assert summary.label_frames == 1
-    assert summary.prediction_frames == 0
-
-
 def test_project_metadata_field_helpers_roundtrip_current_head(tmp_path: Path) -> None:
     from xpkg.project import (
         init_project,
@@ -925,7 +761,7 @@ def test_project_metadata_field_helpers_roundtrip_current_head(tmp_path: Path) -
     assert load_project_metadata(project)["session_json"] == {"active_frame_idx": 7}
 
 
-def test_inspect_project_reports_current_head_summary_and_metadata(tmp_path: Path) -> None:
+def test_inspect_project_reports_shallow_current_head_summary(tmp_path: Path) -> None:
     from xpkg.project import (
         ProjectInspection,
         init_project,
@@ -959,11 +795,9 @@ def test_inspect_project_reports_current_head_summary_and_metadata(tmp_path: Pat
 
     assert isinstance(inspection, ProjectInspection)
     assert inspection.current_state_path.exists()
-    assert inspection.state_kind == "labels"
-    assert inspection.summary is not None
-    assert inspection.summary.label_frames == 1
-    assert inspection.summary.prediction_frames == 0
-    assert inspection.metadata["project_name"] == "Inspection Project"
-    assert inspection.metadata["training_state_json"] == training_state
+    assert inspection.state_kind == "experiment"
+    assert inspection.summary.state_summary["label_frame_count"] == 1
+    assert inspection.summary.state_summary["prediction_frame_count"] == 0
+    assert inspection.summary.modalities == ("videos", "pose")
     assert inspection.is_valid is True
     assert service_inspection == inspection

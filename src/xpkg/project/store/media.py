@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import shutil
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from xpkg._core.path_registry import ensure_dir
 from xpkg.project.layout import project_media_root
@@ -118,69 +118,3 @@ def _manage_labels_media(labels: Labels, project_root: Path) -> None:
             continue
         copied_file = _copy_file_into_media(Path(str(filename)), media_root, copied)
         video.filename = copied_file.as_posix()
-
-
-def rebase_project_payload_videos(payload: dict[str, Any], project_root: Path) -> None:
-    project_root = project_root.resolve()
-
-    def _rebase_videos_info(videos_info: dict[str, Any]) -> None:
-        raw_filenames = list(videos_info.get("filenames") or [])
-        raw_sequences = list(videos_info.get("image_filenames") or [])
-        total = max(
-            len(raw_filenames),
-            len(raw_sequences),
-            len(videos_info.get("resolved_paths") or []),
-        )
-        rebased_resolved_paths: list[str] = []
-        rebased_exists: list[bool] = []
-        rebased_sequences: list[list[str]] = []
-
-        for idx in range(total):
-            raw_name = str(raw_filenames[idx]).strip() if idx < len(raw_filenames) else ""
-            if raw_name:
-                filename_path = Path(raw_name)
-                resolved_path = (
-                    filename_path.resolve()
-                    if filename_path.is_absolute()
-                    else (project_root / filename_path).resolve()
-                )
-                rebased_resolved_paths.append(resolved_path.as_posix())
-                rebased_exists.append(resolved_path.exists())
-            else:
-                rebased_resolved_paths.append("")
-                rebased_exists.append(False)
-
-            sequence_entry = raw_sequences[idx] if idx < len(raw_sequences) else []
-            rebased_frames: list[str] = []
-            if isinstance(sequence_entry, list):
-                for frame in sequence_entry:
-                    frame_path = Path(str(frame))
-                    resolved_frame = (
-                        frame_path.resolve()
-                        if frame_path.is_absolute()
-                        else (project_root / frame_path).resolve()
-                    )
-                    rebased_frames.append(resolved_frame.as_posix())
-            rebased_sequences.append(rebased_frames)
-
-        videos_info["filenames"] = rebased_resolved_paths
-        videos_info["resolved_paths"] = rebased_resolved_paths
-        videos_info["resolved_exists"] = rebased_exists
-        videos_info["image_filenames"] = rebased_sequences
-
-    labels_payload = payload.get("labels")
-    if isinstance(labels_payload, dict):
-        labels_videos = labels_payload.get("videos")
-        if isinstance(labels_videos, dict):
-            _rebase_videos_info(labels_videos)
-    else:
-        labels_videos = payload.get("videos")
-        if isinstance(labels_videos, dict):
-            _rebase_videos_info(labels_videos)
-
-    metadata = payload.get("metadata")
-    if isinstance(metadata, dict):
-        metadata_videos = metadata.get("videos")
-        if isinstance(metadata_videos, dict):
-            _rebase_videos_info(metadata_videos)
-

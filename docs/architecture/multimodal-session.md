@@ -118,9 +118,10 @@ photometry = PhotometryRecording(
 
 ### Recording Session
 
-`RecordingSession` groups typed video and signal links with an event table. Pose
-data remains in `Labels` until a typed session-to-pose link is defined. A raw
-`pose` dictionary is not part of the session contract.
+`RecordingSession` groups acquisition, video, signal, pose, behavior,
+calibration, alignment, and event objects. `SessionPose` links either `Labels`
+or `PoseTrajectory` data to its videos, calibration, and model provenance. A
+raw pose dictionary is not part of the contract.
 
 ```python
 from xpkg.model import (
@@ -145,8 +146,10 @@ print(session.time_range)
 
 ## Current Boundary
 
-The session/time/events/signals classes are available today as model objects.
-They are not yet a full project import stack.
+The session/time/events/signals classes are available as model objects and as
+versioned project state. Generic photometry CSV is the first complete import
+path through the service, CLI, durable store, shallow summary, validation, and
+portable artifact layers.
 
 Implemented now:
 
@@ -156,6 +159,10 @@ Implemented now:
 - source-neutral signal channels and time series
 - photometry recording wrapper
 - session container
+- versioned `xpkg.recording-session` and `xpkg.experiment` JSON serialization
+- governed `save_project_session` and `load_project_session` actions
+- `project.import_signals("photometry-csv", ...)`
+- `xpkg import signals photometry-csv ...`
 - direct readers for photometry CSV, event CSV, pMAT CSV, pyPhotometry PPD/CSV,
   RWD OFRS, Neurophotometrics CSV, Doric `.doric`, Teleopto H5, and optional
   TDT tank/block streams
@@ -163,7 +170,9 @@ Implemented now:
   Keypoint-MoSeq syllable CSVs, and behavior-event JSON sidecars
 - read-only `xpkg inspect PATH --json` summaries for projects, common files,
   pose exports, media, and `.expkg` artifacts
-- acquisition and dataset-share metadata model primitives
+- experiment-level subjects, protocols, conditions, session context, and
+  dataset-sharing metadata
+- session-level acquisition and pose provenance
 - public exports from `xpkg.model` and `xpkg.readers`
 - focused tests for validation, queries, and time ranges
 
@@ -176,17 +185,15 @@ Explicitly not part of the fiber-photometry layer:
 Still ahead:
 
 - `read_sync_csv(...)`
-- `project.import_signals("photometry-csv", ...)` (planned)
 - `project.import_signals("events-csv", ...)` (planned)
 - `project.import_signals("sync-csv", ...)` (planned)
-- session manifest storage under the project contract
 - richer `xpkg inspect --json` associated-media and sync checks
-- acquisition metadata capture for cameras, frame rates, resolution,
-  compression, dropped frames, hardware sync, and timing uncertainty
+- import coverage for acquisition evidence such as dropped frames, hardware
+  sync, and timing uncertainty
 - import-time QC for timestamp monotonicity, frame/sample counts, associated
   media, missing columns, keypoint identity/confidence fields, and sync coverage
-- FAIR/share metadata for source files, software producers, parameter summaries,
-  checksums, units, coordinate systems, and experimental context
+- broader FAIR/share metadata for software producers, parameter summaries,
+  coordinate systems, and experimental context
 - project import/storage for behavior segmentation outputs from upstream tools
   or lab workflows
 

@@ -23,6 +23,8 @@ from xpkg.model import (
     EMGSignalData,
     Event,
     EventTable,
+    Experiment,
+    ExperimentSessionLink,
     ForcePlateData,
     Instance,
     Keypoint,
@@ -71,42 +73,43 @@ from xpkg.project import (
     current_project_state_path,
     default_expkg_path,
     ensure_project,
+    experiment_state_summary,
     init_project,
     inspect_project,
     is_project_root,
-    labels_state_summary,
     list_project_artifact_index,
     list_project_artifacts,
     list_project_figures,
-    load_project_acquisition_metadata,
+    load_project_acquisition,
     load_project_artifact,
-    load_project_dataset_share_metadata,
+    load_project_dataset_share,
     load_project_datasheet,
     load_project_descriptor,
+    load_project_experiment,
     load_project_figure,
     load_project_metadata,
     load_project_metadata_field,
     load_project_model_card,
-    load_project_payload,
-    load_project_pose_provenance,
     load_project_segmentation_frames,
     load_project_segmentation_masks,
+    load_project_session,
     load_project_summary,
     pack_project,
     read_labels_json_payload,
     rebuild_project_artifact_index,
     refresh_project_summary,
-    save_project_acquisition_metadata,
+    save_project_acquisition,
     save_project_artifact,
-    save_project_dataset_share_metadata,
+    save_project_dataset_share,
     save_project_datasheet,
+    save_project_experiment,
     save_project_figure,
     save_project_labels,
     save_project_metadata,
     save_project_metadata_field,
     save_project_model_card,
-    save_project_pose_provenance,
     save_project_segmentation_masks,
+    save_project_session,
     unpack_project,
     validate_artifact,
     validate_expkg,
@@ -288,32 +291,30 @@ def test_public_exports_are_callable() -> None:
     assert callable(list_project_artifacts)
     assert callable(list_project_figures)
     assert callable(load_project_artifact)
-    assert callable(load_project_acquisition_metadata)
+    assert callable(load_project_acquisition)
     assert callable(load_project_figure)
     assert callable(load_project_descriptor)
-    assert callable(load_project_dataset_share_metadata)
+    assert callable(load_project_dataset_share)
     assert callable(load_project_datasheet)
     assert callable(load_project_metadata)
     assert callable(load_project_metadata_field)
     assert callable(load_project_model_card)
-    assert callable(load_project_payload)
-    assert callable(load_project_pose_provenance)
     assert callable(load_project_segmentation_frames)
     assert callable(load_project_segmentation_masks)
     assert callable(load_project_summary)
+    assert callable(load_project_session)
     assert callable(pack_project)
     assert callable(read_labels_json_payload)
     assert callable(rebuild_project_artifact_index)
     assert callable(save_project_artifact)
-    assert callable(save_project_acquisition_metadata)
-    assert callable(save_project_dataset_share_metadata)
+    assert callable(save_project_acquisition)
+    assert callable(save_project_dataset_share)
     assert callable(save_project_datasheet)
     assert callable(save_project_figure)
     assert callable(save_project_metadata)
     assert callable(save_project_labels)
     assert callable(save_project_metadata_field)
     assert callable(save_project_model_card)
-    assert callable(save_project_pose_provenance)
     assert callable(save_project_segmentation_masks)
     assert callable(unpack_project)
     assert callable(validate_artifact)
@@ -326,7 +327,10 @@ def test_public_exports_are_callable() -> None:
     assert callable(write_labels_json)
     assert callable(write_project_descriptor)
     assert callable(refresh_project_summary)
-    assert callable(labels_state_summary)
+    assert callable(experiment_state_summary)
+    assert callable(load_project_experiment)
+    assert callable(save_project_experiment)
+    assert callable(save_project_session)
     assert callable(labels_from_json_payload)
     assert callable(labels_numpy)
     assert callable(labels_to_dataframe)
@@ -394,6 +398,7 @@ def test_services_surface_lists_project_service_first() -> None:
         "ProjectSegmentation",
         "PoseFormat",
         "CalibrationFormat",
+        "SignalFormat",
     ]
 
 
@@ -448,6 +453,8 @@ def test_model_exports_are_available() -> None:
     assert callable(PhotometryChannel)
     assert callable(PhotometryRecording)
     assert callable(RecordingSession)
+    assert callable(Experiment)
+    assert callable(ExperimentSessionLink)
     assert callable(SignalChannel)
     assert callable(SyncEvent)
     assert callable(Timeline)
@@ -515,10 +522,14 @@ def test_project_surface_is_project_first_only() -> None:
     assert "validate_project" in xpkg.project.__all__
     assert "validate_expkg" in xpkg.project.__all__
     assert "inspect_project" in xpkg.project.__all__
-    assert "load_project_payload" in xpkg.project.__all__
+    assert "load_project_payload" not in xpkg.project.__all__
     assert "load_project_summary" in xpkg.project.__all__
     assert "refresh_project_summary" in xpkg.project.__all__
     assert "save_project_labels" in xpkg.project.__all__
+    assert "load_project_experiment" in xpkg.project.__all__
+    assert "save_project_experiment" in xpkg.project.__all__
+    assert "load_project_session" in xpkg.project.__all__
+    assert "save_project_session" in xpkg.project.__all__
     assert "list_project_figures" in xpkg.project.__all__
     assert "save_project_figure" in xpkg.project.__all__
     assert "current_project_state_path" in xpkg.project.__all__
@@ -548,15 +559,10 @@ def test_project_surface_is_project_first_only() -> None:
     # ProjectService rather than hard-coding them. They remain importable from
     # their submodules (xpkg.project.layout, .metadata, .calibration, .artifact).
     layout_internals = {
-        "ACQUISITION_METADATA_FILENAME",
         "ARTIFACTS_DIRNAME",
         "ARTIFACT_INDEX_FILENAME",
         "ARTIFACT_MANIFEST_FILENAME",
         "ARTIFACT_SCHEMA_VERSION",
-        "CALIBRATION_FILENAME",
-        "CALIBRATION_SOURCE_DIRNAME",
-        "CALIBRATIONS_DIRNAME",
-        "DATASET_SHARE_METADATA_FILENAME",
         "DATASHEET_FILENAME",
         "EXPKG_MANIFEST_FILENAME",
         "EXPKG_SUFFIX",
@@ -566,22 +572,15 @@ def test_project_surface_is_project_first_only() -> None:
         "FIGURES_DIRNAME",
         "INDEXES_DIRNAME",
         "MODEL_CARD_FILENAME",
-        "POSE_PROVENANCE_FILENAME",
         "PROJECT_DESCRIPTOR_FILENAME",
         "PROJECT_METADATA_DIRNAME",
         "PROJECT_SUMMARY_FILENAME",
         "PROJECT_SUMMARY_SCHEMA_VERSION",
         "artifact_kind_dir",
-        "project_acquisition_metadata_path",
         "project_artifact_index_path",
         "project_artifact_root",
         "project_artifact_type_root",
         "project_artifacts_root",
-        "project_calibration_path",
-        "project_calibration_root",
-        "project_calibration_source_root",
-        "project_calibrations_root",
-        "project_dataset_share_metadata_path",
         "project_datasheet_path",
         "project_descriptor_path",
         "project_exports_root",
@@ -591,7 +590,6 @@ def test_project_surface_is_project_first_only() -> None:
         "project_media_root",
         "project_metadata_root",
         "project_model_card_path",
-        "project_pose_provenance_path",
         "project_state_root",
         "project_store_root",
         "project_summary_path",
@@ -604,20 +602,18 @@ def test_project_surface_is_project_first_only() -> None:
     assert hasattr(xpkg.project, "current_project_state_path")
 
     metadata_surface = {
-        "load_project_acquisition_metadata",
-        "load_project_dataset_share_metadata",
+        "load_project_acquisition",
+        "load_project_dataset_share",
         "load_project_datasheet",
         "load_project_metadata",
         "load_project_metadata_field",
         "load_project_model_card",
-        "load_project_pose_provenance",
-        "save_project_acquisition_metadata",
-        "save_project_dataset_share_metadata",
+        "save_project_acquisition",
+        "save_project_dataset_share",
         "save_project_datasheet",
         "save_project_metadata",
         "save_project_metadata_field",
         "save_project_model_card",
-        "save_project_pose_provenance",
     }
     assert metadata_surface.issubset(set(xpkg.project.__all__))
 

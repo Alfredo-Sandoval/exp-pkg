@@ -1074,60 +1074,16 @@ def labels_load_file(
     if path.suffix.lower() == ".expkg":
         raise ValueError("Packed .expkg artifacts must be unpacked before loading labels")
 
-    from xpkg.project.layout import project_current_state_path, resolve_project_root
-    from xpkg.project.state_io import read_project_state, state_commit_id
-    from xpkg.project.store import (
-        current_project_commit_id,
-        rebase_project_payload_videos,
-        rebuild_project_state_cache,
-    )
-    from xpkg.project.store.cache import _project_state_cache_matches_committed_head
+    from xpkg.project.layout import resolve_project_root
+    from xpkg.project.recording import load_project_labels
 
     project_root = resolve_project_root(path)
     if project_root is not None:
-        state_path = project_current_state_path(project_root)
-        if state_path.exists():
-            state_payload = read_project_state(state_path)
-            state_head = state_commit_id(state_payload)
-            current_head = current_project_commit_id(project_root)
-            if current_head is not None and state_head == current_head:
-                if not _project_state_cache_matches_committed_head(
-                    project_root,
-                    state_path,
-                ):
-                    rebuilt_state_path = rebuild_project_state_cache(project_root)
-                    state_payload = read_project_state(rebuilt_state_path)
-                rebase_project_payload_videos(state_payload, project_root)
-                obj = labels_from_payload(
-                    cls,
-                    state_payload,
-                    suggestions_payload=state_payload.get("suggestions"),
-                    video_builder=video_builder,
-                    video_finalizer=video_finalizer,
-                )
-                obj.validate()
-                obj.path = project_root
-                return obj
-
-        try:
-            rebuilt_state_path = rebuild_project_state_cache(project_root)
-        except FileNotFoundError:
-            obj = cls()
-            obj.path = project_root
-            return obj
-
-        rebuilt_payload = read_project_state(rebuilt_state_path)
-        rebase_project_payload_videos(rebuilt_payload, project_root)
-        obj = labels_from_payload(
-            cls,
-            rebuilt_payload,
-            suggestions_payload=rebuilt_payload.get("suggestions"),
-            video_builder=video_builder,
-            video_finalizer=video_finalizer,
-        )
-        obj.validate()
-        obj.path = project_root
-        return obj
+        if video_builder is not None or video_finalizer is not None:
+            raise ValueError(
+                "Project pose loading does not accept custom video hydration callbacks."
+            )
+        return load_project_labels(project_root)
 
     ext = path.suffix.lower()
     if ext == ".json":

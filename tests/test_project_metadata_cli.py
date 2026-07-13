@@ -61,7 +61,7 @@ def test_cli_sets_and_shows_acquisition_metadata_json_mode(
     assert set_code == 0
     assert show_code == 0
     assert set_payload["status"] == "saved"
-    assert set_payload["path"].endswith("/.xpkg/metadata/acquisition.json")
+    assert set_payload["path"].endswith("/.xpkg/state/current.json")
     assert show_payload["acquisition"]["acquisition_id"] == "acq-cli"
     assert show_payload["acquisition"]["ir_lighting"] is True
 
@@ -113,6 +113,6 @@ def test_cli_sets_and_shows_dataset_share_metadata_json_mode(
     assert set_code == 0
     assert show_code == 0
     assert set_payload["status"] == "saved"
-    assert set_payload["path"].endswith("/.xpkg/metadata/dataset_share.json")
+    assert set_payload["path"].endswith("/.xpkg/state/current.json")
     assert show_payload["dataset_share"]["doi"] == "10.0000/cli"
     assert show_payload["dataset_share"]["funders"] == ["NIH"]

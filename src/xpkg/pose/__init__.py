@@ -10,6 +10,9 @@ from typing import TYPE_CHECKING, Any
 from xpkg.pose._exports import EXPORTS
 
 if TYPE_CHECKING:
+    from xpkg.pose.trajectory import CoordinateFrameKind as CoordinateFrameKind
+    from xpkg.pose.trajectory import PoseCoordinateFrame as PoseCoordinateFrame
+
     from .annotations import Instance as Instance
     from .annotations import KPFlag as KPFlag
     from .annotations import LabeledFrame as LabeledFrame
@@ -26,12 +29,14 @@ if TYPE_CHECKING:
     from .trajectory import PoseTrajectory as PoseTrajectory
 
 __all__ = [
+    "CoordinateFrameKind",
     "Instance",
     "KPFlag",
     "Keypoint",
     "LabeledFrame",
     "Point",
     "PointArray",
+    "PoseCoordinateFrame",
     "PoseTrajectory",
     "PredictedInstance",
     "PredictedPoint",

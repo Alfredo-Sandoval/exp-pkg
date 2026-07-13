@@ -147,16 +147,14 @@ def _attach_prediction_provenance(
     return provenance
 
 
-def _persist_pose_provenance(
-    root: Path,
+def _pose_provenance_record(
     provenance: PoseModelProvenance | Mapping[str, Any] | None,
     *,
     default_tool: str,
     source_path: str | Path,
-) -> None:
+) -> PoseModelProvenance | None:
     if provenance is None:
-        return
-    from xpkg.project.metadata import save_project_pose_provenance
+        return None
 
     if isinstance(provenance, PoseModelProvenance):
         record = provenance
@@ -177,4 +175,4 @@ def _persist_pose_provenance(
         fields["imported_at"] = now_utc_iso(drop_microseconds=True)
     if fields:
         record = PoseModelProvenance.from_dict({**record.to_dict(), **fields})
-    save_project_pose_provenance(root, record)
+    return record

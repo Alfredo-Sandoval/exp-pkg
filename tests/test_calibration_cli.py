@@ -42,8 +42,8 @@ def test_cli_imports_anipose_calibration_json_mode(tmp_path: Path, capsys) -> No
     assert payload["status"] == "imported"
     assert payload["source"] == "anipose"
     assert payload["project"] == str(project)
-    assert payload["calibration_path"].endswith("/.xpkg/calibrations/rig/calibration.json")
-    assert (project / ".xpkg" / "calibrations" / "rig" / "source" / "calibration.toml").is_file()
+    assert payload["state_path"].endswith("/.xpkg/state/current.json")
+    assert (project / "Media" / "calibrations" / "rig" / "calibration.toml").is_file()
     assert load_project_calibration(project, "rig").name == "rig-2024-03-15"
 
 
@@ -85,10 +85,8 @@ def test_cli_imports_opencv_stereo_calibration_json_mode(
     assert payload["status"] == "imported"
     assert payload["source"] == "opencv-stereo-yaml"
     assert payload["project"] == str(project)
-    assert payload["calibration_path"].endswith(
-        "/.xpkg/calibrations/stereo-rig/calibration.json"
-    )
-    assert (project / ".xpkg" / "calibrations" / "stereo-rig" / "source" / "stereo.yml").is_file()
+    assert payload["state_path"].endswith("/.xpkg/state/current.json")
+    assert (project / "Media" / "calibrations" / "stereo-rig" / "stereo.yml").is_file()
     loaded = load_project_calibration(project, "stereo-rig")
     assert loaded.name == "arena-stereo"
     assert loaded.source is not None

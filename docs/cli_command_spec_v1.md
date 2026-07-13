@@ -4,7 +4,7 @@ This document defines the shipped CLI for the xpkg project and artifact
 workflow. It targets the v1 artifact format, but the command surface itself is
 pre-1.0 and may still change before 1.0. The package is at 0.x (alpha). The
 frozen guarantee is the `.expkg` on-disk format described in
-[artifact_contract_v1.md](artifact_contract_v1.md), not this command surface.
+[artifact_contract.md](artifact_contract.md), not this command surface.
 
 The current CLI is project-first for project creation, importing, packing,
 unpacking, validation, and artifact inspection.
@@ -116,7 +116,7 @@ For project directories, `data.summary` has these stable top-level keys:
 
 - `project_id`: project descriptor id.
 - `title`: project descriptor title.
-- `state_kind`: shallow current-state kind, one of `empty`, `labels`,
+- `state_kind`: shallow current-state kind, one of `empty`, `experiment`,
   `present`, or `unreadable`.
 - `has_current_state`: whether `.xpkg/state/current.json` exists.
 - `state_bytes`: byte size of the current state, or `null`.
@@ -127,8 +127,7 @@ For project directories, `data.summary` has these stable top-level keys:
 - `media`: associated-media inventory described below.
 
 `metadata_slots` is always an object with these keys, in this order:
-`acquisition`, `dataset_share`, `datasheet`, `model_card`, and
-`pose_provenance`. Each slot contains `path`, `present`, and `valid`. When a
+`datasheet` and `model_card`. Each slot contains `path`, `present`, and `valid`. When a
 slot is absent, `present` is `false` and `valid` is `null`. When present and
 parseable, `valid` is `true`. When present but invalid, `valid` is `false` and
 the slot also includes an `error` string.
@@ -201,9 +200,8 @@ xpkg project init "./My Project" --title "My Project"
 
 Import supported external data into a project. The CLI mirrors the
 ``ProjectService`` Python dispatch surface and exposes three families
-(``pose``, ``calibration``, ``motion``); each takes a kebab-case ``format``
-positional argument that matches ``ProjectService.import_pose``,
-``ProjectService.import_calibration``.
+(``pose``, ``calibration``, ``signals``). Each takes a kebab-case ``format``
+positional argument that matches the corresponding service method.
 
 ### Synopsis
 
@@ -220,6 +218,8 @@ xpkg import pose mediapipe-pose-landmarks-json --input-json pose_landmarks.json 
 xpkg import calibration anipose --path rig.toml --out "./My Project"
 xpkg import calibration opencv-stereo-yaml --path stereo.yml --out "./My Project"
 
+xpkg import signals photometry-csv --path photometry.csv --out "./My Project" --session-id session-001
+
 ```
 
 ### Supported formats today
@@ -234,6 +234,7 @@ xpkg import calibration opencv-stereo-yaml --path stereo.yml --out "./My Project
 - `xpkg import pose sleap-package`
 - `xpkg import calibration anipose`
 - `xpkg import calibration opencv-stereo-yaml`
+- `xpkg import signals photometry-csv`
 
 ### Required behavior
 
@@ -282,15 +283,14 @@ xpkg artifacts rebuild-index "./My Project"
 
 ## `xpkg project metadata`
 
-Read or write the durable typed metadata slots stored under
-`.xpkg/metadata/`. The CLI mirrors `ProjectService.metadata` on the Python
-side: each slot is a kebab-case positional argument matching the typed
-accessor.
+Read or write typed scientific metadata. Acquisition and dataset-sharing
+records are committed in canonical experiment state. Datasheets and model
+cards are documentation records under `.xpkg/metadata/`.
 
 ### Supported slots
 
-- `acquisition` — `AcquisitionMetadata` (acquisition.json)
-- `dataset-share` — `DatasetShareMetadata` (dataset_share.json), FAIR sharing fields
+- `acquisition` — session `AcquisitionMetadata` in experiment state
+- `dataset-share` — experiment `DatasetShareMetadata` in experiment state
 - `datasheet` — `DatasetDatasheet` (datasheet.json), Gebru et al. 2021
 - `model-card` — `ModelCard` (model_card.json), Mitchell et al. 2019
 
@@ -305,8 +305,8 @@ xpkg project metadata show datasheet "./My Project" --json
 
 ### Required behavior
 
-- `set <slot>` reads a JSON object from `--from FILE`, validates it through the
-  slot's typed `from_dict`, and writes it under `.xpkg/metadata/<slot>.json`.
+- `set <slot>` reads a JSON object from `--from FILE`, parses it through the
+  slot's typed `from_dict`, and commits it to its canonical owner.
 - `show <slot>` reads the slot's JSON if present and emits the typed payload;
   returns `status: "missing"` when the slot has not been written.
 - Unknown slot names produce a `usage_error` with a helpful "choose from:"

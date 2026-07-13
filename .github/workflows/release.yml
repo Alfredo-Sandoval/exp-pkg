@@ -1,8 +1,8 @@
 name: Release
 
 # Publish to PyPI when a version tag is pushed (e.g. `v0.1.0`).
-# QA (lint, type check, tests) runs separately in ci.yml on the tagged commit;
-# this workflow builds, verifies the artifacts, and publishes them.
+# The tagged commit must pass the repository quality, performance, and package
+# gates in this workflow before publishing.
 on:
   push:
     tags:
@@ -37,6 +37,24 @@ jobs:
             echo "::error::Tag $GITHUB_REF_NAME does not match package version $pkg" >&2
             exit 1
           fi
+
+      - name: Create virtual environment
+        run: |
+          uv venv --python "3.12" .venv
+          echo "VIRTUAL_ENV=${GITHUB_WORKSPACE}/.venv" >> "$GITHUB_ENV"
+          echo "${GITHUB_WORKSPACE}/.venv/bin" >> "$GITHUB_PATH"
+
+      - name: Install package with development dependencies
+        run: uv pip install -e ".[dev]"
+
+      - name: Run quality gate
+        run: make qa
+
+      - name: Check performance budgets
+        run: make performance-check
+
+      - name: Check package installation contract
+        run: make package-check
 
       - name: Build sdist and wheel
         run: uv build --out-dir dist

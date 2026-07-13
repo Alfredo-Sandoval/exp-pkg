@@ -87,13 +87,14 @@ nav:
   - Getting Started: getting-started.md
   - Performance Guidance: performance.md
   - Roadmap: roadmap.md
-  - Behavior Video Roadmap: luxem_2023_gap_analysis.md
-  - 3D Pose Design: pose_3d_design.md
+  - Luxem et al. Response: luxem_2023_gap_analysis.md
+  - 2D and 3D Pose Contract: pose_3d_design.md
   - Identity Provenance: identity_provenance.md
-  - Artifact Contract v1: artifact_contract_v1.md
+  - Artifact Contract: artifact_contract.md
   - Artifact Namespaces: artifact-namespaces.md
   - CLI Command Spec v1: cli_command_spec_v1.md
   - Architecture:
+      - Experiment Ontology: architecture/experiment-ontology.md
       - Multimodal Session Model: architecture/multimodal-session.md
       - Media IO Stack: architecture/media-io.md
       - Storage Direction: architecture/storage-direction.md

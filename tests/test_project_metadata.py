@@ -11,22 +11,17 @@ from xpkg.model import AcquisitionMetadata, CameraMetadata, DatasetShareMetadata
 from xpkg.project import (
     current_project_state_path,
     init_project,
-    load_project_acquisition_metadata,
-    load_project_dataset_share_metadata,
+    load_project_acquisition,
+    load_project_dataset_share,
     load_project_metadata,
-    load_project_payload,
+    load_project_session,
     pack_project,
-    save_project_acquisition_metadata,
-    save_project_dataset_share_metadata,
+    save_project_acquisition,
+    save_project_dataset_share,
     save_project_labels,
     save_project_metadata,
     unpack_project,
 )
-from xpkg.project.metadata import (
-    project_acquisition_metadata_path,
-    project_dataset_share_metadata_path,
-)
-from xpkg.project.state_io import read_project_state
 
 
 def _make_labels(tmp_path: Path):
@@ -83,12 +78,12 @@ def test_project_metadata_roundtrips_on_project_head(tmp_path: Path) -> None:
     assert loaded_metadata["session_json"] == metadata["session_json"]
     assert loaded_metadata["training_state_json"] == metadata["training_state_json"]
     assert loaded_metadata["manifest_json"] == metadata["manifest_json"]
-    assert loaded_metadata["preferences"] == {}
+    from xpkg.project import load_project_experiment
 
-    state_payload = read_project_state(state_path)
-    assert state_payload["metadata"]["session_json"] == metadata["session_json"]
-    assert state_payload["metadata"]["training_state_json"] == metadata["training_state_json"]
-    assert state_payload["metadata"]["manifest_json"] == metadata["manifest_json"]
+    experiment = load_project_experiment(project)
+    assert experiment.metadata["session_json"] == metadata["session_json"]
+    assert experiment.metadata["training_state_json"] == metadata["training_state_json"]
+    assert experiment.metadata["manifest_json"] == metadata["manifest_json"]
 
 
 def test_project_metadata_load_returns_empty_before_first_commit(tmp_path: Path) -> None:
@@ -112,28 +107,20 @@ def test_project_metadata_load_does_not_materialize_predictions(
         reason="test.metadata",
     )
 
-    import xpkg.project.store.cache as cache
+    def _fail_session_hydration(*_args: object, **_kwargs: object) -> object:
+        raise AssertionError("metadata load must not hydrate the full session")
 
-    def _fail_prediction_materialization(*_args: object, **_kwargs: object) -> object:
-        raise AssertionError("metadata load must not materialize predictions")
-
-    def _fail_full_state_load(*_args: object, **_kwargs: object) -> object:
-        raise AssertionError("metadata load must not read the full labels state")
-
-    monkeypatch.setattr(cache, "read_project_state", _fail_full_state_load)
     monkeypatch.setattr(
-        cache,
-        "_predictions_payload_from_state_payload",
-        _fail_prediction_materialization,
+        "xpkg.project.recording.read_experiment_json",
+        _fail_session_hydration,
     )
 
     assert load_project_metadata(project) == {
-        "preferences": {},
         "session_json": {"active_frame_idx": 11},
     }
 
 
-def test_project_scoped_metadata_slots_roundtrip_without_project_head(tmp_path: Path) -> None:
+def test_session_acquisition_and_experiment_dataset_share_roundtrip(tmp_path: Path) -> None:
     project = tmp_path / "Scoped Metadata Project"
     init_project(project, title="Scoped Metadata Project")
     acquisition = AcquisitionMetadata(
@@ -164,19 +151,19 @@ def test_project_scoped_metadata_slots_roundtrip_without_project_head(tmp_path: 
         related_publications=("Example et al. 2024",),
     )
 
-    acquisition_path = save_project_acquisition_metadata(project, acquisition)
-    share_path = save_project_dataset_share_metadata(project, dataset_share)
+    acquisition_path = save_project_acquisition(project, acquisition)
+    share_path = save_project_dataset_share(project, dataset_share)
 
-    assert acquisition_path == project_acquisition_metadata_path(project)
-    assert share_path == project_dataset_share_metadata_path(project)
-    assert load_project_acquisition_metadata(project) == acquisition
-    assert load_project_dataset_share_metadata(project) == dataset_share
+    assert acquisition_path == current_project_state_path(project)
+    assert share_path == current_project_state_path(project)
+    assert load_project_acquisition(project) == acquisition
+    assert load_project_dataset_share(project) == dataset_share
 
 
-def test_project_scoped_metadata_slots_pack_into_expkg_manifest(tmp_path: Path) -> None:
+def test_semantic_metadata_packs_only_in_canonical_experiment_state(tmp_path: Path) -> None:
     project = tmp_path / "Scoped Metadata Pack Project"
     init_project(project, title="Scoped Metadata Pack Project")
-    save_project_acquisition_metadata(
+    save_project_acquisition(
         project,
         {
             "acquisition_id": "acq-pack",
@@ -184,7 +171,7 @@ def test_project_scoped_metadata_slots_pack_into_expkg_manifest(tmp_path: Path) 
             "cameras": [{"camera_id": "cam-top", "frame_rate_hz": 120.0}],
         },
     )
-    save_project_dataset_share_metadata(
+    save_project_dataset_share(
         project,
         {
             "title": "Packable behavior dataset",
@@ -202,17 +189,15 @@ def test_project_scoped_metadata_slots_pack_into_expkg_manifest(tmp_path: Path) 
         names = set(archive.namelist())
         manifest = json.loads(archive.read("EXPKG.json").decode("utf-8"))
 
-    assert ".xpkg/metadata/acquisition.json" in names
-    assert ".xpkg/metadata/dataset_share.json" in names
-    assert manifest["acquisition"]["acquisition_id"] == "acq-pack"
-    assert manifest["dataset_share"]["doi"] == "10.0000/packable"
-    assert manifest["dataset_share"]["license"] == "BSD-3-Clause"
-    assert manifest["dataset_share"]["funders"] == ["NIH"]
-    assert manifest["dataset_share"]["related_publications"] == ["Example et al. 2024"]
+    assert ".xpkg/metadata/acquisition.json" not in names
+    assert ".xpkg/metadata/dataset_share.json" not in names
+    assert "acquisition" not in manifest
+    assert "dataset_share" not in manifest
+    assert manifest["artifact_schema_version"] == 2
 
     restored = unpack_project(artifact, tmp_path / "Restored Scoped Metadata Project")
-    restored_acquisition = load_project_acquisition_metadata(restored)
-    restored_dataset_share = load_project_dataset_share_metadata(restored)
+    restored_acquisition = load_project_acquisition(restored)
+    restored_dataset_share = load_project_dataset_share(restored)
 
     assert restored_acquisition is not None
     assert restored_acquisition.acquisition_id == "acq-pack"
@@ -220,14 +205,18 @@ def test_project_scoped_metadata_slots_pack_into_expkg_manifest(tmp_path: Path) 
     assert restored_dataset_share.doi == "10.0000/packable"
 
 
-def test_project_payload_loads_rebased_project_head(tmp_path: Path) -> None:
+def test_project_session_loads_rebased_pose_head(tmp_path: Path) -> None:
     project = tmp_path / "Payload Project"
     init_project(project, title="Payload Project")
     labels = _make_labels(tmp_path)
     save_project_labels(project, labels, metadata={"project_name": "Payload Project"})
 
-    payload = load_project_payload(project)
+    from xpkg.project import load_project_experiment
 
-    assert payload["metadata"]["project_name"] == "Payload Project"
-    assert payload["labels"]["frames"]["frame_index"] == [0]
-    assert payload["labels"]["videos"]["resolved_paths"][0] == labels.videos[0].filename
+    experiment = load_project_experiment(project)
+    session = load_project_session(project)
+    restored = session.pose()
+
+    assert experiment.metadata["project_name"] == "Payload Project"
+    assert restored.labeled_frames[0].frame_idx == 0
+    assert restored.videos[0].filename == labels.videos[0].filename

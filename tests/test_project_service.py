@@ -9,7 +9,7 @@ from xpkg.model import AcquisitionMetadata, Labels
 from xpkg.project import (
     current_project_state_path,
     load_project_summary,
-    save_project_acquisition_metadata,
+    save_project_acquisition,
     validate_expkg,
 )
 from xpkg.project.layout import project_summary_path
@@ -119,26 +119,22 @@ def test_project_service_describe_uses_shallow_summary_index(
     )
 
     summary = load_project_summary(project.project_root)
-    assert summary.state_kind == "labels"
+    assert summary.state_kind == "experiment"
+    assert summary.state_summary["pose_count"] == 1
     assert summary.state_summary["label_frame_count"] == 1
     assert summary.state_summary["prediction_frame_count"] == 0
-    assert summary.modalities == ("labels",)
-
-    def fail_load_payload(*_args: object, **_kwargs: object) -> object:
-        raise AssertionError("describe must not materialize project payload")
+    assert summary.modalities == ("videos", "pose")
 
     def fail_refresh_summary(*_args: object, **_kwargs: object) -> object:
         raise AssertionError("describe must reuse the matching summary index")
 
-    monkeypatch.setattr("xpkg.services.project.load_project_payload", fail_load_payload)
-    monkeypatch.setattr("xpkg.project.store.load_project_payload", fail_load_payload)
     monkeypatch.setattr("xpkg.services.project.refresh_project_summary", fail_refresh_summary)
 
     summary_text = project_summary_path(project.project_root).read_text(encoding="utf-8")
     layout = ProjectService.open(project.project_root).describe()
 
     assert layout.summary_path == project_summary_path(project.project_root)
-    assert layout.summary.state_kind == "labels"
+    assert layout.summary.state_kind == "experiment"
     assert layout.summary.state_summary["label_frame_count"] == 1
     assert layout.has_current_state is True
     assert project_summary_path(project.project_root).read_text(encoding="utf-8") == summary_text
@@ -173,14 +169,15 @@ def test_project_summary_tracks_media_frame_inventory(tmp_path: Path) -> None:
 def test_project_summary_tracks_project_metadata_slots(tmp_path: Path) -> None:
     project = ProjectService.create(tmp_path / "Metadata Summary", title="Metadata Summary")
 
-    save_project_acquisition_metadata(
+    save_project_acquisition(
         project.project_root,
         AcquisitionMetadata(acquisition_id="acq-001"),
     )
 
     summary = load_project_summary(project.project_root)
-    assert summary.metadata_slots == ("acquisition",)
-    assert "project_metadata" in summary.modalities
+    assert summary.metadata_slots == ()
+    assert summary.state_summary["acquisition_session_count"] == 1
+    assert "acquisition" in summary.modalities
 
 
 def test_project_summary_preserves_state_counts_after_metadata_only_commit(
@@ -223,24 +220,26 @@ def test_project_service_scoped_metadata_roundtrip_without_current_head(tmp_path
         title="Service Scoped Metadata Project",
     )
 
-    written = project.metadata.update(
-        acquisition={
+    acquisition_path = project.save_acquisition(
+        {
             "acquisition_id": "acq-service",
             "cameras": [{"camera_id": "cam-top", "frame_rate_hz": 120.0}],
-        },
-        dataset_share={
+        }
+    )
+    dataset_share_path = project.save_dataset_share(
+        {
             "title": "Service metadata dataset",
             "creators": ["Sandoval Lab"],
             "doi": "10.0000/service",
             "license": "BSD-3-Clause",
-        },
+        }
     )
 
-    acquisition = project.metadata.acquisition
-    dataset_share = project.metadata.dataset_share
+    acquisition = project.load_acquisition()
+    dataset_share = project.load_dataset_share()
 
-    assert written["acquisition"].is_file()
-    assert written["dataset_share"].is_file()
+    assert acquisition_path.is_file()
+    assert dataset_share_path.is_file()
     assert acquisition is not None
     assert acquisition.acquisition_id == "acq-service"
     assert dataset_share is not None

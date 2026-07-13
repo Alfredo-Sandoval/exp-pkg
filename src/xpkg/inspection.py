@@ -17,7 +17,6 @@ import pandas as pd
 
 from xpkg._core.json_utils import load_json, parse_json
 from xpkg.io.readers.pose import read_pose_track
-from xpkg.model.metadata import AcquisitionMetadata, DatasetShareMetadata, PoseModelProvenance
 from xpkg.model.reporting import DatasetDatasheet, ModelCard
 from xpkg.project.artifact import EXPKG_MANIFEST_FILENAME
 from xpkg.project.layout import (
@@ -28,22 +27,13 @@ from xpkg.project.layout import (
     resolve_project_root,
 )
 from xpkg.project.metadata import (
-    ACQUISITION_METADATA_FILENAME,
-    DATASET_SHARE_METADATA_FILENAME,
     DATASHEET_FILENAME,
     MODEL_CARD_FILENAME,
-    POSE_PROVENANCE_FILENAME,
     PROJECT_METADATA_DIRNAME,
-    load_project_acquisition_metadata,
-    load_project_dataset_share_metadata,
     load_project_datasheet,
     load_project_model_card,
-    load_project_pose_provenance,
-    project_acquisition_metadata_path,
-    project_dataset_share_metadata_path,
     project_datasheet_path,
     project_model_card_path,
-    project_pose_provenance_path,
 )
 from xpkg.project.summary import snapshot_project_summary
 
@@ -164,22 +154,16 @@ _PROJECT_METADATA_SLOTS: tuple[
     tuple[str, Callable[[str | Path], Path], Callable[[str | Path], object]],
     ...,
 ] = (
-    ("acquisition", project_acquisition_metadata_path, load_project_acquisition_metadata),
-    ("dataset_share", project_dataset_share_metadata_path, load_project_dataset_share_metadata),
     ("datasheet", project_datasheet_path, load_project_datasheet),
     ("model_card", project_model_card_path, load_project_model_card),
-    ("pose_provenance", project_pose_provenance_path, load_project_pose_provenance),
 )
 
 _PROJECT_METADATA_ARCHIVE_SLOTS: tuple[
     tuple[str, str, Callable[[Mapping[str, Any]], object]],
     ...,
 ] = (
-    ("acquisition", ACQUISITION_METADATA_FILENAME, AcquisitionMetadata.from_dict),
-    ("dataset_share", DATASET_SHARE_METADATA_FILENAME, DatasetShareMetadata.from_dict),
     ("datasheet", DATASHEET_FILENAME, DatasetDatasheet.from_dict),
     ("model_card", MODEL_CARD_FILENAME, ModelCard.from_dict),
-    ("pose_provenance", POSE_PROVENANCE_FILENAME, PoseModelProvenance.from_dict),
 )
 
 
@@ -335,19 +319,19 @@ def _project_media_inventory_warnings(
     media_items: Sequence[Mapping[str, Any]],
     summary_path: Path,
 ) -> list[InspectionWarning]:
-    if state_kind != "labels" or not has_current_state or media_items:
+    if state_kind != "experiment" or not has_current_state or media_items:
         return []
     video_count = _optional_non_negative_int(state_summary.get("video_count"))
     if video_count == 0:
         return []
     if video_count is None:
         message = (
-            "Project media inventory is unavailable for labels state; no "
+            "Project media inventory is unavailable for experiment; no "
             "summary-recorded media item(s) are available."
         )
     else:
         message = (
-            "Project media inventory is unavailable for labels state with "
+            "Project media inventory is unavailable for experiment with "
             f"{video_count} recorded video(s)."
         )
     return [

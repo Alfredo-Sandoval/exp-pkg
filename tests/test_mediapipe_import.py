@@ -102,8 +102,7 @@ def test_import_mediapipe_pose_landmarks_json_project_imports_sequence_into_proj
     tmp_path: Path,
 ) -> None:
     from xpkg.model import Labels
-    from xpkg.project import current_project_state_path
-    from xpkg.project.state_io import read_project_state
+    from xpkg.project import current_project_state_path, load_project_session
     from xpkg.project.store.imports import import_mediapipe_pose_landmarks_json_project
 
     json_path = tmp_path / "pose_landmarks.json"
@@ -123,9 +122,9 @@ def test_import_mediapipe_pose_landmarks_json_project_imports_sequence_into_proj
     )
 
     assert state_path == current_project_state_path(project)
-    payload = read_project_state(state_path)
-    assert payload["metadata"]["source"] == "mediapipe_pose_landmarks_json_import"
-    assert payload["metadata"]["source_json"] == json_path.name
+    pose_metadata = load_project_session(project).poses[0].metadata
+    assert pose_metadata["source"] == "mediapipe_pose_landmarks_json_import"
+    assert pose_metadata["source_json"] == json_path.name
 
     labels = Labels.load_file(project.as_posix())
     assert len(labels.skeletons[0].keypoint_names) == 33

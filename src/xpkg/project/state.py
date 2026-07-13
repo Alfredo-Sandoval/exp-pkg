@@ -7,10 +7,11 @@ from pathlib import Path
 from typing import Literal, cast
 
 from xpkg._core.json_utils import load_json_dict
-from xpkg.io.labels.json_format import XPKG_LABELS_JSON_FORMAT
-from xpkg.project.state_io import PROJECT_COMMIT_ID_KEY
+from xpkg.io.experiment_json import EXPERIMENT_FORMAT
 
-ProjectStateKind = Literal["labels"]
+PROJECT_COMMIT_ID_KEY = "xpkg_commit_id"
+
+ProjectStateKind = Literal["experiment"]
 
 
 def read_project_state_document(path: str | Path) -> dict[str, object]:
@@ -34,8 +35,8 @@ def project_state_kind_from_document(document: Mapping[str, object]) -> ProjectS
     """Return the state kind encoded in a project state JSON document."""
 
     raw_format = str(document.get("format", "")).strip()
-    if raw_format == XPKG_LABELS_JSON_FORMAT:
-        return "labels"
+    if raw_format == EXPERIMENT_FORMAT:
+        return "experiment"
     raise ValueError(f"Unsupported project state format: {raw_format!r}.")
 
 
@@ -62,6 +63,7 @@ def project_state_commit_id_from_document(document: Mapping[str, object]) -> str
 
 __all__ = [
     "ProjectStateKind",
+    "PROJECT_COMMIT_ID_KEY",
     "read_project_state_document",
     "project_state_commit_id_from_document",
     "project_state_kind",

@@ -15,7 +15,10 @@ from typing import TYPE_CHECKING, Any, Literal, cast
 from xpkg._core.json_utils import load_json_dict, write_json
 from xpkg._core.path_registry import ensure_dir
 from xpkg._core.time import now_utc_iso
-from xpkg.io.labels.json_format import XPKG_LABELS_JSON_FORMAT
+from xpkg.io.experiment_json import EXPERIMENT_FORMAT
+from xpkg.io.labels.model import Labels
+from xpkg.model.experiment import Experiment
+from xpkg.model.signals import PhotometryRecording
 from xpkg.project.durable_store import ProjectDurableStore, ProjectDurableStoreError
 from xpkg.project.layout import (
     load_project_descriptor,
@@ -27,21 +30,18 @@ from xpkg.project.layout import (
 )
 
 if TYPE_CHECKING:
-    from xpkg.model import Labels
+    from xpkg.model import RecordingSession
 
 
-PROJECT_SUMMARY_SCHEMA_VERSION = 1
+PROJECT_SUMMARY_SCHEMA_VERSION = 2
 _STATE_PREFIX_BYTES = 8192
 _ARTIFACT_INDEX_FILENAME = "index.json"
 _METADATA_SLOT_FILES = {
-    "acquisition": "acquisition.json",
-    "dataset-share": "dataset_share.json",
     "datasheet": "datasheet.json",
     "model-card": "model_card.json",
-    "pose-provenance": "pose_provenance.json",
 }
 
-ProjectSummaryStateKind = Literal["empty", "labels", "present", "unreadable"]
+ProjectSummaryStateKind = Literal["empty", "experiment", "present", "unreadable"]
 JsonScalar = str | int | float | bool | None
 MediaSummaryItem = dict[str, JsonScalar]
 
@@ -65,6 +65,7 @@ class ProjectSummaryIndex:
     artifact_count: int = 0
     artifact_types: dict[str, int] = field(default_factory=dict)
     modalities: tuple[str, ...] = ()
+    session_ids: tuple[str, ...] = ()
     warnings: tuple[str, ...] = ()
 
     @classmethod
@@ -93,6 +94,7 @@ class ProjectSummaryIndex:
             artifact_count=int(artifacts.get("count", 0) or 0),
             artifact_types=_int_dict(artifacts.get("types") or {}),
             modalities=_string_tuple(data.get("modalities") or ()),
+            session_ids=_string_tuple(data.get("sessions") or ()),
             warnings=_string_tuple(data.get("warnings") or ()),
         )
 
@@ -119,6 +121,7 @@ class ProjectSummaryIndex:
                 "types": dict(self.artifact_types),
             },
             "modalities": list(self.modalities),
+            "sessions": list(self.session_ids),
             "warnings": list(self.warnings),
         }
 
@@ -132,71 +135,136 @@ class _StateSource:
     warnings: tuple[str, ...]
 
 
-def labels_state_summary(
-    labels: Labels,
-    predictions: Mapping[str, Any] | None = None,
-) -> dict[str, JsonScalar]:
-    """Return shallow counts from in-memory labels during save/import."""
-
-    keypoint_count = 0
-    if labels.skeletons:
-        keypoint_count = len(labels.skeletons[0].keypoints)
+def _recording_state_summary(session: RecordingSession) -> dict[str, JsonScalar]:
+    """Return shallow counts from one in-memory recording session."""
+    series = [
+        recording.series if isinstance(recording, PhotometryRecording) else recording
+        for recording in (link.recording for link in session.signals)
+    ]
+    time_range = session.time_range
+    pose_labels = [link.data for link in session.poses if isinstance(link.data, Labels)]
+    trajectories = [
+        link.data for link in session.poses if not isinstance(link.data, Labels)
+    ]
     return {
-        "video_count": len(labels.videos),
-        "skeleton_count": len(labels.skeletons),
-        "keypoint_count": keypoint_count,
-        "track_count": len(labels.tracks),
-        "suggestion_count": len(labels.suggestions),
-        "label_frame_count": len(labels.user_labeled_frames),
-        "prediction_frame_count": _prediction_frame_count(predictions),
+        "signal_count": len(session.signals),
+        "channel_count": sum(item.n_channels for item in series),
+        "sample_count": sum(item.n_samples for item in series),
+        "video_count": len(session.videos),
+        "event_count": len(session.events),
+        "pose_count": len(session.poses),
+        "label_frame_count": sum(len(labels.user_labeled_frames) for labels in pose_labels),
+        "prediction_frame_count": sum(
+            sum(bool(frame.predicted_instances) for frame in labels.labeled_frames)
+            for labels in pose_labels
+        ),
+        "trajectory_frame_count": sum(item.n_frames for item in trajectories),
+        "behavior_count": len(session.behaviors),
+        "behavior_interval_count": sum(
+            len(link.labels.intervals) for link in session.behaviors
+        ),
+        "calibration_count": len(session.calibrations),
+        "alignment_count": len(session.alignments),
+        "start_s": None if time_range is None else time_range.start_s,
+        "end_s": None if time_range is None else time_range.end_s,
     }
 
 
-def labels_media_summary(
-    labels: Labels,
-    predictions: Mapping[str, Any] | None = None,
-    *,
-    project_root: str | Path | None = None,
-) -> tuple[MediaSummaryItem, ...]:
-    """Return cheap media inventory from in-memory labels during save/import."""
+def experiment_state_summary(experiment: Experiment) -> dict[str, JsonScalar]:
+    """Return aggregate shallow counts for an experiment and all its sessions."""
+    session_summaries = [_recording_state_summary(session) for session in experiment.sessions]
+    count_keys = (
+        "signal_count",
+        "channel_count",
+        "sample_count",
+        "video_count",
+        "event_count",
+        "pose_count",
+        "label_frame_count",
+        "prediction_frame_count",
+        "trajectory_frame_count",
+        "behavior_count",
+        "behavior_interval_count",
+        "calibration_count",
+        "alignment_count",
+    )
+    starts = [item["start_s"] for item in session_summaries if item["start_s"] is not None]
+    ends = [item["end_s"] for item in session_summaries if item["end_s"] is not None]
+    summary: dict[str, JsonScalar] = {
+        "experiment_id": experiment.experiment_id,
+        "subject_count": len(experiment.subjects),
+        "protocol_count": len(experiment.protocols),
+        "condition_count": len(experiment.conditions),
+        "acquisition_session_count": sum(
+            session.acquisition is not None for session in experiment.sessions
+        ),
+        "has_dataset_share": experiment.dataset_share is not None,
+        "session_count": len(experiment.sessions),
+        "start_s": min(starts) if starts else None,
+        "end_s": max(ends) if ends else None,
+    }
+    summary.update(
+        {key: sum(int(item[key] or 0) for item in session_summaries) for key in count_keys}
+    )
+    return summary
 
-    root = Path(project_root).resolve() if project_root is not None else None
-    video_lookup: dict[object, int] = {video: idx for idx, video in enumerate(labels.videos)}
-    label_stats = _frame_stats_by_video(labels.labeled_frames, video_lookup)
-    prediction_stats = _prediction_stats_by_video(predictions)
+
+def _recording_media_summary(
+    session: RecordingSession,
+    *,
+    project_root: str | Path,
+) -> tuple[MediaSummaryItem, ...]:
+    """Return project-relative video inventory from a recording session."""
+    root = Path(project_root).resolve()
     items: list[MediaSummaryItem] = []
-    for index, video in enumerate(labels.videos):
-        image_filenames = tuple(str(path) for path in (video.image_filenames or ()))
-        raw_path = str(video.filename or "")
-        if image_filenames and not raw_path:
-            raw_path = str(Path(image_filenames[0]).parent)
-        fallback_label = Path(raw_path).name if raw_path else f"video-{index}"
-        label_entry = label_stats.get(index, {})
-        prediction_entry = prediction_stats.get(index, {})
-        fps = _safe_float(getattr(video, "fps", 0.0))
-        frame_count = _safe_int(getattr(video, "frames", 0))
+    for index, video in enumerate(session.videos):
+        resolved = (root / video.path).resolve()
+        frame_count = 0 if video.frame_count is None else video.frame_count
+        frame_rate_hz = 0.0 if video.frame_rate_hz is None else video.frame_rate_hz
         items.append(
             {
                 "index": index,
-                "kind": "image_sequence" if image_filenames else "video_file",
-                "path": _summary_media_path(raw_path, root),
-                "backend": str(video.backend or ""),
-                "video_id": str(video.id or f"video_{index}"),
-                "label": str(video.label or fallback_label),
+                "kind": "image_sequence" if resolved.is_dir() else "video_file",
+                "path": video.path.as_posix(),
+                "role": video.role,
+                "video_id": str(video.metadata.get("video_id", "")),
+                "label": str(video.metadata.get("label", video.path.name)),
+                "backend": str(video.metadata.get("backend", "")),
                 "frame_count": frame_count,
-                "fps": fps,
-                "duration_s": _duration_seconds(frame_count, fps),
-                "timebase": "frame_index" if fps > 0.0 else None,
-                "height": _safe_int(getattr(video, "height", 0)),
-                "width": _safe_int(getattr(video, "width", 0)),
-                "channels": _safe_int(getattr(video, "channels", 0)),
-                "image_count": len(image_filenames),
-                "label_frame_count": int(label_entry.get("count", 0) or 0),
-                "max_label_frame_index": label_entry.get("max_frame_index"),
-                "prediction_frame_count": int(prediction_entry.get("count", 0) or 0),
-                "max_prediction_frame_index": prediction_entry.get("max_frame_index"),
+                "fps": frame_rate_hz,
+                "duration_s": _duration_seconds(frame_count, frame_rate_hz),
+                "timebase": video.timebase.name,
+                "height": int(video.metadata.get("height", 0)),
+                "width": int(video.metadata.get("width", 0)),
+                "channels": int(video.metadata.get("channels", 0)),
+                "image_count": int(video.metadata.get("image_count", 0)),
+                "label_frame_count": int(video.metadata.get("label_frame_count", 0)),
+                "max_label_frame_index": video.metadata.get("max_label_frame_index"),
+                "prediction_frame_count": int(
+                    video.metadata.get("prediction_frame_count", 0)
+                ),
+                "max_prediction_frame_index": video.metadata.get(
+                    "max_prediction_frame_index"
+                ),
+                "exists": resolved.exists(),
+                "size_bytes": resolved.stat().st_size if resolved.is_file() else None,
             }
         )
+    return tuple(items)
+
+
+def experiment_media_summary(
+    experiment: Experiment,
+    *,
+    project_root: str | Path,
+) -> tuple[MediaSummaryItem, ...]:
+    """Return a project-relative video inventory across all sessions."""
+    items: list[MediaSummaryItem] = []
+    for session in experiment.sessions:
+        for item in _recording_media_summary(session, project_root=project_root):
+            item["index"] = len(items)
+            item["session_id"] = session.session_id
+            items.append(item)
     return tuple(items)
 
 
@@ -211,6 +279,7 @@ def snapshot_project_summary(
     *,
     state_summary: Mapping[str, JsonScalar] | None = None,
     media_summary: Sequence[Mapping[str, JsonScalar]] | None = None,
+    session_ids: Sequence[str] | None = None,
 ) -> ProjectSummaryIndex:
     """Build the generated shallow summary index without writing it."""
 
@@ -241,6 +310,7 @@ def snapshot_project_summary(
         artifact_count=artifact_count,
         artifact_types=artifact_types,
         modalities=_modalities(state.kind, state_details, metadata_slots, artifact_count),
+        session_ids=_session_ids(state, existing, session_ids),
         warnings=warnings,
     )
     return summary
@@ -251,6 +321,7 @@ def refresh_project_summary(
     *,
     state_summary: Mapping[str, JsonScalar] | None = None,
     media_summary: Sequence[Mapping[str, JsonScalar]] | None = None,
+    session_ids: Sequence[str] | None = None,
 ) -> ProjectSummaryIndex:
     """Refresh and write the generated shallow summary index."""
 
@@ -262,6 +333,7 @@ def refresh_project_summary(
         project_root,
         state_summary=state_summary,
         media_summary=media_summary,
+        session_ids=session_ids,
     )
     if existing is not None and _equivalent_summary(existing, summary):
         return existing
@@ -291,7 +363,7 @@ def _optional_str(value: object) -> str | None:
 
 
 def _state_kind(value: str) -> ProjectSummaryStateKind:
-    if value in {"empty", "labels", "present", "unreadable"}:
+    if value in {"empty", "experiment", "present", "unreadable"}:
         return cast("ProjectSummaryStateKind", value)
     raise ValueError(f"Unsupported project summary state kind: {value!r}")
 
@@ -321,15 +393,6 @@ def _media_items(value: object) -> tuple[MediaSummaryItem, ...]:
 def _int_dict(value: object) -> dict[str, int]:
     payload = _mapping(value, name="project_summary.int_dict")
     return {str(key): int(item) for key, item in payload.items()}
-
-
-def _prediction_frame_count(predictions: Mapping[str, Any] | None) -> int:
-    if predictions is None:
-        return 0
-    attrs = predictions.get("attrs")
-    if not isinstance(attrs, Mapping):
-        return 0
-    return int(attrs.get("committed_length", 0) or 0)
 
 
 def _equivalent_summary(
@@ -381,6 +444,18 @@ def _media_details(
     return ()
 
 
+def _session_ids(
+    state: _StateSource,
+    existing: ProjectSummaryIndex | None,
+    session_ids: Sequence[str] | None,
+) -> tuple[str, ...]:
+    if session_ids is not None:
+        return tuple(str(session_id) for session_id in session_ids)
+    if existing is not None and existing.state_kind == state.kind:
+        return existing.session_ids
+    return ()
+
+
 def _state_source(project_root: Path) -> _StateSource:
     commit_id, state_path, warnings = _durable_state(project_root)
     if state_path is None:
@@ -405,9 +480,10 @@ def _state_source(project_root: Path) -> _StateSource:
 def _durable_state(project_root: Path) -> tuple[str | None, Path | None, list[str]]:
     store_root = project_store_root(project_root)
     warnings: list[str] = []
-    if not (store_root / "superblock.a.json").exists() and not (
-        store_root / "superblock.b.json"
-    ).exists():
+    if (
+        not (store_root / "superblock.a.json").exists()
+        and not (store_root / "superblock.b.json").exists()
+    ):
         return None, None, warnings
     try:
         store = ProjectDurableStore.open(store_root)
@@ -423,8 +499,8 @@ def _durable_state(project_root: Path) -> tuple[str | None, Path | None, list[st
 def _state_kind_from_prefix(state_path: Path) -> ProjectSummaryStateKind:
     with state_path.open("rb") as handle:
         prefix = handle.read(_STATE_PREFIX_BYTES).decode("utf-8", errors="replace")
-    if XPKG_LABELS_JSON_FORMAT in prefix:
-        return "labels"
+    if EXPERIMENT_FORMAT in prefix:
+        return "experiment"
     return "present"
 
 
@@ -456,9 +532,7 @@ def _artifact_inventory(project_root: Path) -> tuple[int, dict[str, int], tuple[
 
 
 def _artifact_entries(raw_entries: object) -> list[Mapping[str, Any]]:
-    if not isinstance(raw_entries, Sequence) or isinstance(
-        raw_entries, str | bytes | bytearray
-    ):
+    if not isinstance(raw_entries, Sequence) or isinstance(raw_entries, str | bytes | bytearray):
         raise TypeError("Artifact index artifacts must be a list")
     entries: list[Mapping[str, Any]] = []
     for raw_entry in raw_entries:
@@ -475,29 +549,30 @@ def _modalities(
     artifact_count: int,
 ) -> tuple[str, ...]:
     modalities: list[str] = []
-    if state_kind == "labels":
-        modalities.append("labels")
-        if int(state_summary.get("prediction_frame_count") or 0) > 0:
-            modalities.append("pose_predictions")
+    if state_kind == "experiment":
+        if int(state_summary.get("acquisition_session_count") or 0) > 0:
+            modalities.append("acquisition")
+        if int(state_summary.get("signal_count") or 0) > 0:
+            modalities.append("signals")
+        if int(state_summary.get("event_count") or 0) > 0:
+            modalities.append("events")
+        if int(state_summary.get("video_count") or 0) > 0:
+            modalities.append("videos")
+        if int(state_summary.get("pose_count") or 0) > 0:
+            modalities.append("pose")
+        if int(state_summary.get("behavior_count") or 0) > 0:
+            modalities.append("behavior")
+        if int(state_summary.get("calibration_count") or 0) > 0:
+            modalities.append("calibration")
+        if int(state_summary.get("alignment_count") or 0) > 0:
+            modalities.append("synchronization")
+        if bool(state_summary.get("has_dataset_share")):
+            modalities.append("dataset_share")
     if metadata_slots:
         modalities.append("project_metadata")
     if artifact_count > 0:
         modalities.append("artifacts")
     return tuple(modalities)
-
-
-def _safe_int(value: object) -> int:
-    try:
-        return int(cast("str | bytes | bytearray | int | float | bool", value))
-    except (TypeError, ValueError):
-        return 0
-
-
-def _safe_float(value: object) -> float:
-    try:
-        return float(cast("str | bytes | bytearray | int | float | bool", value))
-    except (TypeError, ValueError):
-        return 0.0
 
 
 def _duration_seconds(frame_count: int, fps: float) -> float | None:
@@ -506,75 +581,14 @@ def _duration_seconds(frame_count: int, fps: float) -> float | None:
     return float(frame_count / fps)
 
 
-def _summary_media_path(raw_path: str, project_root: Path | None) -> str:
-    path_text = str(raw_path).strip()
-    if not path_text:
-        return ""
-    if project_root is None:
-        return path_text
-    path = Path(path_text)
-    resolved = path.resolve() if path.is_absolute() else (project_root / path).resolve()
-    try:
-        return resolved.relative_to(project_root).as_posix()
-    except ValueError:
-        return path_text
-
-
-def _frame_stats_by_video(
-    labeled_frames: Sequence[Any],
-    video_lookup: Mapping[object, int],
-) -> dict[int, dict[str, JsonScalar]]:
-    stats: dict[int, dict[str, JsonScalar]] = {}
-    for frame in labeled_frames:
-        video_index = video_lookup.get(getattr(frame, "video", None))
-        if video_index is None or not getattr(frame, "user_instances", ()):
-            continue
-        frame_index = _safe_int(getattr(frame, "frame_idx", 0))
-        entry = stats.setdefault(video_index, {"count": 0, "max_frame_index": None})
-        entry["count"] = int(entry.get("count", 0) or 0) + 1
-        current_max = entry.get("max_frame_index")
-        if current_max is None or frame_index > int(current_max):
-            entry["max_frame_index"] = frame_index
-    return stats
-
-
-def _prediction_stats_by_video(
-    predictions: Mapping[str, Any] | None,
-) -> dict[int, dict[str, JsonScalar]]:
-    if predictions is None:
-        return {}
-    frames = predictions.get("frames")
-    if not isinstance(frames, Mapping):
-        return {}
-    video_indices = _json_sequence(frames.get("video_index"))
-    frame_indices = _json_sequence(frames.get("frame_index"))
-    stats: dict[int, dict[str, JsonScalar]] = {}
-    for raw_video, raw_frame in zip(video_indices, frame_indices, strict=False):
-        video_index = _safe_int(raw_video)
-        frame_index = _safe_int(raw_frame)
-        entry = stats.setdefault(video_index, {"count": 0, "max_frame_index": None})
-        entry["count"] = int(entry.get("count", 0) or 0) + 1
-        current_max = entry.get("max_frame_index")
-        if current_max is None or frame_index > int(current_max):
-            entry["max_frame_index"] = frame_index
-    return stats
-
-
-def _json_sequence(value: object) -> list[object]:
-    tolist = getattr(value, "tolist", None)
-    if callable(tolist):
-        value = tolist()
-    if not isinstance(value, Sequence) or isinstance(value, str | bytes | bytearray):
-        return []
-    return list(value)
 
 
 __all__ = [
     "PROJECT_SUMMARY_SCHEMA_VERSION",
     "ProjectSummaryIndex",
     "ProjectSummaryStateKind",
-    "labels_state_summary",
-    "labels_media_summary",
+    "experiment_media_summary",
+    "experiment_state_summary",
     "load_project_summary",
     "refresh_project_summary",
     "snapshot_project_summary",

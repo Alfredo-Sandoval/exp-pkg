@@ -152,24 +152,31 @@ class _MetadataSlot:
 
 def _metadata_slots() -> dict[str, _MetadataSlot]:
     from xpkg.model import AcquisitionMetadata, DatasetDatasheet, DatasetShareMetadata, ModelCard
+    from xpkg.project import (
+        load_project_acquisition,
+        load_project_dataset_share,
+        save_project_acquisition,
+        save_project_dataset_share,
+    )
     from xpkg.project import metadata as project_metadata
+    from xpkg.project.layout import project_current_state_path
 
     return {
         "acquisition": _MetadataSlot(
             "acquisition",
             "acquisition",
             AcquisitionMetadata.from_dict,
-            project_metadata.save_project_acquisition_metadata,
-            project_metadata.load_project_acquisition_metadata,
-            project_metadata.project_acquisition_metadata_path,
+            save_project_acquisition,
+            load_project_acquisition,
+            project_current_state_path,
         ),
         "dataset-share": _MetadataSlot(
             "dataset-share",
             "dataset_share",
             DatasetShareMetadata.from_dict,
-            project_metadata.save_project_dataset_share_metadata,
-            project_metadata.load_project_dataset_share_metadata,
-            project_metadata.project_dataset_share_metadata_path,
+            save_project_dataset_share,
+            load_project_dataset_share,
+            project_current_state_path,
         ),
         "datasheet": _MetadataSlot(
             "datasheet",
@@ -203,7 +210,7 @@ def _resolve_metadata_slot(slot: str) -> _MetadataSlot:
 
 metadata_app = typer.Typer(
     add_completion=False,
-    help="Show or update typed durable metadata slots stored under .xpkg/metadata/.",
+    help="Show or update typed experiment metadata and documentation records.",
     no_args_is_help=True,
     rich_markup_mode="rich",
 )
