@@ -22,9 +22,12 @@ from xpkg.project import (
     init_project,
     inspect_project,
     load_project_acquisition,
+    load_project_alignment,
+    load_project_behavior,
     load_project_dataset_share,
     load_project_datasheet,
     load_project_descriptor,
+    load_project_events,
     load_project_experiment,
     load_project_metadata,
     load_project_metadata_field,
@@ -33,8 +36,11 @@ from xpkg.project import (
     pack_project,
     refresh_project_summary,
     save_project_acquisition,
+    save_project_alignment,
+    save_project_behavior,
     save_project_dataset_share,
     save_project_datasheet,
+    save_project_events,
     save_project_experiment,
     save_project_labels,
     save_project_metadata,
@@ -58,7 +64,13 @@ from xpkg.project.layout import (
     resolve_project_root,
 )
 from xpkg.project.metadata import project_metadata_root
-from xpkg.project.recording import import_photometry_csv_project, load_project_labels
+from xpkg.project.recording import (
+    import_behavior_project,
+    import_events_csv_project,
+    import_photometry_csv_project,
+    import_synchronization_csv_project,
+    load_project_labels,
+)
 from xpkg.services.artifacts import ProjectArtifacts
 from xpkg.services.calibrations import ProjectCalibrations
 from xpkg.services.figures import ProjectFigures
@@ -67,14 +79,19 @@ from xpkg.services.segmentation import ProjectSegmentation
 if TYPE_CHECKING:
     from xpkg.model import (
         AcquisitionMetadata,
+        BehaviorLabels,
         DatasetDatasheet,
         DatasetShareMetadata,
+        EventTable,
         Experiment,
         Labels,
         ModelCard,
         PoseModelProvenance,
         RecordingSession,
+        TimebaseAlignment,
     )
+    from xpkg.model.session import AlignmentModel, SynchronizationMethod
+    from xpkg.model.time import Timebase
 
 
 PoseFormat = Literal[
@@ -96,6 +113,25 @@ CalibrationFormat = Literal["anipose", "opencv-stereo-yaml"]
 
 SignalFormat = Literal["photometry-csv"]
 """Supported `format` values for ``ProjectService.import_signals``."""
+
+
+EventFormat = Literal["events-csv"]
+"""Supported `format` values for ``ProjectService.import_events``."""
+
+
+BehaviorFormat = Literal[
+    "behavior-csv",
+    "behavior-json",
+    "boris-csv",
+    "bsoid-csv",
+    "keypoint-moseq-csv",
+    "simba-csv",
+]
+"""Supported `format` values for ``ProjectService.import_behavior``."""
+
+
+SynchronizationFormat = Literal["synchronization-csv"]
+"""Supported `format` values for ``ProjectService.import_synchronization``."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -463,6 +499,73 @@ class ProjectService:
             force=force,
         )
 
+    def import_events(
+        self,
+        format: EventFormat,
+        *,
+        path: str | Path,
+        session_id: str | None = None,
+        force: bool = False,
+    ) -> Path:
+        """Import event records into canonical recording-session state."""
+        if format != "events-csv":
+            raise ValueError(f"Unknown event format: {format!r}")
+        return import_events_csv_project(
+            path,
+            project=self.project_root,
+            session_id=session_id,
+            force=force,
+        )
+
+    def import_behavior(
+        self,
+        format: BehaviorFormat,
+        *,
+        path: str | Path,
+        behavior_name: str = "behavior",
+        session_id: str | None = None,
+        video_role: str | None = None,
+        force: bool = False,
+    ) -> Path:
+        """Import behavior labels into a named recording-session link."""
+        return import_behavior_project(
+            format,
+            path,
+            project=self.project_root,
+            behavior_name=behavior_name,
+            session_id=session_id,
+            video_role=video_role,
+            force=force,
+        )
+
+    def import_synchronization(
+        self,
+        format: SynchronizationFormat,
+        *,
+        path: str | Path,
+        source_timebase: Timebase,
+        target_timebase: Timebase,
+        model: AlignmentModel,
+        method: SynchronizationMethod,
+        alignment_name: str | None = None,
+        session_id: str | None = None,
+        force: bool = False,
+    ) -> Path:
+        """Import paired clock observations into one timebase alignment."""
+        if format != "synchronization-csv":
+            raise ValueError(f"Unknown synchronization format: {format!r}")
+        return import_synchronization_csv_project(
+            path,
+            project=self.project_root,
+            source_timebase=source_timebase,
+            target_timebase=target_timebase,
+            model=model,
+            method=method,
+            alignment_name=alignment_name,
+            session_id=session_id,
+            force=force,
+        )
+
     def describe(self) -> ProjectLayout:
         """Return the normalized managed paths for this project.
 
@@ -515,6 +618,79 @@ class ProjectService:
     def load_session(self, *, session_id: str | None = None) -> RecordingSession:
         """Load a named session, or the sole session when unambiguous."""
         return load_project_session(self.project_root, session_id=session_id)
+
+    def load_events(self, *, session_id: str | None = None) -> EventTable:
+        """Load the canonical event table for one recording session."""
+        return load_project_events(self.project_root, session_id=session_id)
+
+    def save_events(
+        self,
+        events: EventTable,
+        *,
+        session_id: str | None = None,
+    ) -> Path:
+        """Commit a typed event table to one recording session."""
+        return save_project_events(self.project_root, events, session_id=session_id)
+
+    def load_behavior(
+        self,
+        *,
+        behavior_name: str = "behavior",
+        session_id: str | None = None,
+    ) -> BehaviorLabels:
+        """Load one named behavior-label link from a recording session."""
+        return load_project_behavior(
+            self.project_root,
+            behavior_name=behavior_name,
+            session_id=session_id,
+        )
+
+    def save_behavior(
+        self,
+        labels: BehaviorLabels,
+        *,
+        behavior_name: str = "behavior",
+        session_id: str | None = None,
+        video_role: str | None = None,
+        replace_existing: bool = True,
+    ) -> Path:
+        """Add or replace one typed behavior-label link."""
+        return save_project_behavior(
+            self.project_root,
+            labels,
+            behavior_name=behavior_name,
+            session_id=session_id,
+            video_role=video_role,
+            replace_existing=replace_existing,
+        )
+
+    def load_alignment(
+        self,
+        *,
+        alignment_name: str,
+        session_id: str | None = None,
+    ) -> TimebaseAlignment:
+        """Load one named timebase alignment from a recording session."""
+        return load_project_alignment(
+            self.project_root,
+            alignment_name=alignment_name,
+            session_id=session_id,
+        )
+
+    def save_alignment(
+        self,
+        alignment: TimebaseAlignment,
+        *,
+        session_id: str | None = None,
+        replace_existing: bool = True,
+    ) -> Path:
+        """Add or replace one typed timebase alignment."""
+        return save_project_alignment(
+            self.project_root,
+            alignment,
+            session_id=session_id,
+            replace_existing=replace_existing,
+        )
 
     def load_acquisition(
         self, *, session_id: str | None = None
@@ -642,4 +818,7 @@ __all__ = [
     "PoseFormat",
     "CalibrationFormat",
     "SignalFormat",
+    "EventFormat",
+    "BehaviorFormat",
+    "SynchronizationFormat",
 ]

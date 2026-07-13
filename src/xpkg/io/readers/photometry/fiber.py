@@ -16,6 +16,7 @@ import pandas as pd
 
 from xpkg._core.json_utils import parse_json_dict
 from xpkg.io.hdf5 import float_attribute
+from xpkg.io.readers._csv import read_csv_table
 from xpkg.io.readers._discovery import find_first_file
 from xpkg.io.readers._normalization import photometry_excitation as _excitation_from_name
 from xpkg.io.readers._normalization import time_scale as _time_scale
@@ -74,15 +75,8 @@ class NeurophotometricsChannelSelection(NamedTuple):
 
 
 def _read_csv(path: str | Path, *, max_mb: float | None = None) -> pd.DataFrame:
-    source_path = Path(path)
-    size_bytes = source_path.stat().st_size
-    if max_mb is not None:
-        max_bytes = int(float(max_mb) * 1024 * 1024)
-        if max_bytes <= 0:
-            raise ValueError(f"max_mb must be positive when provided, got {max_mb!r}.")
-        if size_bytes > max_bytes:
-            raise ValueError(f"CSV file '{source_path}' exceeds max load size ({max_mb} MB).")
-    return pd.read_csv(source_path)
+    frame, _size_bytes = read_csv_table(path, max_mb=max_mb)
+    return frame
 
 
 def _column(frame: pd.DataFrame, name: str) -> str:

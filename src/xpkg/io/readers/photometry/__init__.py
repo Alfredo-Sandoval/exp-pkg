@@ -14,6 +14,7 @@ from xpkg.io.readers._columns import (
     first_matching_column,
     resolve_column,
 )
+from xpkg.io.readers._csv import read_csv_table as _read_csv
 from xpkg.io.readers._normalization import time_scale as _time_scale
 from xpkg.model import (
     Event,
@@ -53,18 +54,6 @@ _EVENT_LABEL_CANDIDATES = (
 )
 _EVENT_KIND_CANDIDATES = ("kind", "type", "event_type", "category")
 _EVENT_DURATION_CANDIDATES = ("duration", "duration_s", "endurance")
-
-
-def _read_csv(path: str | Path, *, max_mb: float | None) -> tuple[pd.DataFrame, int]:
-    source_path = Path(path)
-    size_bytes = source_path.stat().st_size
-    if max_mb is not None:
-        max_bytes = int(float(max_mb) * 1024 * 1024)
-        if max_bytes <= 0:
-            raise ValueError(f"max_mb must be positive when provided, got {max_mb!r}.")
-        if size_bytes > max_bytes:
-            raise ValueError(f"CSV file '{source_path}' exceeds max load size ({max_mb} MB).")
-    return pd.read_csv(source_path), size_bytes
 
 
 def _numeric_column(frame: pd.DataFrame, column: str, *, role: str) -> np.ndarray:

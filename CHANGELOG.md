@@ -5,10 +5,28 @@ Changes for `exp-pkg`.
 The Python API and CLI are still pre-1.0. Minor releases may change those
 surfaces. The `.expkg` file layout is treated as the v1 durability contract: a
 zip container with `EXPKG.json`, a project descriptor, private `.xpkg/` state,
-and managed media metadata. Files written by 0.x releases should remain readable
-by later 0.x and 1.0 releases.
+and managed media metadata. The Python API and embedded experiment/session
+schemas remain pre-1.0 and use explicit breaking schema bumps.
 
 ## Unreleased
+
+### Added
+
+- Added project, service, and CLI imports for generic event CSV, generic
+  behavior CSV/JSON, BORIS, B-SOiD, SimBA, Keypoint-MoSeq, and paired
+  synchronization CSV.
+- Added `TimebaseCorrespondence` for paired clock observations and
+  `fit_timebase_alignment` for fitted offset and affine mappings.
+
+### Changed
+
+- Bumped `xpkg.experiment` and `xpkg.recording-session` to schema version 3.
+  The synchronization evidence change is a hard cutover; older embedded state
+  documents are rejected rather than translated through a compatibility shim.
+- Split alignment transform shape (`AlignmentModel`) from observation method
+  (`SynchronizationMethod`). Alignment residuals are derived from stored
+  correspondence evidence.
+- Consolidated bounded CSV loading into one internal reader boundary.
 
 ### Removed
 
@@ -28,12 +46,11 @@ by later 0.x and 1.0 releases.
 - Removed the duplicate inspection `warnings` string list. Use typed
   `warning_records` in the Python API and JSON output.
 
-### Compatibility policy
+### Persisted boundary exceptions
 
-- Persisted 0.x data remains readable at boundary loaders. The durable store
-  still parses the older `xpkg.archive-store` discriminator, and dataset-share
-  metadata still parses the older singular `funder` key into canonical
-  `funders`.
+- The durable store still parses the older `xpkg.archive-store` discriminator,
+  and dataset-share metadata still parses the older singular `funder` key into
+  canonical `funders`.
 - Rejected deleting those persisted-data parsers because the artifact contract
   promises that files written by 0.x releases remain readable. Interior code
   receives only the canonical objects and field names.

@@ -15,6 +15,7 @@ from xpkg.model.calibration import Calibration
 from xpkg.model.events import Event, EventTable, SyncEvent
 from xpkg.model.metadata import AcquisitionMetadata, CameraMetadata
 from xpkg.model.session import (
+    AlignmentModel,
     CalibrationCameraLink,
     RecordingSession,
     SessionBehavior,
@@ -24,6 +25,7 @@ from xpkg.model.session import (
     SessionVideo,
     SynchronizationMethod,
     TimebaseAlignment,
+    TimebaseCorrespondence,
 )
 from xpkg.model.signals import (
     PhotometryChannel,
@@ -39,7 +41,7 @@ from xpkg.pose.trajectory import (
 )
 
 RECORDING_SESSION_FORMAT = "xpkg.recording-session"
-RECORDING_SESSION_SCHEMA_VERSION = 2
+RECORDING_SESSION_SCHEMA_VERSION = 3
 
 
 def recording_session_document(
@@ -465,28 +467,32 @@ def _alignment_payload(link: TimebaseAlignment) -> dict[str, Any]:
         "name": link.name,
         "source": _timebase_payload(link.source),
         "target": _timebase_payload(link.target),
+        "model": link.model.value,
         "method": link.method.value,
         "scale": link.scale,
         "offset_s": link.offset_s,
         "residual_s": link.residual_s,
-        "evidence": [_event_payload(event) for event in link.evidence],
+        "evidence": [_correspondence_payload(item) for item in link.evidence],
         "metadata": dict(link.metadata),
     }
 
 
 def _alignment_from_payload(payload: Mapping[str, Any]) -> TimebaseAlignment:
+    raw_model = _required_str(payload, "model", context="timebase alignment")
+    try:
+        model = AlignmentModel(raw_model)
+    except ValueError as exc:
+        raise ValueError(f"Unsupported alignment model: {raw_model!r}.") from exc
     raw_method = _required_str(payload, "method", context="timebase alignment")
     try:
         method = SynchronizationMethod(raw_method)
     except ValueError as exc:
         raise ValueError(f"Unsupported synchronization method: {raw_method!r}.") from exc
     evidence = tuple(
-        _event_from_payload(item)
+        _correspondence_from_payload(item)
         for item in _required_mapping_sequence(payload, "evidence", "timebase alignment")
     )
-    if any(not isinstance(event, SyncEvent) for event in evidence):
-        raise TypeError("timebase alignment evidence must contain sync events.")
-    return TimebaseAlignment(
+    alignment = TimebaseAlignment(
         name=_required_str(payload, "name", context="timebase alignment"),
         source=_timebase_from_payload(
             _required_mapping(payload, "source", context="timebase alignment")
@@ -494,14 +500,47 @@ def _alignment_from_payload(payload: Mapping[str, Any]) -> TimebaseAlignment:
         target=_timebase_from_payload(
             _required_mapping(payload, "target", context="timebase alignment")
         ),
+        model=model,
         method=method,
         scale=_required_float(payload, "scale", context="timebase alignment"),
         offset_s=_required_float(payload, "offset_s", context="timebase alignment"),
-        residual_s=_optional_float(
-            payload.get("residual_s"), name="timebase alignment residual_s"
-        ),
-        evidence=cast("tuple[SyncEvent, ...]", evidence),
+        evidence=evidence,
         metadata=dict(_required_mapping(payload, "metadata", context="timebase alignment")),
+    )
+    stored_residual = _optional_float(
+        payload.get("residual_s"), name="timebase alignment residual_s"
+    )
+    if stored_residual != alignment.residual_s:
+        raise ValueError(
+            "timebase alignment residual_s does not match its correspondence evidence."
+        )
+    return alignment
+
+
+def _correspondence_payload(item: TimebaseCorrespondence) -> dict[str, Any]:
+    return {
+        "source_time_s": item.source_time_s,
+        "target_time_s": item.target_time_s,
+        "correspondence_id": item.correspondence_id,
+        "metadata": dict(item.metadata),
+    }
+
+
+def _correspondence_from_payload(payload: Mapping[str, Any]) -> TimebaseCorrespondence:
+    return TimebaseCorrespondence(
+        source_time_s=_required_float(
+            payload, "source_time_s", context="timebase correspondence"
+        ),
+        target_time_s=_required_float(
+            payload, "target_time_s", context="timebase correspondence"
+        ),
+        correspondence_id=_optional_str(
+            payload.get("correspondence_id"),
+            name="timebase correspondence correspondence_id",
+        ),
+        metadata=dict(
+            _required_mapping(payload, "metadata", context="timebase correspondence")
+        ),
     )
 
 

@@ -23,7 +23,7 @@ def _load_exports(package: str) -> Mapping[str, tuple[str, str]]:
 
 
 def _import_lines(exports: Mapping[str, tuple[str, str]], *, indent: str = "") -> list[str]:
-    def sort_key(item: tuple[str, tuple[str, str]]) -> tuple[str, int, str]:
+    def sort_key(item: tuple[str, tuple[str, str]]) -> tuple[int, str, int, str]:
         module_name, attribute_name = item[1]
         if attribute_name.isupper():
             name_kind = 0
@@ -31,10 +31,15 @@ def _import_lines(exports: Mapping[str, tuple[str, str]], *, indent: str = "") -
             name_kind = 1
         else:
             name_kind = 2
-        return module_name, name_kind, attribute_name.casefold()
+        return int(module_name.startswith(".")), module_name, name_kind, attribute_name.casefold()
 
     lines: list[str] = []
+    relative_group: bool | None = None
     for public_name, (module_name, attribute_name) in sorted(exports.items(), key=sort_key):
+        is_relative = module_name.startswith(".")
+        if relative_group is not None and is_relative != relative_group:
+            lines.append("")
+        relative_group = is_relative
         statement = f"from {module_name} import {attribute_name} as {public_name}"
         if len(indent + statement) <= 100:
             lines.append(indent + statement)

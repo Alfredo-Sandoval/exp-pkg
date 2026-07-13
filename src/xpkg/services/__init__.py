@@ -6,7 +6,9 @@ from xpkg.services.artifacts import ProjectArtifacts
 from xpkg.services.calibrations import ProjectCalibrations
 from xpkg.services.figures import ProjectFigures
 from xpkg.services.project import (
+    BehaviorFormat,
     CalibrationFormat,
+    EventFormat,
     PoseFormat,
     ProjectInspection,
     ProjectLayout,
@@ -14,6 +16,7 @@ from xpkg.services.project import (
     ProjectSegmentation,
     ProjectService,
     SignalFormat,
+    SynchronizationFormat,
 )
 
 __all__ = [
@@ -26,6 +29,9 @@ __all__ = [
     "ProjectMetadata",
     "ProjectSegmentation",
     "PoseFormat",
+    "BehaviorFormat",
     "CalibrationFormat",
+    "EventFormat",
     "SignalFormat",
+    "SynchronizationFormat",
 ]

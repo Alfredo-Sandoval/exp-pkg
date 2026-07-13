@@ -16,6 +16,7 @@ from xpkg.io.readers._columns import (
     first_matching_column,
     resolve_column,
 )
+from xpkg.io.readers._csv import csv_size_bytes, read_csv_table
 from xpkg.io.readers._normalization import time_scale as _time_scale
 from xpkg.model import BehaviorFrameLabel, BehaviorInterval, BehaviorLabels
 
@@ -857,19 +858,11 @@ def _required_float(payload: Mapping[str, Any], key: str) -> float:
 
 
 def _csv_size_bytes(path: Path, *, max_mb: float | None) -> int:
-    size_bytes = path.stat().st_size
-    if max_mb is not None:
-        max_bytes = int(float(max_mb) * 1024 * 1024)
-        if max_bytes <= 0:
-            raise ValueError(f"max_mb must be positive when provided, got {max_mb!r}.")
-        if size_bytes > max_bytes:
-            raise ValueError(f"Behavior CSV '{path}' exceeds max load size ({max_mb} MB).")
-    return size_bytes
+    return csv_size_bytes(path, max_mb=max_mb, error_label="Behavior CSV")
 
 
 def _read_csv(path: Path, *, max_mb: float | None) -> tuple[pd.DataFrame, int]:
-    size_bytes = _csv_size_bytes(path, max_mb=max_mb)
-    return pd.read_csv(path), size_bytes
+    return read_csv_table(path, max_mb=max_mb, error_label="Behavior CSV")
 
 
 def _clean_required_text(value: str, *, role: str) -> str:

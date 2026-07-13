@@ -15,8 +15,8 @@ The current focus is intentionally narrow:
 
 - project folder + private `.xpkg/` state + portable `.expkg` artifact
 - `ProjectService` lifecycle API
-- service and CLI project importers for pose, calibration, and generic
-  photometry CSV
+- service and CLI project importers for pose, calibration, generic photometry,
+  events, behavior, and paired timebase synchronization
 - versioned `Experiment` project state for subjects, protocols, conditions,
   recording sessions, modalities, timing, and provenance
 - read-only `xpkg inspect PATH --json` for projects, media, common tables,
@@ -33,7 +33,8 @@ The next useful work is still about IO contracts, not analysis surface:
 - keep project pickers shallow through descriptors and generated summaries
 - make media handling more predictable for GUI consumers
 - keep pose importers fast, typed, and provenance-aware
-- add event and synchronization import actions to session state
+- add more source-specific synchronization adapters only when they provide
+  paired clock observations or an equally explicit timing contract
 - add more calibration and 3D pose boundary adapters
 - improve inspect-first CLI behavior before mutating projects
 - treat behavior segmentation outputs as imported data products, not algorithms
@@ -49,10 +50,10 @@ Project-bound imports are narrower by design. New direct readers should only
 become `ProjectService` importers when they have a clear project-storage
 contract, validation story, and portability behavior.
 
-Generic photometry CSV is the first signal importer to meet that bar. It
-copies the source into managed media, records its checksum and relative path,
-commits a typed session inside experiment state and survives `.expkg`
-pack/unpack.
+Generic photometry CSV, generic event CSV, and the supported behavior formats
+meet that bar. They copy source files into managed media, record checksums and
+relative paths, commit typed objects inside experiment state, and survive
+`.expkg` pack/unpack.
 
 ## Non-Goals
 

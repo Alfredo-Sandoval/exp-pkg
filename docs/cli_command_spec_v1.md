@@ -199,8 +199,9 @@ xpkg project init "./My Project" --title "My Project"
 ## `xpkg import`
 
 Import supported external data into a project. The CLI mirrors the
-``ProjectService`` Python dispatch surface and exposes three families
-(``pose``, ``calibration``, ``signals``). Each takes a kebab-case ``format``
+``ProjectService`` Python dispatch surface and exposes six families
+(``pose``, ``calibration``, ``signals``, ``events``, ``behavior``,
+``synchronization``). Each takes a kebab-case ``format``
 positional argument that matches the corresponding service method.
 
 ### Synopsis
@@ -219,6 +220,14 @@ xpkg import calibration anipose --path rig.toml --out "./My Project"
 xpkg import calibration opencv-stereo-yaml --path stereo.yml --out "./My Project"
 
 xpkg import signals photometry-csv --path photometry.csv --out "./My Project" --session-id session-001
+xpkg import events events-csv --path events.csv --out "./My Project" --session-id session-001
+xpkg import behavior behavior-csv --path behavior.csv --out "./My Project" --session-id session-001
+xpkg import behavior behavior-json --path behavior.json --out "./My Project" --session-id session-001
+xpkg import behavior boris-csv --path boris.csv --out "./My Project" --session-id session-001
+xpkg import behavior bsoid-csv --path bsoid.csv --out "./My Project" --session-id session-001
+xpkg import behavior simba-csv --path simba.csv --out "./My Project" --session-id session-001
+xpkg import behavior keypoint-moseq-csv --path syllables.csv --out "./My Project" --session-id session-001
+xpkg import synchronization synchronization-csv --path sync.csv --out "./My Project" --source-timebase camera --target-timebase daq --session-id session-001
 
 ```
 
@@ -235,6 +244,14 @@ xpkg import signals photometry-csv --path photometry.csv --out "./My Project" --
 - `xpkg import calibration anipose`
 - `xpkg import calibration opencv-stereo-yaml`
 - `xpkg import signals photometry-csv`
+- `xpkg import events events-csv`
+- `xpkg import behavior behavior-csv`
+- `xpkg import behavior behavior-json`
+- `xpkg import behavior boris-csv`
+- `xpkg import behavior bsoid-csv`
+- `xpkg import behavior simba-csv`
+- `xpkg import behavior keypoint-moseq-csv`
+- `xpkg import synchronization synchronization-csv`
 
 ### Required behavior
 

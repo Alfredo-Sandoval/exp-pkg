@@ -194,8 +194,8 @@ sequenceDiagram
 - `xpkg.project` — free functions (`init_project`, `pack_project`,
   `validate_project`, path helpers)
 
-`ProjectService` is the public import path for pose, calibration, and generic
-photometry CSV. Event and behavior sources remain direct readers today.
+`ProjectService` is the public import path for pose, calibration, generic
+photometry CSV, event CSV, and supported behavior outputs.
 </div>
 
 </div>

@@ -71,6 +71,39 @@ trial_events = events.query(kind="trial")
 events_during_window = events.query(overlaps=TimeRange(10.0, 11.0))
 ```
 
+### Synchronization
+
+`SyncEvent` records one marker on one timeline. Alignment evidence uses
+`TimebaseCorrespondence` instead because clock synchronization requires paired
+observations of the same instant in source and target timebases.
+
+`AlignmentModel` declares the mathematical transform (`offset` or `affine`).
+`SynchronizationMethod` declares how the observations were obtained (`pulses`,
+`timestamps`, or `manual`). `fit_timebase_alignment(...)` fits coefficients
+from the pairs and derives residual error from the stored evidence.
+
+```python
+from xpkg.model import (
+    AlignmentModel,
+    SynchronizationMethod,
+    Timebase,
+    TimebaseCorrespondence,
+    fit_timebase_alignment,
+)
+
+alignment = fit_timebase_alignment(
+    name="camera-to-daq",
+    source=Timebase(name="camera"),
+    target=Timebase(name="daq"),
+    model=AlignmentModel.AFFINE,
+    method=SynchronizationMethod.PULSES,
+    evidence=(
+        TimebaseCorrespondence(0.0, 0.25, correspondence_id="pulse-1"),
+        TimebaseCorrespondence(10.0, 10.35, correspondence_id="pulse-2"),
+    ),
+)
+```
+
 ### Behavior Labels
 
 `BehaviorLabels` is the ethogram-oriented layer above generic events. It can
@@ -147,9 +180,9 @@ print(session.time_range)
 ## Current Boundary
 
 The session/time/events/signals classes are available as model objects and as
-versioned project state. Generic photometry CSV is the first complete import
-path through the service, CLI, durable store, shallow summary, validation, and
-portable artifact layers.
+versioned project state. Photometry, events, behavior, and synchronization all
+have complete paths through the service, CLI, durable store, shallow summary,
+validation, and portable artifact layers.
 
 Implemented now:
 
@@ -162,7 +195,14 @@ Implemented now:
 - versioned `xpkg.recording-session` and `xpkg.experiment` JSON serialization
 - governed `save_project_session` and `load_project_session` actions
 - `project.import_signals("photometry-csv", ...)`
+- `project.import_events("events-csv", ...)`
+- `project.import_behavior(FORMAT, ...)` for generic, BORIS, B-SOiD, SimBA,
+  and Keypoint-MoSeq behavior outputs
+- `project.import_synchronization("synchronization-csv", ...)`
 - `xpkg import signals photometry-csv ...`
+- `xpkg import events events-csv ...`
+- `xpkg import behavior FORMAT ...`
+- `xpkg import synchronization synchronization-csv ...`
 - direct readers for photometry CSV, event CSV, pMAT CSV, pyPhotometry PPD/CSV,
   RWD OFRS, Neurophotometrics CSV, Doric `.doric`, Teleopto H5, and optional
   TDT tank/block streams
@@ -184,9 +224,6 @@ Explicitly not part of the fiber-photometry layer:
 
 Still ahead:
 
-- `read_sync_csv(...)`
-- `project.import_signals("events-csv", ...)` (planned)
-- `project.import_signals("sync-csv", ...)` (planned)
 - richer `xpkg inspect --json` associated-media and sync checks
 - import coverage for acquisition evidence such as dropped frames, hardware
   sync, and timing uncertainty
@@ -194,8 +231,8 @@ Still ahead:
   media, missing columns, keypoint identity/confidence fields, and sync coverage
 - broader FAIR/share metadata for software producers, parameter summaries,
   coordinate systems, and experimental context
-- project import/storage for behavior segmentation outputs from upstream tools
-  or lab workflows
+- additional behavior adapters when an upstream format carries semantics not
+  represented by the current generic and source-specific readers
 
 ## Shallow Acquisition QC Evidence
 
@@ -244,6 +281,17 @@ Warnings should stay evidence-gated:
 - Treat behavior segmentation as imported interval or label data. `xpkg` may
   store outputs from tools such as SimBA, MARS, B-SOID, VAME, MoSeq, or local
   classifiers, but should not claim to train or run those algorithms.
+
+## Rejected Synchronization Designs
+
+- **Single-timestamp events as alignment evidence.** Rejected because one
+  `SyncEvent` identifies an instant in only one clock. An alignment requires a
+  first-class pair of source and target observations, so evidence is stored as
+  `TimebaseCorrespondence` objects.
+- **One enum for transform shape and observation method.** Rejected because
+  `offset` and `affine` describe the mathematical mapping, while `pulses`,
+  `timestamps`, and `manual` describe how the mapping was established. Mixing
+  those concepts permits contradictory states and prevents precise queries.
 
 ## Session Contract Priorities
 

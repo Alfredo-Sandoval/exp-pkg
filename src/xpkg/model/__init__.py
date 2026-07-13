@@ -93,6 +93,7 @@ if TYPE_CHECKING:
     from xpkg.model.reporting import ModelCardFactors as ModelCardFactors
     from xpkg.model.reporting import ModelCardIntendedUse as ModelCardIntendedUse
     from xpkg.model.reporting import ModelCardMetrics as ModelCardMetrics
+    from xpkg.model.session import AlignmentModel as AlignmentModel
     from xpkg.model.session import CalibrationCameraLink as CalibrationCameraLink
     from xpkg.model.session import RecordingSession as RecordingSession
     from xpkg.model.session import SessionBehavior as SessionBehavior
@@ -102,6 +103,7 @@ if TYPE_CHECKING:
     from xpkg.model.session import SessionVideo as SessionVideo
     from xpkg.model.session import SynchronizationMethod as SynchronizationMethod
     from xpkg.model.session import TimebaseAlignment as TimebaseAlignment
+    from xpkg.model.session import TimebaseCorrespondence as TimebaseCorrespondence
     from xpkg.model.session_actions import (
         InvalidSessionTransitionError as InvalidSessionTransitionError,
     )
@@ -111,6 +113,7 @@ if TYPE_CHECKING:
     from xpkg.model.session_actions import add_session_signal as add_session_signal
     from xpkg.model.session_actions import add_session_video as add_session_video
     from xpkg.model.session_actions import add_timebase_alignment as add_timebase_alignment
+    from xpkg.model.session_actions import fit_timebase_alignment as fit_timebase_alignment
     from xpkg.model.session_actions import (
         replace_session_acquisition as replace_session_acquisition,
     )
@@ -159,6 +162,7 @@ if TYPE_CHECKING:
 
 __all__ = [
     "AcquisitionMetadata",
+    "AlignmentModel",
     "BEHAVIOR_LABELS_SCHEMA_VERSION",
     "BehaviorEmbedding",
     "BehaviorFrameLabel",
@@ -248,6 +252,7 @@ __all__ = [
     "TimeSeries",
     "Timebase",
     "TimebaseAlignment",
+    "TimebaseCorrespondence",
     "Timeline",
     "Track",
     "Video",
@@ -265,6 +270,7 @@ __all__ = [
     "add_timebase_alignment",
     "build_keypoint_skeleton",
     "build_prediction_stub",
+    "fit_timebase_alignment",
     "is_predicted_instance",
     "load_skeleton",
     "load_skeleton_dlc",

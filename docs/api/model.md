@@ -87,8 +87,9 @@ model outputs.
 ### Timing, events, and signals
 
 - `Timebase`, `Timeline`, and `TimeRange` define shared time coordinates.
-- `Event`, `SyncEvent`, and `EventTable` represent behavior and synchronization
-  markers on those timelines.
+- `Event`, `SyncEvent`, and `EventTable` represent markers on individual
+  timelines. `TimebaseCorrespondence` pairs observations of the same instant
+  across two clocks, and `TimebaseAlignment` stores the fitted mapping.
 - `BehaviorInterval`, `BehaviorFrameLabel`, `BehaviorEmbedding`, and
   `BehaviorLabels` represent ethogram outputs from human annotation or behavior
   analysis packages. Time-indexed intervals can be projected to `EventTable`.
@@ -137,9 +138,9 @@ project ontology. `xpkg.readers.read_photometry_csv`,
 the pMAT CSV readers, and the behavior CSV readers including
 `xpkg.readers.read_bsoid_csv`, `xpkg.readers.read_simba_csv`, and
 `xpkg.readers.read_keypoint_moseq_syllables_csv` are direct APIs on top of this
-model. Generic photometry CSV also imports through
-`ProjectService.import_signals`. Sync and event project imports are planned
-next; see
+model. Generic photometry CSV, generic event CSV, and supported behavior
+outputs also import through `ProjectService`. Paired synchronization CSV imports
+through `ProjectService.import_synchronization`; see
 [Multimodal Session Model](../architecture/multimodal-session.md).
 
 ### Geometry and identity

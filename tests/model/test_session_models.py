@@ -7,6 +7,7 @@ import numpy as np
 import pytest
 
 from xpkg.model import (
+    AlignmentModel,
     Event,
     EventTable,
     PhotometryChannel,
@@ -16,12 +17,16 @@ from xpkg.model import (
     SessionVideo,
     SignalChannel,
     SyncEvent,
+    SynchronizationMethod,
     Timebase,
+    TimebaseAlignment,
+    TimebaseCorrespondence,
     Timeline,
     TimeRange,
     TimeSeries,
     add_session_signal,
     add_session_video,
+    fit_timebase_alignment,
     replace_session_events,
 )
 from xpkg.model.session_actions import InvalidSessionTransitionError
@@ -185,6 +190,62 @@ def test_sync_event_rejects_unclean_source(
 ) -> None:
     with pytest.raises(exc_type, match=message):
         SyncEvent(kind="sync", start_s=1.0, source=source)
+
+
+def test_timebase_alignment_fits_paired_affine_correspondences() -> None:
+    alignment = fit_timebase_alignment(
+        name="camera-to-daq",
+        source=Timebase(name="camera"),
+        target=Timebase(name="daq"),
+        model=AlignmentModel.AFFINE,
+        method=SynchronizationMethod.PULSES,
+        evidence=(
+            TimebaseCorrespondence(0.0, 0.25, correspondence_id="pulse-1"),
+            TimebaseCorrespondence(10.0, 10.35, correspondence_id="pulse-2"),
+            TimebaseCorrespondence(20.0, 20.45, correspondence_id="pulse-3"),
+        ),
+    )
+
+    assert alignment.scale == pytest.approx(1.01)
+    assert alignment.offset_s == pytest.approx(0.25)
+    assert alignment.residual_s == pytest.approx(0.0, abs=1e-12)
+    assert alignment.map_time(5.0) == pytest.approx(5.3)
+
+
+def test_alignment_model_and_observation_method_are_distinct_types() -> None:
+    with pytest.raises(ValueError, match="requires paired correspondence evidence"):
+        TimebaseAlignment(
+            name="camera-to-daq",
+            source=Timebase(name="camera"),
+            target=Timebase(name="daq"),
+            model=AlignmentModel.OFFSET,
+            method=SynchronizationMethod.PULSES,
+        )
+    with pytest.raises(ValueError, match="requires scale=1.0"):
+        TimebaseAlignment(
+            name="manual-offset",
+            source=Timebase(name="camera"),
+            target=Timebase(name="daq"),
+            model=AlignmentModel.OFFSET,
+            method=SynchronizationMethod.MANUAL,
+            scale=1.1,
+        )
+
+
+def test_recording_session_alignment_accessor_returns_typed_link() -> None:
+    alignment = TimebaseAlignment(
+        name="camera-to-daq",
+        source=Timebase(name="camera"),
+        target=Timebase(name="daq"),
+        model=AlignmentModel.OFFSET,
+        method=SynchronizationMethod.MANUAL,
+        offset_s=0.25,
+    )
+    session = RecordingSession(session_id="session-1", alignments=(alignment,))
+
+    assert session.alignment("camera-to-daq") is alignment
+    with pytest.raises(KeyError, match="has no alignment"):
+        session.alignment("missing")
 
 
 def test_time_series_and_photometry_recording_validate_channels() -> None:

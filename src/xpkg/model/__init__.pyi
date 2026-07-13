@@ -81,6 +81,7 @@ from xpkg.model.reporting import ModelCardDetails as ModelCardDetails
 from xpkg.model.reporting import ModelCardFactors as ModelCardFactors
 from xpkg.model.reporting import ModelCardIntendedUse as ModelCardIntendedUse
 from xpkg.model.reporting import ModelCardMetrics as ModelCardMetrics
+from xpkg.model.session import AlignmentModel as AlignmentModel
 from xpkg.model.session import CalibrationCameraLink as CalibrationCameraLink
 from xpkg.model.session import RecordingSession as RecordingSession
 from xpkg.model.session import SessionBehavior as SessionBehavior
@@ -90,6 +91,7 @@ from xpkg.model.session import SessionSignal as SessionSignal
 from xpkg.model.session import SessionVideo as SessionVideo
 from xpkg.model.session import SynchronizationMethod as SynchronizationMethod
 from xpkg.model.session import TimebaseAlignment as TimebaseAlignment
+from xpkg.model.session import TimebaseCorrespondence as TimebaseCorrespondence
 from xpkg.model.session_actions import (
     InvalidSessionTransitionError as InvalidSessionTransitionError,
 )
@@ -99,6 +101,7 @@ from xpkg.model.session_actions import add_session_pose as add_session_pose
 from xpkg.model.session_actions import add_session_signal as add_session_signal
 from xpkg.model.session_actions import add_session_video as add_session_video
 from xpkg.model.session_actions import add_timebase_alignment as add_timebase_alignment
+from xpkg.model.session_actions import fit_timebase_alignment as fit_timebase_alignment
 from xpkg.model.session_actions import replace_session_acquisition as replace_session_acquisition
 from xpkg.model.session_actions import replace_session_behavior as replace_session_behavior
 from xpkg.model.session_actions import replace_session_calibration as replace_session_calibration

@@ -19,7 +19,9 @@ for lower-level project layout, artifact, validation, and payload operations.
 ## Start Here
 
 - Use <code>xpkg.services.ProjectService</code> for the normal create/open/import/validate/pack/unpack lifecycle.
-- Use <code>ProjectService.import_pose</code>, <code>import_calibration</code>, or <code>import_signals</code> for the preferred service-bound import flow.
+- Use <code>ProjectService.import_pose</code>, <code>import_calibration</code>,
+  <code>import_signals</code>, <code>import_events</code>, or
+  <code>import_behavior</code> for the preferred service-bound import flow.
 
 ## Project Contract
 

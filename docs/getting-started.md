@@ -188,9 +188,36 @@ project.import_signals(
 session = project.load_session()
 ```
 
+Import events and behavior labels into the same session:
+
+```python
+from xpkg.model import AlignmentModel, SynchronizationMethod, Timebase
+
+project.import_events(
+    "events-csv",
+    path="events.csv",
+    session_id="session-001",
+)
+project.import_behavior(
+    "boris-csv",
+    path="observations.csv",
+    behavior_name="manual-observations",
+    session_id="session-001",
+)
+project.import_synchronization(
+    "synchronization-csv",
+    path="sync.csv",
+    source_timebase=Timebase(name="camera"),
+    target_timebase=Timebase(name="daq"),
+    model=AlignmentModel.AFFINE,
+    method=SynchronizationMethod.PULSES,
+    session_id="session-001",
+)
+```
+
 Read [Multimodal Session Model](architecture/multimodal-session.md) for the
-current object and storage contract and [Roadmap](roadmap.md) for the remaining
-event, synchronization, and behavior project-import work.
+current object and storage contract and [Roadmap](roadmap.md) for remaining
+format coverage.
 
 ## Save figure artifacts
 
@@ -326,14 +353,20 @@ The same project-first pattern is available for:
 - `project.import_pose("mmpose-topdown-json", ...)`
 - `project.import_pose("mediapipe-pose-landmarks-json", ...)`
 - `project.import_signals("photometry-csv", ...)`
+- `project.import_events("events-csv", ...)`
+- `project.import_behavior("behavior-csv", ...)` and `project.import_behavior("behavior-json", ...)`
+- `project.import_behavior("boris-csv", ...)`, `project.import_behavior("bsoid-csv", ...)`,
+  `project.import_behavior("simba-csv", ...)`, and
+  `project.import_behavior("keypoint-moseq-csv", ...)`
+- `project.import_synchronization("synchronization-csv", ...)`
 
 Use the `ProjectService` dispatch methods as the primary integration surface
 for new code.
 
-Photometry and event-table CSV readers are available as direct reader APIs.
-Generic photometry CSV is also a project import. Sync CSV and project actions
-for event tables are the next planned modality work on top of the
-timing/events/signals model layer.
+Photometry, event-table, and behavior readers remain available as direct APIs.
+Their supported project importers copy backing files into managed media and
+record portable provenance. Synchronization CSV uses paired source/target
+observations and stores the fitted transform with its derived residual.
 
 ## In-memory Adapters API
 

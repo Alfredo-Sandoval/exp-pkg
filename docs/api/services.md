@@ -156,7 +156,7 @@ session_state = project.load_state_metadata_field("session_json")
 
 ## Service-Bound Import Surface
 
-Three dispatch methods on `ProjectService` cover all supported importers,
+Six dispatch methods on `ProjectService` cover all supported importers,
 selecting a package-owned implementation by kebab-case ``format`` string:
 
 | Service call | Format implementation |
@@ -172,6 +172,14 @@ selecting a package-owned implementation by kebab-case ``format`` string:
 | `project.import_calibration("anipose", path=...)` | Anipose calibration TOML |
 | `project.import_calibration("opencv-stereo-yaml", path=...)` | OpenCV stereo calibration YAML |
 | `project.import_signals("photometry-csv", path=...)` | Generic photometry CSV |
+| `project.import_events("events-csv", path=...)` | Generic event CSV |
+| `project.import_behavior("behavior-csv", path=...)` | Generic behavior CSV |
+| `project.import_behavior("behavior-json", path=...)` | Generic behavior JSON |
+| `project.import_behavior("boris-csv", path=...)` | BORIS event CSV |
+| `project.import_behavior("bsoid-csv", path=...)` | B-SOiD label or bout CSV |
+| `project.import_behavior("simba-csv", path=...)` | SimBA classifier CSV |
+| `project.import_behavior("keypoint-moseq-csv", path=...)` | Keypoint-MoSeq syllable CSV |
+| `project.import_synchronization("synchronization-csv", path=..., source_timebase=..., target_timebase=..., model=..., method=...)` | Paired clock observations |
 The service dispatch is the public path for new project-facing code.
 
 ## Multimodal Reader And Import Plan
@@ -201,25 +209,35 @@ readers.read_simba_csv(...)
 readers.read_keypoint_moseq_syllables_csv(...)
 ```
 
-Generic photometry CSV has service-bound dispatch and persists a typed,
-versioned `RecordingSession`:
+Generic photometry, events, and behavior have service-bound dispatch and
+persist typed, versioned `RecordingSession` state:
 
 ```python
 project.import_signals("photometry-csv", path=...)
+project.import_events("events-csv", path=...)
+project.import_behavior("boris-csv", path=..., behavior_name="observations")
 session = project.load_session()
 ```
 
-Event and synchronization project imports remain planned:
+Paired synchronization observations import through the typed alignment path:
 
 ```python
-project.import_signals("events-csv", path=...)
-project.import_signals("sync-csv", path=...)
+from xpkg.model import AlignmentModel, SynchronizationMethod, Timebase
+
+project.import_synchronization(
+    "synchronization-csv",
+    path="sync.csv",
+    source_timebase=Timebase(name="camera"),
+    target_timebase=Timebase(name="daq"),
+    model=AlignmentModel.AFFINE,
+    method=SynchronizationMethod.PULSES,
+)
 ```
 
-The remaining direct reader planned in this family is:
+The corresponding direct reader is:
 
 ```python
-readers.read_sync_csv(...)
+readers.read_synchronization_csv(...)
 ```
 
 The fiber-photometry surface intentionally excludes imaging/miniscope and

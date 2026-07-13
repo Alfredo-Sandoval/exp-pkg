@@ -14,9 +14,10 @@ synchronized video, events, behavior labels, calibration, and sharing metadata.
 
 It imports external formats, normalizes them into canonical `xpkg` objects,
 stores them in a project-first contract, and emits portable `.expkg`
-artifacts. The project import surface covers pose, calibration, and generic
-photometry CSV. Other signal and behavior formats remain direct readers until
-they have an explicit project-storage and portability contract.
+artifacts. The project import surface covers pose, calibration, generic
+photometry CSV, event CSV, and behavior outputs from generic exports, BORIS,
+B-SOiD, SimBA, and Keypoint-MoSeq. Paired synchronization CSV imports produce
+evidence-backed timebase alignments.
 
 This repo is not an analysis platform. It is the IO layer that analysis tools,
 GUIs, and automation can build on when they need a coherent project surface
@@ -77,6 +78,7 @@ Choose the public surface by job:
 | Create, open, import into, validate, pack, or unpack a project | `xpkg.services.ProjectService` |
 | Import foreign pose or calibration data into a project you already manage through the service | `project.import_pose(format, ...)` / `import_calibration(format, ...)` |
 | Import generic photometry CSV into typed recording-session state | `project.import_signals("photometry-csv", path=...)` |
+| Import events or behavior labels into typed recording-session state | `project.import_events(...)` / `project.import_behavior(...)` |
 | Save or load typed recording-session state | `project.save_session(...)` / `project.load_session()` |
 | Save or load the complete experiment aggregate | `project.save_experiment(...)` / `project.load_experiment()` |
 | Register figures, tables, analyses, reports, or other output artifacts | `project.artifacts.*` from `xpkg.services.ProjectService` |
@@ -106,9 +108,13 @@ The shipped service and CLI project import surface currently covers:
 - MMPose top-down demo JSON (`--save-predictions`)
 - MediaPipe pose-landmarks JSON
 - Generic photometry CSV
+- Generic event CSV
+- Paired synchronization CSV
+- Generic behavior-event CSV and JSON
+- BORIS, B-SOiD, SimBA, and Keypoint-MoSeq CSV outputs
 
-There are two tiers here. Project imports (pose, calibration, and generic
-photometry CSV) go
+There are two tiers here. Project imports (pose, calibration, generic
+photometry CSV, events, and behavior) go
 through `ProjectService` and the CLI, write project state, and produce portable
 `.expkg` artifacts. Other direct readers parse a file into typed in-memory
 objects and stop there.
@@ -118,7 +124,7 @@ for:
 
 - Generic photometry CSV and event CSV
 - Generic behavior-event CSV and JSON
-- BORIS, SimBA, and Keypoint-MoSeq behavior CSV outputs
+- BORIS, B-SOiD, SimBA, and Keypoint-MoSeq behavior CSV outputs
 - pMAT-compatible photometry/event CSV
 - pyPhotometry PPD and CSV+JSON
 - RWD OFRS CSV session bundles
@@ -126,8 +132,9 @@ for:
 - Doric `.doric` photometry containers
 - Teleopto H5 exports
 - TDT tank/block photometry streams through the optional `tdt` package
-These signal and behavior readers are experimental. Generic photometry CSV is
-the first signal format reachable through `ProjectService` and the CLI.
+These readers remain useful for project-free conversion. The generic event and
+behavior readers listed above are also reachable through `ProjectService` and
+the CLI with managed source provenance.
 
 ## What It Does
 
@@ -148,7 +155,8 @@ Implemented today:
 
 - canonical annotation and media data objects
 - canonical behavior-label objects for intervals, framewise motifs, and embeddings
-- service/CLI project importers for pose, calibration, and generic photometry CSV
+- service/CLI project importers for pose, calibration, generic photometry CSV,
+  generic events, behavior labels, and paired clock synchronization
 - direct readers for signal, event, behavior, pose, and calibration files
 - project/store/artifact lifecycle operations
 - media-aware packaging and portable exports
@@ -158,8 +166,8 @@ Mission direction:
 
 - keep xpkg narrow as the stable multimodal neuroscience IO and artifact boundary
 - support more external ecosystems through project importers
-- extend importer coverage across pose, video, behavior, events, and
-  synchronization data without adding parallel ontologies
+- extend importer coverage across pose, video, signals, calibration, and
+  acquisition systems without adding parallel ontologies
 - make downstream analysis and GUI repos depend on xpkg instead of inventing
   their own project formats
 - keep project storage centered on projects and portable `.expkg` exports
@@ -182,21 +190,30 @@ this state.
 | MMPose | Top-down demo JSON (`--save-predictions`) | Supported |
 | MediaPipe | Pose landmarks JSON | Supported |
 | Generic photometry | CSV | Supported as a session signal in experiment state |
+| Generic events | CSV | Supported as the session event table |
+| Generic behavior events | CSV / JSON | Supported as named session behavior links |
+| BORIS | Event CSV | Supported as a named session behavior link |
+| B-SOiD | Label or bout CSV | Supported as a named session behavior link |
+| SimBA | Classifier CSV | Supported as a named session behavior link |
+| Keypoint-MoSeq | Syllable CSV | Supported as a named session behavior link |
+| Paired timebases | Synchronization CSV | Supported as an evidence-backed session alignment |
 
 ## Supported Direct Readers (experimental)
 
 These readers parse files into typed in-memory objects through `xpkg.readers`.
-Generic photometry CSV also has a project importer. The remaining entries do
-not yet have project actions or `.expkg` integration.
+Generic photometry, event CSV, generic behavior files, BORIS, B-SOiD, SimBA,
+and Keypoint-MoSeq also have project importers. The remaining entries do not
+yet have project actions or `.expkg` integration.
 
 | Source | Format | Status |
 |--------|--------|--------|
 | Generic photometry | CSV | Direct reader and project importer |
-| Generic events | CSV | Direct reader (experimental) |
-| Generic behavior events | CSV / JSON | Direct reader (experimental) |
-| BORIS | Tabular event CSV | Direct reader (experimental) |
-| SimBA | Framewise classifier CSV | Direct reader (experimental) |
-| Keypoint-MoSeq | Syllable CSV | Direct reader (experimental) |
+| Generic events | CSV | Direct reader and project importer |
+| Generic behavior events | CSV / JSON | Direct reader and project importer |
+| BORIS | Tabular event CSV | Direct reader and project importer |
+| B-SOiD | Label or bout CSV | Direct reader and project importer |
+| SimBA | Framewise classifier CSV | Direct reader and project importer |
+| Keypoint-MoSeq | Syllable CSV | Direct reader and project importer |
 | pMAT | Photometry/event CSV | Direct reader (experimental) |
 | pyPhotometry | PPD, CSV+JSON | Direct reader (experimental) |
 | RWD OFRS | CSV session bundle | Direct reader (experimental) |
@@ -374,8 +391,9 @@ make docs-serve    # live preview at localhost:8123
 The `.expkg` on-disk artifact format is the versioned durability contract. The
 format is the zip container, the root `EXPKG.json` manifest, and the three-class
 layout below: the editable project folder, the private `.xpkg/` store, and the
-portable `.expkg` export. Files written by 0.x releases should remain readable
-by later 0.x and 1.0 releases.
+portable `.expkg` export. Embedded experiment and recording-session documents
+are separate pre-1.0 schemas and reject unsupported versions after explicit
+breaking bumps.
 
 The Python API and CLI command surface are a separate concern. They are 0.x and
 pre-1.0, and may still change before 1.0. The documents in
@@ -407,9 +425,10 @@ command surface, which is still pre-1.0 and may change, is in
 
 ### Stability
 
-- `.expkg` on-disk format (zip container, `EXPKG.json` manifest, and the
-  project / `.xpkg/` / `.expkg` three-class layout) = versioned contract. Files written
-  by 0.x should stay readable.
+- `.expkg` outer format (zip container, `EXPKG.json` manifest, and the project /
+  `.xpkg/` / `.expkg` three-class layout) = versioned contract.
+- Embedded experiment and recording-session documents = pre-1.0 versioned
+  schemas. Breaking ontology changes bump the schema and reject old state.
 - Python API and CLI command surface = 0.x, pre-1.0, may change before 1.0.
 
 ## CLI
@@ -422,6 +441,9 @@ xpkg import pose dlc-csv --path tracking.csv --video video.mp4 --out "./My Proje
 xpkg import pose lightning-pose-csv --path predictions.csv --video video.mp4 --out "./My Project"
 xpkg import pose sleap-package --path labels.pkg.slp --out "./My Project"
 xpkg import signals photometry-csv --path photometry.csv --out "./My Project" --session-id session-001
+xpkg import events events-csv --path events.csv --out "./My Project" --session-id session-001
+xpkg import behavior boris-csv --path observations.csv --out "./My Project" --session-id session-001
+xpkg import synchronization synchronization-csv --path sync.csv --out "./My Project" --source-timebase camera --target-timebase daq --session-id session-001
 xpkg inspect tracking.csv --json
 xpkg project pack "./My Project"
 xpkg project pack "./My Project" --media package

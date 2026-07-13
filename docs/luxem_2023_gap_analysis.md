@@ -81,8 +81,8 @@ and evidence-based inspection, not parallel models:
 
 1. Add 3D result importers for common Anipose, DANNCE, DeepFly3D, and related
    exports.
-2. Add project actions and importers for event, behavior, and synchronization
-   files.
+2. Add source-specific synchronization adapters beyond the implemented generic
+   paired-time CSV contract when real acquisition exports justify them.
 3. Add Kalibr and MC-Calib calibration importers.
 4. Add shallow acquisition and synchronization QC only when the source records
    the required evidence.

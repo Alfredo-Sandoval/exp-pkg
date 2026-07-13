@@ -9,18 +9,87 @@ from typing import Any
 from xpkg.model.events import EventTable
 from xpkg.model.metadata import AcquisitionMetadata
 from xpkg.model.session import (
+    AlignmentModel,
     RecordingSession,
     SessionBehavior,
     SessionCalibration,
     SessionPose,
     SessionSignal,
     SessionVideo,
+    SynchronizationMethod,
     TimebaseAlignment,
+    TimebaseCorrespondence,
 )
+from xpkg.model.time import Timebase
 
 
 class InvalidSessionTransitionError(ValueError):
     """Raised when a recording-session action violates its preconditions."""
+
+
+def fit_timebase_alignment(
+    *,
+    name: str,
+    source: Timebase,
+    target: Timebase,
+    model: AlignmentModel,
+    method: SynchronizationMethod,
+    evidence: tuple[TimebaseCorrespondence, ...],
+    metadata: Mapping[str, Any] | None = None,
+) -> TimebaseAlignment:
+    """Fit one offset or affine transform from paired time observations."""
+    pairs = tuple(evidence)
+    if not pairs:
+        raise InvalidSessionTransitionError(
+            "Fitting a timebase alignment requires correspondence evidence."
+        )
+    if method is SynchronizationMethod.MANUAL:
+        raise InvalidSessionTransitionError(
+            "Manual timebase alignments must declare coefficients explicitly."
+        )
+    if model is AlignmentModel.OFFSET:
+        scale = 1.0
+        offset_s = sum(
+            pair.target_time_s - pair.source_time_s for pair in pairs
+        ) / len(pairs)
+    elif model is AlignmentModel.AFFINE:
+        scale, offset_s = _fit_affine_coefficients(pairs)
+    else:
+        raise TypeError(f"model must be an AlignmentModel, got {model!r}.")
+    return TimebaseAlignment(
+        name=name,
+        source=source,
+        target=target,
+        model=model,
+        method=method,
+        scale=scale,
+        offset_s=offset_s,
+        evidence=pairs,
+        metadata=dict(metadata or {}),
+    )
+
+
+def _fit_affine_coefficients(
+    evidence: tuple[TimebaseCorrespondence, ...],
+) -> tuple[float, float]:
+    source_mean = sum(item.source_time_s for item in evidence) / len(evidence)
+    target_mean = sum(item.target_time_s for item in evidence) / len(evidence)
+    denominator = sum(
+        (item.source_time_s - source_mean) ** 2 for item in evidence
+    )
+    if denominator == 0.0:
+        raise InvalidSessionTransitionError(
+            "Affine alignment requires at least two distinct source times."
+        )
+    scale = sum(
+        (item.source_time_s - source_mean) * (item.target_time_s - target_mean)
+        for item in evidence
+    ) / denominator
+    if scale <= 0.0:
+        raise InvalidSessionTransitionError(
+            "Affine alignment evidence produced a non-positive scale."
+        )
+    return float(scale), float(target_mean - (scale * source_mean))
 
 
 def add_session_signal(session: RecordingSession, signal: SessionSignal) -> RecordingSession:
@@ -254,6 +323,7 @@ __all__ = [
     "add_session_signal",
     "add_session_video",
     "add_timebase_alignment",
+    "fit_timebase_alignment",
     "replace_session_behavior",
     "replace_session_calibration",
     "replace_session_acquisition",

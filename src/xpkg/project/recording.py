@@ -10,7 +10,19 @@ from pathlib import Path
 from xpkg._core.hashing import sha256_file
 from xpkg._core.path_registry import ensure_dir
 from xpkg.io.experiment_json import read_experiment_json, write_experiment_json
-from xpkg.io.readers import read_photometry_csv
+from xpkg.io.readers import (
+    read_behavior_events_csv,
+    read_behavior_events_json,
+    read_boris_csv,
+    read_bsoid_csv,
+    read_events_csv,
+    read_keypoint_moseq_syllables_csv,
+    read_photometry_csv,
+    read_simba_csv,
+    read_synchronization_csv,
+)
+from xpkg.model.behavior import BehaviorLabels
+from xpkg.model.events import EventTable
 from xpkg.model.experiment import Experiment
 from xpkg.model.experiment_actions import (
     add_experiment_session,
@@ -24,17 +36,26 @@ from xpkg.model.metadata import (
     PoseModelProvenance,
 )
 from xpkg.model.session import (
+    AlignmentModel,
     RecordingSession,
+    SessionBehavior,
     SessionPose,
     SessionSignal,
     SessionVideo,
+    SynchronizationMethod,
+    TimebaseAlignment,
 )
 from xpkg.model.session_actions import (
+    add_session_behavior,
     add_session_pose,
     add_session_signal,
+    add_timebase_alignment,
     replace_session_acquisition,
+    replace_session_behavior,
+    replace_session_events,
     replace_session_pose,
     replace_session_signal,
+    replace_timebase_alignment,
 )
 from xpkg.model.signals import PhotometryRecording
 from xpkg.model.time import Timebase
@@ -247,8 +268,7 @@ def import_photometry_csv_project(
     if not source.is_file():
         raise FileNotFoundError(f"Photometry CSV not found: {source}")
     root = _ensure_project_for_import(project, title=session_id or source.stem, force=force)
-    managed_root = ensure_dir(project_media_root(root) / "signals")
-    managed_source = _copy_file_into_media(source, managed_root, {})
+    managed_source = _copy_import_source(source, root, media_kind="signals")
     recording = read_photometry_csv(managed_source, name=signal_name)
     recording = _portable_photometry_recording(recording, managed_source, root)
     experiment = _load_or_create_experiment(root)
@@ -268,6 +288,233 @@ def import_photometry_csv_project(
     else:
         session = add_session_signal(session, link)
     return save_project_session(root, session, reason="project.import.photometry_csv")
+
+
+def import_events_csv_project(
+    path: str | Path,
+    *,
+    project: str | Path,
+    session_id: str | None = None,
+    force: bool = False,
+) -> Path:
+    """Import one event CSV as the session's canonical event table."""
+    source = _require_source_file(path, role="Event CSV")
+    root = _ensure_project_for_import(project, title=session_id or source.stem, force=force)
+    experiment = _load_or_create_experiment(root)
+    session = _select_or_create_session(
+        experiment,
+        requested_session_id=session_id,
+        fallback_session_id=source.stem,
+    )
+    if len(session.events) > 0 and not force:
+        raise FileExistsError(
+            f"Recording session {session.session_id!r} already has events. "
+            "Pass force=True to replace them."
+        )
+    events = read_events_csv(source)
+    if len(events) == 0:
+        raise ValueError(f"Event CSV contains no events: {source}")
+    managed_source = _copy_import_source(source, root, media_kind="events")
+    events = _portable_event_table(events, managed_source, root)
+    session = replace_session_events(session, events)
+    return save_project_session(root, session, reason="project.import.events_csv")
+
+
+def import_behavior_project(
+    format: str,
+    path: str | Path,
+    *,
+    project: str | Path,
+    behavior_name: str = "behavior",
+    session_id: str | None = None,
+    video_role: str | None = None,
+    force: bool = False,
+) -> Path:
+    """Import behavior labels through one canonical format dispatch boundary."""
+    source = _require_source_file(path, role="Behavior source")
+    root = _ensure_project_for_import(project, title=session_id or source.stem, force=force)
+    experiment = _load_or_create_experiment(root)
+    session = _select_or_create_session(
+        experiment,
+        requested_session_id=session_id,
+        fallback_session_id=source.stem,
+    )
+    existing = {link.name for link in session.behaviors}
+    if behavior_name in existing and not force:
+        raise FileExistsError(
+            f"Recording session {session.session_id!r} already has behavior "
+            f"{behavior_name!r}. Pass force=True to replace it."
+        )
+    labels = _read_behavior_source(format, source)
+    managed_source = _copy_import_source(source, root, media_kind="behavior")
+    labels = _portable_behavior_labels(
+        labels,
+        managed_source,
+        root,
+        session=session,
+        video_role=video_role,
+    )
+    link = SessionBehavior(name=behavior_name, labels=labels, video_role=video_role)
+    if behavior_name in existing:
+        session = replace_session_behavior(session, link)
+    else:
+        session = add_session_behavior(session, link)
+    return save_project_session(root, session, reason=f"project.import.behavior.{format}")
+
+
+def import_synchronization_csv_project(
+    path: str | Path,
+    *,
+    project: str | Path,
+    source_timebase: Timebase,
+    target_timebase: Timebase,
+    model: AlignmentModel,
+    method: SynchronizationMethod,
+    alignment_name: str | None = None,
+    session_id: str | None = None,
+    force: bool = False,
+) -> Path:
+    """Import paired clock observations as one typed timebase alignment."""
+    source = _require_source_file(path, role="Synchronization CSV")
+    root = _ensure_project_for_import(project, title=session_id or source.stem, force=force)
+    experiment = _load_or_create_experiment(root)
+    session = _select_or_create_session(
+        experiment,
+        requested_session_id=session_id,
+        fallback_session_id=source.stem,
+    )
+    name = alignment_name or f"{source_timebase.name}-to-{target_timebase.name}"
+    existing = {item.name for item in session.alignments}
+    if name in existing and not force:
+        raise FileExistsError(
+            f"Recording session {session.session_id!r} already has alignment {name!r}. "
+            "Pass force=True to replace it."
+        )
+    alignment = read_synchronization_csv(
+        source,
+        source_timebase=source_timebase,
+        target_timebase=target_timebase,
+        model=model,
+        method=method,
+        name=name,
+    )
+    managed_source = _copy_import_source(source, root, media_kind="synchronization")
+    alignment = _portable_timebase_alignment(alignment, managed_source, root)
+    if name in existing:
+        session = replace_timebase_alignment(session, alignment)
+    else:
+        session = add_timebase_alignment(session, alignment)
+    return save_project_session(root, session, reason="project.import.synchronization_csv")
+
+
+def save_project_events(
+    project: str | Path,
+    events: EventTable,
+    *,
+    session_id: str | None = None,
+) -> Path:
+    """Commit a typed event table to one recording session."""
+    if not isinstance(events, EventTable):
+        raise TypeError(f"events must be an EventTable, got {events!r}.")
+    experiment = _load_or_create_experiment(project)
+    session = _select_or_create_session(experiment, requested_session_id=session_id)
+    return save_project_session(
+        project,
+        replace_session_events(session, events),
+        reason="project.save.events",
+    )
+
+
+def load_project_events(
+    project: str | Path, *, session_id: str | None = None
+) -> EventTable:
+    """Load the canonical event table for one recording session."""
+    return load_project_session(project, session_id=session_id).events
+
+
+def save_project_behavior(
+    project: str | Path,
+    labels: BehaviorLabels,
+    *,
+    behavior_name: str = "behavior",
+    session_id: str | None = None,
+    video_role: str | None = None,
+    replace_existing: bool = True,
+) -> Path:
+    """Add or replace one typed behavior-label link on a recording session."""
+    if not isinstance(labels, BehaviorLabels):
+        raise TypeError(f"labels must be BehaviorLabels, got {labels!r}.")
+    experiment = _load_or_create_experiment(project)
+    session = _select_or_create_session(experiment, requested_session_id=session_id)
+    link = SessionBehavior(name=behavior_name, labels=labels, video_role=video_role)
+    existing = {item.name for item in session.behaviors}
+    if behavior_name in existing:
+        if not replace_existing:
+            raise FileExistsError(
+                f"Recording session already has behavior {behavior_name!r}."
+            )
+        session = replace_session_behavior(session, link)
+    else:
+        session = add_session_behavior(session, link)
+    return save_project_session(project, session, reason="project.save.behavior")
+
+
+def load_project_behavior(
+    project: str | Path,
+    *,
+    behavior_name: str = "behavior",
+    session_id: str | None = None,
+) -> BehaviorLabels:
+    """Load one named behavior-label link from a recording session."""
+    session = load_project_session(project, session_id=session_id)
+    try:
+        return session.behavior(behavior_name)
+    except KeyError as exc:
+        raise FileNotFoundError(
+            f"Recording session {session.session_id!r} has no behavior "
+            f"{behavior_name!r}."
+        ) from exc
+
+
+def save_project_alignment(
+    project: str | Path,
+    alignment: TimebaseAlignment,
+    *,
+    session_id: str | None = None,
+    replace_existing: bool = True,
+) -> Path:
+    """Add or replace one typed timebase alignment on a recording session."""
+    if not isinstance(alignment, TimebaseAlignment):
+        raise TypeError(f"alignment must be a TimebaseAlignment, got {alignment!r}.")
+    experiment = _load_or_create_experiment(project)
+    session = _select_or_create_session(experiment, requested_session_id=session_id)
+    existing = {item.name for item in session.alignments}
+    if alignment.name in existing:
+        if not replace_existing:
+            raise FileExistsError(
+                f"Recording session already has alignment {alignment.name!r}."
+            )
+        session = replace_timebase_alignment(session, alignment)
+    else:
+        session = add_timebase_alignment(session, alignment)
+    return save_project_session(project, session, reason="project.save.alignment")
+
+
+def load_project_alignment(
+    project: str | Path,
+    *,
+    alignment_name: str,
+    session_id: str | None = None,
+) -> TimebaseAlignment:
+    """Load one named timebase alignment from a recording session."""
+    session = load_project_session(project, session_id=session_id)
+    try:
+        return session.alignment(alignment_name)
+    except KeyError as exc:
+        raise FileNotFoundError(
+            f"Recording session {session.session_id!r} has no alignment "
+            f"{alignment_name!r}."
+        ) from exc
 
 
 def save_project_labels(
@@ -356,6 +603,98 @@ def load_project_labels(
         )
     pose.path = root
     return pose
+
+
+def _require_source_file(path: str | Path, *, role: str) -> Path:
+    source = Path(path).resolve()
+    if not source.is_file():
+        raise FileNotFoundError(f"{role} not found: {source}")
+    return source
+
+
+def _copy_import_source(source: Path, project_root: Path, *, media_kind: str) -> Path:
+    managed_root = ensure_dir(project_media_root(project_root) / media_kind)
+    existing = managed_root / source.name
+    if existing.is_file() and sha256_file(existing) == sha256_file(source):
+        return existing.resolve()
+    return _copy_file_into_media(source, managed_root, {})
+
+
+def _read_behavior_source(format: str, source: Path) -> BehaviorLabels:
+    if format == "behavior-csv":
+        return read_behavior_events_csv(source)
+    if format == "behavior-json":
+        return read_behavior_events_json(source)
+    if format == "boris-csv":
+        return read_boris_csv(source)
+    if format == "bsoid-csv":
+        return read_bsoid_csv(source)
+    if format == "simba-csv":
+        return read_simba_csv(source)
+    if format == "keypoint-moseq-csv":
+        return read_keypoint_moseq_syllables_csv(source)
+    raise ValueError(f"Unknown behavior format: {format!r}")
+
+
+def _portable_source(managed_source: Path, project_root: Path, *, source_type: str):
+    relative = managed_source.resolve().relative_to(project_root.resolve()).as_posix()
+    return {
+        "type": source_type,
+        "path": relative,
+        "size_bytes": managed_source.stat().st_size,
+        "sha256": sha256_file(managed_source),
+    }
+
+
+def _portable_event_table(
+    events: EventTable,
+    managed_source: Path,
+    project_root: Path,
+) -> EventTable:
+    source = _portable_source(managed_source, project_root, source_type="events_csv")
+    metadata = dict(events.metadata)
+    metadata["source"] = source
+    portable_events = tuple(
+        replace(event, metadata={**dict(event.metadata), "source": source})
+        for event in events
+    )
+    return replace(events, events=portable_events, metadata=metadata)
+
+
+def _portable_behavior_labels(
+    labels: BehaviorLabels,
+    managed_source: Path,
+    project_root: Path,
+    *,
+    session: RecordingSession,
+    video_role: str | None,
+) -> BehaviorLabels:
+    source = _portable_source(
+        managed_source,
+        project_root,
+        source_type=labels.source_type,
+    )
+    metadata = dict(labels.metadata)
+    metadata["source"] = source
+    if labels.media_path is not None:
+        metadata["reported_media_path"] = labels.media_path
+    media_path = None
+    if video_role is not None:
+        media_path = session.video(video_role).path.as_posix()
+    return replace(labels, media_path=media_path, metadata=metadata)
+
+
+def _portable_timebase_alignment(
+    alignment: TimebaseAlignment,
+    managed_source: Path,
+    project_root: Path,
+) -> TimebaseAlignment:
+    source = _portable_source(
+        managed_source,
+        project_root,
+        source_type="synchronization_csv",
+    )
+    return replace(alignment, metadata={**dict(alignment.metadata), "source": source})
 
 
 def _portable_photometry_recording(
@@ -488,6 +827,21 @@ def _require_portable_source_paths(session: RecordingSession, project_root: Path
 
 def _session_source_paths(session: RecordingSession) -> tuple[Path, ...]:
     paths = list(_signal_source_paths(session))
+    event_source = _source_path(session.events.metadata.get("source"))
+    if event_source is not None:
+        paths.append(event_source)
+    for event in session.events:
+        event_source = _source_path(event.metadata.get("source"))
+        if event_source is not None:
+            paths.append(event_source)
+    for link in session.behaviors:
+        behavior_source = _source_path(link.labels.metadata.get("source"))
+        if behavior_source is not None:
+            paths.append(behavior_source)
+    for alignment in session.alignments:
+        alignment_source = _source_path(alignment.metadata.get("source"))
+        if alignment_source is not None:
+            paths.append(alignment_source)
     for link in session.poses:
         if isinstance(link.data, PoseTrajectory) and link.data.source_path is not None:
             paths.append(link.data.source_path)
@@ -517,24 +871,33 @@ def _source_path(source: object) -> Path | None:
     if source is None:
         return None
     if not isinstance(source, Mapping):
-        raise TypeError("Signal provenance source must be an object when present.")
+        raise TypeError("Session source must be an object when present.")
     raw_path = source.get("path")
     if raw_path is None:
         return None
     if not isinstance(raw_path, str) or not raw_path:
-        raise TypeError("Signal provenance source.path must be a non-empty string.")
+        raise TypeError("Session source.path must be a non-empty string.")
     return Path(raw_path)
 
 
 __all__ = [
+    "import_behavior_project",
+    "import_events_csv_project",
     "import_photometry_csv_project",
+    "import_synchronization_csv_project",
     "load_project_acquisition",
+    "load_project_alignment",
+    "load_project_behavior",
     "load_project_dataset_share",
+    "load_project_events",
     "load_project_experiment",
     "load_project_labels",
     "load_project_session",
     "save_project_acquisition",
+    "save_project_alignment",
+    "save_project_behavior",
     "save_project_dataset_share",
+    "save_project_events",
     "save_project_labels",
     "save_project_experiment",
     "save_project_session",

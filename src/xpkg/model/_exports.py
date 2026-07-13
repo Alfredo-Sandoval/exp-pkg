@@ -130,6 +130,7 @@ EXPORTS: dict[str, tuple[str, str]] = {
     "PredictedPoint": ("xpkg.pose.annotations", "PredictedPoint"),
     "PredictedPointArray": ("xpkg.pose.annotations", "PredictedPointArray"),
     "PromptType": ("xpkg.segmentation", "PromptType"),
+    "AlignmentModel": ("xpkg.model.session", "AlignmentModel"),
     "RecordingSession": ("xpkg.model.session", "RecordingSession"),
     "CalibrationCameraLink": ("xpkg.model.session", "CalibrationCameraLink"),
     "SessionBehavior": ("xpkg.model.session", "SessionBehavior"),
@@ -139,6 +140,7 @@ EXPORTS: dict[str, tuple[str, str]] = {
     "SessionVideo": ("xpkg.model.session", "SessionVideo"),
     "SynchronizationMethod": ("xpkg.model.session", "SynchronizationMethod"),
     "TimebaseAlignment": ("xpkg.model.session", "TimebaseAlignment"),
+    "TimebaseCorrespondence": ("xpkg.model.session", "TimebaseCorrespondence"),
     "InvalidSessionTransitionError": (
         "xpkg.model.session_actions",
         "InvalidSessionTransitionError",
@@ -149,6 +151,7 @@ EXPORTS: dict[str, tuple[str, str]] = {
     "add_session_pose": ("xpkg.model.session_actions", "add_session_pose"),
     "add_session_video": ("xpkg.model.session_actions", "add_session_video"),
     "add_timebase_alignment": ("xpkg.model.session_actions", "add_timebase_alignment"),
+    "fit_timebase_alignment": ("xpkg.model.session_actions", "fit_timebase_alignment"),
     "replace_session_behavior": (
         "xpkg.model.session_actions",
         "replace_session_behavior",

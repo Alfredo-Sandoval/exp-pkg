@@ -13,6 +13,7 @@ from xpkg.io.session_json import (
     recording_session_from_document,
 )
 from xpkg.model import (
+    AlignmentModel,
     CoordinateFrameKind,
     Event,
     EventTable,
@@ -25,8 +26,12 @@ from xpkg.model import (
     SessionSignal,
     SessionVideo,
     SyncEvent,
+    SynchronizationMethod,
+    Timebase,
+    TimebaseCorrespondence,
     Timeline,
     TimeSeries,
+    fit_timebase_alignment,
 )
 
 _JSON_SCALAR = (
@@ -93,6 +98,19 @@ def test_recording_session_document_roundtrips_sampled_signals(
             ),
         ),
         videos=(SessionVideo(role="behavior", path=Path("Media/behavior.mp4")),),
+        alignments=(
+            fit_timebase_alignment(
+                name="camera-to-daq",
+                source=Timebase(name="camera"),
+                target=Timebase(name="daq"),
+                model=AlignmentModel.OFFSET,
+                method=SynchronizationMethod.PULSES,
+                evidence=(
+                    TimebaseCorrespondence(0.0, 0.25, correspondence_id="pulse-1"),
+                    TimebaseCorrespondence(1.0, 1.25, correspondence_id="pulse-2"),
+                ),
+            ),
+        ),
         events=EventTable(
             events=(
                 Event(kind="trial", start_s=start_s, duration_s=0.5),
@@ -110,6 +128,8 @@ def test_recording_session_document_roundtrips_sampled_signals(
     assert dict(restored.metadata) == dict(session.metadata)
     assert isinstance(restored.events.events[1], SyncEvent)
     assert restored.events.events[1].source == "daq"
+    assert restored.alignment("camera-to-daq").evidence[0].correspondence_id == "pulse-1"
+    assert restored.alignment("camera-to-daq").offset_s == pytest.approx(0.25)
     restored_recording = restored.signal("photometry")
     assert isinstance(restored_recording, PhotometryRecording)
     np.testing.assert_array_equal(restored_recording.series.values, values)

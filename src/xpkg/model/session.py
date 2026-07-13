@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from enum import StrEnum
+from math import sqrt
 from pathlib import Path
 from types import MappingProxyType
 from typing import Any, Protocol, cast
@@ -19,7 +20,7 @@ from xpkg.model._metadata_validation import (
 )
 from xpkg.model.behavior import BehaviorLabels
 from xpkg.model.calibration import Calibration, Camera
-from xpkg.model.events import EventTable, SyncEvent
+from xpkg.model.events import EventTable
 from xpkg.model.metadata import AcquisitionMetadata, CameraMetadata, PoseModelProvenance
 from xpkg.model.signals import PhotometryRecording, TimeSeries
 from xpkg.model.time import Timebase, TimeRange
@@ -30,13 +31,18 @@ SessionPoseData = Labels | PoseTrajectory
 
 
 class SynchronizationMethod(StrEnum):
-    """Evidence method used to align two named timebases."""
+    """Observation method used to align two named timebases."""
 
-    OFFSET = "offset"
-    AFFINE = "affine"
     PULSES = "pulses"
     TIMESTAMPS = "timestamps"
     MANUAL = "manual"
+
+
+class AlignmentModel(StrEnum):
+    """Mathematical transform used to map one timebase into another."""
+
+    OFFSET = "offset"
+    AFFINE = "affine"
 
 
 class _NamedLink(Protocol):
@@ -216,40 +222,90 @@ class SessionCalibration:
 
 
 @dataclass(frozen=True, slots=True)
+class TimebaseCorrespondence:
+    """One paired observation of the same instant in two timebases."""
+
+    source_time_s: float
+    target_time_s: float
+    correspondence_id: str | None = None
+    metadata: Mapping[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        source_time_s = finite_float(
+            self.source_time_s, name="timebase correspondence source_time_s"
+        )
+        target_time_s = finite_float(
+            self.target_time_s, name="timebase correspondence target_time_s"
+        )
+        correspondence_id = (
+            None
+            if self.correspondence_id is None
+            else _required_text(
+                self.correspondence_id,
+                name="timebase correspondence correspondence_id",
+            )
+        )
+        object.__setattr__(self, "source_time_s", source_time_s)
+        object.__setattr__(self, "target_time_s", target_time_s)
+        object.__setattr__(self, "correspondence_id", correspondence_id)
+        object.__setattr__(
+            self,
+            "metadata",
+            MappingProxyType(
+                metadata_dict(self.metadata, name="timebase correspondence metadata")
+            ),
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class TimebaseAlignment:
-    """First-class evidence-backed affine alignment between two timebases."""
+    """First-class evidence-backed transform between two timebases."""
 
     name: str
     source: Timebase
     target: Timebase
+    model: AlignmentModel
     method: SynchronizationMethod
     scale: float = 1.0
     offset_s: float = 0.0
-    residual_s: float | None = None
-    evidence: tuple[SyncEvent, ...] = ()
+    evidence: tuple[TimebaseCorrespondence, ...] = ()
     metadata: Mapping[str, Any] = field(default_factory=dict)
+    residual_s: float | None = field(default=None, init=False)
 
     def __post_init__(self) -> None:
         name = _required_text(self.name, name="timebase alignment name")
         if not isinstance(self.source, Timebase) or not isinstance(self.target, Timebase):
             raise TypeError("timebase alignment source and target must be Timebase objects.")
+        if self.source.name == self.target.name:
+            raise ValueError("timebase alignment source and target names must differ.")
+        model = self.model
+        if not isinstance(model, AlignmentModel):
+            raise TypeError("timebase alignment model must be an AlignmentModel.")
         method = self.method
         if not isinstance(method, SynchronizationMethod):
             raise TypeError("timebase alignment method must be a SynchronizationMethod.")
         scale = finite_float(self.scale, name="timebase alignment scale")
         if scale <= 0.0:
             raise ValueError("timebase alignment scale must be positive.")
+        if model is AlignmentModel.OFFSET and scale != 1.0:
+            raise ValueError("offset timebase alignment requires scale=1.0.")
         offset_s = finite_float(self.offset_s, name="timebase alignment offset_s")
-        residual_s = self.residual_s
-        if residual_s is not None:
-            residual_s = finite_float(residual_s, name="timebase alignment residual_s")
-            if residual_s < 0.0:
-                raise ValueError("timebase alignment residual_s must be non-negative.")
         evidence = tuple(self.evidence)
-        if any(not isinstance(event, SyncEvent) for event in evidence):
-            raise TypeError("timebase alignment evidence must contain SyncEvent objects.")
-        if method is SynchronizationMethod.PULSES and not evidence:
-            raise ValueError("pulse-based timebase alignment requires sync-event evidence.")
+        if any(not isinstance(item, TimebaseCorrespondence) for item in evidence):
+            raise TypeError(
+                "timebase alignment evidence must contain TimebaseCorrespondence objects."
+            )
+        if method is not SynchronizationMethod.MANUAL and not evidence:
+            raise ValueError(
+                f"{method.value} timebase alignment requires paired correspondence evidence."
+            )
+        if model is AlignmentModel.AFFINE and evidence:
+            unique_source_times = {item.source_time_s for item in evidence}
+            if len(unique_source_times) < 2:
+                raise ValueError(
+                    "affine timebase alignment requires at least two distinct source times."
+                )
+        residual_s = _alignment_residual(evidence, scale=scale, offset_s=offset_s)
         object.__setattr__(self, "name", name)
         object.__setattr__(self, "scale", scale)
         object.__setattr__(self, "offset_s", offset_s)
@@ -265,6 +321,21 @@ class TimebaseAlignment:
         """Map one source-time value into the target timebase."""
         value = finite_float(value_s, name="source time")
         return float((value * self.scale) + self.offset_s)
+
+
+def _alignment_residual(
+    evidence: tuple[TimebaseCorrespondence, ...],
+    *,
+    scale: float,
+    offset_s: float,
+) -> float | None:
+    if not evidence:
+        return None
+    squared_errors = [
+        ((item.source_time_s * scale) + offset_s - item.target_time_s) ** 2
+        for item in evidence
+    ]
+    return float(sqrt(sum(squared_errors) / len(squared_errors)))
 
 
 @dataclass(frozen=True, slots=True)
@@ -388,6 +459,16 @@ class RecordingSession:
         """Return the calibration linked under ``name``."""
         return _named_link_value(
             self.session_id, self.calibrations, name, "calibration", "calibration"
+        )
+
+    def alignment(self, name: str) -> TimebaseAlignment:
+        """Return the timebase alignment linked under ``name``."""
+        key = _required_text(name, name="session alignment name")
+        for alignment in self.alignments:
+            if alignment.name == key:
+                return alignment
+        raise KeyError(
+            f"Recording session {self.session_id!r} has no alignment named {key!r}."
         )
 
 
@@ -515,6 +596,7 @@ def _named_link_value(
 
 
 __all__ = [
+    "AlignmentModel",
     "CalibrationCameraLink",
     "RecordingSession",
     "SessionBehavior",
@@ -526,4 +608,5 @@ __all__ = [
     "SessionVideo",
     "SynchronizationMethod",
     "TimebaseAlignment",
+    "TimebaseCorrespondence",
 ]

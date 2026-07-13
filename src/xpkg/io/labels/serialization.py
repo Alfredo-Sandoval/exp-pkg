@@ -409,7 +409,8 @@ def _parse_shapes(videos_info: dict[str, Any]) -> np.ndarray:
     )
     if shapes_arr.size == 0:
         return np.zeros((0, 4), dtype=np.int32)
-    if shapes_raw is not None and (shapes_arr.ndim != 2 or shapes_arr.shape[1] < 4):
+    shape = _matrix_shape(shapes_arr)
+    if shapes_raw is not None and (shape is None or shape[1] < 4):
         raise ValueError(
             "videos.shapes must be 2D with at least 4 columns (frames,height,width,channels)"
         )

@@ -56,6 +56,7 @@ from xpkg.io.readers.pose import (
     read_pose_track,
     resolve_pose_node_indices,
 )
+from xpkg.io.readers.synchronization import read_synchronization_csv
 
 __all__ = [
     "PoseTrack",
@@ -83,6 +84,7 @@ __all__ = [
     "read_behavior_events_json",
     "read_keypoint_moseq_syllables_csv",
     "read_simba_csv",
+    "read_synchronization_csv",
     "read_doric_photometry",
     "read_events_csv",
     "read_neurophotometrics_csv",

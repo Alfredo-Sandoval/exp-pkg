@@ -5,7 +5,14 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from xpkg.model import RecordingSession, SessionSignal, TimeSeries
+from xpkg.model import (
+    AlignmentModel,
+    RecordingSession,
+    SessionSignal,
+    SynchronizationMethod,
+    Timebase,
+    TimeSeries,
+)
 from xpkg.project import (
     init_project,
     load_project_session,
@@ -20,6 +27,27 @@ from xpkg.services import ProjectService
 
 def _write_photometry_csv(path: Path) -> None:
     path.write_text("time,green,reference\n0.0,1.0,3.0\n0.1,2.0,4.0\n", encoding="utf-8")
+
+
+def _write_events_csv(path: Path) -> None:
+    path.write_text(
+        "time,kind,label,duration\n0.5,stimulus,tone,0.1\n1.5,reward,pellet,0.0\n",
+        encoding="utf-8",
+    )
+
+
+def _write_behavior_csv(path: Path) -> None:
+    path.write_text(
+        "onset_s,offset_s,behavior\n0.25,0.75,rear\n1.0,1.4,groom\n",
+        encoding="utf-8",
+    )
+
+
+def _write_synchronization_csv(path: Path) -> None:
+    path.write_text(
+        "pulse_id,source_time_s,target_time_s\np1,0.0,0.25\np2,10.0,10.35\n",
+        encoding="utf-8",
+    )
 
 
 def test_photometry_csv_import_persists_typed_recording_session(tmp_path: Path) -> None:
@@ -91,6 +119,188 @@ def test_recording_session_survives_pack_unpack_roundtrip(tmp_path: Path) -> Non
         "Media/signals/photometry.csv"
     )
     validate_project(restored_root)
+
+
+def test_event_and_behavior_imports_persist_typed_portable_session_state(
+    tmp_path: Path,
+) -> None:
+    event_source = tmp_path / "events.csv"
+    behavior_source = tmp_path / "behavior.csv"
+    _write_events_csv(event_source)
+    _write_behavior_csv(behavior_source)
+    project = ProjectService.create(tmp_path / "Multimodal Recording")
+
+    project.import_events("events-csv", path=event_source, session_id="session-1")
+    project.import_behavior(
+        "behavior-csv",
+        path=behavior_source,
+        behavior_name="manual-observations",
+        session_id="session-1",
+    )
+
+    events = project.load_events()
+    behavior = project.load_behavior(behavior_name="manual-observations")
+    session = project.load_session()
+    assert [(event.kind, event.label) for event in events] == [
+        ("stimulus", "tone"),
+        ("reward", "pellet"),
+    ]
+    assert events.metadata["source"]["path"] == "Media/events/events.csv"
+    assert len(events.metadata["source"]["sha256"]) == 64
+    assert behavior.label_names == ("groom", "rear")
+    assert behavior.metadata["source"]["path"] == "Media/behavior/behavior.csv"
+    assert behavior.media_path is None
+    assert session.modality_names == ("behavior", "events")
+    validate_project(project.project_root)
+
+    artifact = project.pack()
+    restored = ProjectService.unpack(artifact, tmp_path / "Restored Multimodal")
+    assert len(restored.load_events()) == 2
+    assert restored.load_behavior(behavior_name="manual-observations").label_names == (
+        "groom",
+        "rear",
+    )
+    validate_project(restored.project_root)
+
+
+def test_event_and_behavior_imports_require_force_to_replace(tmp_path: Path) -> None:
+    event_source = tmp_path / "events.csv"
+    behavior_source = tmp_path / "behavior.csv"
+    _write_events_csv(event_source)
+    _write_behavior_csv(behavior_source)
+    project = ProjectService.create(tmp_path / "Replacement Rules")
+    project.import_events("events-csv", path=event_source, session_id="session-1")
+    project.import_behavior("behavior-csv", path=behavior_source, session_id="session-1")
+
+    with pytest.raises(FileExistsError, match="already has events"):
+        project.import_events("events-csv", path=event_source, session_id="session-1")
+    with pytest.raises(FileExistsError, match="already has behavior"):
+        project.import_behavior("behavior-csv", path=behavior_source, session_id="session-1")
+
+    project.import_events(
+        "events-csv",
+        path=event_source,
+        session_id="session-1",
+        force=True,
+    )
+    project.import_behavior(
+        "behavior-csv",
+        path=behavior_source,
+        session_id="session-1",
+        force=True,
+    )
+    assert len(project.load_events()) == 2
+    assert project.load_behavior().label_names == ("groom", "rear")
+    assert [path.name for path in (project.project_root / "Media/events").iterdir()] == [
+        "events.csv"
+    ]
+    assert [
+        path.name for path in (project.project_root / "Media/behavior").iterdir()
+    ] == ["behavior.csv"]
+
+
+def test_synchronization_import_persists_paired_evidence_and_survives_pack(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "sync.csv"
+    _write_synchronization_csv(source)
+    project = ProjectService.create(tmp_path / "Synchronized Recording")
+
+    project.import_synchronization(
+        "synchronization-csv",
+        path=source,
+        source_timebase=Timebase(name="camera"),
+        target_timebase=Timebase(name="daq"),
+        model=AlignmentModel.AFFINE,
+        method=SynchronizationMethod.PULSES,
+        session_id="session-1",
+    )
+
+    alignment = project.load_alignment(alignment_name="camera-to-daq")
+    assert alignment.scale == pytest.approx(1.01)
+    assert alignment.offset_s == pytest.approx(0.25)
+    assert alignment.evidence[0].correspondence_id == "p1"
+    assert alignment.metadata["source"]["path"] == (
+        "Media/synchronization/sync.csv"
+    )
+    assert len(alignment.metadata["source"]["sha256"]) == 64
+    assert project.load_session().modality_names == ("synchronization",)
+
+    restored = ProjectService.unpack(project.pack(), tmp_path / "Restored Sync")
+    restored_alignment = restored.load_alignment(alignment_name="camera-to-daq")
+    assert restored_alignment.evidence == alignment.evidence
+    assert restored_alignment.residual_s == pytest.approx(alignment.residual_s)
+    validate_project(restored.project_root)
+
+
+def test_empty_event_import_fails_without_copying_source(tmp_path: Path) -> None:
+    source = tmp_path / "empty-events.csv"
+    source.write_text("time,kind\n", encoding="utf-8")
+    project = ProjectService.create(tmp_path / "No Empty Events")
+
+    with pytest.raises(ValueError, match="contains no events"):
+        project.import_events("events-csv", path=source, session_id="session-1")
+
+    assert not (project.project_root / "Media" / "events").exists()
+
+
+@pytest.mark.parametrize(
+    ("format_name", "suffix", "content", "expected_source_type"),
+    [
+        pytest.param(
+            "behavior-json",
+            ".json",
+            '{"behaviorEvents":[{"label":"rear","startTimeSec":1.0,"endTimeSec":2.0}]}',
+            "behavior_events_json",
+            id="behavior-json",
+        ),
+        pytest.param(
+            "boris-csv",
+            ".csv",
+            "Behavior,Start (seconds),Stop (seconds)\nrear,1.0,2.0\n",
+            "boris",
+            id="boris",
+        ),
+        pytest.param(
+            "bsoid-csv",
+            ".csv",
+            "frame,cluster_id,probability\n3,2,0.94\n",
+            "bsoid",
+            id="bsoid",
+        ),
+        pytest.param(
+            "simba-csv",
+            ".csv",
+            "Frame,Attack,Probability_Attack\n0,1,0.91\n",
+            "simba",
+            id="simba",
+        ),
+        pytest.param(
+            "keypoint-moseq-csv",
+            ".csv",
+            "frame_index,motif,score\n10,5,0.83\n",
+            "keypoint_moseq",
+            id="keypoint-moseq",
+        ),
+    ],
+)
+def test_project_behavior_import_dispatches_every_specialized_reader(
+    tmp_path: Path,
+    format_name: str,
+    suffix: str,
+    content: str,
+    expected_source_type: str,
+) -> None:
+    source = tmp_path / f"labels{suffix}"
+    source.write_text(content, encoding="utf-8")
+    project = ProjectService.create(tmp_path / f"Project {format_name}")
+
+    project.import_behavior(format_name, path=source, session_id="session-1")
+
+    labels = project.load_behavior()
+    assert labels.source_type == expected_source_type
+    assert labels.metadata["source"]["path"].startswith("Media/behavior/")
+    assert len(labels.metadata["source"]["sha256"]) == 64
 
 
 def test_recording_state_cache_rebuilds_from_durable_head(tmp_path: Path) -> None:
@@ -199,6 +409,86 @@ def test_cli_import_signals_uses_project_service_action(tmp_path: Path, capsys) 
     assert code == 0
     assert load_project_session(project).session_id == "cli-session"
     assert "Imported photometry CSV" in capsys.readouterr().out
+
+
+def test_cli_imports_events_and_behavior_through_project_service(tmp_path: Path, capsys) -> None:
+    from xpkg.cli import main
+
+    event_source = tmp_path / "events.csv"
+    behavior_source = tmp_path / "behavior.csv"
+    project = tmp_path / "CLI Multimodal"
+    _write_events_csv(event_source)
+    _write_behavior_csv(behavior_source)
+
+    event_code = main(
+        [
+            "import",
+            "events",
+            "events-csv",
+            "--path",
+            str(event_source),
+            "--out",
+            str(project),
+            "--session-id",
+            "cli-session",
+        ]
+    )
+    behavior_code = main(
+        [
+            "import",
+            "behavior",
+            "behavior-csv",
+            "--path",
+            str(behavior_source),
+            "--out",
+            str(project),
+            "--session-id",
+            "cli-session",
+        ]
+    )
+
+    session = load_project_session(project)
+    assert event_code == 0
+    assert behavior_code == 0
+    assert len(session.events) == 2
+    assert session.behavior("behavior").label_names == ("groom", "rear")
+    output = capsys.readouterr().out
+    assert "Imported event CSV" in output
+    assert "Imported behavior labels" in output
+
+
+def test_cli_imports_paired_synchronization_evidence(tmp_path: Path, capsys) -> None:
+    from xpkg.cli import main
+
+    source = tmp_path / "sync.csv"
+    project = tmp_path / "CLI Synchronization"
+    _write_synchronization_csv(source)
+
+    code = main(
+        [
+            "import",
+            "synchronization",
+            "synchronization-csv",
+            "--path",
+            str(source),
+            "--out",
+            str(project),
+            "--source-timebase",
+            "camera",
+            "--target-timebase",
+            "daq",
+            "--session-id",
+            "cli-session",
+        ]
+    )
+
+    alignment = ProjectService.open(project).load_alignment(
+        alignment_name="camera-to-daq"
+    )
+    assert code == 0
+    assert alignment.method is SynchronizationMethod.PULSES
+    assert len(alignment.evidence) == 2
+    assert "Imported timebase alignment" in capsys.readouterr().out
 
 
 def test_project_owns_multiple_sessions_and_requires_explicit_selection(

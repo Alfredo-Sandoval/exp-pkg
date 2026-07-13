@@ -14,6 +14,7 @@ from xpkg.adapters import (
 from xpkg.model import (
     BEHAVIOR_LABELS_SCHEMA_VERSION,
     AcquisitionMetadata,
+    AlignmentModel,
     BehaviorEmbedding,
     BehaviorFrameLabel,
     BehaviorInterval,
@@ -43,7 +44,10 @@ from xpkg.model import (
     Skeleton,
     SuggestionFrame,
     SyncEvent,
+    SynchronizationMethod,
     Timebase,
+    TimebaseAlignment,
+    TimebaseCorrespondence,
     Timeline,
     TimeRange,
     TimeSeries,
@@ -52,6 +56,7 @@ from xpkg.model import (
     VideoStub,
     build_keypoint_skeleton,
     build_prediction_stub,
+    fit_timebase_alignment,
     is_predicted_instance,
     load_skeleton,
     load_skeleton_dlc,
@@ -81,6 +86,7 @@ from xpkg.project import (
     list_project_artifacts,
     list_project_figures,
     load_project_acquisition,
+    load_project_alignment,
     load_project_artifact,
     load_project_dataset_share,
     load_project_datasheet,
@@ -99,6 +105,7 @@ from xpkg.project import (
     rebuild_project_artifact_index,
     refresh_project_summary,
     save_project_acquisition,
+    save_project_alignment,
     save_project_artifact,
     save_project_dataset_share,
     save_project_datasheet,
@@ -159,6 +166,7 @@ from xpkg.readers import (
     read_pyphotometry_ppd,
     read_rwd_ofrs_session,
     read_simba_csv,
+    read_synchronization_csv,
     read_tdt_photometry_block,
     read_teleopto_h5,
     resolve_tdt_block_path,
@@ -229,6 +237,7 @@ def test_root_namespace_is_curated_to_project_first_modules() -> None:
     assert callable(reloaded.readers.read_behavior_events_json)
     assert callable(reloaded.readers.read_keypoint_moseq_syllables_csv)
     assert callable(reloaded.readers.read_simba_csv)
+    assert callable(reloaded.readers.read_synchronization_csv)
     assert callable(reloaded.readers.find_first_doric_photometry_file)
     assert callable(reloaded.readers.find_first_neurophotometrics_csv)
     assert callable(reloaded.readers.find_first_nwb_photometry_file)
@@ -292,6 +301,7 @@ def test_public_exports_are_callable() -> None:
     assert callable(list_project_figures)
     assert callable(load_project_artifact)
     assert callable(load_project_acquisition)
+    assert callable(load_project_alignment)
     assert callable(load_project_figure)
     assert callable(load_project_descriptor)
     assert callable(load_project_dataset_share)
@@ -308,6 +318,7 @@ def test_public_exports_are_callable() -> None:
     assert callable(rebuild_project_artifact_index)
     assert callable(save_project_artifact)
     assert callable(save_project_acquisition)
+    assert callable(save_project_alignment)
     assert callable(save_project_dataset_share)
     assert callable(save_project_datasheet)
     assert callable(save_project_figure)
@@ -343,6 +354,7 @@ def test_public_exports_are_callable() -> None:
     assert callable(read_behavior_events_json)
     assert callable(read_keypoint_moseq_syllables_csv)
     assert callable(read_simba_csv)
+    assert callable(read_synchronization_csv)
     assert callable(find_first_doric_photometry_file)
     assert callable(find_first_neurophotometrics_csv)
     assert callable(find_first_nwb_photometry_file)
@@ -397,12 +409,15 @@ def test_services_surface_lists_project_service_first() -> None:
         "ProjectMetadata",
         "ProjectSegmentation",
         "PoseFormat",
+        "BehaviorFormat",
         "CalibrationFormat",
+        "EventFormat",
         "SignalFormat",
+        "SynchronizationFormat",
     ]
 
 
-def test_project_service_dispatches_supported_pose_and_calibration_formats() -> None:
+def test_project_service_dispatches_supported_import_formats() -> None:
     pose_formats: set[str] = {
         "dlc-csv",
         "dlc-h5",
@@ -414,13 +429,32 @@ def test_project_service_dispatches_supported_pose_and_calibration_formats() -> 
         "sleap-package",
     }
     calibration_formats: set[str] = {"anipose", "opencv-stereo-yaml"}
+    behavior_formats: set[str] = {
+        "behavior-csv",
+        "behavior-json",
+        "boris-csv",
+        "bsoid-csv",
+        "keypoint-moseq-csv",
+        "simba-csv",
+    }
+    event_formats: set[str] = {"events-csv"}
+    synchronization_formats: set[str] = {"synchronization-csv"}
 
     from typing import get_args
 
-    from xpkg.services import CalibrationFormat, PoseFormat
+    from xpkg.services import (
+        BehaviorFormat,
+        CalibrationFormat,
+        EventFormat,
+        PoseFormat,
+        SynchronizationFormat,
+    )
 
     assert pose_formats == set(get_args(PoseFormat))
     assert calibration_formats == set(get_args(CalibrationFormat))
+    assert behavior_formats == set(get_args(BehaviorFormat))
+    assert event_formats == set(get_args(EventFormat))
+    assert synchronization_formats == set(get_args(SynchronizationFormat))
 
 
 def test_model_exports_are_available() -> None:
@@ -453,16 +487,21 @@ def test_model_exports_are_available() -> None:
     assert callable(PhotometryChannel)
     assert callable(PhotometryRecording)
     assert callable(RecordingSession)
+    assert callable(AlignmentModel)
     assert callable(Experiment)
     assert callable(ExperimentSessionLink)
     assert callable(SignalChannel)
     assert callable(SyncEvent)
+    assert callable(SynchronizationMethod)
+    assert callable(TimebaseAlignment)
+    assert callable(TimebaseCorrespondence)
     assert callable(Timeline)
     assert callable(TimeRange)
     assert callable(TimeSeries)
     assert callable(Timebase)
     assert callable(KPFlag)
     assert callable(build_prediction_stub)
+    assert callable(fit_timebase_alignment)
     assert callable(build_keypoint_skeleton)
     assert callable(is_predicted_instance)
     assert callable(load_skeleton)

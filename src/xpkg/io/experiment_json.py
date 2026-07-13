@@ -25,7 +25,7 @@ from xpkg.model.experiment import (
 from xpkg.model.metadata import DatasetShareMetadata
 
 EXPERIMENT_FORMAT = "xpkg.experiment"
-EXPERIMENT_SCHEMA_VERSION = 2
+EXPERIMENT_SCHEMA_VERSION = 3
 
 
 def experiment_document(

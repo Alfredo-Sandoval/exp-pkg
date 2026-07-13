@@ -86,8 +86,8 @@ resolves them back to objects during parsing.
 
 The canonical documents are:
 
-- `xpkg.experiment`, schema version 2
-- `xpkg.recording-session`, schema version 2
+- `xpkg.experiment`, schema version 3
+- `xpkg.recording-session`, schema version 3
 - `xpkg-packed-project`, artifact schema version 2
 
 Parsers construct typed objects at the file boundary. Interior project code
