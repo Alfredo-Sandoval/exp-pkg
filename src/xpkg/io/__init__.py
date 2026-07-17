@@ -1,8 +1,8 @@
 """IO readers, converters, and serializers for xpkg data surfaces.
 
-Import concrete readers and serializers from their modules, for example
-``xpkg.io.readers``. Project manifests belong to ``xpkg.project`` and media
-primitives belong to ``xpkg.media``.
+Import concrete readers, serializers, and manifest utilities from their modules,
+for example ``xpkg.io.readers`` or ``xpkg.io.manifest``. Use ``xpkg.media`` for
+image and video primitives.
 """
 
 from __future__ import annotations
