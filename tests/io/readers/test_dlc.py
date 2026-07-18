@@ -157,7 +157,7 @@ def test_read_track_rejects_nonzero_dlc_track_index(
     ("file_type", "writer"),
     [("csv", _write_dlc_csv), ("h5", _write_dlc_h5)],
 )
-def test_read_track_requires_dlc_likelihood_columns(
+def test_read_track_accepts_dlc_labeled_data_without_likelihood(
     tmp_path: Path,
     file_type: str,
     writer: Callable[..., None],
@@ -165,8 +165,24 @@ def test_read_track_requires_dlc_likelihood_columns(
     path = tmp_path / f"tracking.{file_type}"
     writer(path, include_likelihood=False)
 
-    with pytest.raises(ValueError, match="likelihood"):
-        read_track(path, file_type=file_type, track_index=0)
+    track = read_track(path, file_type=file_type, track_index=0)
+
+    np.testing.assert_allclose(
+        track.scores,
+        [[1.0, 1.0], [1.0, 1.0], [1.0, np.nan]],
+        equal_nan=True,
+    )
+    np.testing.assert_allclose(track.instance_score, [1.0, 1.0, 1.0])
+    assert track.metadata["confidence_source"] == "labeled_data"
+
+
+def test_read_track_rejects_partial_dlc_likelihood_columns(tmp_path: Path) -> None:
+    path = tmp_path / "tracking.csv"
+    frame = _make_dlc_dataframe().drop(columns=[("model", "KNEE", "likelihood")])
+    frame.to_csv(path)
+
+    with pytest.raises(ValueError, match="partial likelihood.*KNEE_likelihood"):
+        read_track(path, file_type="csv", track_index=0)
 
 
 def test_generic_pose_reader_dispatches_to_dlc_lightning_pose_and_sleap(tmp_path: Path) -> None:

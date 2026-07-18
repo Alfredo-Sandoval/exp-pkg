@@ -373,7 +373,7 @@ Create a manifest named `xpkg-real-data.json` at the corpus root, or point
 
 Supported real-data `kind` values are `dlc`, `lightning_pose`, `sleap`,
 `mmpose`, and `mediapipe`. Use `kind: "dlc"` with either `tracking` plus `video` for a single
-CSV/H5 tracking file, or `project` for a full DLC project folder; use
+CSV/H5 tracking or labeled-data file, or `project` for a full DLC project folder; use
 `kind: "lightning_pose"` with `tracking` plus `video` for a Lightning Pose
 prediction CSV produced by `litpose predict`; use
 `kind: "sleap"` with a `labels` file ending in `.slp`, `.pkg.slp`, `.h5`, or

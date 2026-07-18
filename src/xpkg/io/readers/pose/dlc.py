@@ -1,4 +1,4 @@
-"""Low-level readers for single-animal DeepLabCut tracking exports."""
+"""Low-level readers for single-animal DeepLabCut tracking and labeled data."""
 
 from __future__ import annotations
 
@@ -108,7 +108,7 @@ def _reject_pickled_hdf_nodes(h5_path: Path) -> None:
 
 
 def read_dlc_h5_table(h5_path: Path) -> tuple[pd.DataFrame, list[str]]:
-    """Read a DLC-style H5 tracking file into a flat coordinate table."""
+    """Read a DLC-style H5 file into a flat coordinate table."""
 
     _reject_pickled_hdf_nodes(h5_path)
     df = cast(pd.DataFrame, pd.read_hdf(h5_path))
@@ -133,7 +133,7 @@ def _validate_dlc_columns(
     keypoints: Sequence[str],
     *,
     path: Path,
-) -> None:
+) -> bool:
     if not keypoints:
         raise ValueError(f"No DLC keypoints found in {path}.")
     if not df.columns.is_unique:
@@ -142,17 +142,31 @@ def _validate_dlc_columns(
             f"columns; repeated flattened columns found in {path}."
         )
 
-    missing_columns: list[str] = []
+    missing_coordinates: list[str] = []
     for keypoint in keypoints:
-        for suffix in ("x", "y", "likelihood"):
+        for suffix in ("x", "y"):
             column_name = f"{keypoint}_{suffix}"
             if column_name not in df.columns:
-                missing_columns.append(column_name)
-    if missing_columns:
+                missing_coordinates.append(column_name)
+    if missing_coordinates:
         raise ValueError(
-            f"DLC tracking file {path} is missing required coordinate columns: "
-            f"{sorted(missing_columns)}"
+            f"DLC file {path} is missing required coordinate columns: {sorted(missing_coordinates)}"
         )
+
+    likelihood_columns = [f"{keypoint}_likelihood" for keypoint in keypoints]
+    present_likelihood = [column in df.columns for column in likelihood_columns]
+    if all(present_likelihood):
+        return True
+    if not any(present_likelihood):
+        return False
+    missing_likelihood = [
+        column
+        for column, present in zip(likelihood_columns, present_likelihood, strict=True)
+        if not present
+    ]
+    raise ValueError(
+        f"DLC file {path} has partial likelihood data; missing columns: {missing_likelihood}"
+    )
 
 
 def read_node_names(path: Path, *, file_type: str) -> list[str]:
@@ -163,7 +177,7 @@ def read_node_names(path: Path, *, file_type: str) -> list[str]:
 
 
 def read_track(path: Path, *, file_type: str, track_index: int) -> PoseTrack:
-    """Read the single supported DLC track as a PoseTrack."""
+    """Read one DLC track or labeled-data table as a PoseTrack."""
 
     idx = int(track_index)
     if idx != 0:
@@ -175,7 +189,7 @@ def read_track(path: Path, *, file_type: str, track_index: int) -> PoseTrack:
     resolved_path = Path(path)
     normalized_type = _normalize_file_type(file_type)
     df, keypoints = _read_dlc_table(resolved_path, file_type=normalized_type)
-    _validate_dlc_columns(df, keypoints, path=resolved_path)
+    has_likelihood = _validate_dlc_columns(df, keypoints, path=resolved_path)
 
     coords = np.empty((len(df), len(keypoints), 2), dtype=np.float64)
     coords.fill(np.nan)
@@ -185,11 +199,19 @@ def read_track(path: Path, *, file_type: str, track_index: int) -> PoseTrack:
     for node_idx, keypoint in enumerate(keypoints):
         x_values = df[f"{keypoint}_x"].to_numpy(dtype=np.float64, copy=False)
         y_values = df[f"{keypoint}_y"].to_numpy(dtype=np.float64, copy=False)
-        likelihood_values = df[f"{keypoint}_likelihood"].to_numpy(dtype=np.float64, copy=False)
-
         coords[:, node_idx, 0] = x_values
         coords[:, node_idx, 1] = y_values
-        scores[:, node_idx] = likelihood_values
+        if has_likelihood:
+            scores[:, node_idx] = df[f"{keypoint}_likelihood"].to_numpy(
+                dtype=np.float64,
+                copy=False,
+            )
+        else:
+            scores[:, node_idx] = np.where(
+                np.isfinite(x_values) & np.isfinite(y_values),
+                1.0,
+                np.nan,
+            )
 
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", category=RuntimeWarning)
@@ -209,6 +231,7 @@ def read_track(path: Path, *, file_type: str, track_index: int) -> PoseTrack:
             "software": "DLC",
             "file_type": normalized_type,
             "track_index": idx,
+            "confidence_source": "likelihood" if has_likelihood else "labeled_data",
         },
     )
 
