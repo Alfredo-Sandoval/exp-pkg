@@ -53,7 +53,11 @@ _NAMLAB_DFF_NAMESPACE = "ndx-photometry-namlab"
 _NAMLAB_DFF_TYPE = "DffSeries"
 NonfinitePolicy = Literal["raise", "interpolate_sparse", "drop_rows"]
 NwbPhotometryClassification = Literal["photometry", "event_only", "unsupported"]
-_NAMLAB_DFF_MAX_RELATIVE_INTERVAL_DEVIATION = 0.10
+_NAMLAB_QUANTIZED_MAX_RELATIVE_INTERVAL_DEVIATION = 0.20
+_NAMLAB_QUANTIZED_MAX_OUTLIER_INTERVAL_FRACTION = 0.01
+_NAMLAB_QUANTIZED_GAP_FACTOR = 1.5
+_NAMLAB_IRREGULAR_GAP_MEDIAN_FACTOR = 2.5
+_NAMLAB_IRREGULAR_GAP_IQR_FACTOR = 3.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -284,6 +288,9 @@ def _series_timeline(series: _Series, n_samples: int) -> Timeline:
             raise ValueError(
                 f"NWB TimeSeries '{series.path}' timestamps length must match data samples."
             )
+        if _is_namlab_dff_series(series):
+            timeline, _clock = _namlab_dff_timeline(series, retained=None)
+            return timeline
         return Timeline(timestamps_s=stamps)
     if "starting_time" not in group:
         raise ValueError(f"NWB TimeSeries '{series.path}' is missing timestamps or starting_time.")
@@ -308,14 +315,19 @@ def _series_timeline(series: _Series, n_samples: int) -> Timeline:
 
 def _sampling_rate_with_source(
     timeline: Timeline,
-    series_path: str,
+    series: _Series,
 ) -> tuple[float | None, str | None]:
     if timeline.sample_rate_hz is not None:
-        return float(timeline.sample_rate_hz), f"{series_path}.starting_time.rate"
+        source = (
+            f"{series.path}.timestamps_routine_mean_namlab_dff"
+            if "timestamps" in series.group and _is_namlab_dff_series(series)
+            else f"{series.path}.starting_time.rate"
+        )
+        return float(timeline.sample_rate_hz), source
     sample_rate = timeline.estimated_sample_rate_hz
     if sample_rate is None:
         return None, None
-    return float(sample_rate), f"{series_path}.timestamps_uniform"
+    return float(sample_rate), f"{series.path}.timestamps_uniform"
 
 
 def _read_series(
@@ -353,11 +365,135 @@ def _is_namlab_dff_series(series: _Series) -> bool:
     )
 
 
+def _namlab_dff_timeline(
+    series: _Series,
+    *,
+    retained: np.ndarray | None,
+) -> tuple[Timeline, dict[str, Any]]:
+    stamps = np.asarray(series.group["timestamps"], dtype=np.float64).reshape(-1)
+    if retained is None:
+        if not np.isfinite(stamps).all():
+            raise ValueError(
+                f"NWB NAML DffSeries '{series.path}' timestamps must be finite "
+                "unless nonfinite_policy='drop_rows' is requested."
+            )
+        selected = np.ones(stamps.size, dtype=bool)
+    else:
+        selected = np.asarray(retained, dtype=bool)
+        if selected.ndim != 1 or selected.size != stamps.size:
+            raise ValueError(
+                f"NWB TimeSeries '{series.path}' retained-row mask must match timestamps."
+            )
+
+    finite_pairs = np.isfinite(stamps[:-1]) & np.isfinite(stamps[1:])
+    finite_pair_indices = np.flatnonzero(finite_pairs)
+    intervals = np.diff(stamps)[finite_pairs]
+    if intervals.size == 0 or not np.all(intervals > 0.0):
+        raise ValueError(
+            f"NWB TimeSeries '{series.path}' cannot establish positive routine "
+            "sample intervals from stored timestamps."
+        )
+
+    median_interval = float(np.median(intervals))
+    q25, q75 = np.percentile(intervals, [25.0, 75.0])
+    preliminary_gap_limit = max(
+        _NAMLAB_IRREGULAR_GAP_MEDIAN_FACTOR * median_interval,
+        float(q75 + _NAMLAB_IRREGULAR_GAP_IQR_FACTOR * (q75 - q25)),
+    )
+    preliminary_gaps = intervals > preliminary_gap_limit
+    preliminary_routine = intervals[~preliminary_gaps]
+    if preliminary_routine.size == 0:
+        raise ValueError(
+            f"NWB NAML DffSeries '{series.path}' has no routine timestamp intervals."
+        )
+
+    preliminary_median = float(np.median(preliminary_routine))
+    core_deviation_from_median = (
+        np.abs(preliminary_routine - preliminary_median) / preliminary_median
+    )
+    core = preliminary_routine[
+        core_deviation_from_median
+        <= _NAMLAB_QUANTIZED_MAX_RELATIVE_INTERVAL_DEVIATION
+    ]
+    if core.size == 0:
+        raise ValueError(
+            f"NWB NAML DffSeries '{series.path}' has no finite clock core."
+        )
+    core_interval = float(np.mean(core))
+    interval_deviation = (
+        np.abs(preliminary_routine - core_interval) / core_interval
+    )
+    outlier_fraction = float(
+        np.mean(
+            interval_deviation
+            > _NAMLAB_QUANTIZED_MAX_RELATIVE_INTERVAL_DEVIATION
+        )
+    )
+    quantized_uniform = bool(
+        outlier_fraction <= _NAMLAB_QUANTIZED_MAX_OUTLIER_INTERVAL_FRACTION
+    )
+    if quantized_uniform:
+        clock_model = "quantized_uniform"
+        gap_limit = _NAMLAB_QUANTIZED_GAP_FACTOR * core_interval
+    else:
+        clock_model = "synchronized_irregular"
+        gap_limit = preliminary_gap_limit
+
+    natural_gaps = intervals > gap_limit
+    routine = intervals[~natural_gaps]
+    if routine.size == 0:
+        raise ValueError(
+            f"NWB NAML DffSeries '{series.path}' has no intervals below its gap limit."
+        )
+    routine_interval = float(np.mean(routine))
+    sample_rate = 1.0 / routine_interval
+    natural_gap_indices = finite_pair_indices[natural_gaps]
+
+    retained_indices = np.flatnonzero(selected & np.isfinite(stamps))
+    if retained_indices.size < 2:
+        raise ValueError(
+            f"NWB NAML DffSeries '{series.path}' has fewer than two retained timestamps."
+        )
+    natural_gap_set = {int(index) for index in natural_gap_indices}
+    gap_after: list[int] = []
+    for output_index, (left, right) in enumerate(
+        zip(retained_indices[:-1], retained_indices[1:], strict=True)
+    ):
+        if int(right - left) > 1 or any(
+            index in natural_gap_set for index in range(int(left), int(right))
+        ):
+            gap_after.append(output_index)
+
+    return (
+        Timeline(
+            timestamps_s=stamps[retained_indices],
+            sample_rate_hz=sample_rate,
+        ),
+        {
+            "clock_model": clock_model,
+            "timestamp_source": f"{series.path}.timestamps",
+            "sample_rate_method": "inverse_mean_routine_interval",
+            "sampling_rate_hz": sample_rate,
+            "interval_count": int(intervals.size),
+            "routine_interval_count": int(routine.size),
+            "routine_interval_mean_s": routine_interval,
+            "interval_median_s": median_interval,
+            "interval_p95_s": float(np.percentile(intervals, 95.0)),
+            "interval_maximum_s": float(np.max(intervals)),
+            "gap_interval_limit_s": float(gap_limit),
+            "natural_gap_count": int(natural_gaps.sum()),
+            "dropped_row_count": int((~selected).sum()),
+            "gap_after_sample_indices": gap_after,
+            "resampled": False,
+        },
+    )
+
+
 def _dropped_row_timeline(
     series: _Series,
     *,
     retained: np.ndarray,
-) -> tuple[Timeline, str]:
+) -> tuple[Timeline, str, dict[str, Any] | None]:
     if "timestamps" not in series.group:
         original = _series_timeline(series, retained.size)
         if original.sample_rate_hz is None:
@@ -370,6 +506,7 @@ def _dropped_row_timeline(
                 sample_rate_hz=original.sample_rate_hz,
             ),
             f"{series.path}.starting_time.rate",
+            None,
         )
 
     stamps = np.asarray(series.group["timestamps"], dtype=np.float64).reshape(-1)
@@ -377,6 +514,14 @@ def _dropped_row_timeline(
         raise ValueError(
             f"NWB TimeSeries '{series.path}' timestamps length must match data samples."
         )
+    if _is_namlab_dff_series(series):
+        timeline, clock = _namlab_dff_timeline(series, retained=retained)
+        return (
+            timeline,
+            f"{series.path}.timestamps_routine_mean_namlab_dff",
+            clock,
+        )
+
     finite_pairs = np.isfinite(stamps[:-1]) & np.isfinite(stamps[1:])
     intervals = np.diff(stamps)[finite_pairs]
     if intervals.size == 0 or not np.all(intervals > 0.0):
@@ -385,24 +530,7 @@ def _dropped_row_timeline(
             "sample interval from stored timestamps."
         )
     median_interval = float(np.median(intervals))
-    if np.allclose(intervals, median_interval, rtol=1e-6, atol=1e-9):
-        sample_interval = median_interval
-        rate_source = f"{series.path}.timestamps_uniform_before_row_drop"
-    elif _is_namlab_dff_series(series):
-        sample_interval = float(np.mean(intervals))
-        relative_deviation = np.abs(intervals - sample_interval) / sample_interval
-        maximum_deviation = float(np.max(relative_deviation))
-        if maximum_deviation > _NAMLAB_DFF_MAX_RELATIVE_INTERVAL_DEVIATION:
-            raise ValueError(
-                f"NWB NAML DffSeries '{series.path}' finite timestamp intervals "
-                f"deviate by {maximum_deviation:.1%}, exceeding the "
-                f"{_NAMLAB_DFF_MAX_RELATIVE_INTERVAL_DEVIATION:.0%} nominal-clock "
-                "limit."
-            )
-        rate_source = (
-            f"{series.path}.timestamps_mean_finite_adjacent_namlab_dff"
-        )
-    else:
+    if not np.allclose(intervals, median_interval, rtol=1e-6, atol=1e-9):
         raise ValueError(
             f"NWB TimeSeries '{series.path}' has irregular timestamps and no "
             "format-specific nominal-rate contract."
@@ -410,9 +538,10 @@ def _dropped_row_timeline(
     return (
         Timeline(
             timestamps_s=stamps[retained],
-            sample_rate_hz=1.0 / sample_interval,
+            sample_rate_hz=1.0 / median_interval,
         ),
-        rate_source,
+        f"{series.path}.timestamps_uniform_before_row_drop",
+        None,
     )
 
 
@@ -449,7 +578,10 @@ def _drop_nonfinite_rows(
         raise ValueError(
             f"NWB TimeSeries '{series.path}' has fewer than two finite rows."
         )
-    timeline, rate_source = _dropped_row_timeline(series, retained=retained)
+    timeline, rate_source, clock_provenance = _dropped_row_timeline(
+        series,
+        retained=retained,
+    )
     sample_rate = timeline.sample_rate_hz
     if sample_rate is None:
         raise RuntimeError(
@@ -462,7 +594,7 @@ def _drop_nonfinite_rows(
         if np.allclose(output_intervals, expected_step, rtol=1e-6, atol=1e-9)
         else "irregular_preserved"
     )
-    return data[retained], timeline, {
+    repair: dict[str, Any] = {
         "policy": "drop_rows",
         "original_sample_count": int(data.shape[0]),
         "retained_sample_count": int(retained.sum()),
@@ -475,6 +607,10 @@ def _drop_nonfinite_rows(
         "sampling_rate_source": rate_source,
         "timeline_kind": timeline_kind,
     }
+    if clock_provenance is not None:
+        repair["clock_model"] = clock_provenance["clock_model"]
+        repair["clock_provenance"] = clock_provenance
+    return data[retained], timeline, repair
 
 
 def _timelines_match(left: Timeline, right: Timeline) -> bool:
@@ -533,7 +669,7 @@ def _photometry_recording(
         nonfinite_repairs[control_series.path] = control_nonfinite_repair
     sampling_rate_hz, sampling_rate_source = _sampling_rate_with_source(
         timeline,
-        signal_series.path,
+        signal_series,
     )
     timeline_kind = "irregular"
     if sampling_rate_hz is not None:
@@ -556,6 +692,20 @@ def _photometry_recording(
             sampling_rate_source = repair_rate_source
         if isinstance(repair_timeline_kind, str):
             timeline_kind = repair_timeline_kind
+    clock_provenance: dict[str, Any] | None = None
+    if _is_namlab_dff_series(signal_series):
+        repair_clock = (
+            signal_nonfinite_repair.get("clock_provenance")
+            if signal_nonfinite_repair is not None
+            else None
+        )
+        if isinstance(repair_clock, Mapping):
+            clock_provenance = dict(repair_clock)
+        else:
+            _clock_timeline, clock_provenance = _namlab_dff_timeline(
+                signal_series,
+                retained=None,
+            )
     metadata: dict[str, Any] = {
         "source_type": "nwb_photometry",
         "signal_series": signal_series.path,
@@ -570,6 +720,9 @@ def _photometry_recording(
     if sampling_rate_hz is not None:
         metadata["sampling_rate_hz"] = sampling_rate_hz
         metadata["sampling_rate_source"] = sampling_rate_source
+    if clock_provenance is not None:
+        metadata["clock_model"] = clock_provenance["clock_model"]
+        metadata["clock_provenance"] = clock_provenance
     if nonfinite_repairs:
         metadata["nonfinite_repairs"] = nonfinite_repairs
     return PhotometryRecording(

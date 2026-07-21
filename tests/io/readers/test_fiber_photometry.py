@@ -1578,11 +1578,11 @@ def test_read_nwb_photometry_drops_nonfinite_namlab_rows_without_resampling(
     assert repair["dropped_row_count"] == 3
     assert repair["timestamp_nonfinite_count"] == 1
     assert repair["sampling_rate_source"].endswith(
-        "timestamps_mean_finite_adjacent_namlab_dff"
+        "timestamps_routine_mean_namlab_dff"
     )
 
 
-def test_read_nwb_photometry_drop_rows_rejects_irregular_namlab_clock(
+def test_read_nwb_photometry_drop_rows_preserves_namlab_clock_gap(
     tmp_path,
 ) -> None:
     path = tmp_path / "namlab-irregular.nwb"
@@ -1601,8 +1601,48 @@ def test_read_nwb_photometry_drop_rows_rejects_irregular_namlab_clock(
         dff.attrs["namespace"] = "ndx-photometry-namlab"
         dff.attrs["neurodata_type"] = "DffSeries"
 
-    with pytest.raises(ValueError, match="nominal-clock limit"):
-        read_nwb_photometry(path, nonfinite_policy="drop_rows")
+    session = read_nwb_photometry(path, nonfinite_policy="drop_rows")
+    photometry = session.signal("photometry")
+
+    assert photometry.metadata["clock_model"] == "quantized_uniform"
+    provenance = photometry.metadata["clock_provenance"]
+    assert provenance["natural_gap_count"] == 1
+    assert provenance["gap_after_sample_indices"] == [998]
+    assert provenance["resampled"] is False
+
+
+def test_read_nwb_photometry_preserves_synchronized_irregular_namlab_clock(
+    tmp_path,
+) -> None:
+    path = tmp_path / "namlab-synchronized-irregular.nwb"
+    intervals = np.resize(np.asarray([0.008, 0.009, 0.014, 0.015]), 1999)
+    timestamps = np.r_[0.0, np.cumsum(intervals)]
+    signal = np.linspace(0.0, 1.0, timestamps.size)
+    with h5py.File(path, "w") as handle:
+        dff = _write_nwb_series(
+            handle.create_group("processing/photometry"),
+            "dff",
+            signal,
+            rate=None,
+            timestamps=timestamps,
+        )
+        dff.attrs["namespace"] = "ndx-photometry-namlab"
+        dff.attrs["neurodata_type"] = "DffSeries"
+
+    session = read_nwb_photometry(path)
+    photometry = session.signal("photometry")
+    provenance = photometry.metadata["clock_provenance"]
+
+    np.testing.assert_array_equal(photometry.timeline.timestamps_s, timestamps)
+    assert photometry.metadata["timeline_kind"] == "irregular_preserved"
+    assert photometry.metadata["clock_model"] == "synchronized_irregular"
+    assert photometry.metadata["sampling_rate_hz"] == pytest.approx(
+        1.0 / float(np.mean(intervals))
+    )
+    assert provenance["natural_gap_count"] == 0
+    assert provenance["gap_after_sample_indices"] == []
+    assert provenance["sample_rate_method"] == "inverse_mean_routine_interval"
+    assert provenance["resampled"] is False
 
 
 def test_read_nwb_photometry_drop_rows_enforces_fraction_limit(tmp_path) -> None:
