@@ -1212,7 +1212,10 @@ def test_read_nwb_photometry_extracts_namlab_eventlog_on_processed_clock(tmp_pat
         {
             "source_path": "/acquisition/eventlog",
             "event_table_path": "/acquisition/eventidx_table",
+            "source_event_count": 3,
             "event_count": 3,
+            "dropped_event_count": 0,
+            "event_repairs": [],
             "declared_time_unit": "milliseconds",
             "interpreted_time_unit": "seconds",
             "clock_signal_path": "processing/photometry/dff",
@@ -1220,6 +1223,102 @@ def test_read_nwb_photometry_extracts_namlab_eventlog_on_processed_clock(tmp_pat
             "source_analysis": "https://github.com/namboodirilab/ANCCR",
         }
     ]
+
+
+def _write_namlab_terminal_sentinel_eventlog(acquisition: h5py.Group) -> None:
+    eventlog = acquisition.create_group("eventlog")
+    eventlog.attrs["namespace"] = "ndx-eventlog-namlab"
+    eventlog.attrs["neurodata_type"] = "Eventlog"
+    eventtime = eventlog.create_dataset(
+        "eventtime",
+        data=np.asarray([0.25, 1.5, 0.0]),
+    )
+    eventtime.attrs["unit"] = "milliseconds"
+    eventlog.create_dataset(
+        "eventindex",
+        data=np.asarray([7, 5, 0], dtype=np.int32),
+    )
+    eventlog.create_dataset(
+        "nonsolenoidflag",
+        data=np.asarray([0, 1, 0], dtype=np.int8),
+    )
+
+    table = acquisition.create_group("eventidx_table")
+    table.attrs["namespace"] = "ndx-eventlog-namlab"
+    table.attrs["neurodata_type"] = "AnnotatedEventsTable"
+    table.create_dataset(
+        "event_index",
+        data=np.asarray([0, 5, 7], dtype=np.int32),
+    )
+    table.create_dataset(
+        "event_description",
+        data=np.asarray([b"session end", b"Lick3 onset", b"Background solenoid"]),
+    )
+
+
+def test_read_nwb_photometry_drops_invalid_terminal_session_end_sentinel(
+    tmp_path,
+) -> None:
+    path = tmp_path / "anccr-terminal-sentinel.nwb"
+    timestamps = np.arange(-1.0, 4.0, 0.01)
+    with h5py.File(path, "w") as handle:
+        dff = _write_nwb_series(
+            handle.create_group("processing/photometry"),
+            "dff",
+            np.linspace(0.0, 1.0, timestamps.size),
+            rate=None,
+            timestamps=timestamps,
+        )
+        dff.attrs["namespace"] = "ndx-photometry-namlab"
+        dff.attrs["neurodata_type"] = "DffSeries"
+        _write_namlab_terminal_sentinel_eventlog(handle.create_group("acquisition"))
+
+    session = read_nwb_photometry(path)
+    events = session.event_stream("events")
+
+    assert [event.label for event in events] == [
+        "Background solenoid",
+        "Lick3 onset",
+    ]
+    assert [event.metadata["source_row"] for event in events] == [0, 1]
+    provenance = session.metadata["namlab_eventlogs"][0]
+    assert provenance["source_event_count"] == 3
+    assert provenance["event_count"] == 2
+    assert provenance["dropped_event_count"] == 1
+    assert provenance["event_repairs"] == [
+        {
+            "policy": "drop_invalid_terminal_session_end_sentinel",
+            "source_rows": [2],
+            "event_index": 0,
+            "label": "session end",
+            "observed_time_s": 0.0,
+            "dropped_event_count": 1,
+        }
+    ]
+
+
+def test_read_nwb_photometry_rejects_other_namlab_event_time_inversions(
+    tmp_path,
+) -> None:
+    path = tmp_path / "anccr-event-inversion.nwb"
+    timestamps = np.arange(-1.0, 4.0, 0.01)
+    with h5py.File(path, "w") as handle:
+        dff = _write_nwb_series(
+            handle.create_group("processing/photometry"),
+            "dff",
+            np.linspace(0.0, 1.0, timestamps.size),
+            rate=None,
+            timestamps=timestamps,
+        )
+        dff.attrs["namespace"] = "ndx-photometry-namlab"
+        dff.attrs["neurodata_type"] = "DffSeries"
+        acquisition = handle.create_group("acquisition")
+        _write_namlab_terminal_sentinel_eventlog(acquisition)
+        descriptions = acquisition["eventidx_table/event_description"]
+        descriptions[0] = b"trial start"
+
+    with pytest.raises(ValueError, match="event times must be non-decreasing"):
+        read_nwb_photometry(path)
 
 
 def test_inspect_nwb_photometry_reports_signal_clock_gaps_and_events(tmp_path) -> None:
@@ -1577,9 +1676,7 @@ def test_read_nwb_photometry_drops_nonfinite_namlab_rows_without_resampling(
     assert repair["policy"] == "drop_rows"
     assert repair["dropped_row_count"] == 3
     assert repair["timestamp_nonfinite_count"] == 1
-    assert repair["sampling_rate_source"].endswith(
-        "timestamps_routine_mean_namlab_dff"
-    )
+    assert repair["sampling_rate_source"].endswith("timestamps_routine_mean_namlab_dff")
 
 
 def test_read_nwb_photometry_drop_rows_preserves_namlab_clock_gap(
@@ -1636,9 +1733,7 @@ def test_read_nwb_photometry_preserves_synchronized_irregular_namlab_clock(
     np.testing.assert_array_equal(photometry.timeline.timestamps_s, timestamps)
     assert photometry.metadata["timeline_kind"] == "irregular_preserved"
     assert photometry.metadata["clock_model"] == "synchronized_irregular"
-    assert photometry.metadata["sampling_rate_hz"] == pytest.approx(
-        1.0 / float(np.mean(intervals))
-    )
+    assert photometry.metadata["sampling_rate_hz"] == pytest.approx(1.0 / float(np.mean(intervals)))
     assert provenance["natural_gap_count"] == 0
     assert provenance["gap_after_sample_indices"] == []
     assert provenance["sample_rate_method"] == "inverse_mean_routine_interval"

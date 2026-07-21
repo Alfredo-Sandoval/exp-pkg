@@ -345,9 +345,7 @@ def _read_series(
     if nonfinite_policy == "drop_rows" and "timestamps" in series.group:
         stamps = np.asarray(series.group["timestamps"], dtype=np.float64).reshape(-1)
         timestamp_nonfinite = not np.isfinite(stamps).all()
-    if nonfinite_policy == "drop_rows" and (
-        not np.isfinite(values).all() or timestamp_nonfinite
-    ):
+    if nonfinite_policy == "drop_rows" and (not np.isfinite(values).all() or timestamp_nonfinite):
         return _drop_nonfinite_rows(
             series,
             values,
@@ -358,10 +356,8 @@ def _read_series(
 
 def _is_namlab_dff_series(series: _Series) -> bool:
     return (
-        str(_decode(series.group.attrs.get("namespace", "")))
-        == _NAMLAB_DFF_NAMESPACE
-        and str(_decode(series.group.attrs.get("neurodata_type", "")))
-        == _NAMLAB_DFF_TYPE
+        str(_decode(series.group.attrs.get("namespace", ""))) == _NAMLAB_DFF_NAMESPACE
+        and str(_decode(series.group.attrs.get("neurodata_type", ""))) == _NAMLAB_DFF_TYPE
     )
 
 
@@ -403,35 +399,23 @@ def _namlab_dff_timeline(
     preliminary_gaps = intervals > preliminary_gap_limit
     preliminary_routine = intervals[~preliminary_gaps]
     if preliminary_routine.size == 0:
-        raise ValueError(
-            f"NWB NAML DffSeries '{series.path}' has no routine timestamp intervals."
-        )
+        raise ValueError(f"NWB NAML DffSeries '{series.path}' has no routine timestamp intervals.")
 
     preliminary_median = float(np.median(preliminary_routine))
     core_deviation_from_median = (
         np.abs(preliminary_routine - preliminary_median) / preliminary_median
     )
     core = preliminary_routine[
-        core_deviation_from_median
-        <= _NAMLAB_QUANTIZED_MAX_RELATIVE_INTERVAL_DEVIATION
+        core_deviation_from_median <= _NAMLAB_QUANTIZED_MAX_RELATIVE_INTERVAL_DEVIATION
     ]
     if core.size == 0:
-        raise ValueError(
-            f"NWB NAML DffSeries '{series.path}' has no finite clock core."
-        )
+        raise ValueError(f"NWB NAML DffSeries '{series.path}' has no finite clock core.")
     core_interval = float(np.mean(core))
-    interval_deviation = (
-        np.abs(preliminary_routine - core_interval) / core_interval
-    )
+    interval_deviation = np.abs(preliminary_routine - core_interval) / core_interval
     outlier_fraction = float(
-        np.mean(
-            interval_deviation
-            > _NAMLAB_QUANTIZED_MAX_RELATIVE_INTERVAL_DEVIATION
-        )
+        np.mean(interval_deviation > _NAMLAB_QUANTIZED_MAX_RELATIVE_INTERVAL_DEVIATION)
     )
-    quantized_uniform = bool(
-        outlier_fraction <= _NAMLAB_QUANTIZED_MAX_OUTLIER_INTERVAL_FRACTION
-    )
+    quantized_uniform = bool(outlier_fraction <= _NAMLAB_QUANTIZED_MAX_OUTLIER_INTERVAL_FRACTION)
     if quantized_uniform:
         clock_model = "quantized_uniform"
         gap_limit = _NAMLAB_QUANTIZED_GAP_FACTOR * core_interval
@@ -575,9 +559,7 @@ def _drop_nonfinite_rows(
             f"of rows (>{max_nonfinite_fraction:.0%}); refusing the requested repair."
         )
     if int(retained.sum()) < 2:
-        raise ValueError(
-            f"NWB TimeSeries '{series.path}' has fewer than two finite rows."
-        )
+        raise ValueError(f"NWB TimeSeries '{series.path}' has fewer than two finite rows.")
     timeline, rate_source, clock_provenance = _dropped_row_timeline(
         series,
         retained=retained,
@@ -971,6 +953,41 @@ def _validate_namlab_clock_signal(signal: _Series) -> None:
         )
 
 
+def _namlab_retained_event_rows(
+    times_s: np.ndarray,
+    indices: np.ndarray,
+    labels: Mapping[int, str],
+) -> tuple[np.ndarray, list[dict[str, Any]]]:
+    row_count = int(times_s.size)
+    retained = np.ones(row_count, dtype=bool)
+    if row_count < 2 or not np.any(np.diff(times_s) < 0.0):
+        return retained, []
+    inversions = np.flatnonzero(np.diff(times_s) < 0.0)
+    terminal_row = row_count - 1
+    terminal_index = int(indices[terminal_row])
+    terminal_label = labels.get(terminal_index)
+    is_known_terminal_sentinel = bool(
+        inversions.tolist() == [terminal_row - 1]
+        and terminal_label is not None
+        and terminal_label.casefold() == "session end"
+        and float(times_s[terminal_row]) == 0.0
+        and float(times_s[terminal_row - 1]) > 0.0
+    )
+    if not is_known_terminal_sentinel:
+        raise ValueError("NWB namlab event times must be non-decreasing.")
+    retained[terminal_row] = False
+    return retained, [
+        {
+            "policy": "drop_invalid_terminal_session_end_sentinel",
+            "source_rows": [terminal_row],
+            "event_index": terminal_index,
+            "label": terminal_label,
+            "observed_time_s": 0.0,
+            "dropped_event_count": 1,
+        }
+    ]
+
+
 def _namlab_eventlog_events(
     handle: h5py.File,
     *,
@@ -1014,16 +1031,17 @@ def _namlab_eventlog_events(
                 f"NWB namlab dataset '{eventlog.name}/eventtime' must contain finite numbers."
             )
         times_s = np.asarray(times, dtype=np.float64)
-        if times_s.size > 1 and np.any(np.diff(times_s) < 0.0):
-            raise ValueError(
-                f"NWB namlab dataset '{eventlog.name}/eventtime' must be non-decreasing."
-            )
         if indices.dtype.kind not in "iu" or flags.dtype.kind not in "iub":
             raise ValueError(
                 f"NWB namlab Eventlog '{eventlog.name}' indices and flags must be integers."
             )
         table = _namlab_event_table(eventlog, tables)
         labels = _namlab_label_map(table)
+        retained_rows, event_repairs = _namlab_retained_event_rows(
+            times_s,
+            indices,
+            labels,
+        )
         time_dataset = eventlog["eventtime"]
         assert isinstance(time_dataset, h5py.Dataset)
         declared_unit = _decode(time_dataset.attrs.get("unit", ""))
@@ -1032,9 +1050,10 @@ def _namlab_eventlog_events(
                 f"NWB namlab dataset '{time_dataset.name}' has unsupported unit "
                 f"{declared_unit!r}; expected 'milliseconds' or 'seconds'."
             )
-        for source_row, (time_s, raw_index, raw_flag) in enumerate(
-            zip(times_s, indices, flags, strict=True)
-        ):
+        for source_row in np.flatnonzero(retained_rows):
+            time_s = times_s[source_row]
+            raw_index = indices[source_row]
+            raw_flag = flags[source_row]
             event_index = int(raw_index)
             if event_index not in labels:
                 raise ValueError(
@@ -1062,7 +1081,10 @@ def _namlab_eventlog_events(
             {
                 "source_path": eventlog.name,
                 "event_table_path": table.name,
-                "event_count": int(times_s.size),
+                "source_event_count": int(times_s.size),
+                "event_count": int(np.count_nonzero(retained_rows)),
+                "dropped_event_count": int(np.count_nonzero(~retained_rows)),
+                "event_repairs": event_repairs,
                 "declared_time_unit": declared_unit,
                 "interpreted_time_unit": "seconds",
                 "clock_signal_path": signal.path,
