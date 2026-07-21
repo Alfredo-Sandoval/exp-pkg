@@ -51,8 +51,9 @@ _NAMLAB_EVENTLOG_TYPE = "Eventlog"
 _NAMLAB_EVENT_TABLE_TYPE = "AnnotatedEventsTable"
 _NAMLAB_DFF_NAMESPACE = "ndx-photometry-namlab"
 _NAMLAB_DFF_TYPE = "DffSeries"
-NonfinitePolicy = Literal["raise", "interpolate_sparse"]
+NonfinitePolicy = Literal["raise", "interpolate_sparse", "drop_rows"]
 NwbPhotometryClassification = Literal["photometry", "event_only", "unsupported"]
+_NAMLAB_DFF_MAX_RELATIVE_INTERVAL_DEVIATION = 0.10
 
 
 @dataclass(frozen=True, slots=True)
@@ -223,11 +224,15 @@ def _series_values(
     if nonfinite_policy == "raise":
         raise ValueError(
             f"NWB TimeSeries '{series.path}' contains non-finite samples. "
-            "Pass nonfinite_policy='interpolate_sparse' to repair sparse internal gaps."
+            "Pass nonfinite_policy='interpolate_sparse' to repair sparse internal "
+            "gaps or nonfinite_policy='drop_rows' to preserve only stored finite rows."
         )
+    if nonfinite_policy == "drop_rows":
+        return data, None
     if nonfinite_policy != "interpolate_sparse":
         raise ValueError(
-            f"nonfinite_policy must be 'raise' or 'interpolate_sparse', got {nonfinite_policy!r}."
+            "nonfinite_policy must be 'raise', 'interpolate_sparse', or "
+            f"'drop_rows', got {nonfinite_policy!r}."
         )
     return _repair_sparse_nonfinite(data, series.path, max_nonfinite_fraction)
 
@@ -324,7 +329,152 @@ def _read_series(
         nonfinite_policy=nonfinite_policy,
         max_nonfinite_fraction=max_nonfinite_fraction,
     )
+    timestamp_nonfinite = False
+    if nonfinite_policy == "drop_rows" and "timestamps" in series.group:
+        stamps = np.asarray(series.group["timestamps"], dtype=np.float64).reshape(-1)
+        timestamp_nonfinite = not np.isfinite(stamps).all()
+    if nonfinite_policy == "drop_rows" and (
+        not np.isfinite(values).all() or timestamp_nonfinite
+    ):
+        return _drop_nonfinite_rows(
+            series,
+            values,
+            max_nonfinite_fraction=max_nonfinite_fraction,
+        )
     return values, _series_timeline(series, values.shape[0]), repair
+
+
+def _is_namlab_dff_series(series: _Series) -> bool:
+    return (
+        str(_decode(series.group.attrs.get("namespace", "")))
+        == _NAMLAB_DFF_NAMESPACE
+        and str(_decode(series.group.attrs.get("neurodata_type", "")))
+        == _NAMLAB_DFF_TYPE
+    )
+
+
+def _dropped_row_timeline(
+    series: _Series,
+    *,
+    retained: np.ndarray,
+) -> tuple[Timeline, str]:
+    if "timestamps" not in series.group:
+        original = _series_timeline(series, retained.size)
+        if original.sample_rate_hz is None:
+            raise RuntimeError(
+                f"NWB TimeSeries '{series.path}' rate timeline lost its sampling rate."
+            )
+        return (
+            Timeline(
+                timestamps_s=original.timestamps_s[retained],
+                sample_rate_hz=original.sample_rate_hz,
+            ),
+            f"{series.path}.starting_time.rate",
+        )
+
+    stamps = np.asarray(series.group["timestamps"], dtype=np.float64).reshape(-1)
+    if stamps.size != retained.size:
+        raise ValueError(
+            f"NWB TimeSeries '{series.path}' timestamps length must match data samples."
+        )
+    finite_pairs = np.isfinite(stamps[:-1]) & np.isfinite(stamps[1:])
+    intervals = np.diff(stamps)[finite_pairs]
+    if intervals.size == 0 or not np.all(intervals > 0.0):
+        raise ValueError(
+            f"NWB TimeSeries '{series.path}' cannot establish a positive nominal "
+            "sample interval from stored timestamps."
+        )
+    median_interval = float(np.median(intervals))
+    if np.allclose(intervals, median_interval, rtol=1e-6, atol=1e-9):
+        sample_interval = median_interval
+        rate_source = f"{series.path}.timestamps_uniform_before_row_drop"
+    elif _is_namlab_dff_series(series):
+        sample_interval = float(np.mean(intervals))
+        relative_deviation = np.abs(intervals - sample_interval) / sample_interval
+        maximum_deviation = float(np.max(relative_deviation))
+        if maximum_deviation > _NAMLAB_DFF_MAX_RELATIVE_INTERVAL_DEVIATION:
+            raise ValueError(
+                f"NWB NAML DffSeries '{series.path}' finite timestamp intervals "
+                f"deviate by {maximum_deviation:.1%}, exceeding the "
+                f"{_NAMLAB_DFF_MAX_RELATIVE_INTERVAL_DEVIATION:.0%} nominal-clock "
+                "limit."
+            )
+        rate_source = (
+            f"{series.path}.timestamps_mean_finite_adjacent_namlab_dff"
+        )
+    else:
+        raise ValueError(
+            f"NWB TimeSeries '{series.path}' has irregular timestamps and no "
+            "format-specific nominal-rate contract."
+        )
+    return (
+        Timeline(
+            timestamps_s=stamps[retained],
+            sample_rate_hz=1.0 / sample_interval,
+        ),
+        rate_source,
+    )
+
+
+def _drop_nonfinite_rows(
+    series: _Series,
+    data: np.ndarray,
+    *,
+    max_nonfinite_fraction: float,
+) -> tuple[np.ndarray, Timeline, dict[str, Any]]:
+    if not np.isfinite(max_nonfinite_fraction) or not 0.0 <= max_nonfinite_fraction <= 1.0:
+        raise ValueError(
+            "max_nonfinite_fraction must be finite and between 0 and 1, "
+            f"got {max_nonfinite_fraction!r}."
+        )
+    data_finite = np.isfinite(data).all(axis=1)
+    if "timestamps" in series.group:
+        stamps = np.asarray(series.group["timestamps"], dtype=np.float64).reshape(-1)
+        if stamps.size != data.shape[0]:
+            raise ValueError(
+                f"NWB TimeSeries '{series.path}' timestamps length must match data samples."
+            )
+        timestamp_finite = np.isfinite(stamps)
+    else:
+        timestamp_finite = np.ones(data.shape[0], dtype=bool)
+    retained = data_finite & timestamp_finite
+    dropped_count = int((~retained).sum())
+    dropped_fraction = dropped_count / int(retained.size)
+    if dropped_fraction > max_nonfinite_fraction:
+        raise ValueError(
+            f"NWB TimeSeries '{series.path}' requires dropping {dropped_fraction:.1%} "
+            f"of rows (>{max_nonfinite_fraction:.0%}); refusing the requested repair."
+        )
+    if int(retained.sum()) < 2:
+        raise ValueError(
+            f"NWB TimeSeries '{series.path}' has fewer than two finite rows."
+        )
+    timeline, rate_source = _dropped_row_timeline(series, retained=retained)
+    sample_rate = timeline.sample_rate_hz
+    if sample_rate is None:
+        raise RuntimeError(
+            f"NWB TimeSeries '{series.path}' row-drop timeline lost its sample rate."
+        )
+    expected_step = 1.0 / sample_rate
+    output_intervals = np.diff(timeline.timestamps_s)
+    timeline_kind = (
+        "uniform"
+        if np.allclose(output_intervals, expected_step, rtol=1e-6, atol=1e-9)
+        else "irregular_preserved"
+    )
+    return data[retained], timeline, {
+        "policy": "drop_rows",
+        "original_sample_count": int(data.shape[0]),
+        "retained_sample_count": int(retained.sum()),
+        "dropped_row_count": dropped_count,
+        "dropped_row_fraction": dropped_fraction,
+        "max_nonfinite_fraction": float(max_nonfinite_fraction),
+        "signal_nonfinite_row_count": int((~data_finite).sum()),
+        "timestamp_nonfinite_count": int((~timestamp_finite).sum()),
+        "sampling_rate_hz": sample_rate,
+        "sampling_rate_source": rate_source,
+        "timeline_kind": timeline_kind,
+    }
 
 
 def _timelines_match(left: Timeline, right: Timeline) -> bool:
@@ -385,6 +535,27 @@ def _photometry_recording(
         timeline,
         signal_series.path,
     )
+    timeline_kind = "irregular"
+    if sampling_rate_hz is not None:
+        expected_step = 1.0 / sampling_rate_hz
+        timeline_kind = (
+            "uniform"
+            if timeline.n_samples < 2
+            or np.allclose(
+                np.diff(timeline.timestamps_s),
+                expected_step,
+                rtol=1e-6,
+                atol=1e-9,
+            )
+            else "irregular_preserved"
+        )
+    if signal_nonfinite_repair is not None:
+        repair_rate_source = signal_nonfinite_repair.get("sampling_rate_source")
+        repair_timeline_kind = signal_nonfinite_repair.get("timeline_kind")
+        if isinstance(repair_rate_source, str):
+            sampling_rate_source = repair_rate_source
+        if isinstance(repair_timeline_kind, str):
+            timeline_kind = repair_timeline_kind
     metadata: dict[str, Any] = {
         "source_type": "nwb_photometry",
         "signal_series": signal_series.path,
@@ -394,6 +565,7 @@ def _photometry_recording(
             for token in ("dfoverf", "dff")
         ),
         "n_fibers": int(signal_values.shape[1]),
+        "timeline_kind": timeline_kind,
     }
     if sampling_rate_hz is not None:
         metadata["sampling_rate_hz"] = sampling_rate_hz

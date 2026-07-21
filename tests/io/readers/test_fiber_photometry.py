@@ -1545,6 +1545,81 @@ def test_read_nwb_photometry_rejects_edge_nonfinite_repair(tmp_path) -> None:
         read_nwb_photometry(path, nonfinite_policy="interpolate_sparse")
 
 
+def test_read_nwb_photometry_drops_nonfinite_namlab_rows_without_resampling(
+    tmp_path,
+) -> None:
+    path = tmp_path / "namlab-gaps.nwb"
+    timestamps = np.cumsum(np.resize(np.asarray([0.008, 0.009, 0.008]), 2000))
+    signal = np.linspace(0.0, 1.0, timestamps.size)
+    signal[0] = np.nan
+    signal[700] = np.nan
+    timestamps[1200] = np.nan
+    expected_mask = np.isfinite(signal) & np.isfinite(timestamps)
+    with h5py.File(path, "w") as handle:
+        dff = _write_nwb_series(
+            handle.create_group("processing/photometry"),
+            "dff",
+            signal,
+            rate=None,
+            timestamps=timestamps,
+        )
+        dff.attrs["namespace"] = "ndx-photometry-namlab"
+        dff.attrs["neurodata_type"] = "DffSeries"
+
+    session = read_nwb_photometry(path, nonfinite_policy="drop_rows")
+    photometry = session.signal("photometry")
+    repair = photometry.metadata["nonfinite_repairs"]["processing/photometry/dff"]
+
+    np.testing.assert_array_equal(photometry.series.values[:, 0], signal[expected_mask])
+    np.testing.assert_array_equal(photometry.timeline.timestamps_s, timestamps[expected_mask])
+    assert photometry.timeline.sample_rate_hz == pytest.approx(120.0, rel=0.01)
+    assert photometry.metadata["timeline_kind"] == "irregular_preserved"
+    assert repair["policy"] == "drop_rows"
+    assert repair["dropped_row_count"] == 3
+    assert repair["timestamp_nonfinite_count"] == 1
+    assert repair["sampling_rate_source"].endswith(
+        "timestamps_mean_finite_adjacent_namlab_dff"
+    )
+
+
+def test_read_nwb_photometry_drop_rows_rejects_irregular_namlab_clock(
+    tmp_path,
+) -> None:
+    path = tmp_path / "namlab-irregular.nwb"
+    timestamps = np.arange(2000, dtype=float) * 0.01
+    timestamps[1000:] += 0.02
+    signal = np.linspace(0.0, 1.0, timestamps.size)
+    signal[0] = np.nan
+    with h5py.File(path, "w") as handle:
+        dff = _write_nwb_series(
+            handle.create_group("processing/photometry"),
+            "dff",
+            signal,
+            rate=None,
+            timestamps=timestamps,
+        )
+        dff.attrs["namespace"] = "ndx-photometry-namlab"
+        dff.attrs["neurodata_type"] = "DffSeries"
+
+    with pytest.raises(ValueError, match="nominal-clock limit"):
+        read_nwb_photometry(path, nonfinite_policy="drop_rows")
+
+
+def test_read_nwb_photometry_drop_rows_enforces_fraction_limit(tmp_path) -> None:
+    path = tmp_path / "too-many-dropped.nwb"
+    signal = np.linspace(0.0, 1.0, 1000)
+    signal[:20] = np.nan
+    with h5py.File(path, "w") as handle:
+        _write_nwb_series(
+            handle.create_group("processing/ophys"),
+            "DfOverFResponseSeries",
+            signal,
+        )
+
+    with pytest.raises(ValueError, match="requires dropping 2.0%"):
+        read_nwb_photometry(path, nonfinite_policy="drop_rows")
+
+
 def test_read_teleopto_h5_extracts_channels_and_ttl(tmp_path) -> None:
     path = tmp_path / "teleopto.h5"
     with h5py.File(path, "w") as handle:
