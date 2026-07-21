@@ -23,6 +23,31 @@ def _decode_node_name(name: Any) -> str:
     return str(name)
 
 
+def _sleap_track_layout(tracks: h5py.Dataset, node_count: int) -> str:
+    if tracks.ndim != 4:
+        raise ValueError(f"SLEAP tracks must be four-dimensional, got shape {tracks.shape}.")
+    legacy = tracks.shape[1] == 2 and tracks.shape[2] == node_count
+    standard = tracks.shape[1] == node_count and tracks.shape[2] == 2
+    if legacy and standard:
+        raise ValueError(
+            "SLEAP tracks layout is ambiguous because both coordinate and node dimensions "
+            f"have length 2: {tracks.shape}."
+        )
+    if legacy:
+        return "track_xy_node_frame"
+    if standard:
+        return "frame_node_xy_track"
+    raise ValueError(
+        "Unsupported SLEAP tracks layout. Expected (tracks, 2, nodes, frames) or "
+        f"(frames, nodes, 2, tracks), got {tracks.shape} with {node_count} nodes."
+    )
+
+
+def _sleap_track_count(tracks: h5py.Dataset, node_count: int) -> int:
+    layout = _sleap_track_layout(tracks, node_count)
+    return int(tracks.shape[0] if layout == "track_xy_node_frame" else tracks.shape[3])
+
+
 def read_node_names(path: Path) -> list[str]:
     """Return decoded node names from a SLEAP analysis H5."""
     with h5py.File(str(path), "r") as handle:
@@ -34,7 +59,8 @@ def read_track_count(path: Path) -> int:
     """Return the number of tracked instances stored in a SLEAP analysis H5."""
     with h5py.File(str(path), "r") as handle:
         tracks = require_dataset(handle, "tracks")
-        return int(tracks.shape[0])
+        node_count = int(require_dataset(handle, "node_names").shape[0])
+        return _sleap_track_count(tracks, node_count)
 
 
 def read_track_names(path: Path) -> list[str]:
@@ -49,7 +75,9 @@ def read_track_names(path: Path) -> list[str]:
     non-empty dataset, since the empty placeholder is a float array, not bytes.
     """
     with h5py.File(str(path), "r") as handle:
-        track_count = int(require_dataset(handle, "tracks").shape[0])
+        tracks = require_dataset(handle, "tracks")
+        node_count = int(require_dataset(handle, "node_names").shape[0])
+        track_count = _sleap_track_count(tracks, node_count)
         track_names_ds = handle.get("track_names")
         names: list[str] = []
         if isinstance(track_names_ds, h5py.Dataset) and track_names_ds.shape[0] > 0:
@@ -74,33 +102,28 @@ def read_track(path: Path, *, track_index: int) -> PoseTrack:
             _decode_node_name(name)
             for name in np.asarray(require_dataset(handle, "node_names")[...])
         )
+        layout = _sleap_track_layout(tracks, len(node_names))
+        track_count = _sleap_track_count(tracks, len(node_names))
 
-        if tracks.shape[0] <= idx:
+        if track_count <= idx:
             raise IndexError(
-                f"track_index={idx} out of range for tracks with shape {tracks.shape}."
+                f"track_index={idx} out of range for {track_count} tracks with shape "
+                f"{tracks.shape}."
             )
-        if point_scores.shape[0] <= idx:
-            raise IndexError(
-                f"track_index={idx} out of range for point_scores with shape {point_scores.shape}."
-            )
-        if instance_scores.shape[0] <= idx:
-            raise IndexError(
-                "track_index="
-                f"{idx} out of range for instance_scores with shape "
-                f"{instance_scores.shape}."
-            )
-
-        # SLEAP layout: tracks[idx] -> (2, nodes, frames)
-        coords_raw = np.asarray(tracks[idx], dtype=float)
-        scores_raw = np.asarray(point_scores[idx], dtype=float)  # (nodes, frames)
-        instance_score = np.asarray(instance_scores[idx], dtype=float)  # (frames,)
-
-    if coords_raw.shape[0] != 2:
-        raise ValueError(
-            f"Expected tracks[idx] first dim=2 (x,y), got shape {coords_raw.shape} for {path}."
-        )
-    coords = np.stack([coords_raw[0].T, coords_raw[1].T], axis=-1)  # (frames, nodes, 2)
-    scores = scores_raw.T  # (frames, nodes)
+        if layout == "track_xy_node_frame":
+            if point_scores.shape[0] <= idx or instance_scores.shape[0] <= idx:
+                raise IndexError(f"SLEAP score datasets do not contain track_index={idx}.")
+            coords_raw = np.asarray(tracks[idx], dtype=float)
+            scores_raw = np.asarray(point_scores[idx], dtype=float)
+            instance_score = np.asarray(instance_scores[idx], dtype=float)
+            coords = np.stack([coords_raw[0].T, coords_raw[1].T], axis=-1)
+            scores = scores_raw.T
+        else:
+            if point_scores.shape[-1] <= idx or instance_scores.shape[-1] <= idx:
+                raise IndexError(f"SLEAP score datasets do not contain track_index={idx}.")
+            coords = np.asarray(tracks[:, :, :, idx], dtype=float)
+            scores = np.asarray(point_scores[:, :, idx], dtype=float)
+            instance_score = np.asarray(instance_scores[:, idx], dtype=float)
 
     return build_pose_track(
         coords=coords,
@@ -113,6 +136,7 @@ def read_track(path: Path, *, track_index: int) -> PoseTrack:
             "software": "SLEAP",
             "file_type": "h5",
             "track_index": idx,
+            "tracks_layout": layout,
         },
     )
 

@@ -177,6 +177,7 @@ def mmpose_instance(
     *,
     base: float,
     scores: list[float],
+    track_id: int,
 ) -> dict[str, object]:
     keypoints = [
         [base + 0.0, base + 10.0],
@@ -184,6 +185,7 @@ def mmpose_instance(
         [base + 40.0, base + 50.0],
     ]
     return {
+        "track_id": track_id,
         "keypoints": keypoints,
         "keypoint_scores": scores,
         "bbox": [base - 5.0, base - 5.0, 64.0, 48.0],
@@ -215,21 +217,21 @@ def write_mmpose_topdown_json(path: Path) -> Path:
                 {
                     "frame_id": 1,
                     "instances": [
-                        mmpose_instance(base=10.0, scores=[0.95, 0.85, 0.75]),
-                        mmpose_instance(base=110.0, scores=[0.65, 0.55, 0.45]),
+                        mmpose_instance(base=10.0, scores=[0.95, 0.85, 0.75], track_id=0),
+                        mmpose_instance(base=110.0, scores=[0.65, 0.55, 0.45], track_id=1),
                     ],
                 },
                 {
                     "frame_id": 2,
                     "instances": [
-                        mmpose_instance(base=11.0, scores=[0.90, 0.80, 0.70]),
+                        mmpose_instance(base=11.0, scores=[0.90, 0.80, 0.70], track_id=0),
                     ],
                 },
                 {
                     "frame_id": 3,
                     "instances": [
-                        mmpose_instance(base=12.0, scores=[0.88, 0.78, 0.60]),
-                        mmpose_instance(base=112.0, scores=[0.62, 0.52, 0.42]),
+                        mmpose_instance(base=12.0, scores=[0.88, 0.78, 0.60], track_id=0),
+                        mmpose_instance(base=112.0, scores=[0.62, 0.52, 0.42], track_id=1),
                     ],
                 },
             ],

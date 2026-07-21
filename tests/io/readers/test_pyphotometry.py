@@ -28,7 +28,10 @@ def _write_ppd(
     odd_payload_byte: bool = False,
     extra_payload_words: int = 0,
 ) -> None:
-    header: dict[str, object] = {"n_analog_channels": n_channels}
+    header: dict[str, object] = {
+        "n_analog_channels": n_channels,
+        "n_digital_channels": n_channels,
+    }
     if fs is not None:
         header["sampling_rate"] = fs
     if volts_per_division is not None:
@@ -132,16 +135,18 @@ def test_read_pyphotometry_ppd_supports_v11_pulsed_baseline_layout(tmp_path: Pat
     path = tmp_path / "pulsed.ppd"
     header = {
         "sampling_rate": 20.0,
-        "n_analog_channels": 2,
+        "n_analog_channels": 3,
+        "n_digital_signals": 1,
         "mode": "pulsed",
         "version": "1.1",
         "volts_per_division": 0.001,
+        "ADC_max_value": 0.25,
     }
     header_bytes = json.dumps(header).encode("utf-8")
     rows = np.asarray(
         [
-            [(100 << 1) | 0, 20 << 1, (200 << 1) | 0, 40 << 1],
-            [(110 << 1) | 1, 30 << 1, (210 << 1) | 0, 50 << 1],
+            [(100 << 1) | 0, 20 << 1, 200 << 1, 40 << 1, 400 << 1, 60 << 1],
+            [(110 << 1) | 1, 30 << 1, 210 << 1, 50 << 1, 410 << 1, 70 << 1],
         ],
         dtype=np.uint16,
     )
@@ -153,8 +158,14 @@ def test_read_pyphotometry_ppd_supports_v11_pulsed_baseline_layout(tmp_path: Pat
     assert isinstance(photometry, PhotometryRecording)
     np.testing.assert_allclose(photometry.series.values[:, 0], [0.08, 0.08])
     np.testing.assert_allclose(photometry.series.values[:, 1], [0.16, 0.16])
+    assert session.signal("digital").channel_names == ("digital_1",)
     assert "raw_led_on" in session.signal_names
     assert "raw_baseline" in session.signal_names
+    clipping = session.signal("clipping")
+    np.testing.assert_array_equal(
+        clipping.values,
+        [[False, False, True], [False, False, True]],
+    )
     assert [event.label for event in session.event_stream("digital")] == ["digital_1"]
 
 
@@ -165,6 +176,7 @@ def test_read_pyphotometry_ppd_rejects_incomplete_pulsed_layout_sample(
     header = {
         "sampling_rate": 20.0,
         "n_analog_channels": 2,
+        "n_digital_channels": 2,
         "mode": "pulsed",
         "version": "1.1",
     }

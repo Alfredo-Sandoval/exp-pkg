@@ -44,6 +44,21 @@ def _channel_count(header: dict[str, Any]) -> int:
     return count
 
 
+def _digital_count(header: dict[str, Any], analog_count: int) -> int:
+    for key in ("n_digital_channels", "n_digital_signals"):
+        if key in header:
+            count = int(header[key])
+            if count < 0:
+                raise ValueError(f"{key} must be non-negative, got {count}.")
+            if count > analog_count:
+                raise ValueError(
+                    f"{key} cannot exceed the number of analog channels used to encode "
+                    f"digital bits: {count} vs {analog_count}."
+                )
+            return count
+    raise ValueError("PPD header is missing n_digital_channels or n_digital_signals.")
+
+
 def _volts_per_division(header: dict[str, Any], channel_count: int) -> np.ndarray | None:
     if "volts_per_division" not in header:
         return None
@@ -143,7 +158,11 @@ def _uses_pulsed_v11_layout(header: dict[str, Any]) -> bool:
     return version >= (1, 1)
 
 
-def _split_old_layout(words: np.ndarray, channel_count: int) -> tuple[np.ndarray, np.ndarray]:
+def _split_old_layout(
+    words: np.ndarray,
+    channel_count: int,
+    digital_count: int,
+) -> tuple[np.ndarray, np.ndarray]:
     if words.size == 0:
         raise ValueError("PPD file contains no complete samples.")
     if words.size % channel_count:
@@ -153,13 +172,14 @@ def _split_old_layout(words: np.ndarray, channel_count: int) -> tuple[np.ndarray
         )
     rows = words.reshape((-1, channel_count))
     analog = (rows >> 1).astype(np.float64)
-    digital = (rows & 0x1).astype(np.float64)
+    digital = (rows[:, :digital_count] & 0x1).astype(np.float64)
     return analog, digital
 
 
 def _split_pulsed_v11_layout(
     words: np.ndarray,
     channel_count: int,
+    digital_count: int,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     row_width = 2 * channel_count
     if words.size == 0:
@@ -173,8 +193,23 @@ def _split_pulsed_v11_layout(
     raw_led_on = (rows[:, 0::2] >> 1).astype(np.float64)
     raw_baseline = (rows[:, 1::2] >> 1).astype(np.float64)
     analog = raw_led_on - raw_baseline
-    digital = (rows[:, 0::2] & 0x1).astype(np.float64)
+    digital = (rows[:, 0::2][:, :digital_count] & 0x1).astype(np.float64)
     return analog, digital, raw_led_on, raw_baseline
+
+
+def _clipping_mask(
+    raw_analog: np.ndarray,
+    header: dict[str, Any],
+    scale: np.ndarray | None,
+) -> np.ndarray | None:
+    if "ADC_max_value" not in header:
+        return None
+    if scale is None:
+        raise ValueError("PPD ADC_max_value requires volts_per_division for clipping detection.")
+    maximum = float(header["ADC_max_value"])
+    if not np.isfinite(maximum) or maximum <= 0.0:
+        raise ValueError("ADC_max_value must be positive and finite.")
+    return raw_analog * scale >= maximum
 
 
 def _rising_edges(bits: np.ndarray, sample_rate_hz: float) -> np.ndarray:
@@ -227,17 +262,22 @@ def read_pyphotometry_ppd(path: str | Path) -> RecordingSession:
     header, words = _read_ppd_words(source_path)
     sample_rate_hz, sample_rate_source = _sampling_rate_with_source(header)
     channel_count = _channel_count(header)
+    digital_count = _digital_count(header, channel_count)
     extra_signals: dict[str, TimeSeries] = {}
     if _uses_pulsed_v11_layout(header):
         analog, digital, raw_led_on, raw_baseline = _split_pulsed_v11_layout(
             words,
             channel_count,
+            digital_count,
         )
+        clipping_source = raw_led_on
     else:
-        analog, digital = _split_old_layout(words, channel_count)
+        analog, digital = _split_old_layout(words, channel_count, digital_count)
         raw_led_on = None
         raw_baseline = None
+        clipping_source = analog
     scale = _volts_per_division(header, channel_count)
+    clipping = _clipping_mask(clipping_source, header, scale)
     unit = "V" if scale is not None else "raw"
     if scale is not None:
         analog = analog * scale
@@ -251,6 +291,14 @@ def read_pyphotometry_ppd(path: str | Path) -> RecordingSession:
         sample_rate_hz=sample_rate_hz,
     )
     analog_names = tuple(f"analog_{index + 1}" for index in range(channel_count))
+    if clipping is not None:
+        extra_signals["clipping"] = TimeSeries(
+            values=clipping,
+            channels=tuple(SignalChannel(name=name, unit="bool") for name in analog_names),
+            timeline=timeline,
+            name="pyphotometry_clipping",
+            provenance={"source": {"type": "pyphotometry_ppd", "path": str(source_path)}},
+        )
     if raw_led_on is not None and raw_baseline is not None:
         extra_signals["raw_led_on"] = TimeSeries(
             values=raw_led_on,
@@ -284,7 +332,7 @@ def read_pyphotometry_ppd(path: str | Path) -> RecordingSession:
             "event_label_scheme": "digital_channels",
         },
     )
-    digital_names = tuple(f"digital_{index + 1}" for index in range(channel_count))
+    digital_names = tuple(f"digital_{index + 1}" for index in range(digital_count))
     digital_series = TimeSeries(
         values=digital,
         channels=tuple(SignalChannel(name=name, unit="state") for name in digital_names),

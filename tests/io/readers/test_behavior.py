@@ -3,6 +3,9 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import h5py
+import numpy as np
+import pandas as pd
 import pytest
 
 from xpkg.io.readers import (
@@ -10,6 +13,7 @@ from xpkg.io.readers import (
     read_behavior_events_json,
     read_boris_csv,
     read_bsoid_csv,
+    read_keypoint_moseq_results_h5,
     read_keypoint_moseq_syllables_csv,
     read_simba_csv,
 )
@@ -478,9 +482,6 @@ def test_read_simba_csv_reads_real_machine_results() -> None:
 
 
 def test_read_boris_tabular_skips_nonfinite_time_rows(tmp_path) -> None:
-    # A single corrupt (inf/NaN) Time cell must skip that row, not abort the
-    # whole parse. The inf STOP below is dropped, so the START at 1.0 pairs with
-    # the valid STOP at 2.0.
     path = tmp_path / "boris_tab_corrupt.csv"
     path.write_text(
         "\r\n".join(
@@ -495,9 +496,105 @@ def test_read_boris_tabular_skips_nonfinite_time_rows(tmp_path) -> None:
         encoding="utf-8",
     )
 
+    with pytest.raises(ValueError, match="finite numeric value"):
+        read_boris_csv(path)
+
+
+def test_read_boris_tabular_pairs_modifiers_as_distinct_states(tmp_path: Path) -> None:
+    path = tmp_path / "boris_modifiers.csv"
+    path.write_text(
+        "\n".join(
+            [
+                "Time,Observation id,Subject,Behavior,Behavioral category,Modifiers,Comment,Status",
+                "1.0,obs-1,rat-1,investigate,social,left,target A,START",
+                "1.2,obs-1,rat-1,investigate,social,right,target B,START",
+                "2.0,obs-1,rat-1,investigate,social,left,done A,STOP",
+                "2.4,obs-1,rat-1,investigate,social,right,done B,STOP",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
     labels = read_boris_csv(path)
 
-    assert labels.metadata["source"]["format"] == "tabular_events_csv"
-    assert len(labels.intervals) == 1
-    assert labels.intervals[0].start_s == pytest.approx(1.0)
-    assert labels.intervals[0].end_s == pytest.approx(2.0)
+    assert [(item.start_s, item.end_s) for item in labels.intervals] == [
+        (1.0, 2.0),
+        (1.2, 2.4),
+    ]
+    assert [item.metadata["Modifiers"] for item in labels.intervals] == ["left", "right"]
+    assert labels.intervals[0].metadata["Comment"] == "target A"
+    assert labels.intervals[0].metadata["stop_Comment"] == "done A"
+    assert labels.intervals[0].source_id == "obs-1"
+
+
+@pytest.mark.parametrize(
+    "rows",
+    [
+        ["1.0,rat-1,rear,posture,,STOP"],
+        ["1.0,rat-1,rear,posture,,START"],
+    ],
+)
+def test_read_boris_tabular_rejects_unpaired_state_rows(
+    tmp_path: Path,
+    rows: list[str],
+) -> None:
+    path = tmp_path / "boris_unpaired.csv"
+    path.write_text(
+        "Time,Subject,Behavior,Behavioral category,Modifiers,Status\n" + "\n".join(rows) + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="without (a matching START|matching STOP)"):
+        read_boris_csv(path)
+
+
+def test_read_bsoid_csv_reads_two_row_svm_classifier_header(tmp_path: Path) -> None:
+    path = tmp_path / "bsoid_classifier.csv"
+    columns = pd.MultiIndex.from_tuples(
+        [
+            ("Features", "Relative snout to forepaws placement"),
+            ("", "Body angle"),
+            ("SVM classifier", "B-SOiD labels"),
+        ],
+        names=["Type", "Frame@10Hz"],
+    )
+    pd.DataFrame([[0.1, 0.2, 4], [0.3, 0.4, 7]], columns=columns).to_csv(path)
+
+    labels = read_bsoid_csv(path)
+
+    assert labels.metadata["source"]["format"] == "bsoid_svm_classifier_csv"
+    assert [(item.frame_index, item.label) for item in labels.frame_labels] == [
+        (0, "4"),
+        (1, "7"),
+    ]
+
+
+def test_read_keypoint_moseq_results_h5_reads_canonical_recording(tmp_path: Path) -> None:
+    path = tmp_path / "results.h5"
+    with h5py.File(path, "w") as handle:
+        group = handle.create_group("recording-1")
+        group.create_dataset("syllable", data=np.asarray([3, 3, 8], dtype=np.int32))
+        group.create_dataset("centroid", data=np.asarray([[1.0, 2.0], [1.1, 2.1], [1.2, 2.2]]))
+        group.create_dataset("heading", data=np.asarray([0.0, 0.1, 0.2]))
+        group.create_dataset("latent_state", data=np.zeros((3, 4), dtype=np.float64))
+
+    labels = read_keypoint_moseq_results_h5(path)
+
+    assert labels.metadata["source"]["format"] == "keypoint_moseq_results_h5"
+    assert labels.metadata["source"]["recording"] == "recording-1"
+    assert [item.label for item in labels.frame_labels] == ["3", "3", "8"]
+    assert labels.frame_labels[1].metadata["centroid"] == [1.1, 2.1]
+    assert labels.frame_labels[1].metadata["heading"] == pytest.approx(0.1)
+    assert labels.frame_labels[1].metadata["latent_state"] == [0.0, 0.0, 0.0, 0.0]
+
+
+def test_read_keypoint_moseq_results_h5_requires_recording_for_multi_group_file(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "results.h5"
+    with h5py.File(path, "w") as handle:
+        handle.create_group("a").create_dataset("syllable", data=np.asarray([1]))
+        handle.create_group("b").create_dataset("syllable", data=np.asarray([2]))
+
+    with pytest.raises(ValueError, match="multiple recordings"):
+        read_keypoint_moseq_results_h5(path)

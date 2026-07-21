@@ -194,6 +194,58 @@ def _coerce_instance_array(
     return array
 
 
+def _stable_instance_identity(
+    instance: dict[str, Any],
+    *,
+    path: Path,
+    frame_index: int,
+) -> tuple[str, int | str] | None:
+    for field in ("track_id", "instance_id", "id"):
+        if field not in instance:
+            continue
+        value = instance[field]
+        if isinstance(value, bool) or not isinstance(value, int | str):
+            raise ValueError(
+                f"MMPose {field} in frame {frame_index + 1} of {path} must be an int or string."
+            )
+        if isinstance(value, str) and not value.strip():
+            raise ValueError(
+                f"MMPose {field} in frame {frame_index + 1} of {path} must not be empty."
+            )
+        return field, value
+    return None
+
+
+def _mmpose_track_identities(
+    sequence: _MMPoseSequence,
+    *,
+    path: Path,
+) -> tuple[tuple[str, int | str], ...] | None:
+    if _max_instance_count(sequence) <= 1:
+        return None
+    identities: list[tuple[str, int | str]] = []
+    seen_global: set[tuple[str, int | str]] = set()
+    for frame_index, instances in enumerate(sequence.frame_instances):
+        seen_frame: set[tuple[str, int | str]] = set()
+        for instance in instances:
+            identity = _stable_instance_identity(instance, path=path, frame_index=frame_index)
+            if identity is None:
+                raise ValueError(
+                    "Multi-instance MMPose predictions require a stable track_id, "
+                    f"instance_id, or id on every instance; frame {frame_index + 1} in {path} "
+                    "has an unidentifiable instance."
+                )
+            if identity in seen_frame:
+                raise ValueError(
+                    f"MMPose frame {frame_index + 1} in {path} repeats identity {identity!r}."
+                )
+            seen_frame.add(identity)
+            if identity not in seen_global:
+                identities.append(identity)
+                seen_global.add(identity)
+    return tuple(identities)
+
+
 def _read_track_from_sequence(
     sequence: _MMPoseSequence,
     *,
@@ -204,12 +256,14 @@ def _read_track_from_sequence(
     if idx < 0:
         raise ValueError(f"track_index must be >= 0, got {track_index!r}.")
 
-    max_instances = _max_instance_count(sequence)
-    if max_instances <= idx:
+    identities = _mmpose_track_identities(sequence, path=path)
+    track_count = len(identities) if identities is not None else _max_instance_count(sequence)
+    if track_count <= idx:
         raise IndexError(
             f"track_index={idx} out of range for MMPose predictions with "
-            f"max_instances={max_instances} in {path}."
+            f"track_count={track_count} in {path}."
         )
+    selected_identity = identities[idx] if identities is not None else None
 
     frame_count = len(sequence.frame_instances)
     node_count = len(sequence.node_names)
@@ -217,9 +271,26 @@ def _read_track_from_sequence(
     scores = np.full((frame_count, node_count), np.nan, dtype=np.float64)
 
     for frame_idx, instances in enumerate(sequence.frame_instances):
-        if len(instances) <= idx:
-            continue
-        instance = instances[idx]
+        if selected_identity is None:
+            if len(instances) <= idx:
+                continue
+            instance = instances[idx]
+        else:
+            instance = next(
+                (
+                    candidate
+                    for candidate in instances
+                    if _stable_instance_identity(
+                        candidate,
+                        path=path,
+                        frame_index=frame_idx,
+                    )
+                    == selected_identity
+                ),
+                None,
+            )
+            if instance is None:
+                continue
         coords[frame_idx] = _coerce_instance_array(
             instance.get("keypoints"),
             expected_shape=(node_count, 2),
@@ -237,19 +308,24 @@ def _read_track_from_sequence(
         warnings.simplefilter("ignore", category=RuntimeWarning)
         instance_score = np.nanmean(scores, axis=1)
 
+    metadata: dict[str, object] = {
+        "source": {"type": "mmpose_topdown_json", "path": str(path)},
+        "software": "MMPOSE",
+        "file_type": "json",
+        "track_index": idx,
+        "dataset_name": sequence.dataset_name,
+    }
+    if selected_identity is not None:
+        metadata["identity_field"] = selected_identity[0]
+        metadata["track_id"] = selected_identity[1]
+
     return build_pose_track(
         coords=coords,
         scores=scores,
         node_names=sequence.node_names,
         instance_score=instance_score,
         source_label=f"MMPose file {path}",
-        metadata={
-            "source": {"type": "mmpose_topdown_json", "path": str(path)},
-            "software": "MMPOSE",
-            "file_type": "json",
-            "track_index": idx,
-            "dataset_name": sequence.dataset_name,
-        },
+        metadata=metadata,
     )
 
 

@@ -608,8 +608,9 @@ def test_read_rwd_ofrs_session_parses_multicolor_bundle_and_events(tmp_path) -> 
         "time_monotonic": True,
     }
     events = session.event_stream("behavior")
-    assert [event.label for event in events] == ["brush", "brush_offset"]
-    np.testing.assert_allclose([event.start_s for event in events], [0.033333, 0.066666])
+    assert [event.label for event in events] == ["brush"]
+    np.testing.assert_allclose([event.start_s for event in events], [0.033333])
+    np.testing.assert_allclose([event.duration_s for event in events], [0.033333])
 
 
 def test_read_rwd_ofrs_session_records_source_event_order_metadata(tmp_path) -> None:
@@ -636,11 +637,9 @@ def test_read_rwd_ofrs_session_records_source_event_order_metadata(tmp_path) -> 
 
     assert session.metadata["events_csv"]["time_monotonic"] is False
     events = session.event_stream("behavior")
-    assert [event.label for event in events] == ["brush", "brush_offset"]
-    np.testing.assert_allclose(
-        [event.start_s for event in events],
-        [0.033333, 0.066666],
-    )
+    assert [event.label for event in events] == ["brush"]
+    np.testing.assert_allclose([event.start_s for event in events], [0.033333])
+    np.testing.assert_allclose([event.duration_s for event in events], [0.033333])
 
 
 @pytest.mark.parametrize("state", ["2", "0.5"])
@@ -1007,7 +1006,28 @@ def test_read_doric_photometry_flags_storage_order_inference(tmp_path) -> None:
 
     photometry = read_doric_photometry(path).signal("photometry")
     assert photometry.metadata["channel_inference"] == "storage_order"
-    assert photometry.metadata["reference_channel_inference"] == "storage_order"
+    assert photometry.reference_channel is None
+    assert photometry.metadata["reference_channel_inference"] is None
+
+
+def test_read_doric_photometry_never_uses_analog_output_as_reference(tmp_path) -> None:
+    path = tmp_path / "console_acq.doric"
+    with h5py.File(path, "w") as handle:
+        data = handle.create_group("DataAcquisition")
+        analog_in = data.create_group("AnalogIn").create_dataset(
+            "AIN01", data=np.asarray([1.0, 1.1, 1.2])
+        )
+        analog_in.attrs["SamplingRate"] = 20.0
+        analog_out = data.create_group("AnalogOut").create_dataset(
+            "AOUT01", data=np.asarray([0.5, 0.5, 0.5])
+        )
+        analog_out.attrs["Username"] = "Analog Out. | Ch.1"
+
+    photometry = read_doric_photometry(path).signal("photometry")
+
+    assert photometry.signal_channel == "DataAcquisition/AnalogIn/AIN01"
+    assert photometry.reference_channel is None
+    assert "DataAcquisition/AnalogOut/AOUT01" in photometry.metadata["datasets"]
 
 
 def test_read_doric_photometry_records_explicit_dataset_inference(tmp_path) -> None:

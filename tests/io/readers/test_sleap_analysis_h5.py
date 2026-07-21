@@ -110,3 +110,25 @@ def test_read_track_names_reconciles_zero_track_export(tmp_path: Path) -> None:
 
     assert read_track_count(path) == 1
     assert read_track_names(path) == ["track-0"]
+
+
+def test_read_track_supports_standard_sleap_io_axis_order(tmp_path: Path) -> None:
+    path = tmp_path / "standard.analysis.h5"
+    tracks = np.arange(4 * 3 * 2 * 2, dtype=np.float64).reshape(4, 3, 2, 2)
+    point_scores = np.linspace(0.1, 0.9, 4 * 3 * 2).reshape(4, 3, 2)
+    instance_scores = np.linspace(0.4, 0.8, 4 * 2).reshape(4, 2)
+    with h5py.File(path, "w") as handle:
+        handle.create_dataset("tracks", data=tracks)
+        handle.create_dataset("point_scores", data=point_scores)
+        handle.create_dataset("instance_scores", data=instance_scores)
+        handle.create_dataset("node_names", data=np.asarray([b"a", b"b", b"c"], dtype="S"))
+        handle.create_dataset("track_names", data=np.asarray([b"one", b"two"], dtype="S"))
+
+    track = read_track(path, track_index=1)
+
+    assert read_track_count(path) == 2
+    assert read_track_names(path) == ["one", "two"]
+    np.testing.assert_allclose(track.coords, tracks[:, :, :, 1])
+    np.testing.assert_allclose(track.scores, point_scores[:, :, 1])
+    np.testing.assert_allclose(track.instance_score, instance_scores[:, 1])
+    assert track.metadata["tracks_layout"] == "frame_node_xy_track"

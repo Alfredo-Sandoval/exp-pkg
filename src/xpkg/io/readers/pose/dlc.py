@@ -1,4 +1,4 @@
-"""Low-level readers for single-animal DeepLabCut tracking and labeled data."""
+"""Low-level readers for DeepLabCut tracking and labeled data."""
 
 from __future__ import annotations
 
@@ -58,14 +58,15 @@ def _flatten_dlc_columns(columns: pd.Index) -> list[str]:
     return flat_columns
 
 
-def read_dlc_csv_table(csv_path: Path) -> tuple[pd.DataFrame, list[str]]:
-    """Read a DLC-style multi-index CSV into a flat coordinate table."""
-
+def _read_dlc_csv_dataframe(csv_path: Path) -> pd.DataFrame:
     header_df = pd.read_csv(csv_path, header=None, nrows=4)
     first_header = str(header_df.iloc[0, 0]).lower()
 
     n_header = 3
-    if first_header in ("scorer", "model"):
+    leading_headers = [str(header_df.iloc[index, 0]).lower() for index in range(len(header_df))]
+    if "individuals" in leading_headers:
+        n_header = leading_headers.index("individuals") + 3
+    elif first_header in ("scorer", "model"):
         n_header = 3
     elif first_header in ("bodyparts", "keypoint"):
         n_header = 2
@@ -76,10 +77,80 @@ def read_dlc_csv_table(csv_path: Path) -> tuple[pd.DataFrame, list[str]]:
                 n_header = i + 1
                 break
 
-    df = pd.read_csv(csv_path, header=list(range(n_header)), index_col=0)
-    if isinstance(df.columns, pd.MultiIndex):
-        df.columns = _flatten_dlc_columns(df.columns)
-    return df, _extract_keypoints_from_columns(df.columns)
+    return pd.read_csv(csv_path, header=list(range(n_header)), index_col=0)
+
+
+def _select_dlc_individual(
+    df: pd.DataFrame,
+    *,
+    path: Path,
+    track_index: int,
+) -> tuple[pd.DataFrame, str | None]:
+    idx = int(track_index)
+    if idx < 0:
+        raise ValueError(f"track_index must be >= 0, got {track_index!r}.")
+    if not isinstance(df.columns, pd.MultiIndex):
+        if idx != 0:
+            raise ValueError(
+                "track_index must be 0 for single-animal DLC exports; "
+                f"got {track_index!r} for {path}."
+            )
+        return df, None
+
+    individual_level: int | None = None
+    for level, name in enumerate(df.columns.names):
+        if str(name).strip().lower() == "individuals":
+            individual_level = level
+            break
+    if individual_level is None and df.columns.nlevels == 4:
+        individual_level = 1
+    if individual_level is None:
+        if idx != 0:
+            raise ValueError(
+                "track_index must be 0 for single-animal DLC exports; "
+                f"got {track_index!r} for {path}."
+            )
+        return df, None
+
+    individual_values = list(dict.fromkeys(df.columns.get_level_values(individual_level).tolist()))
+    individual_names = [str(value) for value in individual_values]
+    if idx >= len(individual_values):
+        raise IndexError(
+            f"track_index={idx} out of range for DLC individuals {individual_names!r} in {path}."
+        )
+    individual_value = individual_values[idx]
+    individual = individual_names[idx]
+    selected = df.xs(individual_value, axis=1, level=individual_level, drop_level=True)
+    if not isinstance(selected, pd.DataFrame):
+        raise ValueError(
+            f"DLC individual {individual!r} did not resolve to a coordinate table in {path}."
+        )
+    return selected, individual
+
+
+def _flatten_selected_dlc_table(
+    df: pd.DataFrame,
+    *,
+    path: Path,
+    track_index: int,
+) -> tuple[pd.DataFrame, list[str], str | None]:
+    selected, individual = _select_dlc_individual(df, path=path, track_index=track_index)
+    selected = selected.copy()
+    if isinstance(selected.columns, pd.MultiIndex):
+        selected.columns = _flatten_dlc_columns(selected.columns)
+    return selected, _extract_keypoints_from_columns(selected.columns), individual
+
+
+def read_dlc_csv_table(csv_path: Path) -> tuple[pd.DataFrame, list[str]]:
+    """Read the first individual from a DLC multi-index CSV into a flat table."""
+
+    path = Path(csv_path)
+    df, keypoints, _individual = _flatten_selected_dlc_table(
+        _read_dlc_csv_dataframe(path),
+        path=path,
+        track_index=0,
+    )
+    return df, keypoints
 
 
 def _reject_pickled_hdf_nodes(h5_path: Path) -> None:
@@ -108,24 +179,36 @@ def _reject_pickled_hdf_nodes(h5_path: Path) -> None:
 
 
 def read_dlc_h5_table(h5_path: Path) -> tuple[pd.DataFrame, list[str]]:
-    """Read a DLC-style H5 file into a flat coordinate table."""
+    """Read the first individual from a DLC H5 file into a flat coordinate table."""
 
-    _reject_pickled_hdf_nodes(h5_path)
-    df = cast(pd.DataFrame, pd.read_hdf(h5_path))
-    if isinstance(df.columns, pd.MultiIndex):
-        df.columns = _flatten_dlc_columns(df.columns)
-    return df, _extract_keypoints_from_columns(df.columns)
+    path = Path(h5_path)
+    _reject_pickled_hdf_nodes(path)
+    frame = cast(pd.DataFrame, pd.read_hdf(path))
+    df, keypoints, _individual = _flatten_selected_dlc_table(
+        frame,
+        path=path,
+        track_index=0,
+    )
+    return df, keypoints
 
 
-def _read_dlc_table(path: Path, *, file_type: str) -> tuple[pd.DataFrame, list[str]]:
+def _read_dlc_table(
+    path: Path,
+    *,
+    file_type: str,
+    track_index: int,
+) -> tuple[pd.DataFrame, list[str], str | None]:
     normalized_type = _normalize_file_type(file_type)
     if normalized_type == "csv":
-        return read_dlc_csv_table(path)
-    if normalized_type in _DLC_H5_FILE_TYPES:
-        return read_dlc_h5_table(path)
-    raise ValueError(
-        f"Unsupported DLC file_type {file_type!r}. Expected one of ['csv', 'h5', 'hdf5']."
-    )
+        frame = _read_dlc_csv_dataframe(path)
+    elif normalized_type in _DLC_H5_FILE_TYPES:
+        _reject_pickled_hdf_nodes(path)
+        frame = cast(pd.DataFrame, pd.read_hdf(path))
+    else:
+        raise ValueError(
+            f"Unsupported DLC file_type {file_type!r}. Expected one of ['csv', 'h5', 'hdf5']."
+        )
+    return _flatten_selected_dlc_table(frame, path=path, track_index=track_index)
 
 
 def _validate_dlc_columns(
@@ -137,10 +220,7 @@ def _validate_dlc_columns(
     if not keypoints:
         raise ValueError(f"No DLC keypoints found in {path}.")
     if not df.columns.is_unique:
-        raise ValueError(
-            "DLC low-level readers only support single-animal inputs with unique bodypart "
-            f"columns; repeated flattened columns found in {path}."
-        )
+        raise ValueError(f"DLC track has repeated flattened bodypart columns in {path}.")
 
     missing_coordinates: list[str] = []
     for keypoint in keypoints:
@@ -172,7 +252,11 @@ def _validate_dlc_columns(
 def read_node_names(path: Path, *, file_type: str) -> list[str]:
     """Return decoded node names from a DLC CSV or H5 file."""
 
-    _df, keypoints = _read_dlc_table(Path(path), file_type=file_type)
+    _df, keypoints, _individual = _read_dlc_table(
+        Path(path),
+        file_type=file_type,
+        track_index=0,
+    )
     return keypoints
 
 
@@ -180,15 +264,14 @@ def read_track(path: Path, *, file_type: str, track_index: int) -> PoseTrack:
     """Read one DLC track or labeled-data table as a PoseTrack."""
 
     idx = int(track_index)
-    if idx != 0:
-        raise ValueError(
-            "DLC low-level readers currently support only single-animal exports; "
-            f"track_index must be 0, got {track_index!r}."
-        )
 
     resolved_path = Path(path)
     normalized_type = _normalize_file_type(file_type)
-    df, keypoints = _read_dlc_table(resolved_path, file_type=normalized_type)
+    df, keypoints, individual = _read_dlc_table(
+        resolved_path,
+        file_type=normalized_type,
+        track_index=idx,
+    )
     has_likelihood = _validate_dlc_columns(df, keypoints, path=resolved_path)
 
     coords = np.empty((len(df), len(keypoints), 2), dtype=np.float64)
@@ -217,22 +300,26 @@ def read_track(path: Path, *, file_type: str, track_index: int) -> PoseTrack:
         warnings.simplefilter("ignore", category=RuntimeWarning)
         instance_score = np.nanmean(scores, axis=1)
 
+    metadata: dict[str, object] = {
+        "source": {
+            "type": "dlc_h5" if normalized_type in _DLC_H5_FILE_TYPES else "dlc_csv",
+            "path": str(resolved_path),
+        },
+        "software": "DLC",
+        "file_type": normalized_type,
+        "track_index": idx,
+        "confidence_source": "likelihood" if has_likelihood else "labeled_data",
+    }
+    if individual is not None:
+        metadata["individual"] = individual
+
     return build_pose_track(
         coords=coords,
         scores=scores,
         node_names=keypoints,
         instance_score=instance_score,
         source_label=f"DLC file {resolved_path}",
-        metadata={
-            "source": {
-                "type": "dlc_h5" if normalized_type in _DLC_H5_FILE_TYPES else "dlc_csv",
-                "path": str(resolved_path),
-            },
-            "software": "DLC",
-            "file_type": normalized_type,
-            "track_index": idx,
-            "confidence_source": "likelihood" if has_likelihood else "labeled_data",
-        },
+        metadata=metadata,
     )
 
 

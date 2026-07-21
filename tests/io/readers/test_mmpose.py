@@ -5,7 +5,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from tests.factories import write_mmpose_topdown_json
+from tests.factories import mmpose_instance, write_mmpose_topdown_json
 from xpkg._core.json_utils import write_json
 from xpkg.io.readers import read_pose_node_names, read_pose_track, resolve_pose_node_indices
 from xpkg.io.readers.pose.mmpose import read_node_names, read_track, resolve_node_indices
@@ -157,3 +157,55 @@ def test_read_track_reads_real_demo_json_shape(tmp_path: Path) -> None:
     assert track.node_names == ("nose", "left_eye")
     np.testing.assert_allclose(track.coords[0], [[10.0, 20.0], [30.0, 40.0]])
     np.testing.assert_allclose(track.scores[0], [0.95, 0.85])
+
+
+def test_read_track_follows_stable_mmpose_ids_when_instance_order_changes(tmp_path: Path) -> None:
+    json_path = tmp_path / "results_reordered.json"
+    first = mmpose_instance(base=10.0, scores=[0.9, 0.8, 0.7], track_id=41)
+    second = mmpose_instance(base=110.0, scores=[0.6, 0.5, 0.4], track_id=42)
+    first_next = mmpose_instance(base=11.0, scores=[0.9, 0.8, 0.7], track_id=41)
+    second_next = mmpose_instance(base=111.0, scores=[0.6, 0.5, 0.4], track_id=42)
+    write_json(
+        json_path,
+        {
+            "meta_info": {
+                "dataset_name": "tracked",
+                "keypoint_id2name": {0: "nose", 1: "back", 2: "tail"},
+                "skeleton_links": [],
+            },
+            "instance_info": [
+                {"frame_id": 1, "instances": [first, second]},
+                {"frame_id": 2, "instances": [second_next, first_next]},
+            ],
+        },
+    )
+
+    track = read_track(json_path, track_index=0)
+
+    np.testing.assert_allclose(track.coords[:, 0, 0], [10.0, 11.0])
+    assert track.metadata["identity_field"] == "track_id"
+    assert track.metadata["track_id"] == 41
+
+
+def test_read_track_rejects_unidentified_multi_instance_mmpose(tmp_path: Path) -> None:
+    json_path = tmp_path / "results_unidentified.json"
+    instances = [
+        mmpose_instance(base=10.0, scores=[0.9, 0.8, 0.7], track_id=1),
+        mmpose_instance(base=110.0, scores=[0.6, 0.5, 0.4], track_id=2),
+    ]
+    for instance in instances:
+        del instance["track_id"]
+    write_json(
+        json_path,
+        {
+            "meta_info": {
+                "dataset_name": "untracked",
+                "keypoint_id2name": {0: "nose", 1: "back", 2: "tail"},
+                "skeleton_links": [],
+            },
+            "instance_info": [{"frame_id": 1, "instances": instances}],
+        },
+    )
+
+    with pytest.raises(ValueError, match="require a stable track_id"):
+        read_track(json_path, track_index=0)

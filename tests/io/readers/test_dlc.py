@@ -301,5 +301,13 @@ def test_read_track_rejects_real_multi_animal_dlc_csv(tmp_path: Path) -> None:
     csv_path = tmp_path / "maDLC.csv"
     frame.to_csv(csv_path)
 
-    with pytest.raises(ValueError):
-        read_pose_track(csv_path, software="DLC", file_type="csv")
+    mouse_two = read_pose_track(
+        csv_path,
+        software="DLC",
+        file_type="csv",
+        track_index=1,
+    )
+
+    assert mouse_two.metadata["individual"] == "mouse2"
+    assert mouse_two.node_names == ("snout", "tailbase")
+    np.testing.assert_allclose(mouse_two.coords[0], [[6.0, 7.0], [9.0, 10.0]])

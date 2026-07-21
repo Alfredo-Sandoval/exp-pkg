@@ -845,18 +845,57 @@ def _rwd_event_table(events_path: Path, time_scale: float) -> tuple[EventTable, 
                 "RWD Events.csv State values must be 0 for onset or 1 for offset; "
                 f"got {invalid_states}."
             )
-    rows: list[Event] = []
-    for index, start in enumerate(starts):
-        state = None if states is None else int(states.iloc[index])
-        suffix = "_offset" if state == 1 else ""
-        rows.append(
+    source = {"type": "rwd_ofrs_events", "path": str(events_path)}
+    if states is None:
+        rows = [
             Event(
                 event_id=f"rwd-{index:06d}",
                 kind="behavior",
                 start_s=float(start),
-                label=f"{labels.iloc[index]}{suffix}",
-                metadata={"source": {"type": "rwd_ofrs_events", "path": str(events_path)}},
+                label=str(labels.iloc[index]),
+                metadata={"source": source, "source_row": index},
             )
+            for index, start in enumerate(starts)
+        ]
+        return EventTable.from_events(rows), event_metadata
+
+    rows = []
+    open_events: dict[str, tuple[int, float]] = {}
+    ordered_indices = sorted(range(len(starts)), key=lambda index: (float(starts[index]), index))
+    for index in ordered_indices:
+        label = str(labels.iloc[index])
+        state = int(states.iloc[index])
+        time_s = float(starts[index])
+        if state == 0:
+            if label in open_events:
+                raise ValueError(f"RWD Events.csv has overlapping onset rows for label {label!r}.")
+            open_events[label] = (index, time_s)
+            continue
+        onset = open_events.pop(label, None)
+        if onset is None:
+            raise ValueError(
+                f"RWD Events.csv offset row {index} for label {label!r} has no matching onset."
+            )
+        onset_index, onset_s = onset
+        rows.append(
+            Event(
+                event_id=f"rwd-{onset_index:06d}",
+                kind="behavior",
+                start_s=onset_s,
+                duration_s=time_s - onset_s,
+                label=label,
+                metadata={
+                    "source": source,
+                    "onset_row": onset_index,
+                    "offset_row": index,
+                },
+            )
+        )
+    if open_events:
+        labels_without_offsets = sorted(open_events)
+        raise ValueError(
+            "RWD Events.csv has onset rows without matching offsets for labels "
+            f"{labels_without_offsets!r}."
         )
     return EventTable.from_events(rows), event_metadata
 
@@ -996,6 +1035,36 @@ def _numeric_1d_dataset(dataset: h5py.Dataset) -> bool:
     return dataset.ndim == 1 and np.issubdtype(dataset.dtype, np.number)
 
 
+def _is_doric_output_dataset(path: str, dataset: h5py.Dataset) -> bool:
+    """Return whether a Doric dataset is an output/command, not acquired signal data."""
+
+    normalized_segments = {
+        segment.lower().replace("_", "").replace(" ", "") for segment in path.split("/")
+    }
+    if any(
+        segment in {"analogout", "output", "outputs"} or segment.startswith("aout")
+        for segment in normalized_segments
+    ):
+        return True
+    for key in ("Username", "Name", "SignalType", "Type"):
+        if key not in dataset.attrs:
+            continue
+        value = str(dataset.attrs[key]).lower().replace("_", "").replace(" ", "")
+        if "analogout" in value or value.startswith("aout"):
+            return True
+    return False
+
+
+def _doric_acquired_numeric_paths(datasets: dict[str, h5py.Dataset]) -> list[str]:
+    return [
+        path
+        for path, dataset in datasets.items()
+        if _numeric_1d_dataset(dataset)
+        and "time" not in path.lower()
+        and not _is_doric_output_dataset(path, dataset)
+    ]
+
+
 def _doric_dataset_selector(value: object, *, role: str) -> str | None:
     if value is None:
         return None
@@ -1016,9 +1085,7 @@ def is_doric_photometry_file(path: str | Path) -> bool:
         return False
     try:
         with h5py.File(str(source_path), "r") as handle:
-            return any(
-                _numeric_1d_dataset(dataset) for dataset in _walk_hdf5_datasets(handle).values()
-            )
+            return bool(_doric_acquired_numeric_paths(_walk_hdf5_datasets(handle)))
     except OSError:
         return False
 
@@ -1061,13 +1128,13 @@ def _preferred_doric_signal(paths: Sequence[str]) -> tuple[str, bool]:
 
 
 def _preferred_doric_reference(paths: Sequence[str], signal_path: str) -> tuple[str | None, bool]:
-    """Return the reference path and whether it matched a token (vs storage order)."""
+    """Return a reference only when its path explicitly identifies that role."""
     candidates = [path for path in paths if path != signal_path]
     for token in _DORIC_REFERENCE_TOKENS:
         for path in candidates:
             if token in path.lower():
                 return path, True
-    return (candidates[0], False) if candidates else (None, False)
+    return None, False
 
 
 def read_doric_photometry(
@@ -1091,7 +1158,15 @@ def read_doric_photometry(
         resolved_time = clean_time_path
         if resolved_time is None:
             resolved_time = next((name for name in numeric_paths if "time" in name.lower()), None)
-        signal_candidates = [name for name in numeric_paths if name != resolved_time]
+        signal_candidates = [
+            name
+            for name in numeric_paths
+            if name != resolved_time and not _is_doric_output_dataset(name, datasets[name])
+        ]
+        if not signal_candidates and clean_signal_path is None:
+            raise ValueError(
+                f"Doric file '{source_path}' contains no acquired 1D numeric signal datasets."
+            )
         signal_matched = True
         signal_explicit = clean_signal_path is not None
         if clean_signal_path is not None:
@@ -1100,6 +1175,11 @@ def read_doric_photometry(
             resolved_signal, signal_matched = _preferred_doric_signal(signal_candidates)
         if resolved_signal not in datasets:
             raise ValueError(f"Doric signal dataset {resolved_signal!r} was not found.")
+        if _is_doric_output_dataset(resolved_signal, datasets[resolved_signal]):
+            raise ValueError(
+                f"Doric signal dataset {resolved_signal!r} is an output/command dataset, "
+                "not acquired photometry data."
+            )
         resolved_reference = clean_reference_path
         reference_matched = True
         reference_explicit = clean_reference_path is not None
@@ -1110,12 +1190,17 @@ def read_doric_photometry(
         if resolved_time is not None and resolved_signal == resolved_time:
             raise ValueError("Doric signal dataset must not be the time dataset.")
         if resolved_reference is not None:
+            if resolved_reference not in datasets:
+                raise ValueError(f"Doric reference dataset {resolved_reference!r} was not found.")
+            if _is_doric_output_dataset(resolved_reference, datasets[resolved_reference]):
+                raise ValueError(
+                    f"Doric reference dataset {resolved_reference!r} is an output/command "
+                    "dataset, not an acquired reference channel."
+                )
             if resolved_reference == resolved_signal:
                 raise ValueError("Doric reference dataset must differ from signal dataset.")
             if resolved_time is not None and resolved_reference == resolved_time:
                 raise ValueError("Doric reference dataset must not be the time dataset.")
-        # Signal/control identity is a swap risk worth surfacing when it falls back
-        # to storage order rather than a wavelength/name token.
         channel_inference = (
             "explicit_dataset"
             if signal_explicit

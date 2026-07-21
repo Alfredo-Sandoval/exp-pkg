@@ -11,10 +11,10 @@ restating them. It is a map of contracts that already exist in code; keep it
 aligned with the code and the existing design docs rather than duplicating them:
 
 - [`identity_provenance.md`](../identity_provenance.md) — identity and provenance model.
-- [`artifact_contract_v1.md`](../artifact_contract_v1.md) — frozen on-disk contract (v1).
+- [`artifact_contract.md`](../artifact_contract.md) — frozen on-disk contract (v1).
 - [`artifact-namespaces.md`](../artifact-namespaces.md) — namespace boundaries.
 - [`api/model.md`](../api/model.md), [`api/project.md`](../api/project.md) — documented object/API surface.
-- [`../../schemas/project.schema.json`](../../schemas/project.schema.json) — canonical `PROJECT.json` schema.
+- [`schemas/project.schema.json`](https://github.com/Alfredo-Sandoval/exp-pkg/blob/main/schemas/project.schema.json) — canonical `PROJECT.json` schema.
 
 Ownership rule: an object's owner is the single module allowed to define its
 durable shape. The public surface is the curated `__all__`/`_EXPORTS` of each

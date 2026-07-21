@@ -8,6 +8,7 @@ from dataclasses import replace
 from pathlib import Path
 from typing import Any, Literal
 
+import h5py
 import numpy as np
 import pandas as pd
 
@@ -25,14 +26,10 @@ TimeUnit = Literal["s", "sec", "second", "seconds", "ms", "millisecond", "millis
 KNOWN_BEHAVIOR_SOURCE_TYPES: tuple[str, ...] = (
     "behavior_csv",
     "behavior_events_json",
-    "asoid",
     "boris",
     "bsoid",
-    "deepethogram",
-    "jaaba",
     "keypoint_moseq",
     "simba",
-    "vame",
 )
 
 _START_TIME_CANDIDATES = (
@@ -113,6 +110,7 @@ _BORIS_MEDIA_CANDIDATES = (
 # names; Subject and Behavioral category are optional.
 _BORIS_SUBJECT_CANDIDATES = ("Subject", "subject")
 _BORIS_CATEGORY_CANDIDATES = ("Behavioral category", "behavioral category")
+_BORIS_MODIFIER_CANDIDATES = ("Modifiers", "Modifier", "Behavior modifier(s)")
 _BORIS_SOURCE_ID_CANDIDATES = ("Observation id", "observation")
 _SIMBA_FRAME_CANDIDATES = (
     "frame",
@@ -378,25 +376,31 @@ def _boris_tabular_intervals(frame: pd.DataFrame) -> tuple[BehaviorInterval, ...
     behavior_column = column_by_name(frame, "Behavior")
     subject_column = first_matching_column(frame, _BORIS_SUBJECT_CANDIDATES)
     category_column = first_matching_column(frame, _BORIS_CATEGORY_CANDIDATES)
+    modifier_column = first_matching_column(frame, _BORIS_MODIFIER_CANDIDATES)
+    source_id_column = first_matching_column(frame, _BORIS_SOURCE_ID_CANDIDATES)
 
-    open_starts: dict[tuple[str, str], list[tuple[float, dict[str, Any]]]] = {}
+    open_starts: dict[tuple[str, str, str, str], tuple[float, dict[str, Any], str | None]] = {}
     intervals: list[BehaviorInterval] = []
     for index in range(len(frame)):
         status = _optional_text_from_frame(frame, status_column, index)
         behavior = _optional_text_from_frame(frame, behavior_column, index)
-        # A single NaN/inf Time cell should skip that event row, not abort the
-        # whole parse (real exports occasionally carry corrupt rows).
-        time_s = _finite_float_or_none(frame[time_column].iloc[index])
-        if status is None or behavior is None or time_s is None:
-            continue
+        if status is None:
+            raise ValueError(f"BORIS row {index} has an empty Status value.")
+        if behavior is None:
+            raise ValueError(f"BORIS row {index} has an empty Behavior value.")
+        time_s = _optional_float(frame[time_column].iloc[index])
+        if time_s is None:
+            raise ValueError(f"BORIS row {index} has an empty Time value.")
         subject = _optional_text_from_frame(frame, subject_column, index)
         category = _optional_text_from_frame(frame, category_column, index)
-        metadata: dict[str, Any] = {"source_format": "tabular_events_csv"}
-        if subject is not None:
-            metadata["subject"] = subject
-        if category is not None:
-            metadata["behavioral_category"] = category
-        key = (subject or "", behavior)
+        modifier = _optional_text_from_frame(frame, modifier_column, index)
+        source_id = _optional_text_from_frame(frame, source_id_column, index) or subject
+        metadata = _boris_tabular_metadata(
+            frame,
+            index,
+            excluded={time_column, status_column, behavior_column},
+        )
+        key = (subject or "", behavior, category or "", modifier or "")
 
         normalized = status.strip().upper()
         if normalized == "POINT":
@@ -406,30 +410,82 @@ def _boris_tabular_intervals(frame: pd.DataFrame) -> tuple[BehaviorInterval, ...
                     label=behavior,
                     start_s=time_s,
                     end_s=time_s,
-                    source_id=subject,
+                    source_id=source_id,
                     metadata=metadata,
                 )
             )
         elif normalized == "START":
             metadata["behavior_type"] = "STATE"
-            open_starts.setdefault(key, []).append((time_s, metadata))
+            if key in open_starts:
+                raise ValueError(
+                    "BORIS row "
+                    f"{index} starts an already-open event for subject={subject!r}, "
+                    f"behavior={behavior!r}, category={category!r}, modifier={modifier!r}."
+                )
+            open_starts[key] = (time_s, metadata, source_id)
         elif normalized == "STOP":
-            pending = open_starts.get(key)
-            if not pending:
-                # STOP without a matching START — skip rather than fabricate.
-                continue
-            start_s, start_metadata = pending.pop(0)
+            pending = open_starts.pop(key, None)
+            if pending is None:
+                raise ValueError(
+                    "BORIS row "
+                    f"{index} stops an event without a matching START for "
+                    f"subject={subject!r}, behavior={behavior!r}, category={category!r}, "
+                    f"modifier={modifier!r}."
+                )
+            start_s, start_metadata, start_source_id = pending
+            if time_s < start_s:
+                raise ValueError(
+                    f"BORIS row {index} STOP time {time_s} precedes START time {start_s}."
+                )
+            stop_metadata = _boris_tabular_metadata(
+                frame,
+                index,
+                excluded={time_column, status_column, behavior_column},
+            )
+            start_metadata["stop_row_index"] = index
+            for name, value in stop_metadata.items():
+                if name == "row_index" or start_metadata.get(name) == value:
+                    continue
+                start_metadata[f"stop_{name}"] = value
             intervals.append(
                 BehaviorInterval(
                     label=behavior,
                     start_s=start_s,
                     end_s=time_s,
-                    source_id=subject,
+                    source_id=start_source_id,
                     metadata=start_metadata,
                 )
             )
+        else:
+            raise ValueError(
+                f"BORIS row {index} has unsupported Status {status!r}; "
+                "expected START, STOP, or POINT."
+            )
+    if open_starts:
+        descriptions = [
+            f"subject={key[0]!r}, behavior={key[1]!r}, category={key[2]!r}, modifier={key[3]!r}"
+            for key in open_starts
+        ]
+        raise ValueError(f"BORIS CSV has START rows without matching STOP rows: {descriptions}.")
     intervals.sort(key=lambda interval: (interval.start_s or 0.0, interval.label))
     return tuple(intervals)
+
+
+def _boris_tabular_metadata(
+    frame: pd.DataFrame,
+    index: int,
+    *,
+    excluded: set[str],
+) -> dict[str, Any]:
+    metadata: dict[str, Any] = {"source_format": "tabular_events_csv", "row_index": index}
+    for column in frame.columns:
+        name = str(column)
+        if name in excluded:
+            continue
+        value = frame[column].iloc[index]
+        if not _is_missing(value):
+            metadata[name] = _json_scalar(value)
+    return metadata
 
 
 def read_bsoid_csv(
@@ -461,10 +517,14 @@ def read_bsoid_csv(
     if frame.empty:
         raise ValueError(f"B-SOiD CSV '{source_path}' is empty.")
     resolved_label_column = label_column or first_matching_column(frame, _BSOID_LABEL_CANDIDATES)
+    svm_classifier_export = False
+    if resolved_label_column is None and label_column is None:
+        multi_header = pd.read_csv(source_path, header=[0, 1])
+        frame, resolved_label_column = _flatten_bsoid_classifier_table(multi_header)
+        svm_classifier_export = resolved_label_column is not None
     if resolved_label_column is None:
         raise ValueError(
             "B-SOiD CSV must include a label column (B-SOiD writes 'B-SOiD labels'). "
-            "The multi-row SVM-classifier header variant is not yet supported; "
             "pass label_column= explicitly for nonstandard exports."
         )
 
@@ -533,9 +593,38 @@ def read_bsoid_csv(
         frame_labels=frame_labels,
         media_path=None if media_path is None else Path(media_path).as_posix(),
         metadata=_bsoid_metadata(
-            source_path, size_bytes, "bsoid_labels_csv", resolved_label_column
+            source_path,
+            size_bytes,
+            "bsoid_svm_classifier_csv" if svm_classifier_export else "bsoid_labels_csv",
+            resolved_label_column,
         ),
     )
+
+
+def _flatten_bsoid_classifier_table(
+    frame: pd.DataFrame,
+) -> tuple[pd.DataFrame, str | None]:
+    if not isinstance(frame.columns, pd.MultiIndex) or frame.columns.nlevels != 2:
+        return frame, None
+    flattened: list[str] = []
+    label_column: str | None = None
+    for column in frame.columns:
+        parts = [
+            str(part).strip()
+            for part in column
+            if str(part).strip() and not str(part).lower().startswith("unnamed:")
+        ]
+        name = " / ".join(parts) if parts else "index"
+        label_candidates = {candidate.lower() for candidate in _BSOID_LABEL_CANDIDATES}
+        if any(part.lower() in label_candidates for part in parts):
+            name = "B-SOiD labels"
+            label_column = name
+        flattened.append(name)
+    if len(flattened) != len(set(flattened)):
+        raise ValueError("B-SOiD multi-row classifier CSV contains duplicate flattened columns.")
+    flattened_frame = frame.copy()
+    flattened_frame.columns = flattened
+    return flattened_frame, label_column
 
 
 def _bsoid_metadata(
@@ -745,6 +834,104 @@ def read_keypoint_moseq_syllables_csv(
             }
         },
     )
+
+
+def read_keypoint_moseq_results_h5(
+    path: str | Path,
+    *,
+    recording: str | None = None,
+) -> BehaviorLabels:
+    """Read one recording from a canonical keypoint-MoSeq ``results.h5`` file."""
+
+    source_path = Path(path)
+    with h5py.File(str(source_path), "r") as handle:
+        recording_names = tuple(sorted(str(name) for name in handle.keys()))
+        if not recording_names:
+            raise ValueError(f"keypoint-MoSeq results file '{source_path}' has no recordings.")
+        if recording is None:
+            if len(recording_names) != 1:
+                raise ValueError(
+                    "keypoint-MoSeq results file contains multiple recordings; pass recording= "
+                    f"explicitly. Available recordings: {recording_names!r}."
+                )
+            selected_name = recording_names[0]
+        else:
+            selected_name = _clean_required_text(recording, role="recording")
+            if selected_name not in handle:
+                raise KeyError(
+                    f"keypoint-MoSeq recording {selected_name!r} was not found; "
+                    f"available recordings: {recording_names!r}."
+                )
+        group = handle[selected_name]
+        if not isinstance(group, h5py.Group):
+            raise ValueError(f"keypoint-MoSeq recording {selected_name!r} must be an HDF5 group.")
+        syllable = _keypoint_moseq_required_array(group, "syllable", ndim=1)
+        if not np.issubdtype(syllable.dtype, np.integer):
+            raise ValueError("keypoint-MoSeq syllable values must be integers.")
+        frame_count = int(syllable.shape[0])
+        optional_arrays: dict[str, np.ndarray] = {}
+        for name in ("centroid", "heading", "latent_state"):
+            if name not in group:
+                continue
+            array = np.asarray(group[name])
+            if array.ndim < 1 or array.shape[0] != frame_count:
+                raise ValueError(
+                    f"keypoint-MoSeq {name} must start with {frame_count} frames, "
+                    f"got shape {array.shape}."
+                )
+            if not np.issubdtype(array.dtype, np.number) or not np.isfinite(array).all():
+                raise ValueError(f"keypoint-MoSeq {name} must contain finite numeric values.")
+            optional_arrays[name] = array
+
+    frame_labels: list[BehaviorFrameLabel] = []
+    for frame_index, raw_label in enumerate(syllable):
+        row_metadata: dict[str, Any] = {"recording_name": selected_name}
+        for name in ("centroid", "heading", "latent_state"):
+            array = optional_arrays.get(name)
+            if array is not None:
+                row_metadata[name] = array[frame_index].tolist()
+        frame_labels.append(
+            BehaviorFrameLabel(
+                frame_index=frame_index,
+                label=_cluster_label_text(raw_label),
+                metadata=row_metadata,
+            )
+        )
+    dataset_shapes = {
+        "syllable": list(syllable.shape),
+        **{name: list(array.shape) for name, array in optional_arrays.items()},
+    }
+    return BehaviorLabels(
+        source_type="keypoint_moseq",
+        frame_labels=tuple(frame_labels),
+        metadata={
+            "source": {
+                "type": "keypoint_moseq",
+                "path": str(source_path),
+                "format": "keypoint_moseq_results_h5",
+                "recording": selected_name,
+            },
+            "recordings": recording_names,
+            "dataset_shapes": dataset_shapes,
+        },
+    )
+
+
+def _keypoint_moseq_required_array(
+    group: h5py.Group,
+    name: str,
+    *,
+    ndim: int,
+) -> np.ndarray:
+    value = group.get(name)
+    if not isinstance(value, h5py.Dataset):
+        raise ValueError(f"keypoint-MoSeq recording is missing required dataset {name!r}.")
+    array = np.asarray(value)
+    if array.ndim != ndim:
+        raise ValueError(
+            f"keypoint-MoSeq {name} must be {ndim}-dimensional, got shape {array.shape}."
+        )
+    return array
 
 
 def _read_json_object(path: Path) -> dict[str, Any]:
@@ -1616,6 +1803,7 @@ __all__ = [
     "read_bsoid_csv",
     "read_behavior_events_csv",
     "read_behavior_events_json",
+    "read_keypoint_moseq_results_h5",
     "read_keypoint_moseq_syllables_csv",
     "read_simba_csv",
 ]
