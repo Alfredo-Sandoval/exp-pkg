@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, TypeGuard
 
 import h5py
 import numpy as np
@@ -44,6 +44,11 @@ _EVENT_CHANNEL_NAMES = frozenset(
         "tone",
     }
 )
+_NAMLAB_EVENTLOG_NAMESPACE = "ndx-eventlog-namlab"
+_NAMLAB_EVENTLOG_TYPE = "Eventlog"
+_NAMLAB_EVENT_TABLE_TYPE = "AnnotatedEventsTable"
+_NAMLAB_DFF_NAMESPACE = "ndx-photometry-namlab"
+_NAMLAB_DFF_TYPE = "DffSeries"
 NonfinitePolicy = Literal["raise", "interpolate_sparse"]
 
 
@@ -518,6 +523,197 @@ def _analysis_timestamp_events(handle: h5py.File, *, source_path: Path) -> list[
     return rows
 
 
+def _namlab_contract_group(
+    obj: object,
+    *,
+    namespace: str,
+    neurodata_type: str,
+) -> TypeGuard[h5py.Group]:
+    return bool(
+        isinstance(obj, h5py.Group)
+        and _decode(obj.attrs.get("namespace", "")) == namespace
+        and _decode(obj.attrs.get("neurodata_type", "")) == neurodata_type
+    )
+
+
+def _namlab_vector(group: h5py.Group, name: str) -> np.ndarray:
+    obj = group.get(name)
+    if not isinstance(obj, h5py.Dataset):
+        raise ValueError(f"NWB namlab object '{group.name}' is missing dataset '{name}'.")
+    values = np.asarray(obj)
+    if values.ndim != 1:
+        raise ValueError(
+            f"NWB namlab dataset '{obj.name}' must be one-dimensional, got {values.shape}."
+        )
+    return values
+
+
+def _namlab_event_table(
+    eventlog: h5py.Group,
+    tables: list[h5py.Group],
+) -> h5py.Group:
+    linked = eventlog.get("eventtable")
+    if linked is not None:
+        if not _namlab_contract_group(
+            linked,
+            namespace=_NAMLAB_EVENTLOG_NAMESPACE,
+            neurodata_type=_NAMLAB_EVENT_TABLE_TYPE,
+        ):
+            raise ValueError(
+                f"NWB namlab Eventlog '{eventlog.name}' has an invalid eventtable link."
+            )
+        return linked
+    if len(tables) != 1:
+        raise ValueError(
+            f"NWB namlab Eventlog '{eventlog.name}' has no eventtable link and the "
+            f"acquisition contains {len(tables)} AnnotatedEventsTable objects; "
+            "the event-index mapping is ambiguous."
+        )
+    return tables[0]
+
+
+def _namlab_label_map(table: h5py.Group) -> dict[int, str]:
+    indices = _namlab_vector(table, "event_index")
+    descriptions = _namlab_vector(table, "event_description")
+    if indices.size != descriptions.size:
+        raise ValueError(f"NWB namlab event table '{table.name}' index/description lengths differ.")
+    if indices.dtype.kind not in "iu":
+        raise ValueError(f"NWB namlab dataset '{table.name}/event_index' must contain integers.")
+    labels: dict[int, str] = {}
+    for row, (raw_index, raw_description) in enumerate(zip(indices, descriptions, strict=True)):
+        event_index = int(raw_index)
+        description = _decode(raw_description)
+        if (
+            not isinstance(description, str)
+            or not description
+            or description != description.strip()
+        ):
+            raise ValueError(
+                f"NWB namlab event description at row {row} in '{table.name}' must be "
+                "a non-empty string without surrounding whitespace."
+            )
+        if event_index in labels:
+            raise ValueError(
+                f"NWB namlab event table '{table.name}' repeats event index {event_index}."
+            )
+        labels[event_index] = description
+    return labels
+
+
+def _validate_namlab_clock_signal(signal: _Series) -> None:
+    if not _namlab_contract_group(
+        signal.group,
+        namespace=_NAMLAB_DFF_NAMESPACE,
+        neurodata_type=_NAMLAB_DFF_TYPE,
+    ) or not isinstance(signal.group.get("timestamps"), h5py.Dataset):
+        raise ValueError(
+            "NWB ndx-eventlog-namlab events require the selected signal to be an "
+            "ndx-photometry-namlab DffSeries with synchronized timestamps."
+        )
+
+
+def _namlab_eventlog_events(
+    handle: h5py.File,
+    *,
+    source_path: Path,
+    signal: _Series,
+) -> tuple[list[Event], list[dict[str, Any]]]:
+    acquisition = handle.get("acquisition")
+    if not isinstance(acquisition, h5py.Group):
+        return [], []
+    eventlogs = [
+        obj
+        for obj in acquisition.values()
+        if _namlab_contract_group(
+            obj,
+            namespace=_NAMLAB_EVENTLOG_NAMESPACE,
+            neurodata_type=_NAMLAB_EVENTLOG_TYPE,
+        )
+    ]
+    if not eventlogs:
+        return [], []
+    _validate_namlab_clock_signal(signal)
+    tables = [
+        obj
+        for obj in acquisition.values()
+        if _namlab_contract_group(
+            obj,
+            namespace=_NAMLAB_EVENTLOG_NAMESPACE,
+            neurodata_type=_NAMLAB_EVENT_TABLE_TYPE,
+        )
+    ]
+    rows: list[Event] = []
+    provenance: list[dict[str, Any]] = []
+    for log_number, eventlog in enumerate(eventlogs):
+        times = _namlab_vector(eventlog, "eventtime")
+        indices = _namlab_vector(eventlog, "eventindex")
+        flags = _namlab_vector(eventlog, "nonsolenoidflag")
+        if not (times.size == indices.size == flags.size):
+            raise ValueError(f"NWB namlab Eventlog '{eventlog.name}' column lengths differ.")
+        if times.dtype.kind not in "fiu" or not np.isfinite(times).all():
+            raise ValueError(
+                f"NWB namlab dataset '{eventlog.name}/eventtime' must contain finite numbers."
+            )
+        times_s = np.asarray(times, dtype=np.float64)
+        if times_s.size > 1 and np.any(np.diff(times_s) < 0.0):
+            raise ValueError(
+                f"NWB namlab dataset '{eventlog.name}/eventtime' must be non-decreasing."
+            )
+        if indices.dtype.kind not in "iu" or flags.dtype.kind not in "iub":
+            raise ValueError(
+                f"NWB namlab Eventlog '{eventlog.name}' indices and flags must be integers."
+            )
+        table = _namlab_event_table(eventlog, tables)
+        labels = _namlab_label_map(table)
+        time_dataset = eventlog["eventtime"]
+        assert isinstance(time_dataset, h5py.Dataset)
+        declared_unit = _decode(time_dataset.attrs.get("unit", ""))
+        if declared_unit not in {"milliseconds", "seconds"}:
+            raise ValueError(
+                f"NWB namlab dataset '{time_dataset.name}' has unsupported unit "
+                f"{declared_unit!r}; expected 'milliseconds' or 'seconds'."
+            )
+        for source_row, (time_s, raw_index, raw_flag) in enumerate(
+            zip(times_s, indices, flags, strict=True)
+        ):
+            event_index = int(raw_index)
+            if event_index not in labels:
+                raise ValueError(
+                    f"NWB namlab Eventlog '{eventlog.name}' row {source_row} references "
+                    f"unknown event index {event_index}."
+                )
+            rows.append(
+                Event(
+                    event_id=f"nwb-namlab-{log_number:03d}-{source_row:06d}",
+                    kind="event",
+                    start_s=float(time_s),
+                    label=labels[event_index],
+                    metadata={
+                        "source": {"type": "nwb_photometry", "path": str(source_path)},
+                        "source_path": eventlog.name,
+                        "source_row": source_row,
+                        "event_index": event_index,
+                        "nonsolenoid_flag": int(raw_flag),
+                        "declared_time_unit": declared_unit,
+                        "interpreted_time_unit": "seconds",
+                    },
+                )
+            )
+        provenance.append(
+            {
+                "source_path": eventlog.name,
+                "event_table_path": table.name,
+                "event_count": int(times_s.size),
+                "declared_time_unit": declared_unit,
+                "interpreted_time_unit": "seconds",
+                "clock_signal_path": signal.path,
+                "clock_contract": "anccr_processed_dff_timestamps",
+                "source_analysis": "https://github.com/namboodirilab/ANCCR",
+            }
+        )
+    return rows, provenance
+
+
 def _metadata(handle: h5py.File, path: Path, photometry: PhotometryRecording) -> dict[str, Any]:
     metadata: dict[str, Any] = {
         "source": {"type": "nwb_photometry", "path": str(path)},
@@ -582,6 +778,11 @@ def read_nwb_photometry(
             signal_nonfinite_repair=signal_repair,
             control_nonfinite_repair=control_repair,
         )
+        namlab_rows, namlab_provenance = _namlab_eventlog_events(
+            handle,
+            source_path=source_path,
+            signal=signal,
+        )
         rows = [
             *_event_channel_events(
                 candidates,
@@ -591,8 +792,11 @@ def read_nwb_photometry(
             ),
             *_annotation_series_events(candidates, source_path=source_path),
             *_analysis_timestamp_events(handle, source_path=source_path),
+            *namlab_rows,
         ]
         session_metadata = _metadata(handle, source_path, photometry)
+        if namlab_provenance:
+            session_metadata["namlab_eventlogs"] = namlab_provenance
         session_id = str(session_metadata.get("identifier") or source_path.stem)
     return RecordingSession(
         session_id=session_id,

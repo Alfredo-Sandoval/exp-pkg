@@ -1147,6 +1147,116 @@ def test_read_nwb_photometry_prefers_dff_and_extracts_events(tmp_path) -> None:
     )
 
 
+def _write_namlab_eventlog(
+    acquisition: h5py.Group,
+    *,
+    event_indices: np.ndarray | None = None,
+) -> None:
+    resolved_indices = (
+        np.asarray([7, 5, 7], dtype=np.int32) if event_indices is None else event_indices
+    )
+    eventlog = acquisition.create_group("eventlog")
+    eventlog.attrs["namespace"] = "ndx-eventlog-namlab"
+    eventlog.attrs["neurodata_type"] = "Eventlog"
+    eventtime = eventlog.create_dataset("eventtime", data=np.asarray([0.25, 1.5, 2.75]))
+    eventtime.attrs["unit"] = "milliseconds"
+    eventlog.create_dataset("eventindex", data=resolved_indices)
+    eventlog.create_dataset("nonsolenoidflag", data=np.asarray([0, 1, 0], dtype=np.int8))
+
+    table = acquisition.create_group("eventidx_table")
+    table.attrs["namespace"] = "ndx-eventlog-namlab"
+    table.attrs["neurodata_type"] = "AnnotatedEventsTable"
+    table.create_dataset("event_index", data=np.asarray([5, 7], dtype=np.int32))
+    table.create_dataset(
+        "event_description",
+        data=np.asarray([b"Lick3 onset", b"Background solenoid"]),
+    )
+
+
+def test_read_nwb_photometry_extracts_namlab_eventlog_on_processed_clock(tmp_path) -> None:
+    path = tmp_path / "anccr.nwb"
+    timestamps = np.arange(-1.0, 4.0, 0.01)
+    with h5py.File(path, "w") as handle:
+        dff = _write_nwb_series(
+            handle.create_group("processing/photometry"),
+            "dff",
+            np.linspace(0.0, 1.0, timestamps.size),
+            rate=None,
+            timestamps=timestamps,
+        )
+        dff.attrs["namespace"] = "ndx-photometry-namlab"
+        dff.attrs["neurodata_type"] = "DffSeries"
+        _write_namlab_eventlog(handle.create_group("acquisition"))
+
+    session = read_nwb_photometry(path)
+    events = session.event_stream("events")
+
+    assert [event.label for event in events] == [
+        "Background solenoid",
+        "Lick3 onset",
+        "Background solenoid",
+    ]
+    np.testing.assert_allclose([event.start_s for event in events], [0.25, 1.5, 2.75])
+    assert events.events[1].metadata == {
+        "source": {"type": "nwb_photometry", "path": str(path)},
+        "source_path": "/acquisition/eventlog",
+        "source_row": 1,
+        "event_index": 5,
+        "nonsolenoid_flag": 1,
+        "declared_time_unit": "milliseconds",
+        "interpreted_time_unit": "seconds",
+    }
+    assert session.metadata["namlab_eventlogs"] == [
+        {
+            "source_path": "/acquisition/eventlog",
+            "event_table_path": "/acquisition/eventidx_table",
+            "event_count": 3,
+            "declared_time_unit": "milliseconds",
+            "interpreted_time_unit": "seconds",
+            "clock_signal_path": "processing/photometry/dff",
+            "clock_contract": "anccr_processed_dff_timestamps",
+            "source_analysis": "https://github.com/namboodirilab/ANCCR",
+        }
+    ]
+
+
+def test_read_nwb_photometry_rejects_namlab_events_without_synchronized_dff(tmp_path) -> None:
+    path = tmp_path / "unsynchronized-anccr.nwb"
+    with h5py.File(path, "w") as handle:
+        acquisition = handle.create_group("acquisition")
+        _write_nwb_series(
+            acquisition,
+            "FiberPhotometryResponseSeries",
+            np.linspace(0.0, 1.0, 500),
+        )
+        _write_namlab_eventlog(acquisition)
+
+    with pytest.raises(ValueError, match="DffSeries with synchronized timestamps"):
+        read_nwb_photometry(path)
+
+
+def test_read_nwb_photometry_rejects_unknown_namlab_event_index(tmp_path) -> None:
+    path = tmp_path / "unknown-anccr-event.nwb"
+    timestamps = np.arange(-1.0, 4.0, 0.01)
+    with h5py.File(path, "w") as handle:
+        dff = _write_nwb_series(
+            handle.create_group("processing/photometry"),
+            "dff",
+            np.linspace(0.0, 1.0, timestamps.size),
+            rate=None,
+            timestamps=timestamps,
+        )
+        dff.attrs["namespace"] = "ndx-photometry-namlab"
+        dff.attrs["neurodata_type"] = "DffSeries"
+        _write_namlab_eventlog(
+            handle.create_group("acquisition"),
+            event_indices=np.asarray([7, 99, 7], dtype=np.int32),
+        )
+
+    with pytest.raises(ValueError, match="unknown event index 99"):
+        read_nwb_photometry(path)
+
+
 def test_is_nwb_photometry_file_detects_photometry_series(tmp_path) -> None:
     path = tmp_path / "photometry.nwb"
     with h5py.File(path, "w") as handle:
