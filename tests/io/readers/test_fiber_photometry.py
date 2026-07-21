@@ -7,12 +7,14 @@ import numpy as np
 import pytest
 
 from xpkg.io.readers import (
+    NwbPhotometryInspection,
     find_first_doric_photometry_file,
     find_first_neurophotometrics_csv,
     find_first_nwb_photometry_file,
     find_first_teleopto_h5,
     find_photometry_session_entries,
     find_tdt_block_directories,
+    inspect_nwb_photometry,
     is_doric_photometry_file,
     is_neurophotometrics_csv,
     is_nwb_photometry_file,
@@ -1218,6 +1220,82 @@ def test_read_nwb_photometry_extracts_namlab_eventlog_on_processed_clock(tmp_pat
             "source_analysis": "https://github.com/namboodirilab/ANCCR",
         }
     ]
+
+
+def test_inspect_nwb_photometry_reports_signal_clock_gaps_and_events(tmp_path) -> None:
+    path = tmp_path / "anccr-gaps.nwb"
+    timestamps = np.arange(8, dtype=float) * 0.01
+    timestamps[3:5] = np.nan
+    signal = np.linspace(0.0, 1.0, timestamps.size)
+    signal[0] = np.nan
+    signal[6] = np.inf
+    with h5py.File(path, "w") as handle:
+        dff = _write_nwb_series(
+            handle.create_group("processing/photometry"),
+            "dff",
+            signal,
+            rate=None,
+            timestamps=timestamps,
+        )
+        dff.attrs["namespace"] = "ndx-photometry-namlab"
+        dff.attrs["neurodata_type"] = "DffSeries"
+        _write_namlab_eventlog(handle.create_group("acquisition"))
+
+    inspection = inspect_nwb_photometry(path)
+
+    assert isinstance(inspection, NwbPhotometryInspection)
+    assert inspection.classification == "photometry"
+    assert inspection.signal_series == "processing/photometry/dff"
+    assert inspection.control_series is None
+    assert inspection.issue_codes == (
+        "signal_nonfinite",
+        "timestamp_nonfinite",
+        "timestamp_not_strictly_increasing",
+        "edge_nonfinite",
+        "internal_nonfinite",
+    )
+    assert inspection.signal is not None
+    assert inspection.signal["nonfinite_row_count"] == 2
+    assert inspection.signal["timeline"]["nonfinite_count"] == 2
+    assert inspection.signal["timeline"]["clock_class"] == "explicit_nonfinite"
+    assert inspection.signal["joint_invalid_runs"] == [
+        {
+            "start_index": 0,
+            "stop_index_exclusive": 1,
+            "length": 1,
+            "position": "leading",
+        },
+        {
+            "start_index": 3,
+            "stop_index_exclusive": 5,
+            "length": 2,
+            "position": "internal",
+        },
+        {
+            "start_index": 6,
+            "stop_index_exclusive": 7,
+            "length": 1,
+            "position": "internal",
+        },
+    ]
+    assert inspection.namlab_eventlogs[0]["label_counts"] == {
+        "Lick3 onset": 1,
+        "Background solenoid": 2,
+    }
+    assert inspection.to_dict()["classification"] == "photometry"
+
+
+def test_inspect_nwb_photometry_classifies_event_only_namlab_asset(tmp_path) -> None:
+    path = tmp_path / "event-only.nwb"
+    with h5py.File(path, "w") as handle:
+        _write_namlab_eventlog(handle.create_group("acquisition"))
+
+    inspection = inspect_nwb_photometry(path)
+
+    assert inspection.classification == "event_only"
+    assert inspection.signal is None
+    assert inspection.issue_codes == ("event_only_no_photometry",)
+    assert inspection.namlab_eventlogs[0]["event_count"] == 3
 
 
 def test_read_nwb_photometry_rejects_namlab_events_without_synchronized_dff(tmp_path) -> None:

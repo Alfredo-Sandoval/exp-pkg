@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections import Counter
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal, TypeGuard
@@ -50,6 +52,7 @@ _NAMLAB_EVENT_TABLE_TYPE = "AnnotatedEventsTable"
 _NAMLAB_DFF_NAMESPACE = "ndx-photometry-namlab"
 _NAMLAB_DFF_TYPE = "DffSeries"
 NonfinitePolicy = Literal["raise", "interpolate_sparse"]
+NwbPhotometryClassification = Literal["photometry", "event_only", "unsupported"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -57,6 +60,37 @@ class _Series:
     name: str
     path: str
     group: h5py.Group
+
+
+@dataclass(frozen=True, slots=True)
+class NwbPhotometryInspection:
+    """Read-only structural and numerical inspection of one NWB asset."""
+
+    path: str
+    size_bytes: int
+    classification: NwbPhotometryClassification
+    candidate_series_count: int
+    signal_series: str | None
+    control_series: str | None
+    signal: Mapping[str, Any] | None
+    control: Mapping[str, Any] | None
+    namlab_eventlogs: tuple[Mapping[str, Any], ...]
+    issue_codes: tuple[str, ...]
+
+    def to_dict(self) -> dict[str, Any]:
+        """Return a JSON-serializable inspection payload."""
+        return {
+            "path": self.path,
+            "size_bytes": self.size_bytes,
+            "classification": self.classification,
+            "candidate_series_count": self.candidate_series_count,
+            "signal_series": self.signal_series,
+            "control_series": self.control_series,
+            "signal": None if self.signal is None else dict(self.signal),
+            "control": None if self.control is None else dict(self.control),
+            "namlab_eventlogs": [dict(item) for item in self.namlab_eventlogs],
+            "issue_codes": list(self.issue_codes),
+        }
 
 
 def _decode(value: object) -> object:
@@ -714,6 +748,325 @@ def _namlab_eventlog_events(
     return rows, provenance
 
 
+def _invalid_runs(mask: np.ndarray) -> list[dict[str, int | str]]:
+    invalid = np.asarray(mask, dtype=bool).reshape(-1)
+    if not invalid.any():
+        return []
+    starts = np.flatnonzero(invalid & ~np.r_[False, invalid[:-1]])
+    stops = np.flatnonzero(invalid & ~np.r_[invalid[1:], False]) + 1
+    runs: list[dict[str, int | str]] = []
+    for start_raw, stop_raw in zip(starts, stops, strict=True):
+        start = int(start_raw)
+        stop = int(stop_raw)
+        if start == 0:
+            position = "leading"
+        elif stop == invalid.size:
+            position = "trailing"
+        else:
+            position = "internal"
+        runs.append(
+            {
+                "start_index": start,
+                "stop_index_exclusive": stop,
+                "length": stop - start,
+                "position": position,
+            }
+        )
+    return runs
+
+
+def _explicit_timeline_inspection(
+    series: _Series,
+    *,
+    n_samples: int,
+) -> tuple[dict[str, Any], np.ndarray | None]:
+    stamps = np.asarray(series.group["timestamps"], dtype=np.float64).reshape(-1)
+    length_matches = stamps.size == n_samples
+    nonfinite = ~np.isfinite(stamps)
+    finite_stamps = stamps[~nonfinite]
+    finite_values_monotonic = bool(finite_stamps.size < 2 or np.all(np.diff(finite_stamps) > 0.0))
+    strict_monotonic = bool(
+        length_matches
+        and not nonfinite.any()
+        and (stamps.size < 2 or np.all(np.diff(stamps) > 0.0))
+    )
+
+    adjacent_finite = np.isfinite(stamps[:-1]) & np.isfinite(stamps[1:])
+    finite_deltas = np.diff(stamps)[adjacent_finite]
+    median_interval = float(np.median(finite_deltas)) if finite_deltas.size else None
+    uniform = bool(
+        strict_monotonic
+        and finite_deltas.size > 0
+        and median_interval is not None
+        and np.allclose(finite_deltas, median_interval, rtol=1e-6, atol=1e-9)
+    )
+    if nonfinite.any():
+        clock_class = "explicit_nonfinite"
+    elif not strict_monotonic:
+        clock_class = "explicit_non_monotonic"
+    elif uniform:
+        clock_class = "explicit_uniform"
+    else:
+        clock_class = "explicit_irregular"
+
+    interval_summary: dict[str, float | int | None] = {
+        "count": int(finite_deltas.size),
+        "minimum_s": None,
+        "median_s": median_interval,
+        "p95_s": None,
+        "maximum_s": None,
+        "nonpositive_count": int((finite_deltas <= 0.0).sum()),
+        "over_1_5x_median_count": 0,
+    }
+    if finite_deltas.size:
+        interval_summary.update(
+            {
+                "minimum_s": float(np.min(finite_deltas)),
+                "p95_s": float(np.percentile(finite_deltas, 95.0)),
+                "maximum_s": float(np.max(finite_deltas)),
+                "over_1_5x_median_count": (
+                    int((finite_deltas > 1.5 * median_interval).sum())
+                    if median_interval is not None and median_interval > 0.0
+                    else 0
+                ),
+            }
+        )
+    payload = {
+        "source": "timestamps",
+        "clock_class": clock_class,
+        "sample_count": int(stamps.size),
+        "length_matches_data": length_matches,
+        "nonfinite_count": int(nonfinite.sum()),
+        "nonfinite_fraction": float(nonfinite.mean()) if stamps.size else 0.0,
+        "nonfinite_runs": _invalid_runs(nonfinite),
+        "finite_values_monotonic": finite_values_monotonic,
+        "strictly_increasing": strict_monotonic,
+        "uniform": uniform,
+        "sampling_rate_hz": (
+            float(1.0 / median_interval)
+            if uniform and median_interval is not None and median_interval > 0.0
+            else None
+        ),
+        "intervals": interval_summary,
+    }
+    return payload, nonfinite if length_matches else None
+
+
+def _series_inspection(series: _Series) -> dict[str, Any]:
+    data = np.asarray(series.group["data"], dtype=np.float64)
+    if data.ndim == 1:
+        values = data.reshape((-1, 1))
+    elif data.ndim == 2:
+        values = data
+    else:
+        raise ValueError(f"NWB TimeSeries '{series.path}' data must be 1D or 2D, got {data.shape}.")
+    if values.shape[0] == 0:
+        raise ValueError(f"NWB TimeSeries '{series.path}' contains no samples.")
+
+    nonfinite_values = ~np.isfinite(values)
+    nonfinite_rows = nonfinite_values.any(axis=1)
+    if "timestamps" in series.group:
+        timeline, nonfinite_time = _explicit_timeline_inspection(
+            series,
+            n_samples=values.shape[0],
+        )
+    else:
+        strict_timeline = _series_timeline(series, values.shape[0])
+        sampling_rate = strict_timeline.sample_rate_hz
+        if sampling_rate is None:
+            raise RuntimeError(
+                f"NWB TimeSeries '{series.path}' rate timeline lost its sampling rate."
+            )
+        interval = 1.0 / sampling_rate if strict_timeline.n_samples >= 2 else None
+        timeline = {
+            "source": "starting_time_rate",
+            "clock_class": "generated_uniform",
+            "sample_count": strict_timeline.n_samples,
+            "length_matches_data": True,
+            "nonfinite_count": 0,
+            "nonfinite_fraction": 0.0,
+            "nonfinite_runs": [],
+            "finite_values_monotonic": True,
+            "strictly_increasing": True,
+            "uniform": True,
+            "sampling_rate_hz": sampling_rate,
+            "intervals": {
+                "count": max(0, strict_timeline.n_samples - 1),
+                "minimum_s": interval,
+                "median_s": interval,
+                "p95_s": interval,
+                "maximum_s": interval,
+                "nonpositive_count": 0,
+                "over_1_5x_median_count": 0,
+            },
+        }
+        nonfinite_time = np.zeros(values.shape[0], dtype=bool)
+
+    joint_runs = (
+        _invalid_runs(nonfinite_rows | nonfinite_time) if nonfinite_time is not None else []
+    )
+    return {
+        "name": series.name,
+        "path": series.path,
+        "data_shape": list(data.shape),
+        "sample_count": int(values.shape[0]),
+        "channel_count": int(values.shape[1]),
+        "nonfinite_value_count": int(nonfinite_values.sum()),
+        "nonfinite_value_fraction": float(nonfinite_values.mean()),
+        "nonfinite_row_count": int(nonfinite_rows.sum()),
+        "nonfinite_row_fraction": float(nonfinite_rows.mean()),
+        "nonfinite_row_runs": _invalid_runs(nonfinite_rows),
+        "joint_invalid_runs": joint_runs,
+        "timeline": timeline,
+    }
+
+
+def _namlab_eventlog_inventory(handle: h5py.File) -> tuple[dict[str, Any], ...]:
+    acquisition = handle.get("acquisition")
+    if not isinstance(acquisition, h5py.Group):
+        return ()
+    eventlogs = [
+        obj
+        for obj in acquisition.values()
+        if _namlab_contract_group(
+            obj,
+            namespace=_NAMLAB_EVENTLOG_NAMESPACE,
+            neurodata_type=_NAMLAB_EVENTLOG_TYPE,
+        )
+    ]
+    tables = [
+        obj
+        for obj in acquisition.values()
+        if _namlab_contract_group(
+            obj,
+            namespace=_NAMLAB_EVENTLOG_NAMESPACE,
+            neurodata_type=_NAMLAB_EVENT_TABLE_TYPE,
+        )
+    ]
+    inventory: list[dict[str, Any]] = []
+    for eventlog in eventlogs:
+        times = _namlab_vector(eventlog, "eventtime")
+        indices = _namlab_vector(eventlog, "eventindex")
+        flags = _namlab_vector(eventlog, "nonsolenoidflag")
+        if not (times.size == indices.size == flags.size):
+            raise ValueError(f"NWB namlab Eventlog '{eventlog.name}' column lengths differ.")
+        if times.dtype.kind not in "fiu" or not np.isfinite(times).all():
+            raise ValueError(
+                f"NWB namlab dataset '{eventlog.name}/eventtime' must contain finite numbers."
+            )
+        if indices.dtype.kind not in "iu" or flags.dtype.kind not in "iub":
+            raise ValueError(
+                f"NWB namlab Eventlog '{eventlog.name}' indices and flags must be integers."
+            )
+        table = _namlab_event_table(eventlog, tables)
+        labels = _namlab_label_map(table)
+        unknown = sorted(set(int(value) for value in indices) - labels.keys())
+        if unknown:
+            raise ValueError(
+                f"NWB namlab Eventlog '{eventlog.name}' references unknown event indices {unknown}."
+            )
+        time_dataset = eventlog["eventtime"]
+        assert isinstance(time_dataset, h5py.Dataset)
+        declared_unit = _decode(time_dataset.attrs.get("unit", ""))
+        inventory.append(
+            {
+                "source_path": eventlog.name,
+                "event_table_path": table.name,
+                "event_count": int(times.size),
+                "declared_time_unit": declared_unit,
+                "label_counts": {
+                    labels[index]: count
+                    for index, count in sorted(Counter(int(value) for value in indices).items())
+                },
+                "nonsolenoid_flag_counts": {
+                    str(flag): count
+                    for flag, count in sorted(Counter(int(value) for value in flags).items())
+                },
+            }
+        )
+    return tuple(inventory)
+
+
+def _inspection_issue_codes(
+    signal: Mapping[str, Any] | None,
+    *,
+    classification: NwbPhotometryClassification,
+) -> tuple[str, ...]:
+    if signal is None:
+        return (
+            "event_only_no_photometry"
+            if classification == "event_only"
+            else "no_photometry_signal",
+        )
+    codes: list[str] = []
+    if int(signal["nonfinite_row_count"]) > 0:
+        codes.append("signal_nonfinite")
+    timeline = signal["timeline"]
+    if not isinstance(timeline, Mapping):
+        raise TypeError("NWB inspection timeline payload must be a mapping.")
+    if not bool(timeline["length_matches_data"]):
+        codes.append("timestamp_length_mismatch")
+    if int(timeline["nonfinite_count"]) > 0:
+        codes.append("timestamp_nonfinite")
+    if not bool(timeline["strictly_increasing"]):
+        codes.append("timestamp_not_strictly_increasing")
+    elif not bool(timeline["uniform"]):
+        codes.append("timestamp_irregular")
+    joint_runs = signal["joint_invalid_runs"]
+    if not isinstance(joint_runs, list):
+        raise TypeError("NWB inspection joint_invalid_runs must be a list.")
+    positions = {str(run["position"]) for run in joint_runs}
+    if positions & {"leading", "trailing"}:
+        codes.append("edge_nonfinite")
+    if "internal" in positions:
+        codes.append("internal_nonfinite")
+    return tuple(codes)
+
+
+def inspect_nwb_photometry(path: str | Path) -> NwbPhotometryInspection:
+    """Inspect NWB photometry, clock, gaps, and namlab events without repair."""
+    source_path = Path(path)
+    if not source_path.is_file():
+        raise FileNotFoundError(f"NWB file does not exist: {source_path}")
+    with h5py.File(str(source_path), "r") as handle:
+        candidates = _series_candidates(handle)
+        signal_key = _select_series(candidates, _SIGNAL_HINTS, exclude=_SIGNAL_EXCLUDE)
+        eventlogs = _namlab_eventlog_inventory(handle)
+        if signal_key is None:
+            classification: NwbPhotometryClassification = (
+                "event_only" if eventlogs else "unsupported"
+            )
+            signal_series = None
+            control_series = None
+            signal_summary = None
+            control_summary = None
+        else:
+            classification = "photometry"
+            signal = candidates[signal_key]
+            control_key = _select_control(candidates, signal_key)
+            control = candidates[control_key] if control_key is not None else None
+            signal_series = signal.path
+            control_series = None if control is None else control.path
+            signal_summary = _series_inspection(signal)
+            control_summary = None if control is None else _series_inspection(control)
+        issue_codes = _inspection_issue_codes(
+            signal_summary,
+            classification=classification,
+        )
+    return NwbPhotometryInspection(
+        path=str(source_path),
+        size_bytes=int(source_path.stat().st_size),
+        classification=classification,
+        candidate_series_count=len(candidates),
+        signal_series=signal_series,
+        control_series=control_series,
+        signal=signal_summary,
+        control=control_summary,
+        namlab_eventlogs=eventlogs,
+        issue_codes=issue_codes,
+    )
+
+
 def _metadata(handle: h5py.File, path: Path, photometry: PhotometryRecording) -> dict[str, Any]:
     metadata: dict[str, Any] = {
         "source": {"type": "nwb_photometry", "path": str(path)},
@@ -807,7 +1160,9 @@ def read_nwb_photometry(
 
 
 __all__ = [
+    "NwbPhotometryInspection",
     "find_first_nwb_photometry_file",
+    "inspect_nwb_photometry",
     "is_nwb_photometry_file",
     "read_nwb_photometry",
 ]

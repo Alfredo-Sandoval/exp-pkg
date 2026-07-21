@@ -132,6 +132,7 @@ from xpkg.project import (
 )
 from xpkg.readers import (
     KNOWN_BEHAVIOR_SOURCE_TYPES,
+    NwbPhotometryInspection,
     find_first_doric_photometry_file,
     find_first_neurophotometrics_csv,
     find_first_nwb_photometry_file,
@@ -140,6 +141,7 @@ from xpkg.readers import (
     find_first_teleopto_h5,
     find_photometry_session_entries,
     find_tdt_block_directories,
+    inspect_nwb_photometry,
     is_doric_photometry_file,
     is_neurophotometrics_csv,
     is_nwb_photometry_file,
@@ -365,6 +367,8 @@ def test_public_exports_are_callable() -> None:
     assert callable(find_first_teleopto_h5)
     assert callable(find_photometry_session_entries)
     assert callable(find_tdt_block_directories)
+    assert callable(inspect_nwb_photometry)
+    assert callable(NwbPhotometryInspection)
     assert callable(is_doric_photometry_file)
     assert callable(is_neurophotometrics_csv)
     assert callable(is_nwb_photometry_file)

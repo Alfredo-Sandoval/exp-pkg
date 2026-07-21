@@ -39,7 +39,9 @@ from xpkg.io.readers.photometry.fiber import (
     resolve_tdt_block_path,
 )
 from xpkg.io.readers.photometry.nwb import (
+    NwbPhotometryInspection,
     find_first_nwb_photometry_file,
+    inspect_nwb_photometry,
     is_nwb_photometry_file,
     read_nwb_photometry,
 )
@@ -61,6 +63,7 @@ from xpkg.io.readers.synchronization import read_synchronization_csv
 
 __all__ = [
     "PoseTrack",
+    "NwbPhotometryInspection",
     "KNOWN_BEHAVIOR_SOURCE_TYPES",
     "find_first_doric_photometry_file",
     "find_first_neurophotometrics_csv",
@@ -70,6 +73,7 @@ __all__ = [
     "find_first_teleopto_h5",
     "find_photometry_session_entries",
     "find_tdt_block_directories",
+    "inspect_nwb_photometry",
     "is_doric_photometry_file",
     "is_neurophotometrics_csv",
     "is_rwd_ofrs_session",
