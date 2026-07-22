@@ -1149,6 +1149,26 @@ def test_read_nwb_photometry_prefers_dff_and_extracts_events(tmp_path) -> None:
     )
 
 
+def test_read_nwb_photometry_preserves_declared_channel_units(tmp_path) -> None:
+    path = tmp_path / "declared-units.nwb"
+    values = np.linspace(0.0, 1.0, 10)
+    with h5py.File(path, "w") as handle:
+        acquisition = handle.create_group("acquisition")
+        control = _write_nwb_series(acquisition, "Isosbestic405", values)
+        control["data"].attrs["unit"] = "volts"
+        signal = _write_nwb_series(
+            handle.create_group("processing/ophys"),
+            "DfOverFResponseSeries",
+            values,
+        )
+        signal["data"].attrs["unit"] = "%"
+
+    photometry = read_nwb_photometry(path).signal("photometry")
+
+    assert isinstance(photometry, PhotometryRecording)
+    assert [channel.unit for channel in photometry.series.channels] == ["%", "volts"]
+
+
 def _write_namlab_eventlog(
     acquisition: h5py.Group,
     *,

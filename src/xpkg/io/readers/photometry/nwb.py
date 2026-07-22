@@ -605,6 +605,24 @@ def _channel_names(base: str, n_columns: int) -> list[str]:
     return [base, *(f"{base}_fiber{index}" for index in range(1, n_columns))]
 
 
+def _series_unit(series: _Series) -> str:
+    data = series.group.get("data")
+    if not isinstance(data, h5py.Dataset):
+        raise ValueError(f"NWB TimeSeries '{series.path}' data is not a dataset.")
+    declared = _decode(data.attrs.get("unit", ""))
+    if not isinstance(declared, str):
+        raise TypeError(
+            f"NWB TimeSeries '{series.path}' data unit must be text, "
+            f"got {type(declared).__name__}."
+        )
+    if declared != declared.strip():
+        raise ValueError(
+            f"NWB TimeSeries '{series.path}' data unit must not contain "
+            "surrounding whitespace."
+        )
+    return declared
+
+
 def _photometry_recording(
     *,
     signal_series: _Series,
@@ -619,23 +637,23 @@ def _photometry_recording(
     signal_names = _channel_names(signal_series.name, signal_values.shape[1])
     values = signal_values
     reference_channel = None
-    source_paths = [signal_series.path] * len(signal_names)
+    channel_series = [signal_series] * len(signal_names)
     if control_series is not None and control_values is not None:
         control_names = _channel_names(control_series.name, control_values.shape[1])
         values = np.column_stack([signal_values, control_values])
         reference_channel = control_names[0]
-        source_paths.extend([control_series.path] * len(control_names))
+        channel_series.extend([control_series] * len(control_names))
     else:
         control_names = []
     channel_names = [*signal_names, *control_names]
     channels = tuple(
         PhotometryChannel(
             name=name,
-            unit="a.u.",
+            unit=_series_unit(source_series),
             excitation=_excitation_from_name(name),
-            metadata={"source_path": source_path},
+            metadata={"source_path": source_series.path},
         )
-        for name, source_path in zip(channel_names, source_paths, strict=True)
+        for name, source_series in zip(channel_names, channel_series, strict=True)
     )
     series = TimeSeries(
         values=values,
